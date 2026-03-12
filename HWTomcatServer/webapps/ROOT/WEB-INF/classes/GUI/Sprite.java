@@ -3,7 +3,7 @@ package GUI;
 import java.awt.image.*;
 import java.awt.*;
 import java.util.zip.*;
-import org.apache.axis.encoding.*;
+import org.apache.axis.encoding.Base64;
 import java.io.*;
 
 public class Sprite{

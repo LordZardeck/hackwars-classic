@@ -31,10 +31,12 @@ rm Hackscript/Model/*.class
 rm Hacktendo/*.class
 rm Hacktendo/Functions/*.class
 rm View/*.class
+rm util/*.class
 rm com/plink/dolphinstem/*.class
 rm com/plink/dolphinstem/util/*.class
 javac com/plink/dolphinstem/*.java
 javac com/plink/dolphinstem/util/*.java
+javac util/*.java
 javac Game/*.java
 javac Server/*.java
 javac Game/ComputerFunctions/*.java

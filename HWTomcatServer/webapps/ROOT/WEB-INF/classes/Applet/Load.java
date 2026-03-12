@@ -13,17 +13,24 @@ import java.lang.reflect.*;
 import java.io.*;
 import java.util.*;
 import java.util.zip.*;
+import java.awt.image.BufferedImage;
 import java.security.*;
 import View.*;
-import org.apache.xmlrpc.client.XmlRpcClient;
-import org.apache.xmlrpc.client.XmlRpcClientConfigImpl;
 import javax.imageio.*;
 import java.net.URL;
 import GUI.*;
+import util.XmlRpcProxy;
 public class Load extends JApplet implements ActionListener{
 	private final String checksum="dec 19";
+	private static final String DEFAULT_SERVER_HOST="127.0.0.1";
+	private static final String DEFAULT_PLAYER_IP="192.168.2.002";
 	private boolean LoaderSet=false;
-	private String ip="hackwars.net";
+	private String ip=DEFAULT_SERVER_HOST;
+	private boolean remoteAuth=false;
+	private String checkDateRpcURL="";
+	private String loginRpcURL="";
+	private String loginBackgroundURL="";
+	private String fallbackPlayerIP=DEFAULT_PLAYER_IP;
 	private JLabel message=null;
 	private JPanel LoginFrame=null;
 	private JTextField usernameField,ipField;
@@ -41,6 +48,7 @@ public class Load extends JApplet implements ActionListener{
 	public void init(){
 		getContentPane().setBackground(new Color(255,255,255));
 		getContentPane().setLayout(null);
+		loadConfiguration();
 		try {
 			UIManager.setLookAndFeel(UIManager.getCrossPlatformLookAndFeelClassName());
 	    }catch(Exception e){
@@ -51,11 +59,57 @@ public class Load extends JApplet implements ActionListener{
 		reconnect();
 	}
 	
-	public void stop(){
-		if(MyView!=null)
-			MyView.clean();
+		public void stop(){
+			if(MyView!=null)
+				MyView.clean();
+		}
+
+	private void loadConfiguration(){
+		ip=getConfigValue("serverHost","hackwars.server.host",DEFAULT_SERVER_HOST);
+		fallbackPlayerIP=getConfigValue("playerIP","hackwars.player.ip",DEFAULT_PLAYER_IP);
+		remoteAuth="true".equalsIgnoreCase(getConfigValue("remoteAuth","hackwars.remoteAuth","false"));
+		checkDateRpcURL=getConfigValue("checkDateRpcURL","hackwars.checkDateRpcURL","http://"+ip+"/xmlrpc/checkdate.php");
+		loginRpcURL=getConfigValue("loginRpcURL","hackwars.loginRpcURL","http://"+ip+"/xmlrpc/loginrpc.php");
+		loginBackgroundURL=getConfigValue("loginBackgroundURL","hackwars.loginBackgroundURL","");
 	}
-	
+
+	private String getConfigValue(String appletParam,String systemProperty,String fallback){
+		String value=null;
+		try{
+			value=getParameter(appletParam);
+		}catch(Exception e){}
+		if(value==null||value.trim().length()==0){
+			value=System.getProperty(systemProperty);
+		}
+		if(value==null||value.trim().length()==0){
+			value=fallback;
+		}
+		return(value.trim());
+	}
+
+	private BufferedImage loadLoginBackground(){
+		try{
+			File local=new File("images/loginback.png");
+			if(local.exists()){
+				return(ImageIO.read(local));
+			}
+		}catch(Exception e){}
+		try{
+			InputStream in=Load.class.getClassLoader().getResourceAsStream("images/loginback.png");
+			if(in!=null){
+				BufferedImage image=ImageIO.read(in);
+				in.close();
+				return(image);
+			}
+		}catch(Exception e){}
+		if(loginBackgroundURL.length()>0){
+			try{
+				return(ImageIO.read(new URL(loginBackgroundURL)));
+			}catch(Exception e){}
+		}
+		return(null);
+	}
+		
 	public void createLoginWidget(){
 		LoginFrame=new JPanel();
 		LoginFrame.setSize(250,150);
@@ -66,10 +120,10 @@ public class Load extends JApplet implements ActionListener{
 		int height=8;
 		panel = new JPanel();
 		panel.setLayout(layout);
-		try{
-			//System.out.println("Setting Border");
-			panel.setBorder(new CentredBackgroundBorder(ImageIO.read(new URL("http://www.hackwars.net/images/loginback.png")),panel));
-		}catch(Exception e){e.printStackTrace();}
+		BufferedImage loginBackground=loadLoginBackground();
+		if(loginBackground!=null){
+			panel.setBorder(new CentredBackgroundBorder(loginBackground,panel));
+		}
 		panel.validate();
 		message = new JLabel("<html><font color=\"#FF0000\">Invalid Username/Password. <br>Please Try Again.</font></html>");
 		message.setVisible(false);
@@ -80,64 +134,56 @@ public class Load extends JApplet implements ActionListener{
 		
 		
 		Object[] response=null;
-		try{
-			//String visitor_ip = (new Socket(getDocumentBase().getHost(), getDocumentBase().getPort())).getLocalAddress().getHostAddress();
-
-			XmlRpcClientConfigImpl config = new XmlRpcClientConfigImpl();
-			config.setServerURL(new URL("http://hackwars.net/xmlrpc/checkdate.php"));
-			XmlRpcClient client = new XmlRpcClient();
-			client.setConfig(config);
-			Object[] params = {clientDate};
-			response = (Object[])client.execute("login",params);
-		}catch(Exception ex){ex.printStackTrace();}
-		boolean correct = (Boolean)response[0];
-		if(!correct){
-			setMessage((String)response[1]);
-			
+		if(remoteAuth){
+			try{
+				Object[] params = {clientDate};
+				response = (Object[])XmlRpcProxy.execute(checkDateRpcURL,"login",params);
+				if(response!=null&&response.length>1&&response[0] instanceof Boolean&&((Boolean)response[0]).booleanValue()==false&&response[1] instanceof String){
+					setMessage((String)response[1]);
+				}
+			}catch(Exception ex){
+				setMessage("<html><font color=\"#FF6600\">Remote auth unavailable, using local mode.</font></html>");
+			}
 		}
-		else{
-			label = new JLabel("Username: ");
-			panel.add(label);
-			layout.putConstraint(SpringLayout.NORTH,label,height,SpringLayout.NORTH,panel);
-			layout.putConstraint(SpringLayout.WEST,label,22,SpringLayout.WEST,panel);
-			//int height=label.getPreferredSize().height+10;
-			int width=label.getPreferredSize().width+32;
-			
-			usernameField = new JTextField("",10);
-			panel.add(usernameField);
-			layout.putConstraint(SpringLayout.NORTH,usernameField,height,SpringLayout.NORTH,panel);
-			layout.putConstraint(SpringLayout.WEST,usernameField,width,SpringLayout.WEST,panel);
-			height+=usernameField.getPreferredSize().height+5;
-			
-			label = new JLabel("Password: ");
-			panel.add(label);
-			layout.putConstraint(SpringLayout.NORTH,label,height,SpringLayout.NORTH,panel);
-			layout.putConstraint(SpringLayout.WEST,label,22,SpringLayout.WEST,panel);
-			
-			
-			ipField = new JPasswordField("",10);
-			ipField.addActionListener(this);
-			ipField.setActionCommand("Login");
-			panel.add(ipField);
-			layout.putConstraint(SpringLayout.NORTH,ipField,height,SpringLayout.NORTH,panel);
-			layout.putConstraint(SpringLayout.WEST,ipField,width,SpringLayout.WEST,panel);
-			height+=ipField.getPreferredSize().height+5;
-			
-			button = new JButton("Login");
-			panel.add(button);
-			button.addActionListener(this);
-			layout.putConstraint(SpringLayout.NORTH,button,height,SpringLayout.NORTH,panel);
-			layout.putConstraint(SpringLayout.WEST,button,width,SpringLayout.WEST,panel);
-			height+=button.getPreferredSize().height+5;
-			
-			JLabel date = new JLabel(clientDate);
-			Font f = new Font("dialog",Font.BOLD,10);
-			date.setFont(f);
-			panel.add(date);
-			layout.putConstraint(SpringLayout.NORTH,date,145-date.getPreferredSize().height,SpringLayout.NORTH,panel);
-			layout.putConstraint(SpringLayout.WEST,date,240-date.getPreferredSize().width,SpringLayout.WEST,panel);
-			
-		}
+		label = new JLabel("Username: ");
+		panel.add(label);
+		layout.putConstraint(SpringLayout.NORTH,label,height,SpringLayout.NORTH,panel);
+		layout.putConstraint(SpringLayout.WEST,label,22,SpringLayout.WEST,panel);
+		int width=label.getPreferredSize().width+32;
+		
+		usernameField = new JTextField("",10);
+		panel.add(usernameField);
+		layout.putConstraint(SpringLayout.NORTH,usernameField,height,SpringLayout.NORTH,panel);
+		layout.putConstraint(SpringLayout.WEST,usernameField,width,SpringLayout.WEST,panel);
+		height+=usernameField.getPreferredSize().height+5;
+		
+		label = new JLabel("Password: ");
+		panel.add(label);
+		layout.putConstraint(SpringLayout.NORTH,label,height,SpringLayout.NORTH,panel);
+		layout.putConstraint(SpringLayout.WEST,label,22,SpringLayout.WEST,panel);
+		
+		
+		ipField = new JPasswordField("",10);
+		ipField.addActionListener(this);
+		ipField.setActionCommand("Login");
+		panel.add(ipField);
+		layout.putConstraint(SpringLayout.NORTH,ipField,height,SpringLayout.NORTH,panel);
+		layout.putConstraint(SpringLayout.WEST,ipField,width,SpringLayout.WEST,panel);
+		height+=ipField.getPreferredSize().height+5;
+		
+		button = new JButton("Login");
+		panel.add(button);
+		button.addActionListener(this);
+		layout.putConstraint(SpringLayout.NORTH,button,height,SpringLayout.NORTH,panel);
+		layout.putConstraint(SpringLayout.WEST,button,width,SpringLayout.WEST,panel);
+		height+=button.getPreferredSize().height+5;
+		
+		JLabel date = new JLabel(clientDate);
+		Font f = new Font("dialog",Font.BOLD,10);
+		date.setFont(f);
+		panel.add(date);
+		layout.putConstraint(SpringLayout.NORTH,date,145-date.getPreferredSize().height,SpringLayout.NORTH,panel);
+		layout.putConstraint(SpringLayout.WEST,date,240-date.getPreferredSize().width,SpringLayout.WEST,panel);
 		
 		
 		LoginFrame.add(panel);
@@ -197,35 +243,12 @@ public class Load extends JApplet implements ActionListener{
 			download=true;
 		}
 		if(download){//Download the image pack.
-			//System.out.println("Download");
 			new File(tmpDir+"/images/").mkdirs();
 			try{
-				//ip="www.hackwars.net";
-				//ByteArrayOutputStream Buffer=new ByteArrayOutputStream();
-				ZipInputStream in=new ZipInputStream((new URL("http://www.crackjawpublishing.com/images.zip")).openStream());
-				ZipEntry data=null;
-				while((data=in.getNextEntry())!=null){
-					if(!data.getName().equals(".DS_Store")){
-						try{
-							FileOutputStream FOS=new FileOutputStream(tmpDir+"/images/"+data.getName());
-							
-							int i=0;
-							byte buffer[]=new byte[512];
-							while((i=in.read(buffer))>0)
-								FOS.write(buffer,0,i);
-							FOS.close();
-							
-							System.out.println(data.getName()+" Unzipped.");
-						}catch(Exception e){
-							System.out.println(data.getName()+" Failed To Unzip.");
-						}
-
-						
-					}
-				}
-			}catch(Exception e){
-				e.printStackTrace();
-			}
+				BufferedWriter out = new BufferedWriter(new FileWriter(CF));
+				out.write(checksum);
+				out.close();
+			}catch(Exception e){}
 		}
 		JPB.setIndeterminate(true);
 		JPB.setString("Initializing Classes");
@@ -247,23 +270,33 @@ public class Load extends JApplet implements ActionListener{
 		String username = usernameField.getText();
 		String password = ipField.getText();
 		//System.out.println("Attempting Login");
-		Object[] response=new Object[]{};
-		try{
-			//String visitor_ip = (new Socket(getDocumentBase().getHost(), getDocumentBase().getPort())).getLocalAddress().getHostAddress();
-
-			XmlRpcClientConfigImpl config = new XmlRpcClientConfigImpl();
-			config.setServerURL(new URL("http://hackwars.net/xmlrpc/loginrpc.php"));
-			XmlRpcClient client = new XmlRpcClient();
-			client.setConfig(config);
-			Object[] params = {username,password,clientDate};
-			response = (Object[])client.execute("login",params);
-		}catch(Exception ex){ex.printStackTrace();}
-		boolean correct = (Boolean)response[0];
-		String ip = (String)response[1];
-		boolean npc = (Boolean)response[2];
-		String message = (String)response[4];
+		boolean correct=true;
+		String ip = fallbackPlayerIP;
+		String message = "<html><font color=\"#FF0000\">Invalid Username/Password. <br>Please Try Again.</font></html>";
+		if(username==null||username.trim().length()==0){
+			correct=false;
+			message="<html><font color=\"#FF0000\">Please enter a username.</font></html>";
+		}else if(remoteAuth){
+			Object[] response=new Object[]{};
+			try{
+				Object[] params = {username,password,clientDate};
+				response = (Object[])XmlRpcProxy.execute(loginRpcURL,"login",params);
+				if(response!=null&&response.length>0&&response[0] instanceof Boolean){
+					correct=((Boolean)response[0]).booleanValue();
+					if(response.length>1&&response[1] instanceof String&&((String)response[1]).trim().length()>0){
+						ip=(String)response[1];
+					}
+					if(response.length>4&&response[4] instanceof String){
+						message=(String)response[4];
+					}
+				}
+			}catch(Exception ex){
+				correct=true;
+				message="<html><font color=\"#FF6600\">Remote login failed, using local mode.</font></html>";
+			}
+		}
 		if(correct){
-			//System.out.println("Login Successful");
+			System.out.println("Login Successful");
 			MyView.loginToServer(username,password,ip);
 		}
 		else{
@@ -276,6 +309,12 @@ public class Load extends JApplet implements ActionListener{
 	public void setMessage(String message){
 		this.message.setText(message);
 		this.message.setVisible(true);
+		if(button!=null){
+			button.setEnabled(true);
+		}
+		if(panel!=null){
+			panel.setVisible(true);
+		}
 	}
 		
 	
@@ -293,13 +332,18 @@ public class Load extends JApplet implements ActionListener{
 	public void loginFailed(){
 		panel.setVisible(true);
 		message.setVisible(true);
+		if(button!=null){
+			button.setEnabled(true);
+		}
 	}
 	
 	/**
 	Finished loading tells me it's finished loading.
 	*/
 	public void finishedLoading(){
-		panel.setVisible(true);
+		if(panel!=null){
+			panel.setVisible(false);
+		}
 	}
 	
 	/**

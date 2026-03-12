@@ -8,19 +8,17 @@ Used to make calls to an SQL database.
 
 import java.util.*;
 import java.sql.*;
-import javax.sql.DataSource;
-import com.mysql.jdbc.jdbc2.optional.MysqlDataSource;
 import java.io.*;
 
 public class sql{
     private boolean connect;
     private Connection c;
-    private MysqlDataSource dataSource;
 
 	private static String ConfigConnection = null;
 	private static String ConfigUsername = null;
 	private static String ConfigPassword = null;
 	private static int ConfigPort = 0;
+	private static final boolean SQL_OPTIONAL=!"false".equalsIgnoreCase(System.getProperty("hackwars.chat.sqlOptional","true"));
 
     //Constructors.
     /**
@@ -31,12 +29,8 @@ public class sql{
 
         //Connect to the database.
         c=null;
-        dataSource = new MysqlDataSource();
-        dataSource.setDatabaseName("volgate");
-        dataSource.setServerName("www.mariealighieri.com");
-        dataSource.setPort(3306);
         try{
-            c = dataSource.getConnection("deepwater","awa878");
+            c = openMysqlConnection("www.mariealighieri.com","volgate",3306,"deepwater","awa878");
             connect=true;
         }catch(Exception e){
         
@@ -73,12 +67,8 @@ public class sql{
 
         //Connect to the database.
         c=null;
-        dataSource = new MysqlDataSource();
-        dataSource.setDatabaseName(DB);
-        dataSource.setServerName(Connection);
-        dataSource.setPort(ConfigPort);
         try{
-            c = dataSource.getConnection(Username,Password);
+            c = openMysqlConnection(Connection,DB,ConfigPort,Username,Password);
             connect=true;
         }catch(Exception e){}
     }
@@ -90,12 +80,13 @@ public class sql{
     */
     public ArrayList process(String cmd){
             ArrayList returnMe=null;
-            if(connect==false)
+            if(connect==false||c==null)
                 return(null);
 
             Statement stmt=null;
             try{
                 stmt = this.c.createStatement();
+				stmt.setEscapeProcessing(false);
                 ResultSet rs = stmt.executeQuery(cmd);
                 while (rs.next()){
                     int i=1;
@@ -115,10 +106,16 @@ public class sql{
                 }
             }catch(Exception ee){
                 try{//Maybe it's an update.
-                    int i = stmt.executeUpdate(cmd);
+                	if(stmt!=null)
+                    	stmt.executeUpdate(cmd);
                 }catch(Exception ue){
                     ue.printStackTrace();
                 }
+            }finally{
+            	try{
+            		if(stmt!=null)
+            			stmt.close();
+            	}catch(Exception e){}
             }
 
         return(returnMe);
@@ -131,30 +128,41 @@ public class sql{
     of MySql matches. CMD is an SQL query.
     Throws Exceptions instead of stack traces.
     */
-    public ArrayList<String> processQuery(String cmd) throws Exception{
-        ArrayList<String> returnMe=null;
-        if(connect==false)
-            return(null);
+	    public ArrayList<String> processQuery(String cmd) throws Exception{
+	        ArrayList<String> returnMe=null;
+	        if(connect==false||c==null){
+	        	if(SQL_OPTIONAL)
+	        		return null;
+	            throw new Exception("No active SQL connection.");
+	        }
 
         Statement stmt=null;
 
-        stmt = this.c.createStatement();
-        ResultSet rs = stmt.executeQuery(cmd);
-        while (rs.next()){
-            int i=1;
-            boolean or=false;
-            while(!or){
-                try{
-                    String s=rs.getString(i);
-                    if(returnMe==null)
-                        returnMe=new ArrayList<String>();
-                    returnMe.add(s);
+        try{
+	        stmt = this.c.createStatement();
+	        stmt.setEscapeProcessing(false);
+	        ResultSet rs = stmt.executeQuery(cmd);
+	        while (rs.next()){
+	            int i=1;
+	            boolean or=false;
+	            while(!or){
+	                try{
+	                    String s=rs.getString(i);
+	                    if(returnMe==null)
+	                        returnMe=new ArrayList<String>();
+	                    returnMe.add(s);
 
-                    i++;
-                }catch(Exception ore){
-                    or=true;
-                }
-            }
+	                    i++;
+	                }catch(Exception ore){
+	                    or=true;
+	                }
+	            }
+	        }
+        }finally{
+        	try{
+        		if(stmt!=null)
+        			stmt.close();
+        	}catch(Exception e){}
         }
 
 
@@ -162,22 +170,43 @@ public class sql{
     }
     
     /* Processes change */
-    public boolean processUpdate(String cmd) throws Exception{
-        Statement stmt=null;
+	    public boolean processUpdate(String cmd) throws Exception{
+	        Statement stmt=null;
+	        if(connect==false||c==null){
+	        	if(SQL_OPTIONAL)
+	        		return true;
+	            throw new Exception("No active SQL connection.");
+	        }
         try{
             stmt = this.c.createStatement();
+            stmt.setEscapeProcessing(false);
             stmt.executeUpdate(cmd);
         }catch(Exception e){
             throw e;
+        }finally{
+        	try{
+        		if(stmt!=null)
+        			stmt.close();
+        	}catch(Exception e){}
         }
         return true;
     }
     
     public void close(){
             try{
-                    c.close();
+                    if(c!=null)
+                    	c.close();
             }catch(Exception e){
                     e.printStackTrace();
             }
+    }
+
+    private Connection openMysqlConnection(String host,String db,int port,String username,String password) throws Exception{
+        try{
+            Class.forName("com.mysql.jdbc.Driver");
+        }catch(ClassNotFoundException oldDriverMissing){
+            Class.forName("com.mysql.cj.jdbc.Driver");
+        }
+        return DriverManager.getConnection("jdbc:mysql://"+host+":"+port+"/"+db,username,password);
     }
 }

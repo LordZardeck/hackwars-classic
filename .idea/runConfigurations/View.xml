@@ -1,0 +1,28 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="View" type="Application" factoryName="Application" nameIsGenerated="true">
+    <option name="MAIN_CLASS_NAME" value="View.View" />
+    <module name="WEB-INF2" />
+    <option name="VM_PARAMETERS" value="-Dhackwars.loginFallbackStart=true" />
+    <option name="PROGRAM_PARAMETERS" value="127.0.0.1 localuser localpass 192.168.2.002 1" />
+    <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/HWTomcatServer/webapps/ROOT/WEB-INF/classes" />
+    <extension name="coverage">
+      <pattern>
+        <option name="PATTERN" value="View.*" />
+        <option name="ENABLED" value="true" />
+      </pattern>
+    </extension>
+    <extension name="net.ashald.envfile">
+      <option name="IS_ENABLED" value="false" />
+      <option name="IS_SUBST" value="false" />
+      <option name="IS_PATH_MACRO_SUPPORTED" value="false" />
+      <option name="IS_IGNORE_MISSING_FILES" value="false" />
+      <option name="IS_ENABLE_EXPERIMENTAL_INTEGRATIONS" value="false" />
+      <ENTRIES>
+        <ENTRY IS_ENABLED="true" PARSER="runconfig" IS_EXECUTABLE="false" />
+      </ENTRIES>
+    </extension>
+    <method v="2">
+      <option name="Make" enabled="true" />
+    </method>
+  </configuration>
+</component>

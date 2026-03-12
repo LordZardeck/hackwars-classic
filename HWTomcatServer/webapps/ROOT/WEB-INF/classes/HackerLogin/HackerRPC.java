@@ -22,9 +22,6 @@ import java.util.concurrent.Semaphore;
 import Game.*;
 import Assignments.*;
 import Server.*;
-import org.apache.xmlrpc.client.XmlRpcClient;
-import org.apache.xmlrpc.client.XmlRpcClientConfigImpl;
-import java.net.URL;
 
 public class HackerRPC extends HttpServlet implements DataHandler{
 	
@@ -94,19 +91,12 @@ public class HackerRPC extends HttpServlet implements DataHandler{
 				out+="<a style=\"color:white\">("+(Result.getCurrent()+1)+" to "+Math.min(Result.getSize(),Result.getCurrent()+RESULTS_PER_PAGE)+" of "+Result.getSize()+".)</a>";
 			else
 				out+="<a style=\"color:white\">No results found.</a>";
-			XmlRpcClientConfigImpl config = new XmlRpcClientConfigImpl();
-			try{
-				config.setServerURL(new URL("http://www.hackwars.net/xmlrpc/domain.php"));
-			}catch(Exception e){}
-			XmlRpcClient client = new XmlRpcClient();
-			client.setConfig(config);
-			
 			for(int i=0;i<Results.size();i++){
 				SearchResult SR=(SearchResult)Results.get(i);
 				Object[] send = {SR.getAddress()};
 				String address=SR.getAddress();
 				try{
-				address = (String)client.execute("reverseLookup", send);
+				address = (String)XmlRpcProxy.execute("http://www.hackwars.net/xmlrpc/domain.php","reverseLookup", send);
 				}catch(Exception e){}
 				out+="<div style=\"padding:5px;background-color:white;\">";
 				

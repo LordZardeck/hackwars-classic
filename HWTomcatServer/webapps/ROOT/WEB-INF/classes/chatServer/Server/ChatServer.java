@@ -17,7 +17,6 @@ import java.util.*;
 import java.util.concurrent.Semaphore;
 import util.Time;
 import util.UserHandler;
-import util.sql2;
 
 public class ChatServer extends IParty implements Runnable{
 
@@ -140,7 +139,6 @@ public class ChatServer extends IParty implements Runnable{
                                         String ip = MyLoginAssignment.getIP();
 					System.out.println(">>> STARTING TO LOAD PLAYER.");
 
-                                        sql2 sql = new sql2();
                                         if (false) // sql.checkLogin(User, ip, RawPass) == false)
                                         {
                                             System.out.println("ChatServer: suspected hack attempt: User: "+User+" HW_IP: "+ip+" Pass: "+RawPass);

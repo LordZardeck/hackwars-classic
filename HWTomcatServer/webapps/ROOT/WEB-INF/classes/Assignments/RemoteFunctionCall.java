@@ -20,8 +20,13 @@ public class RemoteFunctionCall extends Assignment implements Serializable{
 	// Constructor.
 	public RemoteFunctionCall(int id,String function,Object parameters){
 		super(id);
-		if(function!=null)
-			byteFunction=Encryption.getInstance().encrypt(function.getBytes());
+		this.function=function;
+		if(function!=null){
+			byte encryptedFunction[]=Encryption.getInstance().encrypt(function.getBytes());
+			if(encryptedFunction!=null){
+				byteFunction=encryptedFunction;
+			}
+		}
 		this.parameters = parameters;
 	}
 	/////////////////////////
@@ -39,7 +44,12 @@ public class RemoteFunctionCall extends Assignment implements Serializable{
 	}
 	
 	public void decryptFunction(Encryption MyEncryption,String ip){
-		this.function=new String(MyEncryption.decrypt(byteFunction,ip));
+		if(byteFunction!=null){
+			byte decryptedFunction[]=MyEncryption.decrypt(byteFunction,ip);
+			if(decryptedFunction!=null){
+				this.function=new String(decryptedFunction);
+			}
+		}
 	}
 
 	/** Run the assignments implemented task. */

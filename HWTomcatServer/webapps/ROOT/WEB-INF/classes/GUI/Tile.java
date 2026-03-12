@@ -3,7 +3,7 @@ package GUI;
 import javax.imageio.*;
 import java.awt.image.*;
 import java.util.zip.*;
-import org.apache.axis.encoding.*;
+import org.apache.axis.encoding.Base64;
 import java.io.*;
 
 public class Tile{

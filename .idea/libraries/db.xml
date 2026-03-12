@@ -1,0 +1,9 @@
+<component name="libraryTable">
+  <library name="db">
+    <CLASSES>
+      <root url="jar://$PROJECT_DIR$/HWTomcatServer/webapps/ROOT/WEB-INF/classes/db/db.zip!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES />
+  </library>
+</component>

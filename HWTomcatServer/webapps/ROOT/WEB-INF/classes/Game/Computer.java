@@ -64,12 +64,14 @@ import Server.HackerServer;
 import View.Task;
 import util.LoadXML;
 import util.Time;
+import util.XmlRpcProxy;
 import util.sql;
 
 public class Computer implements Runnable{//Runnable is an interface that allows us to make this class be a thread.
 	//max ops values.
 	public static final int FREE_MAX_OPS = 4096;
 	public static final int PAY_MAX_OPS = 16384;
+	private static final boolean REMOTE_XMLRPC_ENABLED = Boolean.parseBoolean(System.getProperty("hackwars.remoteXmlRpc", "false"));
 	public int MAX_OPS = 4096;
 	
 	//file size limits.
@@ -263,6 +265,7 @@ public class Computer implements Runnable{//Runnable is an interface that allows
 	private String DB2="hackwars_drupal";
 	private String Username2="root";
 	private String Password2="";
+	private static final boolean LOCAL_AUTH_FALLBACK=!"false".equalsIgnoreCase(System.getProperty("hackwars.localAuthFallback","true"));
 
 	private EquipmentSheet MyEquipmentSheet=new EquipmentSheet(this);//Keeps track of equipment currently installed and other such things.
     private NewFireWall MyNewFireWall = null; //new NewFireWall(); // because I hate static variables, cause they hate me.  Used to generate firewalls.
@@ -767,17 +770,12 @@ public class Computer implements Runnable{//Runnable is an interface that allows
 				LogIterator.remove();
 		}
 		
-		try{
-			XmlRpcClientConfigImpl config = new XmlRpcClientConfigImpl();
-			config.setServerURL(new URL("http://www.hackwars.net/xmlrpc/facebook.php"));
-			XmlRpcClient client = new XmlRpcClient();
-			client.setConfig(config);
-			Object[] params=null;
-			params = new Object[]{ip,this.ip};
-			String result = (String) client.execute("deleteLogs", params);
-		}catch(Exception e){
-			e.printStackTrace();
-		}
+			try{
+				Object[] params = new Object[]{ip,this.ip};
+				XmlRpcProxy.execute("http://www.hackwars.net/xmlrpc/facebook.php","deleteLogs",params);
+			}catch(Exception e){
+				e.printStackTrace();
+			}
 		LOG_UPDATE=true;
 		sendPacket();
 	}
@@ -1461,20 +1459,15 @@ public class Computer implements Runnable{//Runnable is an interface that allows
 			Tasks.add(0,new setConnectionIDTask(this,connectionID,crypt(loginPassword.getBytes(),clientHash)));
 			available.release();
 			
-			Object response[]=null;//Check for member's functions.
-			try{
-				XmlRpcClientConfigImpl config = new XmlRpcClientConfigImpl();
-				config.setServerURL(new URL("http://www.hackwars.net/xmlrpc/functions.php"));
-				XmlRpcClient client = new XmlRpcClient();
-				client.setConfig(config);
-				Object[] params = {ip};
-				Object[] result = (Object[])client.execute("getFunctionPacks",params);
-				//FileIO = (Boolean)result[0];
-				//FileIO=(Boolean)client.execute("getFunctionPacks",params);
+					if(REMOTE_XMLRPC_ENABLED){
+						try{
+							Object[] params = {ip};
+							XmlRpcProxy.execute("http://www.hackwars.net/xmlrpc/functions.php","getFunctionPacks",params);
+						}catch(Exception e){
+							e.printStackTrace();
+						}
+				}
 				FileIO=true;
-			}catch(Exception e){
-				e.printStackTrace();
-			}
 		}catch(Exception e){
 			available.release();
 			e.printStackTrace();	
@@ -1532,6 +1525,9 @@ public class Computer implements Runnable{//Runnable is an interface that allows
 				systemChange=true;
 				healthChange=true;
 				LOG_UPDATE=true;
+			}else{
+				Object O[]=new Object[]{new LoginFailedAssignment(0),new Integer(connectionID)};
+				MyHackerServer.addData(O);
 			}
 		}
 	}
@@ -1621,6 +1617,12 @@ public class Computer implements Runnable{//Runnable is an interface that allows
 	*/
 	public boolean checkLogin(){
 		boolean correct=false;
+		if(LOCAL_AUTH_FALLBACK){
+			if(userName!=null&&userName.trim().length()>0&&ip!=null&&ip.trim().length()>0){
+				sendPreferences=true;
+				return(true);
+			}
+		}
 		//return(true);		
 			try{
 			//CHECK THE ACTUAL DB.
@@ -1694,16 +1696,21 @@ public class Computer implements Runnable{//Runnable is an interface that allows
 			}
 			
 			
-			if(!ip.equals(ipCheck)){
-				return(false);
-			}
+				if(!ip.equals(ipCheck)){
+					return(false);
+				}
 					
-		}catch(Exception e){
-			e.printStackTrace();
-		}finally{
-			available.release();
-		}
-		return(correct);
+			}catch(Exception e){
+				if(LOCAL_AUTH_FALLBACK){
+					if(userName!=null&&userName.trim().length()>0&&ip!=null&&ip.trim().length()>0){
+						System.out.println("Local auth fallback enabled for "+userName+" @ "+ip);
+						sendPreferences=true;
+						return(true);
+					}
+				}
+				e.printStackTrace();
+			}
+			return(correct);
 	}
 	
 	/**
@@ -3360,17 +3367,12 @@ while (it.hasNext()) {
 						if(function.equals("sendemail")){//We have received a message.
 							String message=(String)MyApplicationData.getParameters();
 							if(checkBank()){
-								if(pettyCash>=100.0){
-									try{
-										XmlRpcClientConfigImpl config = new XmlRpcClientConfigImpl();
-										config.setServerURL(new URL("http://www.hackwars.net/xmlrpc/mail.php"));
-										XmlRpcClient client = new XmlRpcClient();
-										client.setConfig(config);
-										Object[] params=null;
-										params = new Object[]{ip,message};
-										String result = (String) client.execute("sendEmail", params);
-									}catch(Exception e){
-									}
+									if(pettyCash>=100.0){
+										try{
+											Object[] params = new Object[]{ip,message};
+											XmlRpcProxy.execute("http://www.hackwars.net/xmlrpc/mail.php","sendEmail",params);
+										}catch(Exception e){
+										}
 						
 									MyComputerHandler.addData(new ApplicationData("pettycash",-100.0f,0,ip),ip);
 								}
@@ -3382,34 +3384,24 @@ while (it.hasNext()) {
 							String message=(String)((Object[])MyApplicationData.getParameters())[0];
 							String targetIP=(String)((Object[])MyApplicationData.getParameters())[1];
 
-							try{
-								XmlRpcClientConfigImpl config = new XmlRpcClientConfigImpl();
-								config.setServerURL(new URL("http://www.hackwars.net/xmlrpc/facebook.php"));
-								XmlRpcClient client = new XmlRpcClient();
-								client.setConfig(config);
-								Object[] params=null;
-								params = new Object[]{ip,targetIP,message};
-								String result = (String) client.execute("sendFacebook", params);
-							}catch(Exception e){
-								e.printStackTrace();
-							}
+								try{
+									Object[] params = new Object[]{ip,targetIP,message};
+									XmlRpcProxy.execute("http://www.hackwars.net/xmlrpc/facebook.php","sendFacebook",params);
+								}catch(Exception e){
+									e.printStackTrace();
+								}
 
 						}else
 						
 						//POST TO FACEBOOK USING XML RPC.
 						if(function.equals("facebookupdate")){//We have received a message.
-							String message=(String)MyApplicationData.getParameters();
-							try{	
-								XmlRpcClientConfigImpl config = new XmlRpcClientConfigImpl();
-								config.setServerURL(new URL("http://www.hackwars.net/xmlrpc/facebook.php"));
-								XmlRpcClient client = new XmlRpcClient();
-								client.setConfig(config);
-								Object[] params=null;
-								params = new Object[]{ip,new Double(pettyCash),new Double(bankMoney),new Integer(defaultBank)};
-								String result = (String) client.execute("updateFacebook", params);
-							}catch(Exception e){
-								e.printStackTrace();
-							}
+								String message=(String)MyApplicationData.getParameters();
+								try{	
+									Object[] params = new Object[]{ip,new Double(pettyCash),new Double(bankMoney),new Integer(defaultBank)};
+									XmlRpcProxy.execute("http://www.hackwars.net/xmlrpc/facebook.php","updateFacebook",params);
+								}catch(Exception e){
+									e.printStackTrace();
+								}
 						}else
 						
 						//ADD A MESSAGE TO THE MESSAGE QUEUE.
@@ -5300,15 +5292,15 @@ while (it.hasNext()) {
 	
 			run=true;
 			
-			try{
-				if(connectionID!=-1){//is this player allowed to be logged in.
-					if(!checkLogin()){
-					//	Object O[]=new Object[]{new LoginFailedAssignment(0,"<html><font color=\"#FF0000\">Invalid Username/Password. <br>Please Try Again.</font></html>"),new Integer(connectionID)};
-						Object O[]=new Object[]{new LoginFailedAssignment(0)};
-						
-						MyHackerServer.addData(O);
-						connectionID=-1;
-					} else {
+				try{
+					if(connectionID!=-1){//is this player allowed to be logged in.
+						if(!checkLogin()){
+						//	Object O[]=new Object[]{new LoginFailedAssignment(0,"<html><font color=\"#FF0000\">Invalid Username/Password. <br>Please Try Again.</font></html>"),new Integer(connectionID)};
+							Object O[]=new Object[]{new LoginFailedAssignment(0),new Integer(connectionID)};
+							
+							MyHackerServer.addData(O);
+							connectionID=-1;
+						} else {
 						Object O[]=MyHackerServer.getRandomKey(ip,clientHash,publicKey);
 						LoginSuccessAssignment MyLoginSuccessAssignment=new LoginSuccessAssignment(0,ip,(String)O[0],isNPC());
 						MyLoginSuccessAssignment.setPublicKey((byte[])O[1]);
@@ -5383,27 +5375,26 @@ while (it.hasNext()) {
 					LX.loadURL("http://localhost:8081/login.html?ip="+ip+"&serverID=1&active=true"+addPass);
 				}
 				
-				Object response[]=null;//Check for member's functions.
-				try{
-					XmlRpcClientConfigImpl config = new XmlRpcClientConfigImpl();
-					config.setServerURL(new URL("http://www.hackwars.net/xmlrpc/functions.php"));
-					XmlRpcClient client = new XmlRpcClient();
-					client.setConfig(config);
-					Object[] params = {ip};
-					Object[] result = (Object[])client.execute("getFunctionPacks",params);
-					upgradedAccount=(Boolean)result[2];
-					inactive = (Boolean)result[3];
-					if(upgradedAccount){
-						MAX_OPS = PAY_MAX_OPS;
-						FILE_SIZE_LIMIT = PAY_FILE_SIZE_LIMIT;
-					}
-					else{
-						MAX_OPS = FREE_MAX_OPS;
+					upgradedAccount=false;
+					inactive=false;
+					MAX_OPS = FREE_MAX_OPS;
 						FILE_SIZE_LIMIT = FREE_FILE_SIZE_LIMIT;
+						if(REMOTE_XMLRPC_ENABLED){
+							try{
+								Object[] params = {ip};
+								Object[] result = (Object[])XmlRpcProxy.execute("http://www.hackwars.net/xmlrpc/functions.php","getFunctionPacks",params);
+								if(result!=null&&result.length>3){
+									upgradedAccount=(Boolean)result[2];
+									inactive = (Boolean)result[3];
+									if(upgradedAccount){
+										MAX_OPS = PAY_MAX_OPS;
+										FILE_SIZE_LIMIT = PAY_FILE_SIZE_LIMIT;
+									}
+								}
+							}catch(Exception e){
+								e.printStackTrace();
+							}
 					}
-				}catch(Exception e){
-					e.printStackTrace();
-				}
 				
 				Node N = null;
 				

@@ -3,7 +3,7 @@ import com.plink.dolphinnet.*;
 import java.util.*;
 import java.util.zip.*;
 import java.io.*;
-import org.apache.axis.encoding.*;
+import org.apache.axis.encoding.Base64;
 
 /**
 This tool is used to zip and unzip stuff.

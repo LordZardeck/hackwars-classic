@@ -13,6 +13,7 @@ import java.net.*;
 public class ImageLoader{
 
 	public static String tmpDir = System.getProperty("java.io.tmpdir");;
+	private static final String REMOTE_IMAGE_BASE = System.getProperty("hackwars.assets.baseUrl","");
 	public static ImageIcon PCI_ICON;
 	public static ImageIcon FOLDER_ICON;
 	public static ImageIcon TEXT_ICON;
@@ -47,19 +48,11 @@ public class ImageLoader{
 			return new ImageIcon(tmpDir+"/"+location);
 		}
 		try{
-			File checkdir=new File(tmpDir+"/images");
-			if(!checkdir.exists())
-				checkdir.mkdir();
-				
-			URL U=new URL("http://www.crackjawpublishing.com/hackwars/"+location);
-			InputStream in=U.openStream();
-			FileOutputStream out=new FileOutputStream(new File(tmpDir+"/"+location));
-			byte buf[]=new byte[256];
-			int size=0;
-			while((size=in.read(buf))>0){
-				out.write(buf,0,size);
+			cacheImage(location);
+			File cached=new File(tmpDir+"/"+location);
+			if(cached.exists()){
+				return new ImageIcon(cached.getAbsolutePath());
 			}
-			return new ImageIcon(tmpDir+"/"+location);
 		}catch(Exception e){
 		}
 		return(null);
@@ -71,19 +64,11 @@ public class ImageLoader{
 			return new File(tmpDir+"/"+location);
 		}
 		try{
-			File checkdir=new File(tmpDir+"/images");
-			if(!checkdir.exists())
-				checkdir.mkdir();
-		
-			URL U=new URL("http://www.crackjawpublishing.com/hackwars/"+location);
-			InputStream in=U.openStream();
-			FileOutputStream out=new FileOutputStream(new File(tmpDir+"/"+location));
-			byte buf[]=new byte[256];
-			int size=0;
-			while((size=in.read(buf))>0){
-				out.write(buf,0,size);
+			cacheImage(location);
+			File cached=new File(tmpDir+"/"+location);
+			if(cached.exists()){
+				return cached;
 			}
-			return new File(tmpDir+"/"+location);
 		}catch(Exception e){
 		}
 		return(null);
@@ -91,10 +76,71 @@ public class ImageLoader{
 	
 	public static BufferedImage getImage(String location){
 		try{
-			return ImageIO.read(getFile(location).toURL());
+			File imageFile=getFile(location);
+			if(imageFile!=null){
+				return ImageIO.read(imageFile.toURI().toURL());
+			}
 		}catch(Exception e){
-			e.printStackTrace();
-			return null;
+		}
+		return null;
+	}
+
+	private static void cacheImage(String location) throws IOException{
+		File outFile=new File(tmpDir+"/"+location);
+		File parent=outFile.getParentFile();
+		if(parent!=null&&!parent.exists()){
+			parent.mkdirs();
+		}
+		if(cacheFromClasspath(location,outFile)){
+			return;
+		}
+		if(REMOTE_IMAGE_BASE!=null&&REMOTE_IMAGE_BASE.trim().length()>0){
+			cacheFromRemote(location,outFile);
+		}
+	}
+
+	private static boolean cacheFromClasspath(String location,File outFile) throws IOException{
+		InputStream in=ImageLoader.class.getClassLoader().getResourceAsStream(location);
+		if(in==null){
+			return false;
+		}
+		try{
+			FileOutputStream out=new FileOutputStream(outFile);
+			try{
+				byte buf[]=new byte[256];
+				int size=0;
+				while((size=in.read(buf))>0){
+					out.write(buf,0,size);
+				}
+			}finally{
+				out.close();
+			}
+		}finally{
+			in.close();
+		}
+		return true;
+	}
+
+	private static void cacheFromRemote(String location,File outFile) throws IOException{
+		String base=REMOTE_IMAGE_BASE;
+		if(!base.endsWith("/")){
+			base+="/";
+		}
+		URL U=new URL(base+location);
+		InputStream in=U.openStream();
+		try{
+			FileOutputStream out=new FileOutputStream(outFile);
+			try{
+				byte buf[]=new byte[256];
+				int size=0;
+				while((size=in.read(buf))>0){
+					out.write(buf,0,size);
+				}
+			}finally{
+				out.close();
+			}
+		}finally{
+			in.close();
 		}
 	}
 }

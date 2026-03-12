@@ -15,7 +15,7 @@ import java.awt.geom.*;
 import java.awt.event.*;
 import javax.imageio.*;
 import java.util.zip.*;
-import org.apache.axis.encoding.*;
+import org.apache.axis.encoding.Base64;
 import GUI.*;
 
 import javax.media.opengl.glu.*;

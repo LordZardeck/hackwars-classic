@@ -8,8 +8,6 @@ Used to make calls to an SQL database.
 
 import java.util.*;
 import java.sql.*;
-import javax.sql.DataSource;
-import com.mysql.jdbc.jdbc2.optional.MysqlDataSource;
 import java.io.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -17,7 +15,6 @@ import java.util.regex.Pattern;
 public class sql{
     private boolean connect;
     private Connection c;
-    private MysqlDataSource dataSource;
 	
 	private static String ConfigConnection = null;
 	private static String ConfigUsername = null;
@@ -79,12 +76,8 @@ public class sql{
 
         //Connect to the database.
         c=null;
-        dataSource = new MysqlDataSource();
-        dataSource.setDatabaseName(DB);
-        dataSource.setServerName(Connection);
-        dataSource.setPort(ConfigPort);
         try{
-            c = dataSource.getConnection(Username,Password);
+            c = openMysqlConnection(Connection,DB,ConfigPort,Username,Password);
             connect=true;
         }catch(Exception e){
 			//Throw a loggable error here
@@ -102,7 +95,7 @@ public class sql{
     */
     public ArrayList process(String cmd){
             ArrayList returnMe=null;
-            if(connect==false)
+            if(connect==false||c==null)
                 return(null);
 
             Statement stmt=null;
@@ -126,23 +119,100 @@ public class sql{
                         }
                     }
                 }
-            }catch(Exception ee){
+	            }catch(Exception ee){
 //ee.printStackTrace();
-                try{//Maybe it's an update.
-                    int i = stmt.executeUpdate(cmd);
-                }catch(Exception ue){
-					//ue.printStackTrace();
-                }
-            }
+	                try{//Maybe it's an update.
+	                	if(stmt!=null)
+	                    	stmt.executeUpdate(cmd);
+	                }catch(Exception ue){
+						//ue.printStackTrace();
+	                }
+	            }finally{
+	            	try{
+	            		if(stmt!=null)
+	            			stmt.close();
+	            	}catch(Exception e){}
+	            }
 
         return(returnMe);
     }
+
+    /**
+    ArrayList processQuery()<br />
+    Returns an ArrayList of strings representing a flattened collection
+    of MySql matches. CMD is an SQL query.
+    Throws Exceptions instead of silently swallowing them.
+    */
+    public ArrayList<String> processQuery(String cmd) throws Exception{
+        ArrayList<String> returnMe=null;
+        if(connect==false||c==null)
+            throw new Exception("No active SQL connection.");
+
+        Statement stmt=null;
+        try{
+            stmt = this.c.createStatement();
+            stmt.setEscapeProcessing(false);
+            ResultSet rs = stmt.executeQuery(cmd);
+            while (rs.next()){
+                int i=1;
+                boolean or=false;
+                while(!or){
+                    try{
+                        String s=rs.getString(i);
+                        if(returnMe==null)
+                            returnMe=new ArrayList<String>();
+                        returnMe.add(s);
+                        i++;
+                    }catch(Exception ore){
+                        or=true;
+                    }
+                }
+            }
+        }finally{
+            try{
+                if(stmt!=null)
+                    stmt.close();
+            }catch(Exception e){}
+        }
+
+        return(returnMe);
+    }
+
+    /* Processes change */
+    public boolean processUpdate(String cmd) throws Exception{
+        Statement stmt=null;
+        if(connect==false||c==null)
+            throw new Exception("No active SQL connection.");
+        try{
+            stmt = this.c.createStatement();
+            stmt.setEscapeProcessing(false);
+            stmt.executeUpdate(cmd);
+        }catch(Exception e){
+            throw e;
+        }finally{
+            try{
+                if(stmt!=null)
+                    stmt.close();
+            }catch(Exception e){}
+        }
+        return true;
+    }
 	
-	public void close(){
-		try{
-			c.close();
-		}catch(Exception e){
-			e.printStackTrace();
+		public void close(){
+			try{
+				if(c!=null)
+					c.close();
+			}catch(Exception e){
+				e.printStackTrace();
+			}
 		}
+
+	private Connection openMysqlConnection(String host,String db,int port,String username,String password) throws Exception{
+		try{
+			Class.forName("com.mysql.jdbc.Driver");
+		}catch(ClassNotFoundException oldDriverMissing){
+			Class.forName("com.mysql.cj.jdbc.Driver");
+		}
+		return DriverManager.getConnection("jdbc:mysql://"+host+":"+port+"/"+db,username,password);
 	}
 }

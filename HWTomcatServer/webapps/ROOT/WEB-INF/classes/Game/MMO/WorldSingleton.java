@@ -17,7 +17,7 @@ import java.awt.event.*;
 import java.util.ArrayList;
 import java.util.zip.*;
 import java.util.Iterator;
-import org.apache.axis.encoding.*;
+import org.apache.axis.encoding.Base64;
 import org.w3c.dom.Node;
 import org.w3c.dom.NamedNodeMap;
 import java.util.concurrent.Semaphore;

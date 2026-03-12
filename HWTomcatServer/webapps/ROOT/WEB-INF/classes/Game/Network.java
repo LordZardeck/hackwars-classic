@@ -61,24 +61,41 @@ import Assignments.*;
 	*/
 	public synchronized PacketNetwork getNetworkInformation(String networkName){
 		HashMap Node=(HashMap)networkNodes.get(networkName);
+		if(Node==null){
+			Node=(HashMap)networkNodes.get(ROOT_NETWORK);
+		}
+		PacketNetwork MyNetworkPacket=new PacketNetwork();
+		MyNetworkPacket.setName(networkName);
 		if(Node!=null){
-			PacketNetwork MyNetworkPacket=new PacketNetwork();
-			MyNetworkPacket.setName(networkName);
-			
 			ArrayList AttackNPCs=(ArrayList)Node.get("attackNPCs");
 			ArrayList QuestNPCs=(ArrayList)Node.get("questNPCs");
 			ArrayList MineNPCs=(ArrayList)Node.get("miningNPCs");
             ArrayList StoreNPCs=(ArrayList)Node.get("storeNPCs");
 			String storeIP=(String)Node.get("storeNPC");
+			if(AttackNPCs==null)
+				AttackNPCs=new ArrayList();
+			if(QuestNPCs==null)
+				QuestNPCs=new ArrayList();
+			if(MineNPCs==null)
+				MineNPCs=new ArrayList();
+			if(StoreNPCs==null)
+				StoreNPCs=new ArrayList();
+			if(storeIP==null)
+				storeIP="";
 			
 			MyNetworkPacket.setAttackNPCs(AttackNPCs);
 			MyNetworkPacket.setQuestNPCs(QuestNPCs);
 			MyNetworkPacket.setMiningNPCs(MineNPCs);
             MyNetworkPacket.setStoreNPCs(StoreNPCs);
 			MyNetworkPacket.setStoreIP(storeIP);
-			return(MyNetworkPacket);
+		}else{
+			MyNetworkPacket.setAttackNPCs(new ArrayList());
+			MyNetworkPacket.setQuestNPCs(new ArrayList());
+			MyNetworkPacket.setMiningNPCs(new ArrayList());
+			MyNetworkPacket.setStoreNPCs(new ArrayList());
+			MyNetworkPacket.setStoreIP("");
 		}
-		return(null);
+		return(MyNetworkPacket);
 	}
 	
 	/**
@@ -128,8 +145,8 @@ import Assignments.*;
             
             String Q = "SELECT id, name, attack_probability FROM network";
             result = C.process(Q);
-            if (result != null && result.size() > 0) {
-                for (int i = 0; i < result.size(); i+=3) {
+	            if (result != null && result.size() > 0) {
+	                for (int i = 0; i < result.size(); i+=3) {
                     // networkInfo is the value of the networks hashmap, for a given network
                     // "storeNPC" returns a string ip
                     // "attackNPCs" returns an arraList of attack NPCs
@@ -246,12 +263,23 @@ System.out.println("network = " + networkName + ", storeNPC = " + networkStoreIP
                     }
 					networkInfo.put("questNPCs", questHashArray);
 					networkInfo.put("attackProbability", attackProbability);
-                    networkNodes.put(networkName, networkInfo);
-                } //for each network
-                
-            }
-            
-        } catch (Exception e) {
+	                    networkNodes.put(networkName, networkInfo);
+	                } //for each network
+	                
+	            }
+	            if(networkNodes.get(ROOT_NETWORK)==null){
+	            	HashMap networkInfo = new HashMap();
+	            	networkInfo.put("attachedNetworks", new HashMap());
+	            	networkInfo.put("storeNPCs", new ArrayList());
+	            	networkInfo.put("miningNPCs", new ArrayList());
+	            	networkInfo.put("attackNPCs", new ArrayList());
+	            	networkInfo.put("questNPCs", new ArrayList());
+	            	networkInfo.put("attackProbability", new Float(0));
+	            	networkInfo.put("storeNPC", "");
+	            	networkNodes.put(ROOT_NETWORK, networkInfo);
+	            }
+	            
+	        } catch (Exception e) {
             e.printStackTrace();
         }
         

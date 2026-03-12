@@ -8,8 +8,6 @@ Used to make calls to an SQL database.
 
 import java.util.*;
 import java.sql.*;
-import javax.sql.DataSource;
-import com.mysql.jdbc.jdbc2.optional.MysqlDataSource;
 import java.io.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -17,7 +15,6 @@ import java.util.regex.Pattern;
 public class sql2{
     private boolean connect;
     private Connection c;
-    private MysqlDataSource dataSource;
 	
 	private static String ConfigConnection = null;
 	private static String ConfigUsername = null;
@@ -79,12 +76,8 @@ public class sql2{
 
         //Connect to the database.
         c=null;
-        dataSource = new MysqlDataSource();
-        dataSource.setDatabaseName(DB);
-        dataSource.setServerName(Connection);
-        dataSource.setPort(ConfigPort);
         try{
-            c = dataSource.getConnection(Username,Password);
+            c = openMysqlConnection(Connection,DB,ConfigPort,Username,Password);
             connect=true;
         }catch(Exception e){
 			//Throw a loggable error here
@@ -102,7 +95,7 @@ public class sql2{
     */
     public ArrayList process(String cmd){
             ArrayList returnMe=null;
-            if(connect==false)
+            if(connect==false||c==null)
                 return(null);
 
             Statement stmt=null;
@@ -129,20 +122,36 @@ public class sql2{
             }catch(Exception ee){
 //ee.printStackTrace();
                 try{//Maybe it's an update.
-                    int i = stmt.executeUpdate(cmd);
+                	if(stmt!=null)
+                    	stmt.executeUpdate(cmd);
                 }catch(Exception ue){
-					//ue.printStackTrace();
+						//ue.printStackTrace();
                 }
+            }finally{
+            	try{
+            		if(stmt!=null)
+            			stmt.close();
+            	}catch(Exception e){}
             }
 
         return(returnMe);
     }
 	
-	public void close(){
+		public void close(){
+			try{
+				if(c!=null)
+					c.close();
+			}catch(Exception e){
+				e.printStackTrace();
+			}
+	}
+
+	private Connection openMysqlConnection(String host,String db,int port,String username,String password) throws Exception{
 		try{
-			c.close();
-		}catch(Exception e){
-			e.printStackTrace();
+			Class.forName("com.mysql.jdbc.Driver");
+		}catch(ClassNotFoundException oldDriverMissing){
+			Class.forName("com.mysql.cj.jdbc.Driver");
 		}
+		return DriverManager.getConnection("jdbc:mysql://"+host+":"+port+"/"+db,username,password);
 	}
 }

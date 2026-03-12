@@ -1,0 +1,10 @@
+<component name="libraryTable">
+  <library name="lib3">
+    <CLASSES>
+      <root url="jar://$PROJECT_DIR$/HWTomcatServer/webapps/ROOT/WEB-INF/lib/jstl.jar!/" />
+      <root url="jar://$PROJECT_DIR$/HWTomcatServer/webapps/ROOT/WEB-INF/lib/standard.jar!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES />
+  </library>
+</component>

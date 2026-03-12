@@ -976,12 +976,15 @@ public class HackerServer extends IParty implements Runnable{
 					}else
 					
 					if(MyAssignment instanceof Object[]){
-						Assignment DispatchMe=(Assignment)((Object[])MyAssignment)[0];
-						int connectionID=(Integer)((Object[])MyAssignment)[1];
-						ClientBinaryList MyClientBinaryList=this.getEditor().getClients();
-						ClientData MyClientData=(ClientData)MyClientBinaryList.get(new Integer(connectionID));
-						if(MyClientData!=null){
-							MyClientData.addJob(new ZippedAssignment(0,DispatchMe));
+						Object[] AssignmentData=(Object[])MyAssignment;
+						if(AssignmentData.length>=2&&AssignmentData[0] instanceof Assignment&&AssignmentData[1] instanceof Integer){
+							Assignment DispatchMe=(Assignment)AssignmentData[0];
+							int connectionID=(Integer)AssignmentData[1];
+							ClientBinaryList MyClientBinaryList=this.getEditor().getClients();
+							ClientData MyClientData=(ClientData)MyClientBinaryList.get(new Integer(connectionID));
+							if(MyClientData!=null){
+								MyClientData.addJob(new ZippedAssignment(0,DispatchMe));
+							}
 						}
 					}
 					
@@ -1005,7 +1008,11 @@ public class HackerServer extends IParty implements Runnable{
      */
     public String crypt (String ip,String clientHash)
     {
-		return((String)Keys.get(ip+clientHash));
+		String resolvedIP=(String)Keys.get(ip+clientHash);
+		if(resolvedIP==null){
+			return(ip);
+		}
+		return(resolvedIP);
 	}
 	
 	
@@ -1035,7 +1042,10 @@ public class HackerServer extends IParty implements Runnable{
 		
 		Keys.put(key+clientHash,ip);
 		IPs.put(ip,key+clientHash);
-		byte myPublicKey[]=MyEncryption.init(publicKey,clientHash,ip);
+		byte myPublicKey[]=null;
+		if(publicKey!=null){
+			myPublicKey=MyEncryption.init(publicKey,clientHash,ip);
+		}
 		
 		Object returnMe[]=new Object[]{key,myPublicKey};
 		

@@ -18,7 +18,7 @@ import java.text.*;
 import java.util.*;
 import java.awt.image.*;
 import java.util.zip.*;
-import org.apache.axis.encoding.*;
+import org.apache.axis.encoding.Base64;
 import java.io.*;
 import org.w3c.dom.Node;
 import org.w3c.dom.NamedNodeMap;
@@ -767,4 +767,3 @@ public class HacktendoCreator extends Application implements ComponentListener{
 		e.getComponent().repaint();
 	}
 }
-
