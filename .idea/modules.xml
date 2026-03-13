@@ -9,10 +9,7 @@
       <module fileurl="file://$PROJECT_DIR$/.idea/modules/hackwars-classic-original.iml" filepath="$PROJECT_DIR$/.idea/modules/hackwars-classic-original.iml" />
       <module fileurl="file://$PROJECT_DIR$/.idea/modules/hackwars-classic-original.main.iml" filepath="$PROJECT_DIR$/.idea/modules/hackwars-classic-original.main.iml" />
       <module fileurl="file://$PROJECT_DIR$/.idea/modules/hackwars-classic-original.test.iml" filepath="$PROJECT_DIR$/.idea/modules/hackwars-classic-original.test.iml" />
-      <module fileurl="file://$PROJECT_DIR$/HWTomcatServer/webapps/examples/jsp/jsp.iml" filepath="$PROJECT_DIR$/HWTomcatServer/webapps/examples/jsp/jsp.iml" />
-      <module fileurl="file://$PROJECT_DIR$/HWTomcatServer/webapps/examples/WEB-INF/jsp/jsp2.iml" filepath="$PROJECT_DIR$/HWTomcatServer/webapps/examples/WEB-INF/jsp/jsp2.iml" />
       <module fileurl="file://$PROJECT_DIR$/HWTomcatServer/webapps/ROOT/WEB-INF/classes/org/org.iml" filepath="$PROJECT_DIR$/HWTomcatServer/webapps/ROOT/WEB-INF/classes/org/org.iml" />
-      <module fileurl="file://$PROJECT_DIR$/HWTomcatServer/work/work.iml" filepath="$PROJECT_DIR$/HWTomcatServer/work/work.iml" />
     </modules>
   </component>
 </project>
