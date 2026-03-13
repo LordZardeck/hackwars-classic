@@ -3,6 +3,7 @@ package chat.server;
 import chat.messages.*;
 import util.sql;
 import chat.util.ErrorLog;
+
 import java.util.*;
 import java.lang.Runnable;
 import java.lang.Thread;
@@ -15,7 +16,9 @@ public class MsgProcessorThread implements Runnable {
     private UserListing userList = null;
     private ChannelListing channelList = null;
 
-    /** Creates a new instance of ProcessMessage */
+    /**
+     * Creates a new instance of ProcessMessage
+     */
     MsgProcessorThread(MainServer m, UserListing userList, ChannelListing channelList) throws Exception {
         mainChat = m;
         this.userList = userList;
@@ -43,7 +46,6 @@ public class MsgProcessorThread implements Runnable {
                 //System.out.flush();
             }
         }
-
 
 
     }

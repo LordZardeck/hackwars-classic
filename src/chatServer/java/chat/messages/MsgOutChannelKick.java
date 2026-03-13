@@ -13,11 +13,13 @@ package chat.messages;
  *
  * @author Owner
  */
-public class MsgOutChannelKick extends MessageOut{
-    
+public class MsgOutChannelKick extends MessageOut {
+
     private String channelName;
-    
-    /** Creates a new instance of MsgInChannel */
+
+    /**
+     * Creates a new instance of MsgInChannel
+     */
     public MsgOutChannelKick(String reciver, String channelName) {
         this.setReciver(reciver);
         this.channelName = channelName;
@@ -26,8 +28,8 @@ public class MsgOutChannelKick extends MessageOut{
     public String getChannelName() {
         return channelName;
     }
-    
-    public MessageOut copy(){
-        return new MsgOutChannelKick(this.getReciver(),channelName);
+
+    public MessageOut copy() {
+        return new MsgOutChannelKick(this.getReciver(), channelName);
     }
 }

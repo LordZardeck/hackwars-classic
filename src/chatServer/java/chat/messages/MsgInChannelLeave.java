@@ -13,11 +13,13 @@ package chat.messages;
  *
  * @author Owner
  */
-public class MsgInChannelLeave extends MessageIn{
-    
+public class MsgInChannelLeave extends MessageIn {
+
     private String channelName;
-    
-    /** Creates a new instance of MsgInChannel */
+
+    /**
+     * Creates a new instance of MsgInChannel
+     */
     public MsgInChannelLeave(String sender, String channelName) {
         this.setSender(sender);
         this.channelName = channelName;
@@ -26,11 +28,11 @@ public class MsgInChannelLeave extends MessageIn{
     public String getChannelName() {
         return channelName;
     }
-    
+
     /**
-     *  Returns a copy of the object,
+     * Returns a copy of the object,
      */
-    public MessageIn copy(){
+    public MessageIn copy() {
         return new MsgInChannelLeave(this.getSender(), channelName);
     }
 }

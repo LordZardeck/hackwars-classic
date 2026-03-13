@@ -1,26 +1,28 @@
 package chat.messages;
 
 
-public class MsgOutChannelNoDelete extends MessageOut{
-    
+public class MsgOutChannelNoDelete extends MessageOut {
+
     private String channelName;
-    
-    /** Creates a new instance of MsgChannel */
+
+    /**
+     * Creates a new instance of MsgChannel
+     */
     public MsgOutChannelNoDelete(String reciver, String channelName) {
         this.channelName = channelName;
 
-        this.setReciver(reciver); 
+        this.setReciver(reciver);
     }
 
     public String getChannelName() {
         return channelName;
     }
 
-    
+
     /**
-     *  Returns a copy of the object,
+     * Returns a copy of the object,
      */
-    public MessageOut copy(){
+    public MessageOut copy() {
         return new MsgOutChannelNoDelete(this.getReciver(), channelName);
-    }    
+    }
 }

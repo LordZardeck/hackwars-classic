@@ -22,7 +22,7 @@ public class UserRelationListing {
 
     public UserRelationListing(User theUser, UserListing userListing, sql s) throws Exception {
         this.theUser = theUser;
-	this.userListing=userListing;
+        this.userListing = userListing;
         if (s == null) {
             s = SQLConstants.getSQL();
             loadSQLRelations(theUser.getName(), s);
@@ -32,19 +32,19 @@ public class UserRelationListing {
         }
 
         //ok now we need to go through and check if were frinds with any body, then tell them were on!
-	System.out.println("Getting Iterator");
+        System.out.println("Getting Iterator");
         Iterator<UserRelation> iterator = relationMap.values().iterator();
         while (iterator.hasNext() == true) {
             UserRelation curRelation = iterator.next();
-	    System.out.println("Found Relation - "+curRelation.getSecondName());
-	    //if (curRelation.isFriend() != false) {
-		    System.out.println("Relation is a friend - "+curRelation.getSecondName());
-		User myFriend = userListing.getUser(curRelation.getSecondName());
-		if (myFriend != null) {
-		    //MY frineds on best tell him im on!
-		    myFriend.getRelationList().tellImOn(theUser);
-		}
-	    //}
+            System.out.println("Found Relation - " + curRelation.getSecondName());
+            //if (curRelation.isFriend() != false) {
+            System.out.println("Relation is a friend - " + curRelation.getSecondName());
+            User myFriend = userListing.getUser(curRelation.getSecondName());
+            if (myFriend != null) {
+                //MY frineds on best tell him im on!
+                myFriend.getRelationList().tellImOn(theUser);
+            }
+            //}
         }
     }
 
@@ -84,7 +84,7 @@ public class UserRelationListing {
 
     /**
      * gets the userRelation of another user,
-     *   returns null if their is none
+     * returns null if their is none
      */
     public UserRelation getRelation(User u) {
         return getRelation(u.getName());
@@ -92,7 +92,7 @@ public class UserRelationListing {
 
     /**
      * gets the userRelation of another user,
-     *   returns null if their is none
+     * returns null if their is none
      */
     public UserRelation getRelation(String userName) {
         try {
@@ -112,7 +112,6 @@ public class UserRelationListing {
     public UserRelation addRelation(String name, String comment, boolean friend, boolean ignore, sql s) throws Exception {
         UserRelation r = getRelation(name);
         boolean isOnline = findFriend(name);
-
 
 
         //ok it allready exsits we have to update it.
@@ -187,11 +186,11 @@ public class UserRelationListing {
 
         //ok now we need to go through and check if were frinds with any body, then tell them were off!!
         Iterator<UserRelation> iterator = relationMap.values().iterator();
-        while(iterator.hasNext() == true){
+        while (iterator.hasNext() == true) {
             UserRelation curRelation = iterator.next();
-            if(curRelation.isFriend() != false){
+            if (curRelation.isFriend() != false) {
                 User myFriend = userListing.getUser(curRelation.getSecondName());
-                if(myFriend != null){
+                if (myFriend != null) {
                     //MY frineds on best tell him im on!
                     myFriend.getRelationList().tellImOff(theUser);
                 }
@@ -199,8 +198,8 @@ public class UserRelationListing {
         }
         this.userListing = null;
         this.theUser = null;
-        
-        
+
+
     }
 
     /**
@@ -231,9 +230,10 @@ public class UserRelationListing {
         return result;
     }
 
-    /** Ok this dose the following
-     *  It goes and sees if this person is online AND is your frind, 
-     *  If both are true return true, else false.
+    /**
+     * Ok this dose the following
+     * It goes and sees if this person is online AND is your frind,
+     * If both are true return true, else false.
      */
     public boolean findFriend(String frindToCheck) {
         //ok is the person to be added online or not?
@@ -245,7 +245,7 @@ public class UserRelationListing {
 
             if (toAddRelation != null) {
                 //if (toAddRelation.friend == true) {
-                    return true;
+                return true;
                 //}
             }
         }
@@ -254,12 +254,12 @@ public class UserRelationListing {
 
     public void tellImOn(User loggingOn) {
         UserRelation r = this.getRelation(loggingOn.getName());
-	System.out.println("Telling Im On - "+loggingOn.getName());
+        System.out.println("Telling Im On - " + loggingOn.getName());
         if (r != null) {
-		System.out.println("R is not null");
+            System.out.println("R is not null");
             UserMsgBox box = this.theUser.getUserMsgBox();
-	    System.out.println("Username: "+theUser.getName());
-	    System.out.println("Logging On Username: "+loggingOn.getName());
+            System.out.println("Username: " + theUser.getName());
+            System.out.println("Logging On Username: " + loggingOn.getName());
             box.addMessage(new MsgOutRelationAdd(theUser.getName(), loggingOn.getName(), r.getComment(), r.isFriend(), r.isIgnore(), true));
         }
     }

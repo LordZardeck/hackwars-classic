@@ -13,25 +13,27 @@ package chat.messages;
  *
  * @author Owner
  */
-public class MsgOutError extends MessageOut{
-    
+public class MsgOutError extends MessageOut {
+
     private String message = null;
-    
-    /** Creates a new instance of MsgOutError */
+
+    /**
+     * Creates a new instance of MsgOutError
+     */
     public MsgOutError(String reciver, String message) {
-        this.setReciver( reciver);
+        this.setReciver(reciver);
         this.message = message;
     }
-    
-    public String getMessage(){
+
+    public String getMessage() {
         return this.message;
     }
-    
+
     /**
-     *  Returns a copy of the object,
+     * Returns a copy of the object,
      */
-    public MessageOut copy(){
+    public MessageOut copy() {
         return new MsgOutError(this.getReciver(), message);
-    }        
-    
+    }
+
 }

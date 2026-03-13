@@ -13,12 +13,14 @@ package chat.messages;
  *
  * @author Owner
  */
-public class MsgInChannelKick extends MessageIn{
-    
+public class MsgInChannelKick extends MessageIn {
+
     private String channelName;
     private String userToBeKicked;
-    
-    /** Creates a new instance of MsgInChannel */
+
+    /**
+     * Creates a new instance of MsgInChannel
+     */
     public MsgInChannelKick(String sender, String channelName, String userToBeKicked) {
         this.setSender(sender);
         this.channelName = channelName;
@@ -28,12 +30,12 @@ public class MsgInChannelKick extends MessageIn{
     public String getChannelName() {
         return channelName;
     }
-    
-    public String getUserToBeKicked(){
+
+    public String getUserToBeKicked() {
         return userToBeKicked;
     }
-    
-    public MessageIn copy(){
-        return new MsgInChannelKick(this.getSender(),channelName, userToBeKicked);
+
+    public MessageIn copy() {
+        return new MsgInChannelKick(this.getSender(), channelName, userToBeKicked);
     }
 }

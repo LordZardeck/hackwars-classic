@@ -1,19 +1,20 @@
 package chat.messages;
 
-public class MsgInRelationList extends MessageIn{
-    
+public class MsgInRelationList extends MessageIn {
 
-    
-    /** Creates a new instance of MsgInChannel */
+
+    /**
+     * Creates a new instance of MsgInChannel
+     */
     public MsgInRelationList(String sender) {
         this.setSender(sender);
     }
 
-    
+
     /**
-     *  Returns a copy of the object,
+     * Returns a copy of the object,
      */
-    public MessageIn copy(){
+    public MessageIn copy() {
         return new MsgInRelationList(this.getSender());
     }
 }

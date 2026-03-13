@@ -1,18 +1,20 @@
 package chat.messages;
 
 
-public class MsgOutChannelText extends MessageOut{
-    
+public class MsgOutChannelText extends MessageOut {
+
     private String channelName;
     private String senderName;
     private String message;
-    
-    /** Creates a new instance of MsgChannel */
+
+    /**
+     * Creates a new instance of MsgChannel
+     */
     public MsgOutChannelText(String reciver, String channelName, String senderName, String message) {
         this.channelName = channelName;
         this.senderName = senderName;
         this.message = message;
-        this.setReciver(reciver); 
+        this.setReciver(reciver);
     }
 
     public String getChannelName() {
@@ -26,11 +28,11 @@ public class MsgOutChannelText extends MessageOut{
     public String getMessage() {
         return message;
     }
-    
+
     /**
-     *  Returns a copy of the object,
+     * Returns a copy of the object,
      */
-    public MessageOut copy(){
-        return new MsgOutChannelText(this.getReciver(), channelName, senderName,message );
-    }    
+    public MessageOut copy() {
+        return new MsgOutChannelText(this.getReciver(), channelName, senderName, message);
+    }
 }

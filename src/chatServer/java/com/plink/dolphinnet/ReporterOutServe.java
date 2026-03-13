@@ -1,4 +1,5 @@
 package com.plink.dolphinnet;
+
 import javax.swing.*;
 import java.util.*;
 import java.util.zip.*;
@@ -8,27 +9,32 @@ import java.awt.*;
 import java.awt.event.*;
 
 /**
-<b>DolphinNet<br />
-Benjamin E. Coe (2006)</b><br /><br />
+ * <b>DolphinNet<br />
+ * Benjamin E. Coe (2006)</b><br /><br />
+ * <p>
+ * The Reporter (client) end implementation of an outbound server.
+ */
+public class ReporterOutServe extends OutServe {
+    int i = 0;
 
-The Reporter (client) end implementation of an outbound server.
-*/
-public class ReporterOutServe extends OutServe{
-	int i=0;
-	///////////////////////
-	// Constructor.
-	ReporterOutServe(Object parent,Socket socket){
-		super(parent,socket);
-	}
+    /// ////////////////////
+    // Constructor.
+    ReporterOutServe(Object parent, Socket socket) {
+        super(parent, socket);
+    }
 
-	/** Get any objects that are currently in queue to be output on this connection. */
-	public synchronized Object getOutObject(int id){
-		Reporter parent=(Reporter)getParent();
-		Object o=parent.getAssignment();
-		return(o);
-	}
+    /**
+     * Get any objects that are currently in queue to be output on this connection.
+     */
+    public synchronized Object getOutObject(int id) {
+        Reporter parent = (Reporter) getParent();
+        Object o = parent.getAssignment();
+        return (o);
+    }
 
-	/** Perform and special initialization steps. */
-	public void specialInit(Socket socket){
-	}
+    /**
+     * Perform and special initialization steps.
+     */
+    public void specialInit(Socket socket) {
+    }
 }

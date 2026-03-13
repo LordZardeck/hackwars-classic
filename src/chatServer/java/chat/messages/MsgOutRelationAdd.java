@@ -1,14 +1,16 @@
 package chat.messages;
 
-public class MsgOutRelationAdd extends MessageOut{
-    
+public class MsgOutRelationAdd extends MessageOut {
+
     private String name;
     private String comment;
     private boolean friend;
     private boolean ignore;
     private boolean online;
-    
-    /** Creates a new instance of MsgInChannel */
+
+    /**
+     * Creates a new instance of MsgInChannel
+     */
     public MsgOutRelationAdd(String reciver, String name, String comment, boolean friend, boolean ignore, boolean online) {
         this.setReciver(reciver);
         //Should clone these,
@@ -19,12 +21,12 @@ public class MsgOutRelationAdd extends MessageOut{
         this.online = online;
     }
 
-    
+
     /**
-     *  Returns a copy of the object,
+     * Returns a copy of the object,
      */
-    public MessageOut copy(){
-        return new MsgOutRelationAdd(this.getReciver(),getName(),getComment(),isFriend(),isIgnore(), isOnline());
+    public MessageOut copy() {
+        return new MsgOutRelationAdd(this.getReciver(), getName(), getComment(), isFriend(), isIgnore(), isOnline());
     }
 
     public String getName() {
@@ -42,8 +44,8 @@ public class MsgOutRelationAdd extends MessageOut{
     public boolean isIgnore() {
         return ignore;
     }
-    
-    public boolean isOnline(){
+
+    public boolean isOnline() {
         return online;
     }
 }

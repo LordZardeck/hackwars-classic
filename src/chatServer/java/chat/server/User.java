@@ -41,11 +41,12 @@ public class User {
     private UserMsgBox msgBox = new UserMsgBox();
     private UserRelationListing relationList;
 
-    /** Use to create a new user or load one in
-     *  The nick is what the user is called by, Its so we dont have to post IP's
-     *  The nick MUST BE UNIQUE
-     *  If the user allready has a nick, and you guve him the wrong one, will load the SQL one,
-     *
+    /**
+     * Use to create a new user or load one in
+     * The nick is what the user is called by, Its so we dont have to post IP's
+     * The nick MUST BE UNIQUE
+     * If the user allready has a nick, and you guve him the wrong one, will load the SQL one,
+     * <p>
      * The user name for HACK wars is their IP, and MUST be unique
      */
     User(String uniqueName, String uniqueNick, String properties, UserListing userListing) throws Exception {
@@ -59,7 +60,8 @@ public class User {
 
     }
 
-    /** updates user if it needs to, other wise dose not
+    /**
+     * updates user if it needs to, other wise dose not
      * Also notify all channels that the user is no longer here
      */
     void userLoggedOut(sql s) throws Exception {
@@ -188,7 +190,7 @@ public class User {
     }
 
     /**
-    Set whether or not this player has been muted.
+     * Set whether or not this player has been muted.
      */
     public void setMuted(boolean muted) {
         this.muted = muted;
@@ -214,7 +216,7 @@ public class User {
 
     /**
      * Sets the property ADMIN is true or false
-     *  The SQL will be updated when the user logs
+     * The SQL will be updated when the user logs
      */
     public void setAdmin(boolean admin) {
         this.admin = admin;
@@ -237,7 +239,7 @@ public class User {
 
     /**
      * Sets the property NO_WHISPER is true or false
-     *  The SQL will be updated when the user logs
+     * The SQL will be updated when the user logs
      */
     public void setNoWhisper(boolean no_whisper) {
         this.noWhisper = no_whisper;
@@ -254,7 +256,7 @@ public class User {
 
     /**
      * Sets the property NO_CHANNEL CREATIION is true or false
-     *  The SQL will be updated when the user logs
+     * The SQL will be updated when the user logs
      */
     public void setNoChannelCreation(boolean no_channel_creation) {
         this.noChannelCreation = no_channel_creation;
@@ -271,7 +273,7 @@ public class User {
 
     /**
      * Sets the property NO_CHANNEL JOIN is true or false
-     *  The SQL will be updated when the user logs
+     * The SQL will be updated when the user logs
      */
     public void setNoChannelJoin(boolean no_channel_join) {
         this.noChannelJoin = no_channel_join;
@@ -293,10 +295,11 @@ public class User {
         return this.uniqueName;
     }
 
-    /** THIS IS ONLY FOR ZUSERCHANNEL NOTHING ELSE SHOULD TOUCH this
+    /**
+     * THIS IS ONLY FOR ZUSERCHANNEL NOTHING ELSE SHOULD TOUCH this
      * A user can subscribe to a channel,
-     *   This is mostly to notfy the chnnel when the user logs.
-     *   And to make sure the user dose not subscribe to too many channels at once.
+     * This is mostly to notfy the chnnel when the user logs.
+     * And to make sure the user dose not subscribe to too many channels at once.
      */
     void zSubscribeToChannel(Channel c) throws Exception {
         try {
@@ -319,9 +322,10 @@ public class User {
 
     }
 
-    /** THIS IS ONLY FOR ZUSERCHANNEL NOTHING ELSE SHOULD TOUCH this
+    /**
+     * THIS IS ONLY FOR ZUSERCHANNEL NOTHING ELSE SHOULD TOUCH this
      * Unsubscribe the user from a channel
-     *   DOES NOT REMOVE THE USER FROM THE CAHNEL STRUCTURE
+     * DOES NOT REMOVE THE USER FROM THE CAHNEL STRUCTURE
      */
     void zUnSubscribeToChannel(Channel c) {
         try {
@@ -365,7 +369,9 @@ public class User {
 
     }
 
-    /** Gets the users message box, where all messages are dumped to*/
+    /**
+     * Gets the users message box, where all messages are dumped to
+     */
     public UserMsgBox getUserMsgBox() {
         return msgBox;
     }

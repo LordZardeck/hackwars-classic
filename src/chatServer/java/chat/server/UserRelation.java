@@ -1,4 +1,5 @@
 package chat.server;
+
 import util.sql;
 
 
@@ -9,70 +10,70 @@ public class UserRelation {
     private boolean update = false;
     private String userMainName = null;
     private String userSecondaryName = null;
-    
-    
-    UserRelation(String userMainName, String userSecondaryName, String comment, String properties ) throws Exception{
+
+
+    UserRelation(String userMainName, String userSecondaryName, String comment, String properties) throws Exception {
         this.userMainName = userMainName;
         this.userSecondaryName = userSecondaryName;
         this.setComment(comment);
         this.loadSQLRelation(properties);
     }
-    
+
     public boolean isIgnore() {
         return ignore;
     }
-    
-    public void setIgnore(boolean ignore){
+
+    public void setIgnore(boolean ignore) {
         this.ignore = ignore;
         this.update = true;
     }
-    
+
     public boolean isFriend() {
         return friend;
     }
-    
-    public void setFriend(boolean friend){
+
+    public void setFriend(boolean friend) {
         this.friend = friend;
         this.update = true;
     }
-    
+
     public String getComment() {
         return comment;
     }
-    
-    public void setComment(String comment) throws Exception{
-        if(comment == null){
+
+    public void setComment(String comment) throws Exception {
+        if (comment == null) {
             comment = "";
         }
-        
-        if(comment.length() > SQLUserRelation.MAX_COMMENT_SIZE){
+
+        if (comment.length() > SQLUserRelation.MAX_COMMENT_SIZE) {
             throw new Exception("Comments can not exceed a length of " + SQLUserRelation.MAX_COMMENT_SIZE);
         }
-        
+
         this.comment = comment;
         this.update = true;
     }
-        
-    void close(sql s) throws Exception{
-	System.out.println("close UserRelation");
+
+    void close(sql s) throws Exception {
+        System.out.println("close UserRelation");
         //if(this.update == true){
-        SQLUserRelation.updateSQL(s, this); 
+        SQLUserRelation.updateSQL(s, this);
         //}
     }
-    
+
     //Converties all the properties to one nice SQL staetment (Probably)
-    String getRelationSQL(){
+    String getRelationSQL() {
         String res = "('";
         boolean first = true;
-        
-        if(this.isFriend() != false){
+
+        if (this.isFriend() != false) {
             res += SQLUserRelation.RELATION_FRIEND;
             first = false;
         }
-        
-        if(this.isIgnore() != false){
-            if(first == false){
-                res +=",";
+
+        if (this.isIgnore() != false) {
+            if (first == false) {
+                res += ",";
             }
             res += SQLUserRelation.RELATION_IGNORE;
             first = false;
@@ -80,33 +81,32 @@ public class UserRelation {
         res += "')";
         return res;
     }
-    
+
     //Give it the sql propeties and it will load them
-    void loadSQLRelation(String s){
-		//System.out.println("Alex User Relation, " + s);
-        if(s == null){
+    void loadSQLRelation(String s) {
+        //System.out.println("Alex User Relation, " + s);
+        if (s == null) {
             this.setFriend(false);
             this.setIgnore(false);
             return;
         }
 
-        if(s.indexOf(SQLUserRelation.RELATION_FRIEND) != -1){
+        if (s.indexOf(SQLUserRelation.RELATION_FRIEND) != -1) {
             this.setFriend(true);
         }
-        if(s.indexOf(SQLUserRelation.RELATION_IGNORE) != -1){
-			//System.out.println("Alex User Relation, IGNORE");
+        if (s.indexOf(SQLUserRelation.RELATION_IGNORE) != -1) {
+            //System.out.println("Alex User Relation, IGNORE");
             this.setIgnore(true);
         }
     }
-    
 
-    
-    public String getSecondName(){
+
+    public String getSecondName() {
         return this.userSecondaryName;
     }
-    
-    public String getMainName(){
+
+    public String getMainName() {
         return this.userMainName;
     }
-    
+
 }
