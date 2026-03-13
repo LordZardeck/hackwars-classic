@@ -1,0 +1,29 @@
+ext.chatServerSourceIncludes = [
+        'Assignments/**/*.java',
+        'Server/**/*.java',
+        'chat/messages/**/*.java',
+        'chat/server/**/*.java',
+        'chat/util/**/*.java',
+        'com/plink/dolphinnet/**/*.java',
+        'util/**/*.java'
+]
+
+tasks.register('compileChatServer', JavaCompile) {
+    group = 'build'
+    description = 'Compiles the dedicated chat server sources into build output using Java 25.'
+    source = fileTree(chatSourceDir) { include chatServerSourceIncludes }
+    classpath = compileDependencyJars
+    destinationDirectory = chatServerBuildOutputDir
+    options.encoding = 'UTF-8'
+    javaCompiler = java25Compiler
+}
+
+tasks.register('runChatServer', JavaExec) {
+    group = 'application'
+    description = 'Runs chatServer/Server.ChatServer.'
+    dependsOn 'compileChatServer'
+    javaLauncher = java25Launcher
+    classpath = files(chatServerBuildOutputDir, resourcesRootDir, legacyRuntimeJars, runtimeDependencyJars)
+    mainClass = 'Server.ChatServer'
+    workingDir = chatServerResourcesDir
+}

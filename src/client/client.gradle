@@ -1,0 +1,74 @@
+ext.clientSourceIncludes = [
+        'Browser/**/*.java',
+        'Client/**/*.java',
+        'GUI/**/*.java',
+        'View/**/*.java'
+]
+
+moduleSourceTreesForHackServer << fileTree(clientSourceDir) { include clientSourceIncludes }
+
+tasks.register('runClientDesktop', JavaExec) {
+    group = 'application'
+    description = 'Starts the desktop client using Client.Launcher as a regular Swing application.'
+    dependsOn 'compileHackServer'
+    javaLauncher = java25Launcher
+    classpath = files(hackServerBuildOutputDir, resourcesRootDir, legacyRuntimeJars, runtimeDependencyJars)
+    mainClass = 'Client.Launcher'
+    workingDir = resourcesRootDir
+}
+
+tasks.register('runClient') {
+    group = 'application'
+    description = 'Alias for runClientDesktop.'
+    dependsOn 'runClientDesktop'
+}
+
+tasks.register('clientLauncherJar', Jar) {
+    group = 'build'
+    description = 'Builds a runnable desktop client jar containing compiled classes and bundled resources.'
+    dependsOn 'compileHackServer'
+    archiveFileName = 'hackwars-client.jar'
+    destinationDirectory = clientPackageInputDir
+    from(hackServerBuildOutputDir)
+    from(resourcesRootDir) {
+        exclude 'chatServer/**'
+    }
+    manifest {
+        attributes('Main-Class': 'Client.Launcher')
+    }
+}
+
+tasks.register('prepareClientNativeInput', Sync) {
+    group = 'distribution'
+    description = 'Stages the client launcher jar and dependency jars for native packaging.'
+    dependsOn 'clientLauncherJar'
+    into clientPackageInputDir
+    from(tasks.named('clientLauncherJar'))
+    from({ legacyRuntimeJarTree.files })
+    from(configurations.managedRuntimeJars)
+}
+
+tasks.register('packageClientNative', Exec) {
+    group = 'distribution'
+    description = 'Builds a native client app image for the current OS (Windows/macOS/Linux) via jpackage.'
+    dependsOn 'prepareClientNativeInput'
+    doFirst {
+        def jpackageExecutable = resolveJpackageExecutable()
+        def inputDir = clientPackageInputDir.get().asFile
+        def outputDir = clientPackageOutputDir.get().asFile
+        outputDir.mkdirs()
+        def args = [
+                jpackageExecutable.absolutePath,
+                '--type', 'app-image',
+                '--input', inputDir.absolutePath,
+                '--dest', outputDir.absolutePath,
+                '--name', 'HackWars',
+                '--main-jar', 'hackwars-client.jar',
+                '--main-class', 'Client.Launcher'
+        ]
+        if (isMac) {
+            args += ['--mac-package-name', 'HackWars']
+        }
+        commandLine(args)
+    }
+}

@@ -18,9 +18,13 @@ warts intact.
 
 ## Project Layout
 
-- `src/main/java`: main game and service Java sources.
-- `src/chatServer/java`: dedicated chat server Java sources.
+- `src/chatServer/java`: dedicated chat server module sources.
+- `src/hackerServer/java`: hacker server module sources.
+- `src/client/java`: desktop client module sources.
+- `src/tomcat/java`: Tomcat integration module sources.
+- `src/hackwars/java`: shared HackWars code used by multiple modules.
 - `src/main/resources`: runtime data files (images, DB zips, config, etc.).
 - `src/main/webapp`: web application assets and `WEB-INF/web.xml`.
+- `src/*/*.gradle`: module-specific Gradle scripts for chat server, hacker server, client, Tomcat, and shared HackWars code.
 - `libs/legacy`: legacy third-party jars bundled into build/runtime classpaths.
 - `build/libs/hackwars.war`: deployable artifact for an external Tomcat server.

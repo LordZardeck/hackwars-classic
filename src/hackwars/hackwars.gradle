@@ -1,0 +1,16 @@
+ext.hackwarsSourceIncludes = [
+        'Assignments/**/*.java',
+        'Game/**/*.java',
+        'Hackscript/**/*.java',
+        'Hacktendo/**/*.java',
+        'Legacy/**/*.java',
+        'chat/client/**/*.java',
+        'chat/messages/**/*.java',
+        'chat/util/**/*.java',
+        'com/plink/Hack3D/**/*.java',
+        'com/plink/dolphinnet/**/*.java',
+        'com/plink/dolphinstem/**/*.java',
+        'util/**/*.java'
+]
+
+moduleSourceTreesForHackServer << fileTree(hackwarsSourceDir) { include hackwarsSourceIncludes }

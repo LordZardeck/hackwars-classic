@@ -1,0 +1,18 @@
+ext.hackerServerSourceIncludes = [
+        'DBAdmin/**/*.java',
+        'HackerSearch/**/*.java',
+        'Server/**/*.java'
+]
+
+moduleSourceTreesForHackServer << fileTree(hackerServerSourceDir) { include hackerServerSourceIncludes }
+
+tasks.register('runHackerServer', JavaExec) {
+    group = 'application'
+    description = 'Runs Server.HackerServer with server id 1.'
+    dependsOn 'compileHackServer'
+    javaLauncher = java25Launcher
+    classpath = files(hackServerBuildOutputDir, resourcesRootDir, legacyRuntimeJars, runtimeDependencyJars)
+    mainClass = 'Server.HackerServer'
+    args '1'
+    workingDir = resourcesRootDir
+}

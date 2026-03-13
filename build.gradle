@@ -24,21 +24,24 @@ sourceSets {
     }
 }
 
-def webappRootDir = layout.projectDirectory.dir('src/main/webapp').asFile
-def resourcesRootDir = layout.projectDirectory.dir('src/main/resources').asFile
-def chatServerResourcesDir = new File(resourcesRootDir, 'chatServer')
-def legacyLibDir = layout.projectDirectory.dir('libs/legacy').asFile
-def mainSourceDir = layout.projectDirectory.dir('src/main/java').asFile
-def chatSourceDir = layout.projectDirectory.dir('src/chatServer/java').asFile
-def tomcatVersion = '6.0.53'
-def localTomcatVersion = providers.gradleProperty('localTomcatVersion').orElse('9.0.104').get()
-def localTomcatMajorVersion = localTomcatVersion.split('\\.')[0]
-def localTomcatBaseName = "apache-tomcat-${localTomcatVersion}"
-def localTomcatRootDir = layout.projectDirectory.dir('build/tomcat').asFile
-def localTomcatHomeDir = localTomcatRootDir
-def localTomcatWebappsDir = new File(localTomcatHomeDir, 'webapps')
-def localTomcatArchiveFile = layout.buildDirectory.file("downloads/${localTomcatBaseName}.tar.gz")
-def localTomcatArchiveUrl = "https://archive.apache.org/dist/tomcat/tomcat-${localTomcatMajorVersion}/v${localTomcatVersion}/bin/${localTomcatBaseName}.tar.gz"
+ext.webappRootDir = layout.projectDirectory.dir('src/main/webapp').asFile
+ext.resourcesRootDir = layout.projectDirectory.dir('src/main/resources').asFile
+ext.chatServerResourcesDir = new File(resourcesRootDir, 'chatServer')
+ext.legacyLibDir = layout.projectDirectory.dir('libs/legacy').asFile
+ext.hackwarsSourceDir = layout.projectDirectory.dir('src/hackwars/java').asFile
+ext.hackerServerSourceDir = layout.projectDirectory.dir('src/hackerServer/java').asFile
+ext.clientSourceDir = layout.projectDirectory.dir('src/client/java').asFile
+ext.tomcatSourceDir = layout.projectDirectory.dir('src/tomcat/java').asFile
+ext.chatSourceDir = layout.projectDirectory.dir('src/chatServer/java').asFile
+ext.tomcatVersion = '6.0.53'
+ext.localTomcatVersion = providers.gradleProperty('localTomcatVersion').orElse('9.0.104').get()
+ext.localTomcatMajorVersion = localTomcatVersion.split('\\.')[0]
+ext.localTomcatBaseName = "apache-tomcat-${localTomcatVersion}"
+ext.localTomcatRootDir = layout.projectDirectory.dir('build/tomcat').asFile
+ext.localTomcatHomeDir = localTomcatRootDir
+ext.localTomcatWebappsDir = new File(localTomcatHomeDir, 'webapps')
+ext.localTomcatArchiveFile = layout.buildDirectory.file("downloads/${localTomcatBaseName}.tar.gz")
+ext.localTomcatArchiveUrl = "https://archive.apache.org/dist/tomcat/tomcat-${localTomcatMajorVersion}/v${localTomcatVersion}/bin/${localTomcatBaseName}.tar.gz"
 
 configurations {
     managedLegacyJars {
@@ -59,123 +62,36 @@ dependencies {
     managedRuntimeJars "net.java.dev.gluegen:gluegen-rt:1.0b05"
 }
 
-def legacyRuntimeJarTree = fileTree(
+ext.legacyRuntimeJarTree = fileTree(
         dir: legacyLibDir,
         include: ['**/*.jar']
 )
-def legacyRuntimeJars = files(legacyRuntimeJarTree)
-def managedRuntimeJars = files(configurations.managedRuntimeJars)
-def legacyCompileJars = files(legacyRuntimeJars, managedRuntimeJars, configurations.managedLegacyJars)
+ext.legacyRuntimeJars = files(legacyRuntimeJarTree)
+ext.runtimeDependencyJars = files(configurations.managedRuntimeJars)
+ext.compileDependencyJars = files(legacyRuntimeJars, runtimeDependencyJars, configurations.managedLegacyJars)
 
-def hackServerSourceIncludes = [
-        'Assignments/**/*.java',
-        'Client/**/*.java',
-        'Browser/**/*.java',
-        'DBAdmin/**/*.java',
-        'GUI/**/*.java',
-        'Game/**/*.java',
-        'HackerLogin/**/*.java',
-        'HackerSearch/**/*.java',
-        'Hackscript/**/*.java',
-        'Hacktendo/**/*.java',
-        'Legacy/**/*.java',
-        'Server/**/*.java',
-        'View/**/*.java',
-        'chat/client/**/*.java',
-        'chat/messages/**/*.java',
-        'chat/util/**/*.java',
-        'com/plink/Hack3D/**/*.java',
-        'com/plink/dolphinnet/**/*.java',
-        'com/plink/dolphinstem/**/*.java',
-        'util/**/*.java'
-]
-
-def chatServerSourceIncludes = [
-        'Assignments/**/*.java',
-        'Server/**/*.java',
-        'chat/messages/**/*.java',
-        'chat/server/**/*.java',
-        'chat/util/**/*.java',
-        'com/plink/dolphinnet/**/*.java',
-        'util/**/*.java'
-]
-
-def java25Compiler = javaToolchains.compilerFor {
+ext.java25Compiler = javaToolchains.compilerFor {
     languageVersion = JavaLanguageVersion.of(25)
 }
 
-def java25Launcher = javaToolchains.launcherFor {
+ext.java25Launcher = javaToolchains.launcherFor {
     languageVersion = JavaLanguageVersion.of(25)
 }
 
-def hackServerBuildOutputDir = layout.buildDirectory.dir('legacy-classes/main')
-def chatServerBuildOutputDir = layout.buildDirectory.dir('legacy-classes/chat')
+ext.hackServerBuildOutputDir = layout.buildDirectory.dir('legacy-classes/main')
+ext.chatServerBuildOutputDir = layout.buildDirectory.dir('legacy-classes/chat')
+ext.moduleSourceTreesForHackServer = []
 
-tasks.register('compileHackServer', JavaCompile) {
-    group = 'build'
-    description = 'Compiles the main HackWars services and client sources into build output using Java 25.'
-    source = fileTree(mainSourceDir) {
-        include hackServerSourceIncludes
-    }
-    classpath = legacyCompileJars
-    destinationDirectory = hackServerBuildOutputDir
-    options.encoding = 'UTF-8'
-    javaCompiler = java25Compiler
-}
-
-tasks.register('compileChatServer', JavaCompile) {
-    group = 'build'
-    description = 'Compiles the dedicated chat server sources into build output using Java 25.'
-    source = fileTree(chatSourceDir) {
-        include chatServerSourceIncludes
-    }
-    classpath = legacyCompileJars
-    destinationDirectory = chatServerBuildOutputDir
-    options.encoding = 'UTF-8'
-    javaCompiler = java25Compiler
-}
-
-tasks.register('compileServices') {
-    group = 'build'
-    description = 'Compiles both main and chat server source sets used by local services.'
-    dependsOn 'compileHackServer', 'compileChatServer'
-}
-
-tasks.named('build') {
-    dependsOn 'compileServices'
-}
-
-tasks.register('runHackerServer', JavaExec) {
-    group = 'application'
-    description = 'Runs Server.HackerServer with server id 1.'
-    dependsOn 'compileHackServer'
-    javaLauncher = java25Launcher
-    classpath = files(hackServerBuildOutputDir, resourcesRootDir, legacyRuntimeJars, managedRuntimeJars)
-    mainClass = 'Server.HackerServer'
-    args '1'
-    workingDir = resourcesRootDir
-}
-
-tasks.register('runChatServer', JavaExec) {
-    group = 'application'
-    description = 'Runs chatServer/Server.ChatServer.'
-    dependsOn 'compileChatServer'
-    javaLauncher = java25Launcher
-    classpath = files(chatServerBuildOutputDir, resourcesRootDir, legacyRuntimeJars, managedRuntimeJars)
-    mainClass = 'Server.ChatServer'
-    workingDir = chatServerResourcesDir
-}
-
-def isWindows = System.getProperty('os.name')
+ext.isWindows = System.getProperty('os.name')
         .toLowerCase(Locale.ROOT)
         .contains('win')
-def isMac = System.getProperty('os.name')
+ext.isMac = System.getProperty('os.name')
         .toLowerCase(Locale.ROOT)
         .contains('mac')
-def clientPackageInputDir = layout.buildDirectory.dir('jpackage/input')
-def clientPackageOutputDir = layout.buildDirectory.dir('jpackage/dist')
+ext.clientPackageInputDir = layout.buildDirectory.dir('jpackage/input')
+ext.clientPackageOutputDir = layout.buildDirectory.dir('jpackage/dist')
 
-def resolveJpackageExecutable = {
+ext.resolveJpackageExecutable = {
     def javaHome = new File(System.getProperty('java.home'))
     def executable = new File(javaHome, isWindows ? 'bin/jpackage.exe' : 'bin/jpackage')
     if (!executable.exists()) {
@@ -184,197 +100,28 @@ def resolveJpackageExecutable = {
     return executable
 }
 
-tasks.named('war', War) {
-    group = 'distribution'
-    description = 'Builds a deployable WAR for an external Tomcat server.'
-    dependsOn 'compileServices'
-    archiveFileName = 'hackwars.war'
-    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
-    from(hackServerBuildOutputDir) {
-        into 'WEB-INF/classes'
-        include '**/*.class'
-    }
-    from(chatServerBuildOutputDir) {
-        into 'WEB-INF/classes/chatServer'
-        include '**/*.class'
-    }
-    from(resourcesRootDir) {
-        into 'WEB-INF/classes'
-    }
-    from({ legacyRuntimeJarTree.files }) {
-        into 'WEB-INF/lib'
-    }
-    from(configurations.managedRuntimeJars) {
-        into 'WEB-INF/lib'
-    }
-    from(webappRootDir) {
-        exclude 'WEB-INF/classes/**'
-        exclude 'WEB-INF/lib/**'
-        exclude 'WEB-INF/*.iml'
-    }
-}
+apply from: 'src/hackwars/hackwars.gradle'
+apply from: 'src/hackerServer/hackerServer.gradle'
+apply from: 'src/client/client.gradle'
+apply from: 'src/tomcat/tomcat.gradle'
+apply from: 'src/chatServer/chatServer.gradle'
 
-tasks.register('deployWar', Copy) {
-    group = 'distribution'
-    description = 'Builds and copies hackwars.war into the managed build/tomcat webapps directory.'
-    dependsOn 'war', 'setupTomcat'
-    doNotTrackState('Tomcat webapps directories may include non-regular filesystem entries.')
-    into(localTomcatWebappsDir)
-    from(tasks.named('war'))
-}
-
-tasks.register('downloadTomcat') {
-    group = 'distribution'
-    description = "Downloads Apache Tomcat ${localTomcatVersion} archive into build/downloads."
-    outputs.file(localTomcatArchiveFile)
-    doLast {
-        def archive = localTomcatArchiveFile.get().asFile
-        if (archive.exists()) {
-            logger.lifecycle("Tomcat archive already exists at ${archive}")
-            return
-        }
-        archive.parentFile.mkdirs()
-        logger.lifecycle("Downloading ${localTomcatArchiveUrl}")
-        new URL(localTomcatArchiveUrl).withInputStream { input ->
-            archive.withOutputStream { output -> output << input }
-        }
-    }
-}
-
-tasks.register('setupTomcat', Copy) {
-    group = 'distribution'
-    description = 'Installs a managed Tomcat distribution under build/tomcat.'
-    dependsOn 'downloadTomcat'
-    from({ tarTree(resources.gzip(localTomcatArchiveFile.get().asFile)) })
-    into(localTomcatRootDir)
-    eachFile {
-        if (!it.path.contains('/')) {
-            it.exclude()
-            return
-        }
-        it.path = it.path.substring(it.path.indexOf('/') + 1)
-    }
-    includeEmptyDirs = false
-    onlyIf {
-        !new File(localTomcatHomeDir, isWindows ? 'bin/catalina.bat' : 'bin/catalina.sh').exists()
-    }
-}
-
-tasks.register('deployLocalTomcatWar') {
-    group = 'distribution'
-    description = 'Alias for deployWar.'
-    dependsOn 'deployWar'
-}
-
-tasks.register('runTomcat', Exec) {
-    group = 'application'
-    description = 'Runs the local Tomcat server in the foreground.'
-    dependsOn 'deployWar'
-    workingDir = localTomcatHomeDir
-    environment 'CATALINA_HOME', localTomcatHomeDir.absolutePath
-    environment 'CATALINA_BASE', localTomcatHomeDir.absolutePath
-    commandLine(
-            isWindows ? 'cmd' : new File(localTomcatHomeDir, 'bin/catalina.sh').absolutePath,
-            *(isWindows
-                    ? ['/c', new File(localTomcatHomeDir, 'bin/catalina.bat').absolutePath, 'run']
-                    : ['run'])
-    )
-    doFirst {
-        if (!isWindows) {
-            new File(localTomcatHomeDir, 'bin/catalina.sh').setExecutable(true)
-        }
-    }
-}
-
-tasks.register('stopTomcat', Exec) {
-    group = 'application'
-    description = 'Stops the local Tomcat server.'
-    dependsOn 'setupTomcat'
-    workingDir = localTomcatHomeDir
-    environment 'CATALINA_HOME', localTomcatHomeDir.absolutePath
-    environment 'CATALINA_BASE', localTomcatHomeDir.absolutePath
-    def catalinaScript = isWindows
-            ? new File(localTomcatHomeDir, 'bin/catalina.bat').absolutePath
-            : new File(localTomcatHomeDir, 'bin/catalina.sh').absolutePath
-    commandLine(
-            isWindows ? 'cmd' : catalinaScript,
-            *(isWindows ? ['/c', catalinaScript, 'stop'] : ['stop'])
-    )
-    ignoreExitValue = true
-    doFirst {
-        if (!isWindows) {
-            new File(localTomcatHomeDir, 'bin/catalina.sh').setExecutable(true)
-        }
-    }
-    doLast {
-        if (executionResult.get().exitValue != 0) {
-            logger.lifecycle('Tomcat was not running or could not be stopped cleanly.')
-        }
-    }
-}
-
-tasks.register('runClientDesktop', JavaExec) {
-    group = 'application'
-    description = 'Starts the desktop client using Client.Launcher as a regular Swing application.'
-    dependsOn 'compileHackServer'
-    javaLauncher = java25Launcher
-    classpath = files(hackServerBuildOutputDir, resourcesRootDir, legacyRuntimeJars, managedRuntimeJars)
-    mainClass = 'Client.Launcher'
-    workingDir = resourcesRootDir
-}
-
-tasks.register('runClient') {
-    group = 'application'
-    description = 'Alias for runClientDesktop.'
-    dependsOn 'runClientDesktop'
-}
-
-tasks.register('clientLauncherJar', Jar) {
+tasks.register('compileHackServer', JavaCompile) {
     group = 'build'
-    description = 'Builds a runnable desktop client jar containing compiled classes and bundled resources.'
-    dependsOn 'compileHackServer'
-    archiveFileName = 'hackwars-client.jar'
-    destinationDirectory = clientPackageInputDir
-    from(hackServerBuildOutputDir)
-    from(resourcesRootDir) {
-        exclude 'chatServer/**'
-    }
-    manifest {
-        attributes('Main-Class': 'Client.Launcher')
-    }
+    description = 'Compiles the HackWars modules for hacker server, client, Tomcat integration, and shared code.'
+    source = files(moduleSourceTreesForHackServer)
+    classpath = compileDependencyJars
+    destinationDirectory = hackServerBuildOutputDir
+    options.encoding = 'UTF-8'
+    javaCompiler = java25Compiler
 }
 
-tasks.register('prepareClientNativeInput', Sync) {
-    group = 'distribution'
-    description = 'Stages the client launcher jar and dependency jars for native packaging.'
-    dependsOn 'clientLauncherJar'
-    into clientPackageInputDir
-    from(tasks.named('clientLauncherJar'))
-    from({ legacyRuntimeJarTree.files })
-    from(configurations.managedRuntimeJars)
+tasks.register('compileServices') {
+    group = 'build'
+    description = 'Compiles all HackWars Java modules used by local services and packaging.'
+    dependsOn 'compileHackServer', 'compileChatServer'
 }
 
-tasks.register('packageClientNative', Exec) {
-    group = 'distribution'
-    description = 'Builds a native client app image for the current OS (Windows/macOS/Linux) via jpackage.'
-    dependsOn 'prepareClientNativeInput'
-    doFirst {
-        def jpackageExecutable = resolveJpackageExecutable()
-        def inputDir = clientPackageInputDir.get().asFile
-        def outputDir = clientPackageOutputDir.get().asFile
-        outputDir.mkdirs()
-        def args = [
-                jpackageExecutable.absolutePath,
-                '--type', 'app-image',
-                '--input', inputDir.absolutePath,
-                '--dest', outputDir.absolutePath,
-                '--name', 'HackWars',
-                '--main-jar', 'hackwars-client.jar',
-                '--main-class', 'Client.Launcher'
-        ]
-        if (isMac) {
-            args += ['--mac-package-name', 'HackWars']
-        }
-        commandLine(args)
-    }
+tasks.named('build') {
+    dependsOn 'compileServices'
 }
