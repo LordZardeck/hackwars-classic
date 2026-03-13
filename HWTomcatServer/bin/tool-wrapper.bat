@@ -59,6 +59,6 @@ shift
 goto setArgs
 :doneSetArgs
 
-%_RUNJAVA% %JAVA_OPTS% %TOOL_OPTS% -Djava.endorsed.dirs="%JAVA_ENDORSED_DIRS%" -classpath "%CLASSPATH%" -Dcatalina.home="%CATALINA_HOME%" org.apache.catalina.startup.Tool %CMD_LINE_ARGS%
+%_RUNJAVA% %JAVA_OPTS% %TOOL_OPTS% -classpath "%CLASSPATH%" -Dcatalina.home="%CATALINA_HOME%" org.apache.catalina.startup.Tool %CMD_LINE_ARGS%
 
 :end

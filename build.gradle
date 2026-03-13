@@ -6,10 +6,10 @@ plugins {
 
 java {
     toolchain {
-        languageVersion = JavaLanguageVersion.of(8)
+        languageVersion = JavaLanguageVersion.of(25)
     }
-    sourceCompatibility = JavaVersion.VERSION_1_8
-    targetCompatibility = JavaVersion.VERSION_1_8
+    sourceCompatibility = JavaVersion.toVersion(25)
+    targetCompatibility = JavaVersion.toVersion(25)
 }
 
 def tomcatHomeDir = layout.projectDirectory.dir('HWTomcatServer').asFile
@@ -58,12 +58,12 @@ def chatServerSourceIncludes = [
         'util/**/*.java'
 ]
 
-def java8Compiler = javaToolchains.compilerFor {
-    languageVersion = JavaLanguageVersion.of(8)
+def java25Compiler = javaToolchains.compilerFor {
+    languageVersion = JavaLanguageVersion.of(25)
 }
 
-def java8Launcher = javaToolchains.launcherFor {
-    languageVersion = JavaLanguageVersion.of(8)
+def java25Launcher = javaToolchains.launcherFor {
+    languageVersion = JavaLanguageVersion.of(25)
 }
 
 def hackServerBuildOutputDir = layout.buildDirectory.dir('legacy-classes/main')
@@ -71,7 +71,7 @@ def chatServerBuildOutputDir = layout.buildDirectory.dir('legacy-classes/chat')
 
 tasks.register('compileHackServer', JavaCompile) {
     group = 'build'
-    description = 'Compiles the main HackWars services and client sources into WEB-INF/classes using Java 8.'
+    description = 'Compiles the main HackWars services and client sources into WEB-INF/classes using Java 25.'
     source = fileTree(classesRootDir) {
         include hackServerSourceIncludes
         exclude 'chatServer/**'
@@ -79,19 +79,19 @@ tasks.register('compileHackServer', JavaCompile) {
     classpath = files(classesRootDir, legacyJars)
     destinationDirectory = hackServerBuildOutputDir
     options.encoding = 'UTF-8'
-    javaCompiler = java8Compiler
+    javaCompiler = java25Compiler
 }
 
 tasks.register('compileChatServer', JavaCompile) {
     group = 'build'
-    description = 'Compiles the dedicated chat server sources into WEB-INF/classes/chatServer using Java 8.'
+    description = 'Compiles the dedicated chat server sources into WEB-INF/classes/chatServer using Java 25.'
     source = fileTree(chatServerRootDir) {
         include chatServerSourceIncludes
     }
     classpath = files(chatServerRootDir, classesRootDir, legacyJars)
     destinationDirectory = chatServerBuildOutputDir
     options.encoding = 'UTF-8'
-    javaCompiler = java8Compiler
+    javaCompiler = java25Compiler
 }
 
 tasks.register('deployServices') {
@@ -126,7 +126,7 @@ tasks.register('runHackerServer', JavaExec) {
     group = 'application'
     description = 'Runs Server.HackerServer with server id 1.'
     dependsOn 'compileHackServer'
-    javaLauncher = java8Launcher
+    javaLauncher = java25Launcher
     classpath = files(hackServerBuildOutputDir, classesRootDir, legacyJars)
     mainClass = 'Server.HackerServer'
     args '1'
@@ -137,7 +137,7 @@ tasks.register('runChatServer', JavaExec) {
     group = 'application'
     description = 'Runs chatServer/Server.ChatServer.'
     dependsOn 'compileChatServer'
-    javaLauncher = java8Launcher
+    javaLauncher = java25Launcher
     classpath = files(chatServerBuildOutputDir, classesRootDir, legacyJars)
     mainClass = 'Server.ChatServer'
     workingDir = chatServerRootDir
@@ -163,11 +163,11 @@ def resolveJpackageExecutable = {
 
 tasks.register('startCatalina', Exec) {
     group = 'application'
-    description = 'Starts Catalina/Tomcat from HWTomcatServer/bin using Java 8.'
+    description = 'Starts Catalina/Tomcat from HWTomcatServer/bin using Java 25.'
     dependsOn 'deployServices'
     workingDir = tomcatBinDir
     doFirst {
-        def javaHome = java8Launcher.get().metadata.installationPath.asFile
+        def javaHome = java25Launcher.get().metadata.installationPath.asFile
         environment 'JAVA_HOME', javaHome.absolutePath
         environment 'CATALINA_HOME', tomcatHomeDir.absolutePath
         environment 'CATALINA_BASE', tomcatHomeDir.absolutePath
@@ -177,11 +177,11 @@ tasks.register('startCatalina', Exec) {
 
 tasks.register('runCatalina', Exec) {
     group = 'application'
-    description = 'Runs Catalina/Tomcat in the foreground from HWTomcatServer/bin using Java 8.'
+    description = 'Runs Catalina/Tomcat in the foreground from HWTomcatServer/bin using Java 25.'
     dependsOn 'deployServices'
     workingDir = tomcatBinDir
     doFirst {
-        def javaHome = java8Launcher.get().metadata.installationPath.asFile
+        def javaHome = java25Launcher.get().metadata.installationPath.asFile
         environment 'JAVA_HOME', javaHome.absolutePath
         environment 'CATALINA_HOME', tomcatHomeDir.absolutePath
         environment 'CATALINA_BASE', tomcatHomeDir.absolutePath
@@ -194,7 +194,7 @@ tasks.register('stopCatalina', Exec) {
     description = 'Stops Catalina/Tomcat from HWTomcatServer/bin.'
     workingDir = tomcatBinDir
     doFirst {
-        def javaHome = java8Launcher.get().metadata.installationPath.asFile
+        def javaHome = java25Launcher.get().metadata.installationPath.asFile
         environment 'JAVA_HOME', javaHome.absolutePath
         environment 'CATALINA_HOME', tomcatHomeDir.absolutePath
         environment 'CATALINA_BASE', tomcatHomeDir.absolutePath
@@ -206,7 +206,7 @@ tasks.register('runClientDesktop', JavaExec) {
     group = 'application'
     description = 'Starts the desktop client using Client.Launcher as a regular Swing application.'
     dependsOn 'compileHackServer'
-    javaLauncher = java8Launcher
+    javaLauncher = java25Launcher
     classpath = files(hackServerBuildOutputDir, classesRootDir, legacyJars)
     mainClass = 'Client.Launcher'
     workingDir = classesRootDir

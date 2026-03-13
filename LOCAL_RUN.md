@@ -50,7 +50,7 @@ Terminal A:
 
 ```bash
 cd HWTomcatServer/bin
-JAVA_HOME=$(/usr/libexec/java_home -v 1.8) \
+JAVA_HOME=$(/usr/libexec/java_home -v 25) \
 CATALINA_BASE=$PWD/.. \
 CATALINA_HOME=$PWD/.. \
 ./catalina.sh run
