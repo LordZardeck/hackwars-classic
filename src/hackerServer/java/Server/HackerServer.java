@@ -205,6 +205,10 @@ public class HackerServer extends IParty implements Runnable, HackerServerBridge
                         } catch (Exception e) {
                         }
 
+                        if (RFC.getFunction() == null) {
+                            continue;
+                        }
+
                         //Sent when you want an array of ports to be updated client side.
                         if (RFC.getFunction().equals("fetchports")) {
                             String ip = (String) ((Object[]) RFC.getParameters())[0];

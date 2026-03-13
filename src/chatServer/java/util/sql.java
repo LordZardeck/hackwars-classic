@@ -198,11 +198,15 @@ public class sql {
     }
 
     public void close() {
+        Connection localConnection = c;
         try {
-            if (c != null)
-                c.close();
+            if (localConnection != null)
+                localConnection.close();
         } catch (Exception e) {
             e.printStackTrace();
+        } finally {
+            c = null;
+            connect = false;
         }
     }
 
@@ -212,6 +216,8 @@ public class sql {
         } catch (ClassNotFoundException oldDriverMissing) {
             Class.forName("com.mysql.cj.jdbc.Driver");
         }
-        return DriverManager.getConnection("jdbc:mysql://" + host + ":" + port + "/" + db, username, password);
+        String jdbcUrl = "jdbc:mysql://" + host + ":" + port + "/" + db
+                + "?useSSL=false&requireSSL=false&verifyServerCertificate=false&allowPublicKeyRetrieval=true";
+        return DriverManager.getConnection(jdbcUrl, username, password);
     }
 }

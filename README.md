@@ -25,6 +25,8 @@ warts intact.
 - `src/hackwars/java`: shared HackWars code used by multiple modules.
 - `src/main/resources`: runtime data files (images, DB zips, config, etc.).
 - `src/main/webapp`: web application assets and `WEB-INF/web.xml`.
-- `src/*/*.gradle`: module-specific Gradle scripts for chat server, hacker server, client, Tomcat, and shared HackWars code.
+- `settings.gradle`: Gradle multi-project wiring for the 5 modules.
+- `src/*/*.gradle`: module-owned Gradle build files (`chatServer.gradle`, `hackerServer.gradle`, `client.gradle`, `tomcat.gradle`, `hackwars.gradle`).
+- Module tasks are run with project-qualified names (for example, `:hackerServer:runHackerServer`, `:tomcat:war`).
 - `libs/legacy`: legacy third-party jars bundled into build/runtime classpaths.
 - `build/libs/hackwars.war`: deployable artifact for an external Tomcat server.

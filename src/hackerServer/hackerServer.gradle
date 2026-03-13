@@ -1,18 +1,24 @@
-ext.hackerServerSourceIncludes = [
-        'DBAdmin/**/*.java',
-        'HackerSearch/**/*.java',
-        'Server/**/*.java'
-]
-
-moduleSourceTreesForHackServer << fileTree(hackerServerSourceDir) { include hackerServerSourceIncludes }
+dependencies {
+    implementation project(':hackwars')
+    implementation project(':client')
+    implementation fileTree(dir: "${rootDir}/libs/legacy", include: ['**/*.jar'])
+}
 
 tasks.register('runHackerServer', JavaExec) {
     group = 'application'
     description = 'Runs Server.HackerServer with server id 1.'
-    dependsOn 'compileHackServer'
-    javaLauncher = java25Launcher
-    classpath = files(hackServerBuildOutputDir, resourcesRootDir, legacyRuntimeJars, runtimeDependencyJars)
+    dependsOn tasks.named('classes')
+    javaLauncher = javaToolchains.launcherFor {
+        languageVersion = JavaLanguageVersion.of(rootProject.ext.javaToolchainVersion as Integer)
+    }
+    classpath = files(
+            sourceSets.main.output,
+            project(':hackwars').sourceSets.main.output,
+            project(':client').sourceSets.main.output,
+            sourceSets.main.runtimeClasspath,
+            rootProject.ext.resourcesRootDir
+    )
     mainClass = 'Server.HackerServer'
     args '1'
-    workingDir = resourcesRootDir
+    workingDir = rootProject.ext.resourcesRootDir
 }

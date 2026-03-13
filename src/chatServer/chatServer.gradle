@@ -1,29 +1,24 @@
-ext.chatServerSourceIncludes = [
-        'Assignments/**/*.java',
-        'Server/**/*.java',
-        'chat/messages/**/*.java',
-        'chat/server/**/*.java',
-        'chat/util/**/*.java',
-        'com/plink/dolphinnet/**/*.java',
-        'util/**/*.java'
-]
+dependencies {
+    implementation project(':hackwars')
+    implementation 'mysql:mysql-connector-java:5.1.49'
+}
 
-tasks.register('compileChatServer', JavaCompile) {
-    group = 'build'
-    description = 'Compiles the dedicated chat server sources into build output using Java 25.'
-    source = fileTree(chatSourceDir) { include chatServerSourceIncludes }
-    classpath = compileDependencyJars
-    destinationDirectory = chatServerBuildOutputDir
-    options.encoding = 'UTF-8'
-    javaCompiler = java25Compiler
+def moduleChatServerResourcesDir = file("${projectDir}/resources")
+
+sourceSets {
+    main {
+        resources.setSrcDirs(['resources'])
+    }
 }
 
 tasks.register('runChatServer', JavaExec) {
     group = 'application'
     description = 'Runs chatServer/Server.ChatServer.'
-    dependsOn 'compileChatServer'
-    javaLauncher = java25Launcher
-    classpath = files(chatServerBuildOutputDir, resourcesRootDir, legacyRuntimeJars, runtimeDependencyJars)
+    dependsOn tasks.named('classes')
+    javaLauncher = javaToolchains.launcherFor {
+        languageVersion = JavaLanguageVersion.of(rootProject.ext.javaToolchainVersion as Integer)
+    }
+    classpath = sourceSets.main.runtimeClasspath
     mainClass = 'Server.ChatServer'
-    workingDir = chatServerResourcesDir
+    workingDir = moduleChatServerResourcesDir
 }

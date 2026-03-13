@@ -1,1 +1,21 @@
 rootProject.name = 'hackwars-classic-original'
+
+include ':hackwars'
+project(':hackwars').projectDir = file('src/hackwars')
+project(':hackwars').buildFileName = 'hackwars.gradle'
+
+include ':hackerServer'
+project(':hackerServer').projectDir = file('src/hackerServer')
+project(':hackerServer').buildFileName = 'hackerServer.gradle'
+
+include ':client'
+project(':client').projectDir = file('src/client')
+project(':client').buildFileName = 'client.gradle'
+
+include ':tomcat'
+project(':tomcat').projectDir = file('src/tomcat')
+project(':tomcat').buildFileName = 'tomcat.gradle'
+
+include ':chatServer'
+project(':chatServer').projectDir = file('src/chatServer')
+project(':chatServer').buildFileName = 'chatServer.gradle'

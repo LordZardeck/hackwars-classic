@@ -1,0 +1,206 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<module external.linked.project.id=":hackerServer:main" external.linked.project.path="$MODULE_DIR$/../../../../src/hackerServer" external.root.project.path="$MODULE_DIR$/../../../.." external.system.id="GRADLE" external.system.module.group="hackwars-classic-original" external.system.module.type="sourceSet" external.system.module.version="unspecified" type="JAVA_MODULE" version="4">
+  <component name="NewModuleRootManager">
+    <output url="file://$MODULE_DIR$/../../../../src/hackerServer/build/classes/java/main" />
+    <exclude-output />
+    <content url="file://$MODULE_DIR$/../../../../src/hackerServer/java">
+      <sourceFolder url="file://$MODULE_DIR$/../../../../src/hackerServer/java" isTestSource="false" />
+    </content>
+    <orderEntry type="inheritedJdk" />
+    <orderEntry type="sourceFolder" forTests="false" />
+    <orderEntry type="module-library">
+      <library name="Gradle: Hack.jar">
+        <CLASSES>
+          <root url="jar://$MODULE_DIR$/../../../../libs/legacy/Hack.jar!/" />
+        </CLASSES>
+        <JAVADOC />
+        <SOURCES />
+      </library>
+    </orderEntry>
+    <orderEntry type="module-library">
+      <library name="Gradle: gluegen-rt-natives-solaris-i586.jar">
+        <CLASSES>
+          <root url="jar://$MODULE_DIR$/../../../../libs/legacy/JOGL/gluegen-rt-natives-solaris-i586.jar!/" />
+        </CLASSES>
+        <JAVADOC />
+        <SOURCES />
+      </library>
+    </orderEntry>
+    <orderEntry type="module-library">
+      <library name="Gradle: jogl-natives-linux-amd64.jar">
+        <CLASSES>
+          <root url="jar://$MODULE_DIR$/../../../../libs/legacy/JOGL/jogl-natives-linux-amd64.jar!/" />
+        </CLASSES>
+        <JAVADOC />
+        <SOURCES />
+      </library>
+    </orderEntry>
+    <orderEntry type="module-library">
+      <library name="Gradle: jogl-natives-linux-i586.jar">
+        <CLASSES>
+          <root url="jar://$MODULE_DIR$/../../../../libs/legacy/JOGL/jogl-natives-linux-i586.jar!/" />
+        </CLASSES>
+        <JAVADOC />
+        <SOURCES />
+      </library>
+    </orderEntry>
+    <orderEntry type="module-library">
+      <library name="Gradle: gluegen-rt-natives-macosx-universal.jar">
+        <CLASSES>
+          <root url="jar://$MODULE_DIR$/../../../../libs/legacy/JOGL/gluegen-rt-natives-macosx-universal.jar!/" />
+        </CLASSES>
+        <JAVADOC />
+        <SOURCES />
+      </library>
+    </orderEntry>
+    <orderEntry type="module-library">
+      <library name="Gradle: jogl-natives-windows-i586.jar">
+        <CLASSES>
+          <root url="jar://$MODULE_DIR$/../../../../libs/legacy/JOGL/jogl-natives-windows-i586.jar!/" />
+        </CLASSES>
+        <JAVADOC />
+        <SOURCES />
+      </library>
+    </orderEntry>
+    <orderEntry type="module-library">
+      <library name="Gradle: gluegen-rt-natives-macosx-ppc.jar">
+        <CLASSES>
+          <root url="jar://$MODULE_DIR$/../../../../libs/legacy/JOGL/gluegen-rt-natives-macosx-ppc.jar!/" />
+        </CLASSES>
+        <JAVADOC />
+        <SOURCES />
+      </library>
+    </orderEntry>
+    <orderEntry type="module-library">
+      <library name="Gradle: jogl-natives-macosx-ppc.jar">
+        <CLASSES>
+          <root url="jar://$MODULE_DIR$/../../../../libs/legacy/JOGL/jogl-natives-macosx-ppc.jar!/" />
+        </CLASSES>
+        <JAVADOC />
+        <SOURCES />
+      </library>
+    </orderEntry>
+    <orderEntry type="module-library">
+      <library name="Gradle: gluegen-rt-natives-linux-amd64.jar">
+        <CLASSES>
+          <root url="jar://$MODULE_DIR$/../../../../libs/legacy/JOGL/gluegen-rt-natives-linux-amd64.jar!/" />
+        </CLASSES>
+        <JAVADOC />
+        <SOURCES />
+      </library>
+    </orderEntry>
+    <orderEntry type="module-library">
+      <library name="Gradle: jogl-natives-solaris-sparcv9.jar">
+        <CLASSES>
+          <root url="jar://$MODULE_DIR$/../../../../libs/legacy/JOGL/jogl-natives-solaris-sparcv9.jar!/" />
+        </CLASSES>
+        <JAVADOC />
+        <SOURCES />
+      </library>
+    </orderEntry>
+    <orderEntry type="module-library">
+      <library name="Gradle: gluegen-rt-natives-windows-i586.jar">
+        <CLASSES>
+          <root url="jar://$MODULE_DIR$/../../../../libs/legacy/JOGL/gluegen-rt-natives-windows-i586.jar!/" />
+        </CLASSES>
+        <JAVADOC />
+        <SOURCES />
+      </library>
+    </orderEntry>
+    <orderEntry type="module-library">
+      <library name="Gradle: jogl-natives-solaris-amd64.jar">
+        <CLASSES>
+          <root url="jar://$MODULE_DIR$/../../../../libs/legacy/JOGL/jogl-natives-solaris-amd64.jar!/" />
+        </CLASSES>
+        <JAVADOC />
+        <SOURCES />
+      </library>
+    </orderEntry>
+    <orderEntry type="module-library">
+      <library name="Gradle: jogl-natives-macosx-universal.jar">
+        <CLASSES>
+          <root url="jar://$MODULE_DIR$/../../../../libs/legacy/JOGL/jogl-natives-macosx-universal.jar!/" />
+        </CLASSES>
+        <JAVADOC />
+        <SOURCES />
+      </library>
+    </orderEntry>
+    <orderEntry type="module-library">
+      <library name="Gradle: gluegen-rt-natives-solaris-amd64.jar">
+        <CLASSES>
+          <root url="jar://$MODULE_DIR$/../../../../libs/legacy/JOGL/gluegen-rt-natives-solaris-amd64.jar!/" />
+        </CLASSES>
+        <JAVADOC />
+        <SOURCES />
+      </library>
+    </orderEntry>
+    <orderEntry type="module-library">
+      <library name="Gradle: gluegen-rt-natives-linux-i586.jar">
+        <CLASSES>
+          <root url="jar://$MODULE_DIR$/../../../../libs/legacy/JOGL/gluegen-rt-natives-linux-i586.jar!/" />
+        </CLASSES>
+        <JAVADOC />
+        <SOURCES />
+      </library>
+    </orderEntry>
+    <orderEntry type="module-library">
+      <library name="Gradle: jogl-natives-solaris-i586.jar">
+        <CLASSES>
+          <root url="jar://$MODULE_DIR$/../../../../libs/legacy/JOGL/jogl-natives-solaris-i586.jar!/" />
+        </CLASSES>
+        <JAVADOC />
+        <SOURCES />
+      </library>
+    </orderEntry>
+    <orderEntry type="module-library">
+      <library name="Gradle: jogl-natives-solaris-sparc.jar">
+        <CLASSES>
+          <root url="jar://$MODULE_DIR$/../../../../libs/legacy/JOGL/jogl-natives-solaris-sparc.jar!/" />
+        </CLASSES>
+        <JAVADOC />
+        <SOURCES />
+      </library>
+    </orderEntry>
+    <orderEntry type="module-library">
+      <library name="Gradle: jogl-natives-windows-amd64.jar">
+        <CLASSES>
+          <root url="jar://$MODULE_DIR$/../../../../libs/legacy/JOGL/jogl-natives-windows-amd64.jar!/" />
+        </CLASSES>
+        <JAVADOC />
+        <SOURCES />
+      </library>
+    </orderEntry>
+    <orderEntry type="module-library">
+      <library name="Gradle: gluegen-rt-natives-windows-amd64.jar">
+        <CLASSES>
+          <root url="jar://$MODULE_DIR$/../../../../libs/legacy/JOGL/gluegen-rt-natives-windows-amd64.jar!/" />
+        </CLASSES>
+        <JAVADOC />
+        <SOURCES />
+      </library>
+    </orderEntry>
+    <orderEntry type="module-library">
+      <library name="Gradle: gluegen-rt-natives-solaris-sparc.jar">
+        <CLASSES>
+          <root url="jar://$MODULE_DIR$/../../../../libs/legacy/JOGL/gluegen-rt-natives-solaris-sparc.jar!/" />
+        </CLASSES>
+        <JAVADOC />
+        <SOURCES />
+      </library>
+    </orderEntry>
+    <orderEntry type="module-library">
+      <library name="Gradle: gluegen-rt-natives-solaris-sparcv9.jar">
+        <CLASSES>
+          <root url="jar://$MODULE_DIR$/../../../../libs/legacy/JOGL/gluegen-rt-natives-solaris-sparcv9.jar!/" />
+        </CLASSES>
+        <JAVADOC />
+        <SOURCES />
+      </library>
+    </orderEntry>
+    <orderEntry type="module" module-name="hackwars-classic-original.hackwars.main" />
+    <orderEntry type="module" module-name="hackwars-classic-original.client.main" />
+    <orderEntry type="library" scope="RUNTIME" name="Gradle: net.java.dev.jogl:jogl:1.1.1-rc6" level="project" />
+    <orderEntry type="library" scope="RUNTIME" name="Gradle: net.java.dev.gluegen:gluegen-rt:1.0b05" level="project" />
+    <orderEntry type="library" scope="RUNTIME" name="Gradle: mysql:mysql-connector-java:5.1.49" level="project" />
+  </component>
+</module>

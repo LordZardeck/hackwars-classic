@@ -204,11 +204,16 @@ public class sql{
     }
 	
 		public void close(){
+			Connection localConnection=c;
 			try{
-				if(c!=null)
-					c.close();
+				if(localConnection!=null){
+					localConnection.close();
+				}
 			}catch(Exception e){
 				e.printStackTrace();
+			}finally{
+				c=null;
+				connect=false;
 			}
 		}
 

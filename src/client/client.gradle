@@ -1,25 +1,66 @@
-ext.clientSourceIncludes = [
-        'Browser/**/*.java',
-        'Client/**/*.java',
-        'GUI/**/*.java',
-        'View/**/*.java',
-        'Game/MMO/**/*.java',
-        'Hacktendo/**/*.java',
-        'chat/client/**/*.java',
-        'com/plink/Hack3D/**/*.java',
-        'org/plink/Hack3D/**/*.java'
-]
+import java.util.Locale
 
-moduleSourceTreesForHackServer << fileTree(clientSourceDir) { include clientSourceIncludes }
+dependencies {
+    implementation project(':hackwars')
+    implementation 'net.java.dev.jogl:jogl:1.1.1-rc6'
+    implementation 'net.java.dev.gluegen:gluegen-rt:1.0b05'
+    implementation fileTree(dir: "${rootDir}/libs/legacy", include: ['**/*.jar'])
+}
+
+sourceSets {
+    main {
+        java {
+            include 'Browser/**/*.java'
+            include 'Client/**/*.java'
+            include 'GUI/**/*.java'
+            include 'View/**/*.java'
+            include 'Game/MMO/**/*.java'
+            include 'Hacktendo/**/*.java'
+            include 'chat/client/**/*.java'
+            include 'com/plink/Hack3D/**/*.java'
+        }
+    }
+}
+
+configurations {
+    nativePackageRuntimeJars
+}
+
+dependencies {
+    nativePackageRuntimeJars 'net.java.dev.jogl:jogl:1.1.1-rc6'
+    nativePackageRuntimeJars 'net.java.dev.gluegen:gluegen-rt:1.0b05'
+    nativePackageRuntimeJars fileTree(dir: "${rootDir}/libs/legacy", include: ['**/*.jar'])
+}
+
+def clientPackageInputDir = layout.buildDirectory.dir('jpackage/input')
+def clientPackageOutputDir = layout.buildDirectory.dir('jpackage/dist')
+def isWindows = System.getProperty('os.name').toLowerCase(Locale.ROOT).contains('win')
+def isMac = System.getProperty('os.name').toLowerCase(Locale.ROOT).contains('mac')
+
+def resolveJpackageExecutable = {
+    def javaHome = new File(System.getProperty('java.home'))
+    def executable = new File(javaHome, isWindows ? 'bin/jpackage.exe' : 'bin/jpackage')
+    if (!executable.exists()) {
+        throw new GradleException("jpackage was not found under ${javaHome}. Run Gradle with a JDK that includes jpackage (JDK 17+ recommended).")
+    }
+    return executable
+}
 
 tasks.register('runClientDesktop', JavaExec) {
     group = 'application'
     description = 'Starts the desktop client using Client.Launcher as a regular Swing application.'
-    dependsOn 'compileHackServer'
-    javaLauncher = java25Launcher
-    classpath = files(hackServerBuildOutputDir, resourcesRootDir, legacyRuntimeJars, runtimeDependencyJars)
+    dependsOn tasks.named('classes'), project(':hackwars').tasks.named('classes')
+    javaLauncher = javaToolchains.launcherFor {
+        languageVersion = JavaLanguageVersion.of(rootProject.ext.javaToolchainVersion as Integer)
+    }
+    classpath = files(
+            sourceSets.main.output,
+            project(':hackwars').sourceSets.main.output,
+            sourceSets.main.runtimeClasspath,
+            rootProject.ext.resourcesRootDir
+    )
     mainClass = 'Client.Launcher'
-    workingDir = resourcesRootDir
+    workingDir = rootProject.ext.resourcesRootDir
 }
 
 tasks.register('runClient') {
@@ -31,11 +72,12 @@ tasks.register('runClient') {
 tasks.register('clientLauncherJar', Jar) {
     group = 'build'
     description = 'Builds a runnable desktop client jar containing compiled classes and bundled resources.'
-    dependsOn 'compileHackServer'
+    dependsOn tasks.named('classes'), project(':hackwars').tasks.named('classes')
     archiveFileName = 'hackwars-client.jar'
-    destinationDirectory = clientPackageInputDir
-    from(hackServerBuildOutputDir)
-    from(resourcesRootDir) {
+    destinationDirectory = clientPackageInputDir.get().asFile
+    from(sourceSets.main.output)
+    from(project(':hackwars').sourceSets.main.output)
+    from(rootProject.ext.resourcesRootDir) {
         exclude 'chatServer/**'
     }
     manifest {
@@ -49,8 +91,7 @@ tasks.register('prepareClientNativeInput', Sync) {
     dependsOn 'clientLauncherJar'
     into clientPackageInputDir
     from(tasks.named('clientLauncherJar'))
-    from({ legacyRuntimeJarTree.files })
-    from(configurations.managedRuntimeJars)
+    from(configurations.nativePackageRuntimeJars)
 }
 
 tasks.register('packageClientNative', Exec) {

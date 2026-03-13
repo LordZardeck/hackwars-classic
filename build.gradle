@@ -1,127 +1,40 @@
-import java.util.Locale
-
 plugins {
-    id 'java'
-    id 'war'
+    id 'base'
 }
 
-repositories {
-    mavenCentral()
+group = 'com.hackwars'
+version = '0.1.0'
+
+ext {
+    javaToolchainVersion = 25
+    resourcesRootDir = file("${rootDir}/src/main/resources")
 }
 
-java {
-    toolchain {
-        languageVersion = JavaLanguageVersion.of(25)
-    }
-    sourceCompatibility = JavaVersion.toVersion(25)
-    targetCompatibility = JavaVersion.toVersion(25)
-}
-
-sourceSets {
-    main {
-        java.setSrcDirs([])
-        resources.setSrcDirs([])
+allprojects {
+    repositories {
+        mavenCentral()
     }
 }
 
-ext.webappRootDir = layout.projectDirectory.dir('src/main/webapp').asFile
-ext.resourcesRootDir = layout.projectDirectory.dir('src/main/resources').asFile
-ext.chatServerResourcesDir = new File(resourcesRootDir, 'chatServer')
-ext.legacyLibDir = layout.projectDirectory.dir('libs/legacy').asFile
-ext.hackwarsSourceDir = layout.projectDirectory.dir('src/hackwars/java').asFile
-ext.hackerServerSourceDir = layout.projectDirectory.dir('src/hackerServer/java').asFile
-ext.clientSourceDir = layout.projectDirectory.dir('src/client/java').asFile
-ext.tomcatSourceDir = layout.projectDirectory.dir('src/tomcat/java').asFile
-ext.chatSourceDir = layout.projectDirectory.dir('src/chatServer/java').asFile
-ext.tomcatVersion = '6.0.53'
-ext.localTomcatVersion = providers.gradleProperty('localTomcatVersion').orElse('9.0.104').get()
-ext.localTomcatMajorVersion = localTomcatVersion.split('\\.')[0]
-ext.localTomcatBaseName = "apache-tomcat-${localTomcatVersion}"
-ext.localTomcatRootDir = layout.projectDirectory.dir('build/tomcat').asFile
-ext.localTomcatHomeDir = localTomcatRootDir
-ext.localTomcatWebappsDir = new File(localTomcatHomeDir, 'webapps')
-ext.localTomcatArchiveFile = layout.buildDirectory.file("downloads/${localTomcatBaseName}.tar.gz")
-ext.localTomcatArchiveUrl = "https://archive.apache.org/dist/tomcat/tomcat-${localTomcatMajorVersion}/v${localTomcatVersion}/bin/${localTomcatBaseName}.tar.gz"
+subprojects {
+    apply plugin: 'java'
 
-configurations {
-    managedLegacyJars {
-        transitive = false
+    java {
+        toolchain {
+            languageVersion = JavaLanguageVersion.of(rootProject.ext.javaToolchainVersion as Integer)
+        }
+        sourceCompatibility = JavaVersion.toVersion(rootProject.ext.javaToolchainVersion as Integer)
+        targetCompatibility = JavaVersion.toVersion(rootProject.ext.javaToolchainVersion as Integer)
     }
-    managedRuntimeJars
-}
 
-dependencies {
-    managedLegacyJars "org.apache.tomcat:servlet-api:${tomcatVersion}"
-    managedLegacyJars "org.apache.tomcat:jsp-api:${tomcatVersion}"
-    managedLegacyJars "org.apache.tomcat:el-api:${tomcatVersion}"
-    managedRuntimeJars "mysql:mysql-connector-java:5.1.49"
-    managedRuntimeJars "javax.servlet:jstl:1.2"
-    managedRuntimeJars "taglibs:standard:1.1.2"
-    managedRuntimeJars "commons-logging:commons-logging:1.2"
-    managedRuntimeJars "net.java.dev.jogl:jogl:1.1.1-rc6"
-    managedRuntimeJars "net.java.dev.gluegen:gluegen-rt:1.0b05"
-}
-
-ext.legacyRuntimeJarTree = fileTree(
-        dir: legacyLibDir,
-        include: ['**/*.jar']
-)
-ext.legacyRuntimeJars = files(legacyRuntimeJarTree)
-ext.runtimeDependencyJars = files(configurations.managedRuntimeJars)
-ext.compileDependencyJars = files(legacyRuntimeJars, runtimeDependencyJars, configurations.managedLegacyJars)
-
-ext.java25Compiler = javaToolchains.compilerFor {
-    languageVersion = JavaLanguageVersion.of(25)
-}
-
-ext.java25Launcher = javaToolchains.launcherFor {
-    languageVersion = JavaLanguageVersion.of(25)
-}
-
-ext.hackServerBuildOutputDir = layout.buildDirectory.dir('legacy-classes/main')
-ext.chatServerBuildOutputDir = layout.buildDirectory.dir('legacy-classes/chat')
-ext.moduleSourceTreesForHackServer = []
-
-ext.isWindows = System.getProperty('os.name')
-        .toLowerCase(Locale.ROOT)
-        .contains('win')
-ext.isMac = System.getProperty('os.name')
-        .toLowerCase(Locale.ROOT)
-        .contains('mac')
-ext.clientPackageInputDir = layout.buildDirectory.dir('jpackage/input')
-ext.clientPackageOutputDir = layout.buildDirectory.dir('jpackage/dist')
-
-ext.resolveJpackageExecutable = {
-    def javaHome = new File(System.getProperty('java.home'))
-    def executable = new File(javaHome, isWindows ? 'bin/jpackage.exe' : 'bin/jpackage')
-    if (!executable.exists()) {
-        throw new GradleException("jpackage was not found under ${javaHome}. Run Gradle with a JDK that includes jpackage (JDK 17+ recommended).")
+    sourceSets {
+        main {
+            java.setSrcDirs(['java'])
+            resources.setSrcDirs([])
+        }
     }
-    return executable
-}
 
-apply from: 'src/hackwars/hackwars.gradle'
-apply from: 'src/hackerServer/hackerServer.gradle'
-apply from: 'src/client/client.gradle'
-apply from: 'src/tomcat/tomcat.gradle'
-apply from: 'src/chatServer/chatServer.gradle'
-
-tasks.register('compileHackServer', JavaCompile) {
-    group = 'build'
-    description = 'Compiles the HackWars modules for hacker server, client, Tomcat integration, and shared code.'
-    source = files(moduleSourceTreesForHackServer)
-    classpath = compileDependencyJars
-    destinationDirectory = hackServerBuildOutputDir
-    options.encoding = 'UTF-8'
-    javaCompiler = java25Compiler
-}
-
-tasks.register('compileServices') {
-    group = 'build'
-    description = 'Compiles all HackWars Java modules used by local services and packaging.'
-    dependsOn 'compileHackServer', 'compileChatServer'
-}
-
-tasks.named('build') {
-    dependsOn 'compileServices'
+    tasks.withType(JavaCompile).configureEach {
+        options.encoding = 'UTF-8'
+    }
 }

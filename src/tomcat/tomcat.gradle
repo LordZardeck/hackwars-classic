@@ -1,33 +1,80 @@
-ext.tomcatSourceIncludes = [
-        'HackerLogin/**/*.java'
-]
+import java.util.Locale
 
-moduleSourceTreesForHackServer << fileTree(tomcatSourceDir) { include tomcatSourceIncludes }
+apply plugin: 'war'
+
+dependencies {
+    compileOnly 'org.apache.tomcat:servlet-api:6.0.53'
+    implementation project(':hackwars')
+    implementation project(':hackerServer')
+    implementation project(':client')
+}
+
+configurations {
+    managedRuntimeJars
+}
+
+dependencies {
+    managedRuntimeJars 'mysql:mysql-connector-java:5.1.49'
+    managedRuntimeJars 'javax.servlet:jstl:1.2'
+    managedRuntimeJars 'taglibs:standard:1.1.2'
+    managedRuntimeJars 'commons-logging:commons-logging:1.2'
+    managedRuntimeJars 'net.java.dev.jogl:jogl:1.1.1-rc6'
+    managedRuntimeJars 'net.java.dev.gluegen:gluegen-rt:1.0b05'
+    managedRuntimeJars fileTree(dir: "${rootDir}/libs/legacy", include: ['**/*.jar'])
+}
+
+def localTomcatVersion = providers.gradleProperty('localTomcatVersion').orElse('9.0.104').get()
+def localTomcatMajorVersion = localTomcatVersion.split('\\.')[0]
+def localTomcatBaseName = "apache-tomcat-${localTomcatVersion}"
+def localTomcatRootDir = rootProject.layout.buildDirectory.dir('tomcat').get().asFile
+def localTomcatHomeDir = localTomcatRootDir
+def localTomcatWebappsDir = new File(localTomcatHomeDir, 'webapps')
+def localTomcatArchiveFile = rootProject.layout.buildDirectory.file("downloads/${localTomcatBaseName}.tar.gz")
+def localTomcatArchiveUrl = "https://archive.apache.org/dist/tomcat/tomcat-${localTomcatMajorVersion}/v${localTomcatVersion}/bin/${localTomcatBaseName}.tar.gz"
+def moduleWebappRootDir = file("${rootDir}/src/main/webapp")
+def isWindows = System.getProperty('os.name').toLowerCase(Locale.ROOT).contains('win')
 
 tasks.named('war', War) {
     group = 'distribution'
     description = 'Builds a deployable WAR for an external Tomcat server.'
-    dependsOn 'compileServices'
+    dependsOn(
+            project(':hackwars').tasks.named('classes'),
+            project(':hackerServer').tasks.named('classes'),
+            project(':client').tasks.named('classes'),
+            project(':chatServer').tasks.named('classes'),
+            tasks.named('classes')
+    )
     archiveFileName = 'hackwars.war'
+    destinationDirectory = rootProject.layout.buildDirectory.dir('libs').get().asFile
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
-    from(hackServerBuildOutputDir) {
+
+    from(project(':hackwars').sourceSets.main.output) {
         into 'WEB-INF/classes'
         include '**/*.class'
     }
-    from(chatServerBuildOutputDir) {
+    from(project(':hackerServer').sourceSets.main.output) {
+        into 'WEB-INF/classes'
+        include '**/*.class'
+    }
+    from(project(':client').sourceSets.main.output) {
+        into 'WEB-INF/classes'
+        include '**/*.class'
+    }
+    from(sourceSets.main.output) {
+        into 'WEB-INF/classes'
+        include '**/*.class'
+    }
+    from(project(':chatServer').sourceSets.main.output) {
         into 'WEB-INF/classes/chatServer'
         include '**/*.class'
     }
-    from(resourcesRootDir) {
+    from(rootProject.ext.resourcesRootDir) {
         into 'WEB-INF/classes'
-    }
-    from({ legacyRuntimeJarTree.files }) {
-        into 'WEB-INF/lib'
     }
     from(configurations.managedRuntimeJars) {
         into 'WEB-INF/lib'
     }
-    from(webappRootDir) {
+    from(moduleWebappRootDir) {
         exclude 'WEB-INF/classes/**'
         exclude 'WEB-INF/lib/**'
         exclude 'WEB-INF/*.iml'

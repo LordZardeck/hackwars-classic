@@ -1,15 +1,22 @@
-ext.hackwarsSourceIncludes = [
-        'Assignments/**/*.java',
-        'Game/**/*.java',
-        'Hackscript/**/*.java',
-        'HackerLogin/Toy*.java',
-        'Legacy/**/*.java',
-        'chat/messages/**/*.java',
-        'chat/util/**/*.java',
-        'com/plink/dolphinnet/**/*.java',
-        'com/plink/dolphinstem/**/*.java',
-        'View/Task.java',
-        'util/**/*.java'
-]
+dependencies {
+    implementation 'mysql:mysql-connector-java:5.1.49'
+    implementation fileTree(dir: "${rootDir}/libs/legacy", include: ['**/*.jar'])
+}
 
-moduleSourceTreesForHackServer << fileTree(hackwarsSourceDir) { include hackwarsSourceIncludes }
+sourceSets {
+    main {
+        java {
+            include 'Assignments/**/*.java'
+            include 'Game/**/*.java'
+            include 'Hackscript/**/*.java'
+            include 'HackerLogin/Toy*.java'
+            include 'Legacy/**/*.java'
+            include 'chat/messages/**/*.java'
+            include 'chat/util/**/*.java'
+            include 'com/plink/dolphinnet/**/*.java'
+            include 'com/plink/dolphinstem/**/*.java'
+            include 'View/Task.java'
+            include 'util/**/*.java'
+        }
+    }
+}
