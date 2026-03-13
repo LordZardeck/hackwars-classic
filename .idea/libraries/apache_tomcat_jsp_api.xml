@@ -1,0 +1,12 @@
+<component name="libraryTable">
+  <library name="apache.tomcat.jsp.api" type="repository">
+    <properties maven-id="org.apache.tomcat:jsp-api:6.0.53" />
+    <CLASSES>
+      <root url="jar://$MAVEN_REPOSITORY$/org/apache/tomcat/jsp-api/6.0.53/jsp-api-6.0.53.jar!/" />
+      <root url="jar://$MAVEN_REPOSITORY$/org/apache/tomcat/el-api/6.0.53/el-api-6.0.53.jar!/" />
+      <root url="jar://$MAVEN_REPOSITORY$/org/apache/tomcat/servlet-api/6.0.53/servlet-api-6.0.53.jar!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES />
+  </library>
+</component>

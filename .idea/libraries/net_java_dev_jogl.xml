@@ -1,0 +1,11 @@
+<component name="libraryTable">
+  <library name="net.java.dev.jogl" type="repository">
+    <properties maven-id="net.java.dev.jogl:jogl:1.1.1-rc6" />
+    <CLASSES>
+      <root url="jar://$MAVEN_REPOSITORY$/net/java/dev/jogl/jogl/1.1.1-rc6/jogl-1.1.1-rc6.jar!/" />
+      <root url="jar://$MAVEN_REPOSITORY$/net/java/dev/gluegen/gluegen-rt/1.0b05/gluegen-rt-1.0b05.jar!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES />
+  </library>
+</component>

@@ -1,0 +1,10 @@
+<component name="libraryTable">
+  <library name="apache.tomcat.el.api" type="repository">
+    <properties maven-id="org.apache.tomcat:el-api:6.0.53" />
+    <CLASSES>
+      <root url="jar://$MAVEN_REPOSITORY$/org/apache/tomcat/el-api/6.0.53/el-api-6.0.53.jar!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES />
+  </library>
+</component>
