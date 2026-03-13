@@ -1,10 +1,15 @@
 import java.util.Locale
 
+def legacyOrgClassesDir = file("${projectDir}/java")
+
 dependencies {
     implementation project(':hackwars')
+    implementation 'org.apache.axis:axis:1.4'
+    implementation 'de.sciss:jsyntaxpane:1.0.0'
+    implementation 'com.miglayout:miglayout-swing:11.4.2'
     implementation 'net.java.dev.jogl:jogl:1.1.1-rc6'
     implementation 'net.java.dev.gluegen:gluegen-rt:1.0b05'
-    implementation fileTree(dir: "${rootDir}/libs/legacy", include: ['**/*.jar'])
+    implementation fileTree(dir: "${rootDir}/libs/legacy", include: ['**/*.jar'], exclude: ['Hack.jar'])
 }
 
 sourceSets {
@@ -26,10 +31,22 @@ configurations {
     nativePackageRuntimeJars
 }
 
+tasks.register('clientLegacyOrgShimJar', Jar) {
+    group = 'build'
+    description = 'Packages local legacy org/*.class shims copied into src/client/java.'
+    archiveFileName = 'client-legacy-org-shims.jar'
+    destinationDirectory = layout.buildDirectory.dir('generated-libs').get().asFile
+    from(legacyOrgClassesDir) {
+        include 'org/**/*.class'
+    }
+}
+
 dependencies {
+    implementation files(tasks.named('clientLegacyOrgShimJar'))
     nativePackageRuntimeJars 'net.java.dev.jogl:jogl:1.1.1-rc6'
     nativePackageRuntimeJars 'net.java.dev.gluegen:gluegen-rt:1.0b05'
-    nativePackageRuntimeJars fileTree(dir: "${rootDir}/libs/legacy", include: ['**/*.jar'])
+    nativePackageRuntimeJars fileTree(dir: "${rootDir}/libs/legacy", include: ['**/*.jar'], exclude: ['Hack.jar'])
+    nativePackageRuntimeJars files(tasks.named('clientLegacyOrgShimJar'))
 }
 
 def clientPackageInputDir = layout.buildDirectory.dir('jpackage/input')
