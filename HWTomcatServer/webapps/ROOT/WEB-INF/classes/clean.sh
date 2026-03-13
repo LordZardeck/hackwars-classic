@@ -4,7 +4,7 @@ rm Game/ComputerFunctions/*.class
 rm Game/MMO/*.class
 rm Game/RunChallenge/*.class
 rm Assignments/*.class
-rm Applet/*.class
+rm Client/*.class
 rm Browser/*.class
 rm chat/messages/*.class
 rm chat/util/*.class

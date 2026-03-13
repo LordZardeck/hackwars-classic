@@ -47,7 +47,7 @@
 	-->
 	<target name="init">
 		<mkdir dir="${build}"/>
-		<mkdir dir="${build}/Applet"/>
+		<mkdir dir="${build}/Client"/>
 		<mkdir dir="${build}/GUI"/>
 		<mkdir dir="${build}/View"/>
 		<mkdir dir="${build}/Assignments"/>
@@ -65,13 +65,16 @@
 		
 		TODO: create build files for the subprojects
  	-->
-	<target name="compile" depends="init,applet"/>
+	<target name="compile" depends="init,client"/>
 	<target name="util" depends="">
 		<javac srcdir="${src}/util" destdir="${build}/util">
 			<classpath refid="project.class.path"/>
 		</javac>
 	</target>
-	<target name="applet" depends="game,hacktendo,browser,assignments">
+	<target name="client" depends="game,hacktendo,browser,assignments">
+		<javac srcdir="${src}/Client" destdir="${build}/Client">
+			<classpath refid="project.class.path"/>
+		</javac>
 		<javac srcdir="${src}/GUI" destdir="${build}/GUI">
 			<classpath refid="project.class.path"/>
 		</javac>
@@ -119,7 +122,7 @@
 		<!--dname="cn=HackWars"-->
 		<!--><GenKey alias="signFiles" keystore="compstore" keypass="awa878" storepass="awa878"/>-->
 		<jar jarfile="${dist}/lib/Hack-${DSTAMP}.jar">
-			<fileset dir="${build}/Applet"/>
+			<fileset dir="${build}/Client"/>
 			<fileset dir="${build}/Assignments"/>
 			<fileset dir="${build}/Browser"/>
 			<fileset dir="${build}/Game/HackerFile.class"/>

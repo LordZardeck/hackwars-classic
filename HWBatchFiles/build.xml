@@ -40,13 +40,13 @@
 		<mkdir dir="${src}/${build}"/>
 		<mkdir dir="${src}/${dist}"/>
 	</target>
-	<target name="compile" depends="init,Applet,GUI,View,Assignments,Browser,Hacktendo,Hacktendo-Functions,Game" description=""/>
-	<!-- javac -classpath "%cd%" Applet/*.java -->
-	<target name="Applet" depends="">
+	<target name="compile" depends="init,Client,GUI,View,Assignments,Browser,Hacktendo,Hacktendo-Functions,Game" description=""/>
+	<!-- javac -classpath "%cd%" Client/*.java -->
+	<target name="Client" depends="">
 		<javac destdir="${src}/${build}" includes="${src}" classpath="project.class.path" debug="on"
 			srcdir="${src}" source="1.5">
 			<classpath refid="project.class.path"/>
-			<include name="Applet/*.java"/>
+			<include name="Client/*.java"/>
 		</javac>
 	</target>
 	<!-- javac -classpath "%cd%" GUI/*.java -->

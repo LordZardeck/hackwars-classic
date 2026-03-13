@@ -4,7 +4,7 @@ del Game\ComputerFunctions\*.class
 del Game\MMO\*.class
 del Game\RunChallenge\*.class
 del Assignments\*.class
-del Applet\*.class
+del Client\*.class
 del Browser\*.class
 del chat\messages\*.class
 del chat\util\*.class
@@ -37,7 +37,7 @@ javac Game\ComputerFunctions\*.java
 javac Game\MMO\*.java
 javac Game\RunChallenge\*.java
 javac Assignments\*.java
-javac Applet\*.java
+javac Client\*.java
 javac Browser\*.java
 javac chat\messages\*.java
 javac chat\util\*.java

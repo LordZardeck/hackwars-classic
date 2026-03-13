@@ -7,6 +7,6 @@
 #Note: do not run this on the net/org/edu etc dirs, these are static
 #and never compiled
 
-find Applet/ Assignments/ Browser/ GUI/ Game/ HackerLogin/ HackerSearch/ \
+find Client/ Assignments/ Browser/ GUI/ Game/ HackerLogin/ HackerSearch/ \
 Hackscript/ Hacktendo/ Server/ View/ chat simulation/   \
 -name "*.class" | xargs rm -f

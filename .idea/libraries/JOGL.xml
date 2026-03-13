@@ -23,7 +23,6 @@
       <root url="jar://$PROJECT_DIR$/HWTomcatServer/webapps/ROOT/WEB-INF/classes/JOGL/jogl-natives-solaris-amd64.jar!/" />
       <root url="jar://$PROJECT_DIR$/HWTomcatServer/webapps/ROOT/WEB-INF/classes/JOGL/gluegen-rt-natives-windows-amd64.jar!/" />
       <root url="jar://$PROJECT_DIR$/HWTomcatServer/webapps/ROOT/WEB-INF/classes/JOGL/jogl-natives-solaris-sparc.jar!/" />
-      <root url="jar://$PROJECT_DIR$/HWTomcatServer/webapps/ROOT/WEB-INF/classes/JOGL/applet-launcher.jar!/" />
     </CLASSES>
     <JAVADOC />
     <SOURCES />

@@ -7,7 +7,7 @@ rem Note: do not run this on the net/org/edu etc dirs, these are static
 rem and never compiled
 
 cd ../apache-tomcat-6.0.14/webapps/ROOT/WEB-INF/classes
-del /F /S /Q Applet\*.class
+del /F /S /Q Client\*.class
 del /F /S /Q Assignements\*.class
 del /F /S /Q Browser\*.class
 del /F /S /Q GUI\*.class

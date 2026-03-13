@@ -18,7 +18,7 @@ import GUI.*;
 import java.util.concurrent.Semaphore;
 
 import Game.*;
-import Applet.*;
+import Client.*;
 import chat.messages.*;
 
 import java.awt.image.*;
@@ -52,7 +52,7 @@ public class View implements DataHandler, Runnable {
     private JLabel message;
     private ArrayList packets = new ArrayList();
     private boolean loaded = false;
-    private Load MyLoad = null;
+    private Launcher MyLoad = null;
     private String encryptedIP;
     private Tutorial tutorial = null;
     private String function = "";
@@ -71,7 +71,7 @@ public class View implements DataHandler, Runnable {
     }
 
     //Constructor.
-    public View(String ip, Load MyLoad) {
+    public View(String ip, Launcher MyLoad) {
         //try{
         this.ip = ip;
         this.MyLoad = MyLoad;
@@ -85,15 +85,15 @@ public class View implements DataHandler, Runnable {
         return tutorial;
     }
 
-    public Load getLoad() {
+    public Launcher getLoad() {
         return MyLoad;
     }
 
     /**
-     * This is run from the main(), when the View is first loaded.  Also called from Load.java, which is the Applet.
+     * This is run from the main(), when the View is first loaded. Also called from Launcher.java.
      */
     public void loginToServer(String username, String password, String ip) {
-        // A login from the applet login form should always start a fresh UI session.
+        // A login from the launcher login form should always start a fresh UI session.
         if (MyHacker != null) {
             try {
                 JFrame frame = MyHacker.getFrame();

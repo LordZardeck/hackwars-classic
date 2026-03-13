@@ -4,7 +4,7 @@ rm Game/ComputerFunctions/*.class
 rm Game/MMO/*.class
 rm Game/RunChallenge/*.class
 rm Assignments/*.class
-rm Applet/*.class
+rm Client/*.class
 rm Browser/*.class
 rm chat/messages/*.class
 rm chat/util/*.class
@@ -43,7 +43,7 @@ javac Game/ComputerFunctions/*.java
 javac Game/MMO/*.java
 javac Game/RunChallenge/*.java
 javac Assignments/*.java
-javac Applet/*.java
+javac Client/*.java
 javac Browser/*.java
 javac chat/messages/*.java
 javac chat/util/*.java

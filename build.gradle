@@ -27,7 +27,7 @@ def legacyJars = files(
 
 def hackServerSourceIncludes = [
         'Assignments/**/*.java',
-        'Applet/**/*.java',
+        'Client/**/*.java',
         'Browser/**/*.java',
         'DBAdmin/**/*.java',
         'GUI/**/*.java',
@@ -204,11 +204,11 @@ tasks.register('stopCatalina', Exec) {
 
 tasks.register('runClientDesktop', JavaExec) {
     group = 'application'
-    description = 'Starts the desktop client using Applet.Load as a regular Swing application.'
+    description = 'Starts the desktop client using Client.Launcher as a regular Swing application.'
     dependsOn 'compileHackServer'
     javaLauncher = java8Launcher
     classpath = files(hackServerBuildOutputDir, classesRootDir, legacyJars)
-    mainClass = 'Applet.Load'
+    mainClass = 'Client.Launcher'
     workingDir = classesRootDir
 }
 
@@ -232,7 +232,7 @@ tasks.register('clientLauncherJar', Jar) {
         exclude 'chatServer/**'
     }
     manifest {
-        attributes('Main-Class': 'Applet.Load')
+        attributes('Main-Class': 'Client.Launcher')
     }
 }
 
@@ -261,7 +261,7 @@ tasks.register('packageClientNative', Exec) {
                 '--dest', outputDir.absolutePath,
                 '--name', 'HackWars',
                 '--main-jar', 'hackwars-client.jar',
-                '--main-class', 'Applet.Load'
+                '--main-class', 'Client.Launcher'
         ]
         if (isMac) {
             args += ['--mac-package-name', 'HackWars']
