@@ -79,7 +79,9 @@ public class Load extends JApplet implements ActionListener{
 			value=getParameter(appletParam);
 		}catch(Exception e){}
 		if(value==null||value.trim().length()==0){
-			value=System.getProperty(systemProperty);
+			try{
+				value=System.getProperty(systemProperty);
+			}catch(SecurityException e){}
 		}
 		if(value==null||value.trim().length()==0){
 			value=fallback;
@@ -216,35 +218,44 @@ public class Load extends JApplet implements ActionListener{
 		JPB.setMaximum(imageCount);
 		boolean download=false;
 		//Check to see whether we have the images directory.
-		String tmpDir = System.getProperty("java.io.tmpdir");
-		File CF=new File(tmpDir+"/images/checksum.txt");
-		if(CF.exists()){
-			//System.out.println("File Exists");
-			try{
-
-				BufferedReader in = new BufferedReader(new InputStreamReader(new FileInputStream(CF)));
-				String check="";
+		String tmpDir="";
+		try{
+			tmpDir=System.getProperty("java.io.tmpdir");
+		}catch(SecurityException e){}
+		File imageDir=(tmpDir!=null&&tmpDir.trim().length()>0)?new File(tmpDir,"images"):new File("images");
+		File CF=new File(imageDir,"checksum.txt");
+		boolean canUseFileCache=true;
+		try{
+			if(CF.exists()){
+				//System.out.println("File Exists");
 				try{
-					check=in.readLine().toLowerCase();
-				}catch(Exception e){
-					download=true;
-				}
-				//System.out.println("|"+check.length()+"|   |"+checksum.length()+"|");
-				if(!(check.equals(checksum))){
-					//System.out.println("Not Equal");
-					download=true;
-				}
-				in.close();
 
-			}catch(Exception e){e.printStackTrace();}
+					BufferedReader in = new BufferedReader(new InputStreamReader(new FileInputStream(CF)));
+					String check="";
+					try{
+						check=in.readLine().toLowerCase();
+					}catch(Exception e){
+						download=true;
+					}
+					//System.out.println("|"+check.length()+"|   |"+checksum.length()+"|");
+					if(!(check.equals(checksum))){
+						//System.out.println("Not Equal");
+						download=true;
+					}
+					in.close();
+
+				}catch(Exception e){e.printStackTrace();}
+			}
+			else{
+				//System.out.println("File Does not Exist");
+				download=true;
+			}
+		}catch(SecurityException e){
+			canUseFileCache=false;
 		}
-		else{
-			//System.out.println("File Does not Exist");
-			download=true;
-		}
-		if(download){//Download the image pack.
-			new File(tmpDir+"/images/").mkdirs();
+		if(canUseFileCache&&download){//Download the image pack.
 			try{
+				imageDir.mkdirs();
 				BufferedWriter out = new BufferedWriter(new FileWriter(CF));
 				out.write(checksum);
 				out.close();

@@ -12,8 +12,8 @@ import java.net.*;
 
 public class ImageLoader{
 
-	public static String tmpDir = System.getProperty("java.io.tmpdir");;
-	private static final String REMOTE_IMAGE_BASE = System.getProperty("hackwars.assets.baseUrl","");
+	public static String tmpDir = getPropertySafe("java.io.tmpdir",".");
+	private static final String REMOTE_IMAGE_BASE = getPropertySafe("hackwars.assets.baseUrl","");
 	public static ImageIcon PCI_ICON;
 	public static ImageIcon FOLDER_ICON;
 	public static ImageIcon TEXT_ICON;
@@ -26,6 +26,14 @@ public class ImageLoader{
 	public static BufferedImage SILICON;
 	public static BufferedImage YBCO;
 	public static BufferedImage PLUTONIUM;
+
+	private static String getPropertySafe(String key,String fallback){
+		try{
+			return System.getProperty(key,fallback);
+		}catch(SecurityException e){
+			return fallback;
+		}
+	}
 	
 	public static void init(){
 		PCI_ICON = getImageIcon("images/pci.png");

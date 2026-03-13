@@ -10,7 +10,7 @@ import java.util.concurrent.Semaphore;
 
 public class Sound implements Runnable{
 	private  final String URL = "http://www.team-captin.com/hacker/sounds/";
-	private  String tmpDir = System.getProperty("java.io.tmpdir")+"/hackwars/sounds/";
+	private  String tmpDir = getTmpDir();
 	private  boolean mute=false;
 	private  Synthesizer synth = null;
 	private  float musicVolume=1.0f;
@@ -23,6 +23,14 @@ public class Sound implements Runnable{
 	private  final Semaphore available = new Semaphore(1, true);//Make it thread safe.
 	private  ArrayList Work=new ArrayList();
 	private HashMap loaded = new HashMap();
+
+	private static String getTmpDir(){
+		String base=".";
+		try{
+			base=System.getProperty("java.io.tmpdir",".");
+		}catch(SecurityException e){}
+		return base+"/hackwars/sounds/";
+	}
 	
 	public  void startSound(){
 		try{

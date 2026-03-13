@@ -1,0 +1,208 @@
+import java.util.Locale
+
+plugins {
+    id 'java'
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(8)
+    }
+    sourceCompatibility = JavaVersion.VERSION_1_8
+    targetCompatibility = JavaVersion.VERSION_1_8
+}
+
+def tomcatHomeDir = layout.projectDirectory.dir('HWTomcatServer').asFile
+def tomcatBinDir = new File(tomcatHomeDir, 'bin')
+def classesRootDir = layout.projectDirectory.dir('HWTomcatServer/webapps/ROOT/WEB-INF/classes').asFile
+def chatServerRootDir = new File(classesRootDir, 'chatServer')
+def webInfLibDir = layout.projectDirectory.dir('HWTomcatServer/webapps/ROOT/WEB-INF/lib').asFile
+def tomcatLibDir = new File(tomcatHomeDir, 'lib')
+
+def legacyJars = files(
+        fileTree(dir: classesRootDir, include: ['*.jar']),
+        fileTree(dir: webInfLibDir, include: ['*.jar']),
+        fileTree(dir: tomcatLibDir, include: ['*.jar'])
+)
+
+def hackServerSourceIncludes = [
+        'Assignments/**/*.java',
+        'Applet/**/*.java',
+        'Browser/**/*.java',
+        'DBAdmin/**/*.java',
+        'GUI/**/*.java',
+        'Game/**/*.java',
+        'HackerLogin/**/*.java',
+        'HackerSearch/**/*.java',
+        'Hackscript/**/*.java',
+        'Hacktendo/**/*.java',
+        'Legacy/**/*.java',
+        'Server/**/*.java',
+        'View/**/*.java',
+        'chat/client/**/*.java',
+        'chat/messages/**/*.java',
+        'chat/util/**/*.java',
+        'com/plink/Hack3D/**/*.java',
+        'com/plink/dolphinnet/**/*.java',
+        'com/plink/dolphinstem/**/*.java',
+        'util/**/*.java'
+]
+
+def chatServerSourceIncludes = [
+        'Assignments/**/*.java',
+        'Server/**/*.java',
+        'chat/messages/**/*.java',
+        'chat/server/**/*.java',
+        'chat/util/**/*.java',
+        'com/plink/dolphinnet/**/*.java',
+        'util/**/*.java'
+]
+
+def java8Compiler = javaToolchains.compilerFor {
+    languageVersion = JavaLanguageVersion.of(8)
+}
+
+def java8Launcher = javaToolchains.launcherFor {
+    languageVersion = JavaLanguageVersion.of(8)
+}
+
+def hackServerBuildOutputDir = layout.buildDirectory.dir('legacy-classes/main')
+def chatServerBuildOutputDir = layout.buildDirectory.dir('legacy-classes/chat')
+
+tasks.register('compileHackServer', JavaCompile) {
+    group = 'build'
+    description = 'Compiles the main HackWars services and client sources into WEB-INF/classes using Java 8.'
+    source = fileTree(classesRootDir) {
+        include hackServerSourceIncludes
+        exclude 'chatServer/**'
+    }
+    classpath = files(classesRootDir, legacyJars)
+    destinationDirectory = hackServerBuildOutputDir
+    options.encoding = 'UTF-8'
+    javaCompiler = java8Compiler
+}
+
+tasks.register('compileChatServer', JavaCompile) {
+    group = 'build'
+    description = 'Compiles the dedicated chat server sources into WEB-INF/classes/chatServer using Java 8.'
+    source = fileTree(chatServerRootDir) {
+        include chatServerSourceIncludes
+    }
+    classpath = files(chatServerRootDir, classesRootDir, legacyJars)
+    destinationDirectory = chatServerBuildOutputDir
+    options.encoding = 'UTF-8'
+    javaCompiler = java8Compiler
+}
+
+tasks.register('deployServices') {
+    group = 'build'
+    description = 'Copies compiled service classes into the legacy Tomcat WEB-INF/classes layout.'
+    dependsOn 'compileServices'
+    doLast {
+        copy {
+            from hackServerBuildOutputDir
+            into classesRootDir
+            include '**/*.class'
+        }
+        copy {
+            from chatServerBuildOutputDir
+            into chatServerRootDir
+            include '**/*.class'
+        }
+    }
+}
+
+tasks.register('compileServices') {
+    group = 'build'
+    description = 'Compiles both main and chat server source sets used by local services.'
+    dependsOn 'compileHackServer', 'compileChatServer'
+}
+
+tasks.named('build') {
+    dependsOn 'compileServices'
+}
+
+tasks.register('runHackerServer', JavaExec) {
+    group = 'application'
+    description = 'Runs Server.HackerServer with server id 1.'
+    dependsOn 'compileHackServer'
+    javaLauncher = java8Launcher
+    classpath = files(hackServerBuildOutputDir, classesRootDir, legacyJars)
+    mainClass = 'Server.HackerServer'
+    args '1'
+    workingDir = classesRootDir
+}
+
+tasks.register('runChatServer', JavaExec) {
+    group = 'application'
+    description = 'Runs chatServer/Server.ChatServer.'
+    dependsOn 'compileChatServer'
+    javaLauncher = java8Launcher
+    classpath = files(chatServerBuildOutputDir, classesRootDir, legacyJars)
+    mainClass = 'Server.ChatServer'
+    workingDir = chatServerRootDir
+}
+
+def isWindows = System.getProperty('os.name')
+        .toLowerCase(Locale.ROOT)
+        .contains('win')
+
+tasks.register('startCatalina', Exec) {
+    group = 'application'
+    description = 'Starts Catalina/Tomcat from HWTomcatServer/bin using Java 8.'
+    dependsOn 'deployServices'
+    workingDir = tomcatBinDir
+    doFirst {
+        def javaHome = java8Launcher.get().metadata.installationPath.asFile
+        environment 'JAVA_HOME', javaHome.absolutePath
+        environment 'CATALINA_HOME', tomcatHomeDir.absolutePath
+        environment 'CATALINA_BASE', tomcatHomeDir.absolutePath
+        commandLine(isWindows ? ['cmd', '/c', 'catalina.bat', 'start'] : ['./catalina.sh', 'start'])
+    }
+}
+
+tasks.register('runCatalina', Exec) {
+    group = 'application'
+    description = 'Runs Catalina/Tomcat in the foreground from HWTomcatServer/bin using Java 8.'
+    dependsOn 'deployServices'
+    workingDir = tomcatBinDir
+    doFirst {
+        def javaHome = java8Launcher.get().metadata.installationPath.asFile
+        environment 'JAVA_HOME', javaHome.absolutePath
+        environment 'CATALINA_HOME', tomcatHomeDir.absolutePath
+        environment 'CATALINA_BASE', tomcatHomeDir.absolutePath
+        commandLine(isWindows ? ['cmd', '/c', 'catalina.bat', 'run'] : ['./catalina.sh', 'run'])
+    }
+}
+
+tasks.register('stopCatalina', Exec) {
+    group = 'application'
+    description = 'Stops Catalina/Tomcat from HWTomcatServer/bin.'
+    workingDir = tomcatBinDir
+    doFirst {
+        def javaHome = java8Launcher.get().metadata.installationPath.asFile
+        environment 'JAVA_HOME', javaHome.absolutePath
+        environment 'CATALINA_HOME', tomcatHomeDir.absolutePath
+        environment 'CATALINA_BASE', tomcatHomeDir.absolutePath
+        commandLine(isWindows ? ['cmd', '/c', 'catalina.bat', 'stop'] : ['./catalina.sh', 'stop'])
+    }
+}
+
+tasks.register('runClientApplet', Exec) {
+    group = 'application'
+    description = 'Starts the applet client using JAVA_HOME/bin/appletviewer and Applet.local.html.'
+    dependsOn 'deployServices'
+    workingDir = classesRootDir
+    doFirst {
+        def javaHome = java8Launcher.get().metadata.installationPath.asFile
+        def appletViewer = new File(javaHome, isWindows ? 'bin/appletviewer.exe' : 'bin/appletviewer')
+        def appletPolicy = layout.projectDirectory.file('applet.local.policy').asFile
+        if (!appletViewer.exists()) {
+            throw new GradleException("appletviewer was not found under ${javaHome}. Use a full Java 8 JDK for this task.")
+        }
+        if (!appletPolicy.exists()) {
+            throw new GradleException("Missing applet policy file at ${appletPolicy}.")
+        }
+        commandLine appletViewer.absolutePath, "-J-Djava.security.policy==${appletPolicy.absolutePath}", 'Applet.local.html'
+    }
+}

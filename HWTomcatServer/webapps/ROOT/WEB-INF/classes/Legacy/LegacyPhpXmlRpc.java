@@ -69,8 +69,8 @@ public class LegacyPhpXmlRpc {
     }
 
     public Object[] getFunctionPacks(String ip) {
-        boolean proPack = Boolean.parseBoolean(System.getProperty("hackwars.proPack", "false"));
-        boolean inactive = Boolean.parseBoolean(System.getProperty("hackwars.inactive", "false"));
+        boolean proPack = Boolean.parseBoolean(getPropertySafe("hackwars.proPack", "false"));
+        boolean inactive = Boolean.parseBoolean(getPropertySafe("hackwars.inactive", "false"));
         return new Object[]{Boolean.FALSE, Boolean.FALSE, Boolean.valueOf(proPack), Boolean.valueOf(inactive)};
     }
 
@@ -247,6 +247,14 @@ public class LegacyPhpXmlRpc {
     }
 
     private String defaultPlayerIP() {
-        return System.getProperty("hackwars.player.ip", "192.168.2.002");
+        return getPropertySafe("hackwars.player.ip", "192.168.2.002");
+    }
+
+    private String getPropertySafe(String key, String fallback) {
+        try {
+            return System.getProperty(key, fallback);
+        } catch (SecurityException e) {
+            return fallback;
+        }
     }
 }

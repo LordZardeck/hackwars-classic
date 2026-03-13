@@ -68,10 +68,18 @@ import util.XmlRpcProxy;
 import util.sql;
 
 public class Computer implements Runnable{//Runnable is an interface that allows us to make this class be a thread.
+	private static String getPropertySafe(String key,String fallback){
+		try{
+			return System.getProperty(key,fallback);
+		}catch(SecurityException e){
+			return fallback;
+		}
+	}
+
 	//max ops values.
 	public static final int FREE_MAX_OPS = 4096;
 	public static final int PAY_MAX_OPS = 16384;
-	private static final boolean REMOTE_XMLRPC_ENABLED = Boolean.parseBoolean(System.getProperty("hackwars.remoteXmlRpc", "false"));
+	private static final boolean REMOTE_XMLRPC_ENABLED = Boolean.parseBoolean(getPropertySafe("hackwars.remoteXmlRpc", "false"));
 	public int MAX_OPS = 4096;
 	
 	//file size limits.
@@ -265,7 +273,7 @@ public class Computer implements Runnable{//Runnable is an interface that allows
 	private String DB2="hackwars_drupal";
 	private String Username2="root";
 	private String Password2="";
-	private static final boolean LOCAL_AUTH_FALLBACK=!"false".equalsIgnoreCase(System.getProperty("hackwars.localAuthFallback","true"));
+	private static final boolean LOCAL_AUTH_FALLBACK=!"false".equalsIgnoreCase(getPropertySafe("hackwars.localAuthFallback","true"));
 
 	private EquipmentSheet MyEquipmentSheet=new EquipmentSheet(this);//Keeps track of equipment currently installed and other such things.
     private NewFireWall MyNewFireWall = null; //new NewFireWall(); // because I hate static variables, cause they hate me.  Used to generate firewalls.

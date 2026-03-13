@@ -122,3 +122,7 @@ Mar 12, 2026 6:54:19 AM org.apache.catalina.core.ApplicationContext log
 INFO: SessionListener: contextDestroyed()
 Mar 12, 2026 6:54:19 AM org.apache.catalina.core.ApplicationContext log
 INFO: ContextListener: contextDestroyed()
+Mar 12, 2026 7:02:19 PM org.apache.catalina.core.ApplicationContext log
+INFO: ContextListener: contextInitialized()
+Mar 12, 2026 7:02:19 PM org.apache.catalina.core.ApplicationContext log
+INFO: SessionListener: contextInitialized()

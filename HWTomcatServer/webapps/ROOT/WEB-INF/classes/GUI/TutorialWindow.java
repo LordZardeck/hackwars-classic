@@ -41,13 +41,15 @@ public class TutorialWindow extends Application {
         //this.addWindowListener(this);
 		//setDefaultCloseOperation(JInternalFrame.HIDE_ON_CLOSE);
 		setBounds(250,50,600,500);
-		setLayout(new GridBagLayout());
-		Object[] message = (Object[])XMLRPCCall.execute("http://www.hackwars.net/xmlrpc/tutorials.php","getTutorial",new Object[]{"HI"});
-		messages[0] = (String)message[0];
-		title = (String)message[1];
-		createToolBar();
-		populate();
-	}
+			setLayout(new GridBagLayout());
+			Object[] message = (Object[])XMLRPCCall.execute("http://www.hackwars.net/xmlrpc/tutorials.php","getTutorial",new Object[]{"HI"});
+			if(message!=null&&message.length>1&&message[0] instanceof String&&message[1] instanceof String){
+				messages[0] = (String)message[0];
+				title = (String)message[1];
+			}
+			createToolBar();
+			populate();
+		}
 	
 	private void createToolBar(){
 		JToolBar toolBar = new JToolBar("Tools");

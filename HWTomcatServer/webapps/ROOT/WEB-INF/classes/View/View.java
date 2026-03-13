@@ -27,7 +27,7 @@ import java.awt.GraphicsEnvironment;
 public class View implements DataHandler, Runnable {
     /// /////////////////////
     // Data.
-    private static final boolean LOGIN_FALLBACK_START = !"false".equalsIgnoreCase(System.getProperty("hackwars.loginFallbackStart", "true"));
+    private static final boolean LOGIN_FALLBACK_START = !"false".equalsIgnoreCase(getPropertySafe("hackwars.loginFallbackStart", "true"));
     public boolean reconnect = false;
     public static long lastPingSuccess = 0;
     public static final int PINGTIMEOUT = 40000;
@@ -61,6 +61,14 @@ public class View implements DataHandler, Runnable {
     public static int instrument = 0;
     private long lastPacketSent = 0;
     private boolean offline;
+
+    private static String getPropertySafe(String key, String fallback) {
+        try {
+            return System.getProperty(key, fallback);
+        } catch (SecurityException e) {
+            return fallback;
+        }
+    }
 
     //Constructor.
     public View(String ip, Load MyLoad) {

@@ -9,7 +9,6 @@ import java.security.*;
 import javax.crypto.*;
 import java.io.*;
 import java.security.spec.*;
-import com.sun.crypto.provider.SunJCE;
 import javax.crypto.spec.*;
 import java.util.*;
 import javax.crypto.interfaces.*;
@@ -51,7 +50,7 @@ public class Encryption{
 			X509EncodedKeySpec x509KeySpec =new X509EncodedKeySpec(encodedExternalPublicKey);
 			PublicKey ExternalPublicKey = MyKeyFactory.generatePublic(x509KeySpec);
 			MyKeyAgreement.doPhase(ExternalPublicKey,true);
-			DESKey=MyKeyAgreement.generateSecret("DES");
+			DESKey=deriveDESKey(MyKeyAgreement);
 		}catch(Exception e){
 			e.printStackTrace();
 		}
@@ -76,7 +75,7 @@ public class Encryption{
 			MyKeyAgreement.init(MyKeyPair.getPrivate());
 			MyKeyAgreement.doPhase(ExternalPublicKey,true);
 			
-			SecretKey DESKey=MyKeyAgreement.generateSecret("DES");
+			SecretKey DESKey=deriveDESKey(MyKeyAgreement);
 			MyKeyStore.put(hash,DESKey);
 			IPs.put(ip,hash);
 			returnMe=(new X509EncodedKeySpec(MyKeyPair.getPublic().getEncoded())).getEncoded();
@@ -85,6 +84,23 @@ public class Encryption{
 			e.printStackTrace();
 		}
 		return(returnMe);
+	}
+
+	private SecretKey deriveDESKey(KeyAgreement MyKeyAgreement) throws Exception{
+		try{
+			return(MyKeyAgreement.generateSecret("DES"));
+		}catch(NoSuchAlgorithmException e){
+			byte[] sharedSecret=MyKeyAgreement.generateSecret();
+			MessageDigest md=MessageDigest.getInstance("SHA-256");
+			byte[] digest=md.digest(sharedSecret);
+			byte[] keyBytes=new byte[8];
+			for(int i=0;i<8;i++){
+				keyBytes[i]=digest[i];
+			}
+			DESKeySpec spec = new DESKeySpec(keyBytes);
+			SecretKeyFactory skf = SecretKeyFactory.getInstance("DES");
+			return(skf.generateSecret(spec));
+		}
 	}
 	
 	/**

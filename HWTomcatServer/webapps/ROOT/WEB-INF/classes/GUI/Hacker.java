@@ -226,14 +226,18 @@ public class Hacker implements ActionListener,WindowListener,ComponentListener{
 		//LS.setBounds(200,200,200,150);
 		//frame.repaint();
 		//LS.repaint();
-		//get Function Packs here	
-		if(!offline){
-			Object[] functions = (Object[])XMLRPCCall.execute("http://www.hackwars.net/xmlrpc/functions.php","getFunctionPacks",new Object[]{ip});
-			//paidHacktendo=(Boolean)functions[1];
-			proPack = (Boolean)functions[2];
-		}
-		else{
-			proPack = false;
+			//get Function Packs here	
+			if(!offline){
+				Object[] functions = (Object[])XMLRPCCall.execute("http://www.hackwars.net/xmlrpc/functions.php","getFunctionPacks",new Object[]{ip});
+				if(functions!=null&&functions.length>2&&functions[2] instanceof Boolean){
+					//paidHacktendo=(Boolean)functions[1];
+					proPack = (Boolean)functions[2];
+				}else{
+					proPack = false;
+				}
+			}
+			else{
+				proPack = false;
 		}
 		//proPack=false;
 
@@ -291,20 +295,22 @@ public class Hacker implements ActionListener,WindowListener,ComponentListener{
 		
 		if(!offline){
 			Object[] settings = (Object[])XMLRPCCall.execute("http://www.hackwars.net/xmlrpc/settings.php","getSettings",new Object[]{ip});
-			if(settings!=null){
-				Object[] portC = (Object[])settings[4];//new Object[]{true,true,true,true,true,true,true,true,true,true};
-				portColumns = new boolean[10];
-				for(int i=0;i<portC.length;i++){
-					portColumns[i]=(boolean)(Boolean)portC[i];
-					//System.out.println(i+" "+portColumns[i]);
+				if(settings!=null){
+					Object[] portC = (Object[])settings[4];//new Object[]{true,true,true,true,true,true,true,true,true,true};
+					portColumns = new boolean[10];
+					for(int i=0;i<portC.length;i++){
+						portColumns[i]=(boolean)(Boolean)portC[i];
+						//System.out.println(i+" "+portColumns[i]);
+					}
+					//portColumns[9] = true;
+					Object[] bookmarks_xml_rpc = (Object[])XMLRPCCall.execute("http://www.hackwars.net/xmlrpc/bookmarks.php","getBookmarks",new Object[]{ip});
+					if(bookmarks_xml_rpc!=null){
+						for(int i=0;i<bookmarks_xml_rpc.length;i++){
+							bookmarks.add(bookmarks_xml_rpc[i]);
+							
+						}
+					}
 				}
-				//portColumns[9] = true;
-				Object[] bookmarks_xml_rpc = (Object[])XMLRPCCall.execute("http://www.hackwars.net/xmlrpc/bookmarks.php","getBookmarks",new Object[]{ip});
-				for(int i=0;i<bookmarks_xml_rpc.length;i++){
-					bookmarks.add(bookmarks_xml_rpc[i]);
-					
-				}
-			}
 			else{
 				portColumns = new boolean[]{true,true,true,true,true,true,true,true,true,true,true};
 			}

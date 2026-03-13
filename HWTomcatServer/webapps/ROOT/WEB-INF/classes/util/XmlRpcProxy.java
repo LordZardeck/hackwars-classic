@@ -33,12 +33,12 @@ public class XmlRpcProxy {
                 String endpointName = path.substring("/xmlrpc/".length(), path.length() - ".php".length());
                 String host = parsed.getHost();
                 if (host == null || host.equals("") || host.equalsIgnoreCase("hackwars.net") || host.equalsIgnoreCase("www.hackwars.net")) {
-                    host = System.getProperty("hackwars.server.host", "127.0.0.1");
+                    host = getPropertySafe("hackwars.server.host", "127.0.0.1");
                 }
                 int port = parsed.getPort();
                 if (port <= 0) {
                     try {
-                        port = Integer.parseInt(System.getProperty("hackwars.server.port", "8081"));
+                        port = Integer.parseInt(getPropertySafe("hackwars.server.port", "8081"));
                     } catch (Exception e) {
                         port = 8081;
                     }
@@ -55,6 +55,14 @@ public class XmlRpcProxy {
         } catch (Exception e) {
         }
         return endpoint;
+    }
+
+    private static String getPropertySafe(String key, String fallback) {
+        try {
+            return System.getProperty(key, fallback);
+        } catch (SecurityException e) {
+            return fallback;
+        }
     }
 
     private static class Endpoint {
