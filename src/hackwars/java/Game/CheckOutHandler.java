@@ -28,7 +28,6 @@ import java.util.*;
 import java.io.*;
 import util.*;
 import java.net.URL;
-import Server.*;
 
 public class CheckOutHandler implements Runnable{
 	//MYSQL INFO.
@@ -154,11 +153,11 @@ public class CheckOutHandler implements Runnable{
 					SAVE_COUNTER --;
 					System.out.println("Finished Saving " + ip + ", accounts left to save = "+SAVE_COUNTER);
 					System.gc();
-					lastSave = HackerServer.MyTime.getCurrentTime();
+					lastSave = ServerRuntimeState.now();
 			}
 			
 			//Force the entire application to exit.
-			if( (!HackerServer.on && SAVE_COUNTER == 0 && (HackerServer.MyTime.getCurrentTime() - lastSave) > maxZeroTimeout) || (!HackerServer.on && (HackerServer.MyTime.getCurrentTime() - HackerServer.SHUTDOWN_AT) > maxTimeout) ){
+			if( (!ServerRuntimeState.isRunning() && SAVE_COUNTER == 0 && (ServerRuntimeState.now() - lastSave) > maxZeroTimeout) || (!ServerRuntimeState.isRunning() && (ServerRuntimeState.now() - ServerRuntimeState.getShutdownAt()) > maxTimeout) ){
 				System.exit(0);
 			}
 			

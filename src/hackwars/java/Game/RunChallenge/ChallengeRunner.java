@@ -7,10 +7,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 
 import Hackscript.Model.*;
-import Server.*;
-
-import java.net.URL;
-
 import HackerLogin.*;
 
 public class ChallengeRunner {

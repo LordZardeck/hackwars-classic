@@ -2,7 +2,12 @@ ext.clientSourceIncludes = [
         'Browser/**/*.java',
         'Client/**/*.java',
         'GUI/**/*.java',
-        'View/**/*.java'
+        'View/**/*.java',
+        'Game/MMO/**/*.java',
+        'Hacktendo/**/*.java',
+        'chat/client/**/*.java',
+        'com/plink/Hack3D/**/*.java',
+        'org/plink/Hack3D/**/*.java'
 ]
 
 moduleSourceTreesForHackServer << fileTree(clientSourceDir) { include clientSourceIncludes }

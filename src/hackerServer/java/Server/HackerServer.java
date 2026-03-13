@@ -24,7 +24,7 @@ import Game.*;
 
 import java.util.concurrent.Semaphore;
 
-public class HackerServer extends IParty implements Runnable {
+public class HackerServer extends IParty implements Runnable, HackerServerBridge {
     //Singleton instance of the Hacker Server.
     private static HackerServer MyHackerServer = null;
     private static Editor E = null;
@@ -62,6 +62,10 @@ public class HackerServer extends IParty implements Runnable {
         super(e);
         this.serverID = serverID;
         MyTime = new Time();
+        ServerRuntimeState.setClock(MyTime);
+        ServerRuntimeState.setRunning(on);
+        ServerRuntimeState.setShutdownAt(SHUTDOWN_AT);
+        ServerRuntimeState.setTesting(TESTING);
         MyComputerHandler = new ComputerHandler(MyTime, this);
         MyThread = new Thread(this, "HackerServer");
         MyThread.start();
@@ -189,6 +193,8 @@ public class HackerServer extends IParty implements Runnable {
                         if (PA.getID() == 850335 && PA.getUser().equals("bcoe")) {//Start booting players.
                             SHUTDOWN_AT = MyTime.getCurrentTime();
                             on = false;
+                            ServerRuntimeState.setShutdownAt(SHUTDOWN_AT);
+                            ServerRuntimeState.setRunning(on);
                             MyComputerHandler.startCountDown();
                         }
                     } else if (MyAssignment instanceof RemoteFunctionCall) {
@@ -958,6 +964,7 @@ public class HackerServer extends IParty implements Runnable {
             E.setClientJobSize(4);
             if (args.length == 2 && args[1].equals("test"))
                 TESTING = true;
+            ServerRuntimeState.setTesting(TESTING);
             HackerServer HS = new HackerServer(E, args[0]);
         } catch (Exception e) {
             e.printStackTrace();

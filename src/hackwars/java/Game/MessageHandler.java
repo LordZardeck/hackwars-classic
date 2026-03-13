@@ -2,8 +2,6 @@ package Game;
 
 import java.util.ArrayList;
 
-import GUI.OptionPanel;
-
 public class MessageHandler {
     //message types
     public static final int GAME_MESSAGE = 0;
@@ -11,6 +9,20 @@ public class MessageHandler {
     public static final int POPUP_MESSAGE = 2;
     public static final int ATTACK_MESSAGE = 3;
     public static final int REDIRECT_MESSAGE = 4;
+
+    // Keep option keys local so this shared class does not depend on GUI.OptionPanel.
+    private static final String APP_REPLACED_KEY = "appreplaced";
+    private static final String HEALING_KEY = "healing";
+    private static final String CARD_REPAIRED_KEY = "cardrepaired";
+    private static final String CARD_REPLACED_KEY = "cardreplaced";
+    private static final String COMMOD_TO_FILE_KEY = "commodtofile";
+    private static final String FILE_TO_COMMOD_KEY = "filetocommod";
+    private static final String TRANSFER_TO_KEY = "transferto";
+    private static final String TRANSFER_FROM_KEY = "transferfrom";
+    private static final String FILE_PURCHASED_KEY = "filepurchased";
+    private static final String VOTE_SUCCESSFUL_KEY = "votesuccessful";
+    private static final String FIREWALL_REPLACED_KEY = "firewallreplaced";
+    private static final String FIREWALL_REMOVED_KEY = "firewallremoved";
 
 
     //MESSAGES
@@ -63,13 +75,13 @@ public class MessageHandler {
     public static final Object[] EQUIP_FAIL_HD_FULL = new Object[]{"Could not install card: Equipping this card would put you over your maximum file limit.", POPUP_ERROR};
     public static final Object[] EQUIP_FAIL_CPU_RESTRICTIONS = new Object[]{"Could not install card: Equpping this card would put you over your CPU limit and overheat you.", POPUP_ERROR};
     public static final Object[] EQUIP_FAIL_WATCH_RESTRICTIONS = new Object[]{"Could not install card: Equipping this card would put you over your maximum number of watches.", POPUP_ERROR};
-    public static final Object[] EQUIP_SUCCESS = new Object[]{"Card successfully replaced.", POPUP_MESSAGE, OptionPanel.CARD_REPLACED_KEY}; //_0_ = file name
+    public static final Object[] EQUIP_SUCCESS = new Object[]{"Card successfully replaced.", POPUP_MESSAGE, CARD_REPLACED_KEY}; //_0_ = file name
     public static final Object[] EXCHANGE_COMMODITY_FAIL_NO_BANKING_PORT = new Object[]{"Failed to exchange commodity. Make sure you have a non-dummy bank port on.", POPUP_ERROR};
     public static final Object[] EXCHANGE_COMMODITY_FAIL_NOT_ENOUGH_COMMODITY = new Object[]{"Failed to exchange commodity. You do not have that much _0_.", POPUP_ERROR}; //_0_ = commodity type
     public static final Object[] EXCHANGE_COMMODITY_FAIL_NOT_ENOUGH_MONEY = new Object[]{"Failed to exchange commodity. You do not have that much money in your petty cash.", POPUP_ERROR}; //_0_ = commodity type
     public static final Object[] EXCHANGE_COMMODITY_FAIL_HD_FULL = new Object[]{"Failed to exchange commodity. Your HD is full.", POPUP_ERROR};
-    public static final Object[] EXCHANGE_COMMODITY_SUCCESS = new Object[]{"Converted _0_ of commodity into _1_", POPUP_MESSAGE, OptionPanel.COMMOD_TO_FILE_KEY}; //_0_ = amount, _1_ = file name
-    public static final Object[] EXCHANGE_COMMODITY_SUCCESS_FROM_FILE = new Object[]{"Converted _0_ from file _1_ into commodity.", POPUP_MESSAGE, OptionPanel.FILE_TO_COMMOD_KEY}; //_0_ = amount, _1_ = file name
+    public static final Object[] EXCHANGE_COMMODITY_SUCCESS = new Object[]{"Converted _0_ of commodity into _1_", POPUP_MESSAGE, COMMOD_TO_FILE_KEY}; //_0_ = amount, _1_ = file name
+    public static final Object[] EXCHANGE_COMMODITY_SUCCESS_FROM_FILE = new Object[]{"Converted _0_ from file _1_ into commodity.", POPUP_MESSAGE, FILE_TO_COMMOD_KEY}; //_0_ = amount, _1_ = file name
 
     public static final Object[] FILE_CHANGED_SINCE_LAST_SAVE = new Object[]{"You have edited this file since you last compiled it, please save as new name.", POPUP_ERROR};
     public static final Object[] FILE_NOT_FOUND = new Object[]{"File could not be found on HD.", POPUP_ERROR};
@@ -83,7 +95,7 @@ public class MessageHandler {
 
     public static final Object[] FILE_TAKEN = new Object[]{"_0_ x_1_ taken from HD.", POPUP_MESSAGE}; //_0_ = file name _1_ = quantity
 
-    public static final Object[] FIREWALL_REPLACED = new Object[]{"Firewall successfully replaced.\n\n Old one placed on HD as _0_.", POPUP_MESSAGE, OptionPanel.FIREWALL_REPLACED_KEY}; //_0_ = file name
+    public static final Object[] FIREWALL_REPLACED = new Object[]{"Firewall successfully replaced.\n\n Old one placed on HD as _0_.", POPUP_MESSAGE, FIREWALL_REPLACED_KEY}; //_0_ = file name
     public static final Object[] FTP_NOT_FOUND = new Object[]{"The FTP port you attempted to access was not found.", POPUP_ERROR};
     public static final Object[] FTP_FAIL_PASSWORD_INCORRECT = new Object[]{"The password you provided to connect to this FTP site was incorrect.", POPUP_ERROR};
     public static final Object[] FTP_PUT_FAIL_HD_FULL = new Object[]{"The file could not be uploaded because the target HD was full.", POPUP_ERROR};
@@ -95,7 +107,7 @@ public class MessageHandler {
     public static final Object[] HD_FULL = new Object[]{"File could not be saved HD full.", POPUP_ERROR};
     public static final Object[] HEAL_FAIL_OVERHEATED = new Object[]{"You cannot heal a port when it is overheated.", POPUP_ERROR};
     public static final Object[] HEAL_FAIL_LIMIT = new Object[]{"You can only heal _0_ times per defense.", POPUP_ERROR}; //_0_ = heal limit
-    public static final Object[] HEAL_SUCCESS = new Object[]{"Port _0_ healed for _1_.", POPUP_MESSAGE, OptionPanel.HEALING_KEY}; //_0_ = port number, _1_ = cost
+    public static final Object[] HEAL_SUCCESS = new Object[]{"Port _0_ healed for _1_.", POPUP_MESSAGE, HEALING_KEY}; //_0_ = port number, _1_ = cost
     public static final Object[] HEAL_FAIL_WEAKENED = new Object[]{"Cannot heal port _0_ because it is in a weakened state.", POPUP_ERROR}; //_0_ = port number
 
     public static final Object[] INSTALL_SCRIPT_SUCCESS = new Object[]{"Script successfully installed.", ATTACK_MESSAGE};
@@ -137,7 +149,7 @@ public class MessageHandler {
     public static final Object[] PURCHASE_FAIL_OLDER_HD = new Object[]{"You start to install your new Hard Drive and realize you already have a better one.", POPUP_ERROR};
     public static final Object[] PURCHASE_NEW_MEMORY = new Object[]{"You purchased new _0_ Memory for your computer. It is installed.", POPUP_MESSAGE}; // _0_ = file name
     public static final Object[] PURCHASE_FAIL_OLDER_MEMORY = new Object[]{"You start to install your new Memory and realize you already have a better one.", POPUP_ERROR};
-    public static final Object[] PURCHASE_SUCCESS = new Object[]{"You have successfully purchased _0_ _1_(s) for _2_.", POPUP_MESSAGE, OptionPanel.FILE_PURCHASED_KEY}; //_0_ = quantity, _1_ = file name, _2_ = price
+    public static final Object[] PURCHASE_SUCCESS = new Object[]{"You have successfully purchased _0_ _1_(s) for _2_.", POPUP_MESSAGE, FILE_PURCHASED_KEY}; //_0_ = quantity, _1_ = file name, _2_ = price
     public static final Object[] PURCHASE_FAIL_FILE_NOT_FOUND = new Object[]{"You attempted to purchase a file that could not be found.", POPUP_ERROR};
 
     public static final Object[] QUEST_COMPLETED = new Object[]{"Completed Quest: _0_", POPUP_MESSAGE}; //_0_ = quest name
@@ -154,14 +166,14 @@ public class MessageHandler {
     public static final Object[] REDIRECT_FAIL_ALREADY_REDIRECTING = new Object[]{"This port is already redirecting shipments.", REDIRECT_MESSAGE};
     public static final Object[] REDIRECT_FAIL_OVERHEATED = new Object[]{"Can't redirect when port is overheated.", REDIRECT_MESSAGE};
     public static final Object[] REPAIR_FAIL_LEVEL = new Object[]{"You need to have level _1_ to repair using _0_.", POPUP_ERROR}; //_0_ = commodity, _1_ = level
-    public static final Object[] REMOVE_FIREWALL_SUCCESS = new Object[]{"Firewall successfully removed.\n\nSaved to HD as _0_.", POPUP_MESSAGE, OptionPanel.FIREWALL_REMOVED_KEY}; //_0_ = file name
+    public static final Object[] REMOVE_FIREWALL_SUCCESS = new Object[]{"Firewall successfully removed.\n\nSaved to HD as _0_.", POPUP_MESSAGE, FIREWALL_REMOVED_KEY}; //_0_ = file name
     public static final Object[] REMOVE_FIREWALL_FAIL_HD_FULL = new Object[]{"You can't remove the firewall while your HD is full.", POPUP_ERROR};
     public static final Object[] REPAIR_FAIL_NOT_ENOUGH_COMMODITIES = new Object[]{"You don't have enough commodities to repair _0_.\n\nRequired: _1_", POPUP_ERROR}; //_0_ = file name, _1_ = required commodities
-    public static final Object[] REPAIR_SUCCESS = new Object[]{"Card repaired: _0_.\n\nUsed _1_", POPUP_MESSAGE, OptionPanel.CARD_REPAIRED_KEY}; //_0_ = card name, _1_ = commodities used
+    public static final Object[] REPAIR_SUCCESS = new Object[]{"Card repaired: _0_.\n\nUsed _1_", POPUP_MESSAGE, CARD_REPAIRED_KEY}; //_0_ = card name, _1_ = commodities used
     public static final Object[] REPLACE_APPLICATION_UNDER_ATTACK = new Object[]{"You cannot replace an application while a port is under attack.", POPUP_ERROR};
     public static final Object[] REPLACE_APPLICATION_ATTACKING = new Object[]{"You cannot replace an application while a port is attacking.", POPUP_ERROR};
     public static final Object[] REPLACE_APPLICATION_OVERHEATED = new Object[]{"You cannot replace an application while a port is overheated.", POPUP_ERROR};
-    public static final Object[] REPLACE_APPLICATION_SUCCESS = new Object[]{"Application successfully replaced.", POPUP_MESSAGE, OptionPanel.APP_REPLACED_KEY};
+    public static final Object[] REPLACE_APPLICATION_SUCCESS = new Object[]{"Application successfully replaced.", POPUP_MESSAGE, APP_REPLACED_KEY};
     public static final Object[] REDIRECT_FINISHED_GAME = new Object[]{"Port _0_ finished redirecting.", GAME_MESSAGE}; //_0_ = port number
     public static final Object[] REDIRECT_FINISHED = new Object[]{"Finished redirecting.", REDIRECT_MESSAGE}; //_0_ = port number
 
@@ -174,10 +186,10 @@ public class MessageHandler {
     public static final Object[] STEAL_FILE_FAIL_WRONG_TYPE = new Object[]{"You can only steal a file on an FTP port.", ATTACK_MESSAGE};
 
     public static final Object[] TRANSFER_FAIL_NOOB_LEVEL = new Object[]{"Transaction failed, you can not receive transfers until you are level _0_ or higher.", POPUP_ERROR}; // _0_ = global noob level
-    public static final Object[] TRANSFER_RECEIVED = new Object[]{"Received transfer of $_0_ from _1_.", POPUP_MESSAGE, OptionPanel.TRANSFER_FROM_KEY}; //_0_ = amount received, _1_ = ip received from
+    public static final Object[] TRANSFER_RECEIVED = new Object[]{"Received transfer of $_0_ from _1_.", POPUP_MESSAGE, TRANSFER_FROM_KEY}; //_0_ = amount received, _1_ = ip received from
     public static final Object[] TRANSFER_RECEIVE_FAIL_BANK_PORT = new Object[]{"Could not recieve transfer of $_0_ from _1_.  You must have a non-dummy bank port turned on.", POPUP_ERROR}; //_0_ = amount, _1_ = ip sent to
     public static final Object[] TRANSFER_SEND_FAIL_BANK_PORT = new Object[]{"Could not complete the transfer: target computer does not have an non-dummy bank port turned on.", POPUP_ERROR};
-    public static final Object[] TRANSFER_SENT_SUCCESSFUL = new Object[]{"Transfer of $_0_ successful.", POPUP_MESSAGE, OptionPanel.TRANSFER_TO_KEY}; //_0_ = amount
+    public static final Object[] TRANSFER_SENT_SUCCESSFUL = new Object[]{"Transfer of $_0_ successful.", POPUP_MESSAGE, TRANSFER_TO_KEY}; //_0_ = amount
     public static final Object[] TRANSFER_FAIL_NOOB = new Object[]{"You cannot transfer money until you are total level 15 or higher.", POPUP_ERROR};
 
     public static final Object[] UNINSTALL_PORT_FAIL_UNDER_ATTACK = new Object[]{"You cannot uninstall an application while a port is under attack.", POPUP_ERROR};
@@ -192,7 +204,7 @@ public class MessageHandler {
 
     public static final Object[] VOTE_FAIL_NOOB_LEVEL = new Object[]{"You must be level _0_ or greater to vote for sites.", POPUP_ERROR}; //_0_ = global noob level,GAME_MESSAGE};
     public static final Object[] VOTE_FAIL_OWN_SITE = new Object[]{"You cannot vote for your own web site.", POPUP_ERROR};
-    public static final Object[] VOTE_SUCCESS = new Object[]{"Vote successful _0_ left.", POPUP_MESSAGE, OptionPanel.VOTE_SUCCESSFUL_KEY}; //_0_ = votes left
+    public static final Object[] VOTE_SUCCESS = new Object[]{"Vote successful _0_ left.", POPUP_MESSAGE, VOTE_SUCCESSFUL_KEY}; //_0_ = votes left
     public static final Object[] VOTE_FAIL_NO_VOTES = new Object[]{"You do not currently have any votes available.", POPUP_ERROR};
     public static final Object[] VOTE_FAIL_HTTP_NOT_ON = new Object[]{"You cannot receive a vote if your HTTP is not on.", POPUP_ERROR};
 

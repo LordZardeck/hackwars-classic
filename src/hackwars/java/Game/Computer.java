@@ -60,7 +60,6 @@ import Hackscript.Model.TypeFloat;
 import Hackscript.Model.TypeInteger;
 import Hackscript.Model.TypeString;
 import Hackscript.Model.Variable;
-import Server.HackerServer;
 import View.Task;
 import util.LoadXML;
 import util.LocalWebConfig;
@@ -495,7 +494,7 @@ public class Computer implements Runnable{//Runnable is an interface that allows
 	private ArrayList Choices=new ArrayList();
 	
 	//An instance of the central server used for communicating with client.
-	private HackerServer MyHackerServer=null;
+	private HackerServerBridge MyHackerServer=null;
 	private int connectionID=-1;//ID of this client connection.
 	private PacketAssignment PA=new PacketAssignment(0);//The current packet assignment we're building.
 	private DamageAssignment DA=new DamageAssignment(0);//The current damage assignment we're building.
@@ -1490,7 +1489,7 @@ public class Computer implements Runnable{//Runnable is an interface that allows
 	/**
 	Constructor.
 	*/
-	public Computer(String ip,ComputerHandler MyComputerHandler,Time MyTime,int connectionID,HackerServer MyHackerServer){
+	public Computer(String ip,ComputerHandler MyComputerHandler,Time MyTime,int connectionID,HackerServerBridge MyHackerServer){
 		for(int i=0;i<20;i++)
 			Globals.add(null);
 	
@@ -1526,7 +1525,7 @@ public class Computer implements Runnable{//Runnable is an interface that allows
 	/**
 	Constructor.
 	*/
-	public Computer(String userName,String ip,ComputerHandler MyComputerHandler,Time MyTime,int connectionID,HackerServer MyHackerServer,boolean playerLogin){
+	public Computer(String userName,String ip,ComputerHandler MyComputerHandler,Time MyTime,int connectionID,HackerServerBridge MyHackerServer,boolean playerLogin){
 		for(int i=0;i<20;i++)
 			Globals.add(null);
 	
@@ -1764,7 +1763,7 @@ public class Computer implements Runnable{//Runnable is an interface that allows
 			}
 			result = (ArrayList)C.process(Q);
 			if (result== null || result.size() == 0) {
-				if(!HackerServer.TESTING)
+				if(!ServerRuntimeState.isTesting())
 					return(false);
 			}		
 				

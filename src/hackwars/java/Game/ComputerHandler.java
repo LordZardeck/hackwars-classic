@@ -9,10 +9,8 @@ package Game;
 import java.util.*;
 
 import com.plink.dolphinnet.*;
-import Server.*;
 import Assignments.*;
 import util.*;
-import Server.*;
 
 import java.util.concurrent.Semaphore;
 
@@ -25,12 +23,12 @@ public class ComputerHandler implements Runnable {
     private Thread MyThread = null;//The thread.
     private final Semaphore available = new Semaphore(1, true);//Make sure this is thread safe.
 
-    private HackerServer MyHackerServer = null;//The server for dispatching packets.
+    private HackerServerBridge MyHackerServer = null;//The server for dispatching packets.
     private boolean on = true;
     private int playerCount = 0;
 
     //Constructor.
-    public ComputerHandler(Time MyTime, HackerServer MyHackerServer) {
+    public ComputerHandler(Time MyTime, HackerServerBridge MyHackerServer) {
         this.MyTime = MyTime;
         MyThread = new Thread(this, "Computer Handler");
         MyThread.start();
