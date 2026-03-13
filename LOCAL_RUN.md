@@ -26,7 +26,7 @@ Stop tailing when you see: `ready for connections`.
 
 ```bash
 mkdir -p /tmp/hwdb_20260312
-unzip -qo HWTomcatServer/webapps/ROOT/WEB-INF/classes/db/db.zip -d /tmp/hwdb_20260312
+unzip -qo src/main/resources/db/db.zip -d /tmp/hwdb_20260312
 sed 's/ ROW_FORMAT=FIXED//g' /tmp/hwdb_20260312/hackwars.sql > /tmp/hwdb_20260312/hackwars_mysql57.sql
 
 mysql -h 127.0.0.1 -P 3306 -u root -e \
@@ -37,46 +37,59 @@ mysql -h 127.0.0.1 -P 3306 -u root < /tmp/hwdb_20260312/chat.sql
 mysql -h 127.0.0.1 -P 3306 -u root < /tmp/hwdb_20260312/hackwars_drupal.sql
 ```
 
-## 3) Build
+## 3) Build Deployable WAR
 
 ```bash
-cd HWTomcatServer/webapps/ROOT/WEB-INF/classes
-bash build.sh
+./gradlew war
 ```
 
-## 4) Run Services (3 terminals)
+Output:
+
+```text
+build/libs/hackwars.war
+```
+
+## 4) Deploy WAR To Managed Tomcat (`build/tomcat`)
+
+```bash
+./gradlew deployWar
+```
+
+This installs Tomcat under `build/tomcat` if needed, then copies `build/libs/hackwars.war` into that Tomcat's `webapps/`.
+
+Run managed Tomcat:
+
+```bash
+./gradlew runTomcat
+```
+
+Stop managed Tomcat:
+
+```bash
+./gradlew stopTomcat
+```
+
+## 5) Run Socket Services (2 terminals)
 
 Terminal A:
 
 ```bash
-cd HWTomcatServer/bin
-JAVA_HOME=$(/usr/libexec/java_home -v 25) \
-CATALINA_BASE=$PWD/.. \
-CATALINA_HOME=$PWD/.. \
-./catalina.sh run
+./gradlew runHackerServer
 ```
 
 Terminal B:
 
 ```bash
-cd HWTomcatServer/webapps/ROOT/WEB-INF/classes
-java -classpath "$PWD" Server/HackerServer 1
+./gradlew runChatServer
 ```
 
-Terminal C:
-
-```bash
-cd HWTomcatServer/webapps/ROOT/WEB-INF/classes/chatServer
-java -classpath "$PWD" Server/ChatServer
-```
-
-## 5) Launch Client
+## 6) Launch Client
 
 ```bash
 ./gradlew runClientDesktop
 ```
 
-## 6) Build Native Client App (Current OS)
+## 7) Build Native Client App (Current OS)
 
 ```bash
 ./gradlew packageClientNative

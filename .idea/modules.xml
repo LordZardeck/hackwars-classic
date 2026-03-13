@@ -2,14 +2,9 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/HWTomcatServer/webapps/examples/WEB-INF/WEB-INF.iml" filepath="$PROJECT_DIR$/HWTomcatServer/webapps/examples/WEB-INF/WEB-INF.iml" />
-      <module fileurl="file://$PROJECT_DIR$/HWTomcatServer/webapps/ROOT/WEB-INF/WEB-INF2.iml" filepath="$PROJECT_DIR$/HWTomcatServer/webapps/ROOT/WEB-INF/WEB-INF2.iml" />
-      <module fileurl="file://$PROJECT_DIR$/HWTomcatServer/webapps/ROOT/WEB-INF/classes/classes.iml" filepath="$PROJECT_DIR$/HWTomcatServer/webapps/ROOT/WEB-INF/classes/classes.iml" />
-      <module fileurl="file://$PROJECT_DIR$/HWTomcatServer/webapps/docs/docs.iml" filepath="$PROJECT_DIR$/HWTomcatServer/webapps/docs/docs.iml" />
       <module fileurl="file://$PROJECT_DIR$/.idea/modules/hackwars-classic-original.iml" filepath="$PROJECT_DIR$/.idea/modules/hackwars-classic-original.iml" />
       <module fileurl="file://$PROJECT_DIR$/.idea/modules/hackwars-classic-original.main.iml" filepath="$PROJECT_DIR$/.idea/modules/hackwars-classic-original.main.iml" />
       <module fileurl="file://$PROJECT_DIR$/.idea/modules/hackwars-classic-original.test.iml" filepath="$PROJECT_DIR$/.idea/modules/hackwars-classic-original.test.iml" />
-      <module fileurl="file://$PROJECT_DIR$/HWTomcatServer/webapps/ROOT/WEB-INF/classes/org/org.iml" filepath="$PROJECT_DIR$/HWTomcatServer/webapps/ROOT/WEB-INF/classes/org/org.iml" />
     </modules>
   </component>
 </project>

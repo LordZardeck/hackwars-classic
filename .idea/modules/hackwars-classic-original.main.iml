@@ -1,10 +1,27 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <module external.linked.project.id="hackwars-classic-original:main" external.linked.project.path="$MODULE_DIR$/../.." external.root.project.path="$MODULE_DIR$/../.." external.system.id="GRADLE" external.system.module.group="" external.system.module.type="sourceSet" external.system.module.version="unspecified" type="JAVA_MODULE" version="4">
-  <component name="NewModuleRootManager" LANGUAGE_LEVEL="JDK_25">
+  <component name="FacetManager">
+    <facet external-system-id="GRADLE" type="web" name="Web Gradle : hackwars.war">
+      <configuration>
+        <descriptors>
+          <deploymentDescriptor name="web.xml" url="file://$MODULE_DIR$/../../src/main/webapp/WEB-INF/web.xml" />
+        </descriptors>
+        <webroots>
+          <root url="file://$MODULE_DIR$/../../src/main/webapp" relative="/" />
+          <root url="file://$MODULE_DIR$/../../build/legacy-classes/chat/Assignments" relative="/WEB-INF/classes/chatServer/Assignments" />
+          <root url="file://$MODULE_DIR$/../../build/legacy-classes/chat/chat" relative="/WEB-INF/classes/chatServer/chat" />
+          <root url="file://$MODULE_DIR$/../../build/legacy-classes/chat/util" relative="/WEB-INF/classes/chatServer/util" />
+          <root url="file://$MODULE_DIR$/../../build/legacy-classes/chat/Server" relative="/WEB-INF/classes/chatServer/Server" />
+          <root url="file://$MODULE_DIR$/../../build/legacy-classes/chat/com" relative="/WEB-INF/classes/chatServer/com" />
+        </webroots>
+      </configuration>
+    </facet>
+  </component>
+  <component name="NewModuleRootManager">
     <output url="file://$MODULE_DIR$/../../build/classes/java/main" />
     <exclude-output />
-    <content url="file://$MODULE_DIR$/../../src/main" />
-    <orderEntry type="jdk" jdkName="openjdk-25" jdkType="JavaSDK" />
+    <content url="file://$MODULE_DIR$/../../src/main/webapp" />
+    <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />
   </component>
 </module>

@@ -15,3 +15,12 @@ open-source version in JavaScript.
 
 This repo contains the crufty code for the original HackWars Java client,
 warts intact.
+
+## Project Layout
+
+- `src/main/java`: main game and service Java sources.
+- `src/chatServer/java`: dedicated chat server Java sources.
+- `src/main/resources`: runtime data files (images, DB zips, config, etc.).
+- `src/main/webapp`: web application assets and `WEB-INF/web.xml`.
+- `libs/legacy`: legacy third-party jars bundled into build/runtime classpaths.
+- `build/libs/hackwars.war`: deployable artifact for an external Tomcat server.
