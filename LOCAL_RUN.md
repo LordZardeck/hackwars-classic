@@ -73,6 +73,13 @@ java -classpath "$PWD" Server/ChatServer
 ## 5) Launch Client
 
 ```bash
-cd HWTomcatServer/webapps/ROOT/WEB-INF/classes
-java -classpath "$PWD" View/View 127.0.0.1 localuser localpass 192.168.2.002
+./gradlew runClientDesktop
 ```
+
+## 6) Build Native Client App (Current OS)
+
+```bash
+./gradlew packageClientNative
+```
+
+For macOS universal output, run the task with a universal macOS JDK so the generated app image is universal.

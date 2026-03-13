@@ -6,7 +6,6 @@
       <module fileurl="file://$PROJECT_DIR$/HWTomcatServer/webapps/ROOT/WEB-INF/WEB-INF2.iml" filepath="$PROJECT_DIR$/HWTomcatServer/webapps/ROOT/WEB-INF/WEB-INF2.iml" />
       <module fileurl="file://$PROJECT_DIR$/HWTomcatServer/webapps/ROOT/WEB-INF/classes/classes.iml" filepath="$PROJECT_DIR$/HWTomcatServer/webapps/ROOT/WEB-INF/classes/classes.iml" />
       <module fileurl="file://$PROJECT_DIR$/HWTomcatServer/webapps/docs/docs.iml" filepath="$PROJECT_DIR$/HWTomcatServer/webapps/docs/docs.iml" />
-      <module fileurl="file://$PROJECT_DIR$/.idea/hackwars-classic-master.iml" filepath="$PROJECT_DIR$/.idea/hackwars-classic-master.iml" />
       <module fileurl="file://$PROJECT_DIR$/.idea/modules/hackwars-classic-original.iml" filepath="$PROJECT_DIR$/.idea/modules/hackwars-classic-original.iml" />
       <module fileurl="file://$PROJECT_DIR$/.idea/modules/hackwars-classic-original.main.iml" filepath="$PROJECT_DIR$/.idea/modules/hackwars-classic-original.main.iml" />
       <module fileurl="file://$PROJECT_DIR$/.idea/modules/hackwars-classic-original.test.iml" filepath="$PROJECT_DIR$/.idea/modules/hackwars-classic-original.test.iml" />

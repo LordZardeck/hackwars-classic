@@ -304,3 +304,9 @@ Mar 12, 2026 7:02:19 PM org.apache.jk.server.JkMain start
 INFO: Jk running ID=0 time=0/12  config=null
 Mar 12, 2026 7:02:19 PM org.apache.catalina.startup.Catalina start
 INFO: Server startup in 305 ms
+Mar 12, 2026 8:32:53 PM org.apache.coyote.http11.Http11Protocol pause
+INFO: Pausing Coyote HTTP/1.1 on http-8081
+Mar 12, 2026 8:32:54 PM org.apache.catalina.core.StandardService stop
+INFO: Stopping service Catalina
+Mar 12, 2026 8:32:54 PM org.apache.coyote.http11.Http11Protocol destroy
+INFO: Stopping Coyote HTTP/1.1 on http-8081

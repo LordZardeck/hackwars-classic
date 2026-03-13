@@ -146,6 +146,20 @@ tasks.register('runChatServer', JavaExec) {
 def isWindows = System.getProperty('os.name')
         .toLowerCase(Locale.ROOT)
         .contains('win')
+def isMac = System.getProperty('os.name')
+        .toLowerCase(Locale.ROOT)
+        .contains('mac')
+def clientPackageInputDir = layout.buildDirectory.dir('jpackage/input')
+def clientPackageOutputDir = layout.buildDirectory.dir('jpackage/dist')
+
+def resolveJpackageExecutable = {
+    def javaHome = new File(System.getProperty('java.home'))
+    def executable = new File(javaHome, isWindows ? 'bin/jpackage.exe' : 'bin/jpackage')
+    if (!executable.exists()) {
+        throw new GradleException("jpackage was not found under ${javaHome}. Run Gradle with a JDK that includes jpackage (JDK 17+ recommended).")
+    }
+    return executable
+}
 
 tasks.register('startCatalina', Exec) {
     group = 'application'
@@ -188,21 +202,70 @@ tasks.register('stopCatalina', Exec) {
     }
 }
 
-tasks.register('runClientApplet', Exec) {
+tasks.register('runClientDesktop', JavaExec) {
     group = 'application'
-    description = 'Starts the applet client using JAVA_HOME/bin/appletviewer and Applet.local.html.'
-    dependsOn 'deployServices'
+    description = 'Starts the desktop client using Applet.Load as a regular Swing application.'
+    dependsOn 'compileHackServer'
+    javaLauncher = java8Launcher
+    classpath = files(hackServerBuildOutputDir, classesRootDir, legacyJars)
+    mainClass = 'Applet.Load'
     workingDir = classesRootDir
+}
+
+tasks.register('runClient') {
+    group = 'application'
+    description = 'Alias for runClientDesktop.'
+    dependsOn 'runClientDesktop'
+}
+
+tasks.register('clientLauncherJar', Jar) {
+    group = 'build'
+    description = 'Builds a runnable desktop client jar containing compiled classes and bundled resources.'
+    dependsOn 'compileHackServer'
+    archiveFileName = 'hackwars-client.jar'
+    destinationDirectory = clientPackageInputDir
+    from(hackServerBuildOutputDir)
+    from(classesRootDir) {
+        exclude '**/*.java'
+        exclude '**/*.class'
+        exclude '**/*.jar'
+        exclude 'chatServer/**'
+    }
+    manifest {
+        attributes('Main-Class': 'Applet.Load')
+    }
+}
+
+tasks.register('prepareClientNativeInput', Sync) {
+    group = 'distribution'
+    description = 'Stages the client launcher jar and dependency jars for native packaging.'
+    dependsOn 'clientLauncherJar'
+    into clientPackageInputDir
+    from(tasks.named('clientLauncherJar'))
+    from(legacyJars)
+}
+
+tasks.register('packageClientNative', Exec) {
+    group = 'distribution'
+    description = 'Builds a native client app image for the current OS (Windows/macOS/Linux) via jpackage.'
+    dependsOn 'prepareClientNativeInput'
     doFirst {
-        def javaHome = java8Launcher.get().metadata.installationPath.asFile
-        def appletViewer = new File(javaHome, isWindows ? 'bin/appletviewer.exe' : 'bin/appletviewer')
-        def appletPolicy = layout.projectDirectory.file('applet.local.policy').asFile
-        if (!appletViewer.exists()) {
-            throw new GradleException("appletviewer was not found under ${javaHome}. Use a full Java 8 JDK for this task.")
+        def jpackageExecutable = resolveJpackageExecutable()
+        def inputDir = clientPackageInputDir.get().asFile
+        def outputDir = clientPackageOutputDir.get().asFile
+        outputDir.mkdirs()
+        def args = [
+                jpackageExecutable.absolutePath,
+                '--type', 'app-image',
+                '--input', inputDir.absolutePath,
+                '--dest', outputDir.absolutePath,
+                '--name', 'HackWars',
+                '--main-jar', 'hackwars-client.jar',
+                '--main-class', 'Applet.Load'
+        ]
+        if (isMac) {
+            args += ['--mac-package-name', 'HackWars']
         }
-        if (!appletPolicy.exists()) {
-            throw new GradleException("Missing applet policy file at ${appletPolicy}.")
-        }
-        commandLine appletViewer.absolutePath, "-J-Djava.security.policy==${appletPolicy.absolutePath}", 'Applet.local.html'
+        commandLine(args)
     }
 }

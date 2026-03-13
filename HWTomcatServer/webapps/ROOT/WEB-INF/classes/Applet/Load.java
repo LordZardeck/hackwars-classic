@@ -4,7 +4,6 @@ Load.java
 
 Performs the loading step necessary to bootstrap the GUI.
 */
-import java.applet.*;
 import java.net.*;
 import javax.swing.*;
 import java.awt.*;
@@ -20,7 +19,7 @@ import javax.imageio.*;
 import java.net.URL;
 import GUI.*;
 import util.XmlRpcProxy;
-public class Load extends JApplet implements ActionListener{
+public class Load extends JPanel implements ActionListener{
 	private final String checksum="dec 19";
 	private static final String DEFAULT_SERVER_HOST="127.0.0.1";
 	private static final String DEFAULT_PLAYER_IP="192.168.2.002";
@@ -42,12 +41,16 @@ public class Load extends JApplet implements ActionListener{
 	private String clientDate="Jan 9th, 2010 @ 8:00 PM";
 
 	public Load(){
-		//getFiles(JPB);
+		setPreferredSize(new Dimension(250,250));
 	}
 	
 	public void init(){
-		getContentPane().setBackground(new Color(255,255,255));
-		getContentPane().setLayout(null);
+		if(LoaderSet){
+			return;
+		}
+		LoaderSet=true;
+		setBackground(new Color(255,255,255));
+		setLayout(null);
 		loadConfiguration();
 		try {
 			UIManager.setLookAndFeel(UIManager.getCrossPlatformLookAndFeelClassName());
@@ -76,8 +79,8 @@ public class Load extends JApplet implements ActionListener{
 	private String getConfigValue(String appletParam,String systemProperty,String fallback){
 		String value=null;
 		try{
-			value=getParameter(appletParam);
-		}catch(Exception e){}
+			value=System.getProperty(appletParam);
+		}catch(SecurityException e){}
 		if(value==null||value.trim().length()==0){
 			try{
 				value=System.getProperty(systemProperty);
@@ -269,9 +272,25 @@ public class Load extends JApplet implements ActionListener{
 
 
 	public void linkGo(URL link){
-		AppletContext a = getAppletContext();
-		a.showDocument(link,"_blank");
-		
+		if(link==null){
+			return;
+		}
+		try{
+			if(java.awt.Desktop.isDesktopSupported()){
+				java.awt.Desktop.getDesktop().browse(link.toURI());
+				return;
+			}
+		}catch(Exception e){}
+		String os=System.getProperty("os.name","").toLowerCase();
+		try{
+			if(os.indexOf("win")>=0){
+				Runtime.getRuntime().exec(new String[]{"rundll32","url.dll,FileProtocolHandler",link.toString()});
+			}else if(os.indexOf("mac")>=0){
+				Runtime.getRuntime().exec(new String[]{"open",link.toString()});
+			}else{
+				Runtime.getRuntime().exec(new String[]{"xdg-open",link.toString()});
+			}
+		}catch(Exception e){}
 	}
 
 	//Action Listener.
@@ -370,7 +389,23 @@ public class Load extends JApplet implements ActionListener{
 			UIManager.setLookAndFeel(UIManager.getCrossPlatformLookAndFeelClassName());
 	    }catch(Exception e){
 		}
-		//System.setErr(null);
-		Load MyLoad=new Load();
+		SwingUtilities.invokeLater(new Runnable(){
+			public void run(){
+				final Load MyLoad=new Load();
+				final JFrame frame=new JFrame("HackWars");
+				frame.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
+				frame.setResizable(false);
+				frame.setContentPane(MyLoad);
+				frame.addWindowListener(new WindowAdapter(){
+					public void windowClosing(WindowEvent e){
+						MyLoad.stop();
+					}
+				});
+				MyLoad.init();
+				frame.pack();
+				frame.setLocationRelativeTo(null);
+				frame.setVisible(true);
+			}
+		});
 	}
 }
