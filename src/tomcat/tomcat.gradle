@@ -4,9 +4,10 @@ apply plugin: 'war'
 
 dependencies {
     compileOnly 'org.apache.tomcat:servlet-api:6.0.53'
-    implementation project(':hackwars')
-    implementation project(':hackerServer')
-    implementation project(':client')
+    implementation project(':HackWars')
+    implementation project(':GameServer')
+    implementation project(':Client')
+    implementation project(':Networking')
 }
 
 configurations {
@@ -43,25 +44,30 @@ tasks.named('war', War) {
     group = 'distribution'
     description = 'Builds a deployable WAR for an external Tomcat server.'
     dependsOn(
-            project(':hackwars').tasks.named('classes'),
-            project(':hackerServer').tasks.named('classes'),
-            project(':client').tasks.named('classes'),
-            project(':chatServer').tasks.named('classes'),
+            project(':HackWars').tasks.named('classes'),
+            project(':GameServer').tasks.named('classes'),
+            project(':Client').tasks.named('classes'),
+            project(':Networking').tasks.named('classes'),
+            project(':ChatServer').tasks.named('classes'),
             tasks.named('classes')
     )
     archiveFileName = 'hackwars.war'
     destinationDirectory = rootProject.layout.buildDirectory.dir('libs').get().asFile
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 
-    from(project(':hackwars').sourceSets.main.output) {
+    from(project(':HackWars').sourceSets.main.output) {
         into 'WEB-INF/classes'
         include '**/*.class'
     }
-    from(project(':hackerServer').sourceSets.main.output) {
+    from(project(':GameServer').sourceSets.main.output) {
         into 'WEB-INF/classes'
         include '**/*.class'
     }
-    from(project(':client').sourceSets.main.output) {
+    from(project(':Client').sourceSets.main.output) {
+        into 'WEB-INF/classes'
+        include '**/*.class'
+    }
+    from(project(':Networking').sourceSets.main.output) {
         into 'WEB-INF/classes'
         include '**/*.class'
     }
@@ -69,7 +75,7 @@ tasks.named('war', War) {
         into 'WEB-INF/classes'
         include '**/*.class'
     }
-    from(project(':chatServer').sourceSets.main.output) {
+    from(project(':ChatServer').sourceSets.main.output) {
         into 'WEB-INF/classes/chatServer'
         include '**/*.class'
     }

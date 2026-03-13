@@ -1,21 +1,25 @@
-rootProject.name = 'hackwars-classic-original'
+rootProject.name = 'HackwarsClassic'
 
-include ':hackwars'
-project(':hackwars').projectDir = file('src/hackwars')
-project(':hackwars').buildFileName = 'hackwars.gradle'
+include ':HackWars'
+project(':HackWars').projectDir = file('src/HackWars')
+project(':HackWars').buildFileName = 'hackwars.gradle'
 
-include ':hackerServer'
-project(':hackerServer').projectDir = file('src/hackerServer')
-project(':hackerServer').buildFileName = 'hackerServer.gradle'
+include ':GameServer'
+project(':GameServer').projectDir = file('src/GameServer')
+project(':GameServer').buildFileName = 'GameServer.gradle'
 
-include ':client'
-project(':client').projectDir = file('src/client')
-project(':client').buildFileName = 'client.gradle'
+include ':Client'
+project(':Client').projectDir = file('src/Client')
+project(':Client').buildFileName = 'client.gradle'
 
-include ':tomcat'
-project(':tomcat').projectDir = file('src/tomcat')
-project(':tomcat').buildFileName = 'tomcat.gradle'
+include ':Tomcat'
+project(':Tomcat').projectDir = file('src/Tomcat')
+project(':Tomcat').buildFileName = 'tomcat.gradle'
 
-include ':chatServer'
-project(':chatServer').projectDir = file('src/chatServer')
-project(':chatServer').buildFileName = 'chatServer.gradle'
+include ':Networking'
+project(':Networking').projectDir = file('src/Networking')
+project(':Networking').buildFileName = 'networking.gradle'
+
+include ':ChatServer'
+project(':ChatServer').projectDir = file('src/ChatServer')
+project(':ChatServer').buildFileName = 'chatServer.gradle'

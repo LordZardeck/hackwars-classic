@@ -1,0 +1,58 @@
+plugins {
+    id 'java-library'
+    id 'com.google.protobuf' version '0.9.4'
+}
+
+def protobufVersion = '3.25.5'
+
+dependencies {
+    api "com.google.protobuf:protobuf-java:${protobufVersion}"
+}
+
+sourceSets {
+    main {
+        java {
+            srcDir "${buildDir}/generated/source/proto/main/java"
+        }
+        proto {
+            srcDir 'proto'
+        }
+        resources {
+            srcDir 'proto'
+            include '**/*.proto'
+        }
+    }
+}
+
+protobuf {
+    protoc {
+        artifact = "com.google.protobuf:protoc:${protobufVersion}"
+    }
+    generateProtoTasks {
+        all().configureEach { task ->
+            task.builtins {
+                java {}
+            }
+            task.generateDescriptorSet = true
+            task.descriptorSetOptions.includeImports = true
+            task.descriptorSetOptions.includeSourceInfo = true
+            task.descriptorSetOptions.path = "${buildDir}/descriptors/networking.protoset"
+        }
+    }
+}
+
+tasks.register('exportProtoDefinitions', Copy) {
+    group = 'build'
+    description = 'Copies protobuf schemas for non-Java services.'
+    from('proto')
+    include '**/*.proto'
+    into(layout.buildDirectory.dir('exported-proto'))
+}
+
+tasks.named('assemble') {
+    dependsOn tasks.named('exportProtoDefinitions')
+}
+
+tasks.named('processResources', Copy) {
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}

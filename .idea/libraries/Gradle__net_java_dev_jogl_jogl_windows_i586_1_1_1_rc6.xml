@@ -1,0 +1,10 @@
+<component name="libraryTable">
+  <library name="Gradle: net.java.dev.jogl:jogl-windows-i586:1.1.1-rc6" type="java-imported" external-system-id="GRADLE">
+    <properties groupId="net.java.dev.jogl" artifactId="jogl-windows-i586" version="1.1.1-rc6" baseVersion="1.1.1-rc6" />
+    <CLASSES>
+      <root url="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/net.java.dev.jogl/jogl-windows-i586/1.1.1-rc6/98c9c60c8953b196251c04131802cbfd8eb612ab/jogl-windows-i586-1.1.1-rc6.jar!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES />
+  </library>
+</component>

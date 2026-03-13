@@ -1,0 +1,14 @@
+<component name="ArtifactManager">
+  <artifact type="war" external-system-id="GRADLE" name="Gradle : HackwarsClassic : hackwars.war">
+    <output-path>$PROJECT_DIR$/build/libs</output-path>
+    <properties id="gradle-properties">
+      <options external-project-path="$PROJECT_DIR$">
+        <buildTaskPath>:Tomcat:war</buildTaskPath>
+        <cleanTaskPath>:Tomcat:cleanWar</cleanTaskPath>
+      </options>
+    </properties>
+    <root id="archive" name="hackwars.war">
+      <element id="artifact" artifact-name="Gradle : HackwarsClassic : hackwars.war (exploded)" />
+    </root>
+  </artifact>
+</component>

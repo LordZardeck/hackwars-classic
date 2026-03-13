@@ -2,22 +2,25 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/modules/hackwars-classic-original.iml" filepath="$PROJECT_DIR$/.idea/modules/hackwars-classic-original.iml" />
-      <module fileurl="file://$PROJECT_DIR$/.idea/modules/src/chatServer/hackwars-classic-original.chatServer.iml" filepath="$PROJECT_DIR$/.idea/modules/src/chatServer/hackwars-classic-original.chatServer.iml" />
-      <module fileurl="file://$PROJECT_DIR$/.idea/modules/src/chatServer/hackwars-classic-original.chatServer.main.iml" filepath="$PROJECT_DIR$/.idea/modules/src/chatServer/hackwars-classic-original.chatServer.main.iml" />
-      <module fileurl="file://$PROJECT_DIR$/.idea/modules/src/chatServer/hackwars-classic-original.chatServer.test.iml" filepath="$PROJECT_DIR$/.idea/modules/src/chatServer/hackwars-classic-original.chatServer.test.iml" />
-      <module fileurl="file://$PROJECT_DIR$/.idea/modules/src/client/hackwars-classic-original.client.iml" filepath="$PROJECT_DIR$/.idea/modules/src/client/hackwars-classic-original.client.iml" />
-      <module fileurl="file://$PROJECT_DIR$/.idea/modules/src/client/hackwars-classic-original.client.main.iml" filepath="$PROJECT_DIR$/.idea/modules/src/client/hackwars-classic-original.client.main.iml" />
-      <module fileurl="file://$PROJECT_DIR$/.idea/modules/src/client/hackwars-classic-original.client.test.iml" filepath="$PROJECT_DIR$/.idea/modules/src/client/hackwars-classic-original.client.test.iml" />
-      <module fileurl="file://$PROJECT_DIR$/.idea/modules/src/hackerServer/hackwars-classic-original.hackerServer.iml" filepath="$PROJECT_DIR$/.idea/modules/src/hackerServer/hackwars-classic-original.hackerServer.iml" />
-      <module fileurl="file://$PROJECT_DIR$/.idea/modules/src/hackerServer/hackwars-classic-original.hackerServer.main.iml" filepath="$PROJECT_DIR$/.idea/modules/src/hackerServer/hackwars-classic-original.hackerServer.main.iml" />
-      <module fileurl="file://$PROJECT_DIR$/.idea/modules/src/hackerServer/hackwars-classic-original.hackerServer.test.iml" filepath="$PROJECT_DIR$/.idea/modules/src/hackerServer/hackwars-classic-original.hackerServer.test.iml" />
-      <module fileurl="file://$PROJECT_DIR$/.idea/modules/src/hackwars/hackwars-classic-original.hackwars.iml" filepath="$PROJECT_DIR$/.idea/modules/src/hackwars/hackwars-classic-original.hackwars.iml" />
-      <module fileurl="file://$PROJECT_DIR$/.idea/modules/src/hackwars/hackwars-classic-original.hackwars.main.iml" filepath="$PROJECT_DIR$/.idea/modules/src/hackwars/hackwars-classic-original.hackwars.main.iml" />
-      <module fileurl="file://$PROJECT_DIR$/.idea/modules/src/hackwars/hackwars-classic-original.hackwars.test.iml" filepath="$PROJECT_DIR$/.idea/modules/src/hackwars/hackwars-classic-original.hackwars.test.iml" />
-      <module fileurl="file://$PROJECT_DIR$/.idea/modules/src/tomcat/hackwars-classic-original.tomcat.iml" filepath="$PROJECT_DIR$/.idea/modules/src/tomcat/hackwars-classic-original.tomcat.iml" />
-      <module fileurl="file://$PROJECT_DIR$/.idea/modules/src/tomcat/hackwars-classic-original.tomcat.main.iml" filepath="$PROJECT_DIR$/.idea/modules/src/tomcat/hackwars-classic-original.tomcat.main.iml" />
-      <module fileurl="file://$PROJECT_DIR$/.idea/modules/src/tomcat/hackwars-classic-original.tomcat.test.iml" filepath="$PROJECT_DIR$/.idea/modules/src/tomcat/hackwars-classic-original.tomcat.test.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/HackwarsClassic.iml" filepath="$PROJECT_DIR$/.idea/modules/HackwarsClassic.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/src/chatServer/HackwarsClassic.ChatServer.iml" filepath="$PROJECT_DIR$/.idea/modules/src/chatServer/HackwarsClassic.ChatServer.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/src/chatServer/HackwarsClassic.ChatServer.main.iml" filepath="$PROJECT_DIR$/.idea/modules/src/chatServer/HackwarsClassic.ChatServer.main.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/src/chatServer/HackwarsClassic.ChatServer.test.iml" filepath="$PROJECT_DIR$/.idea/modules/src/chatServer/HackwarsClassic.ChatServer.test.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/src/client/HackwarsClassic.Client.iml" filepath="$PROJECT_DIR$/.idea/modules/src/client/HackwarsClassic.Client.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/src/client/HackwarsClassic.Client.main.iml" filepath="$PROJECT_DIR$/.idea/modules/src/client/HackwarsClassic.Client.main.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/src/client/HackwarsClassic.Client.test.iml" filepath="$PROJECT_DIR$/.idea/modules/src/client/HackwarsClassic.Client.test.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/src/GameServer/HackwarsClassic.GameServer.iml" filepath="$PROJECT_DIR$/.idea/modules/src/GameServer/HackwarsClassic.GameServer.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/src/GameServer/HackwarsClassic.GameServer.main.iml" filepath="$PROJECT_DIR$/.idea/modules/src/GameServer/HackwarsClassic.GameServer.main.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/src/GameServer/HackwarsClassic.GameServer.test.iml" filepath="$PROJECT_DIR$/.idea/modules/src/GameServer/HackwarsClassic.GameServer.test.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/src/hackwars/HackwarsClassic.HackWars.iml" filepath="$PROJECT_DIR$/.idea/modules/src/hackwars/HackwarsClassic.HackWars.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/src/hackwars/HackwarsClassic.HackWars.main.iml" filepath="$PROJECT_DIR$/.idea/modules/src/hackwars/HackwarsClassic.HackWars.main.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/src/hackwars/HackwarsClassic.HackWars.test.iml" filepath="$PROJECT_DIR$/.idea/modules/src/hackwars/HackwarsClassic.HackWars.test.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/src/networking/HackwarsClassic.Networking.iml" filepath="$PROJECT_DIR$/.idea/modules/src/networking/HackwarsClassic.Networking.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/src/networking/HackwarsClassic.Networking.main.iml" filepath="$PROJECT_DIR$/.idea/modules/src/networking/HackwarsClassic.Networking.main.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/src/networking/HackwarsClassic.Networking.test.iml" filepath="$PROJECT_DIR$/.idea/modules/src/networking/HackwarsClassic.Networking.test.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/src/tomcat/HackwarsClassic.Tomcat.iml" filepath="$PROJECT_DIR$/.idea/modules/src/tomcat/HackwarsClassic.Tomcat.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/src/tomcat/HackwarsClassic.Tomcat.main.iml" filepath="$PROJECT_DIR$/.idea/modules/src/tomcat/HackwarsClassic.Tomcat.main.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/src/tomcat/HackwarsClassic.Tomcat.test.iml" filepath="$PROJECT_DIR$/.idea/modules/src/tomcat/HackwarsClassic.Tomcat.test.iml" />
     </modules>
   </component>
 </project>

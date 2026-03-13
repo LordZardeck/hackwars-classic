@@ -8,11 +8,12 @@
         <option name="modules">
           <set>
             <option value="$PROJECT_DIR$" />
-            <option value="$PROJECT_DIR$/src/chatServer" />
-            <option value="$PROJECT_DIR$/src/client" />
-            <option value="$PROJECT_DIR$/src/hackerServer" />
-            <option value="$PROJECT_DIR$/src/hackwars" />
-            <option value="$PROJECT_DIR$/src/tomcat" />
+            <option value="$PROJECT_DIR$/src/ChatServer" />
+            <option value="$PROJECT_DIR$/src/Client" />
+            <option value="$PROJECT_DIR$/src/GameServer" />
+            <option value="$PROJECT_DIR$/src/HackWars" />
+            <option value="$PROJECT_DIR$/src/Networking" />
+            <option value="$PROJECT_DIR$/src/Tomcat" />
           </set>
         </option>
       </GradleProjectSettings>

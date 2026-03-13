@@ -1,0 +1,10 @@
+<component name="libraryTable">
+  <library name="Gradle: net.java.dev.gluegen:gluegen-rt-macosx-universal:1.0b05" type="java-imported" external-system-id="GRADLE">
+    <properties groupId="net.java.dev.gluegen" artifactId="gluegen-rt-macosx-universal" version="1.0b05" baseVersion="1.0b05" />
+    <CLASSES>
+      <root url="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/net.java.dev.gluegen/gluegen-rt-macosx-universal/1.0b05/33cadffd96789246f0d9088e64dbb392aafdfe/gluegen-rt-macosx-universal-1.0b05.jar!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES />
+  </library>
+</component>

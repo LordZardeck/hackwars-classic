@@ -11,7 +11,8 @@ def joglNativeCoordinates = [
 ]
 
 dependencies {
-    implementation project(':hackwars')
+    implementation project(':HackWars')
+    implementation project(':Networking')
     implementation 'org.apache.axis:axis:1.4'
     implementation 'de.sciss:jsyntaxpane:1.0.0'
     implementation 'com.miglayout:miglayout-swing:11.4.2'
@@ -41,7 +42,7 @@ configurations {
 
 tasks.register('clientLegacyOrgShimJar', Jar) {
     group = 'build'
-    description = 'Packages local legacy org/*.class shims copied into src/client/java.'
+    description = 'Packages local legacy org/*.class shims copied into src/Client/java.'
     archiveFileName = 'client-legacy-org-shims.jar'
     destinationDirectory = layout.buildDirectory.dir('generated-libs').get().asFile
     from(legacyOrgClassesDir) {
@@ -74,13 +75,13 @@ def resolveJpackageExecutable = {
 tasks.register('runClientDesktop', JavaExec) {
     group = 'application'
     description = 'Starts the desktop client using Client.Launcher as a regular Swing application.'
-    dependsOn tasks.named('classes'), project(':hackwars').tasks.named('classes')
+    dependsOn tasks.named('classes'), project(':HackWars').tasks.named('classes')
     javaLauncher = javaToolchains.launcherFor {
         languageVersion = JavaLanguageVersion.of(rootProject.ext.javaToolchainVersion as Integer)
     }
     classpath = files(
             sourceSets.main.output,
-            project(':hackwars').sourceSets.main.output,
+            project(':HackWars').sourceSets.main.output,
             sourceSets.main.runtimeClasspath,
             rootProject.ext.resourcesRootDir
     )
@@ -97,11 +98,11 @@ tasks.register('runClient') {
 tasks.register('clientLauncherJar', Jar) {
     group = 'build'
     description = 'Builds a runnable desktop client jar containing compiled classes and bundled resources.'
-    dependsOn tasks.named('classes'), project(':hackwars').tasks.named('classes')
+    dependsOn tasks.named('classes'), project(':HackWars').tasks.named('classes')
     archiveFileName = 'hackwars-client.jar'
     destinationDirectory = clientPackageInputDir.get().asFile
     from(sourceSets.main.output)
-    from(project(':hackwars').sourceSets.main.output)
+    from(project(':HackWars').sourceSets.main.output)
     from(rootProject.ext.resourcesRootDir) {
         exclude 'chatServer/**'
     }

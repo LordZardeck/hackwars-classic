@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<module external.linked.project.id=":Networking:test" external.linked.project.path="$MODULE_DIR$/../../../../src/Networking" external.root.project.path="$MODULE_DIR$/../../../.." external.system.id="GRADLE" external.system.module.group="HackwarsClassic" external.system.module.type="sourceSet" external.system.module.version="unspecified" type="JAVA_MODULE" version="4">
+  <component name="NewModuleRootManager">
+    <output-test url="file://$MODULE_DIR$/../../../../src/Networking/build/classes/java/test" />
+    <exclude-output />
+    <content url="file://$MODULE_DIR$/../../../../src/Networking/build/generated/source/proto/test/java" />
+    <content url="file://$MODULE_DIR$/../../../../src/Networking/src/test" />
+    <orderEntry type="inheritedJdk" />
+    <orderEntry type="sourceFolder" forTests="false" />
+    <orderEntry type="module" module-name="HackwarsClassic.Networking.main" />
+    <orderEntry type="library" name="Gradle: com.google.protobuf:protobuf-java:3.25.5" level="project" />
+  </component>
+  <component name="TestModuleProperties" production-module="HackwarsClassic.Networking.main" />
+</module>

@@ -1,0 +1,10 @@
+<component name="libraryTable">
+  <library name="Gradle: de.sciss:jsyntaxpane:1.0.0" type="java-imported" external-system-id="GRADLE">
+    <properties groupId="de.sciss" artifactId="jsyntaxpane" version="1.0.0" baseVersion="1.0.0" />
+    <CLASSES>
+      <root url="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/de.sciss/jsyntaxpane/1.0.0/48fa62e68b60b593f9a46fdf8517241688437b13/jsyntaxpane-1.0.0.jar!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES />
+  </library>
+</component>

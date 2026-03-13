@@ -40,7 +40,7 @@ mysql -h 127.0.0.1 -P 3306 -u root < /tmp/hwdb_20260312/hackwars_drupal.sql
 ## 3) Build Deployable WAR
 
 ```bash
-./gradlew :tomcat:war
+./gradlew :Tomcat:war
 ```
 
 Output:
@@ -52,7 +52,7 @@ build/libs/hackwars.war
 ## 4) Deploy WAR To Managed Tomcat (`build/tomcat`)
 
 ```bash
-./gradlew :tomcat:deployWar
+./gradlew :Tomcat:deployWar
 ```
 
 This installs Tomcat under `build/tomcat` if needed, then copies `build/libs/hackwars.war` into that Tomcat's `webapps/`.
@@ -60,13 +60,13 @@ This installs Tomcat under `build/tomcat` if needed, then copies `build/libs/hac
 Run managed Tomcat:
 
 ```bash
-./gradlew :tomcat:runTomcat
+./gradlew :Tomcat:runTomcat
 ```
 
 Stop managed Tomcat:
 
 ```bash
-./gradlew :tomcat:stopTomcat
+./gradlew :Tomcat:stopTomcat
 ```
 
 ## 5) Run Socket Services (2 terminals)
@@ -74,25 +74,25 @@ Stop managed Tomcat:
 Terminal A:
 
 ```bash
-./gradlew :hackerServer:runHackerServer
+./gradlew :GameServer:runHackerServer
 ```
 
 Terminal B:
 
 ```bash
-./gradlew :chatServer:runChatServer
+./gradlew :ChatServer:runChatServer
 ```
 
 ## 6) Launch Client
 
 ```bash
-./gradlew :client:runClientDesktop
+./gradlew :Client:runClientDesktop
 ```
 
 ## 7) Build Native Client App (Current OS)
 
 ```bash
-./gradlew :client:packageClientNative
+./gradlew :Client:packageClientNative
 ```
 
 For macOS universal output, run the task with a universal macOS JDK so the generated app image is universal.

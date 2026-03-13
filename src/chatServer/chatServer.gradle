@@ -1,5 +1,6 @@
 dependencies {
-    implementation project(':hackwars')
+    implementation project(':HackWars')
+    implementation project(':Networking')
     implementation 'mysql:mysql-connector-java:5.1.49'
 }
 

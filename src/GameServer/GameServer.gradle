@@ -1,0 +1,25 @@
+dependencies {
+    implementation project(':HackWars')
+    implementation project(':Client')
+    implementation project(':Networking')
+    implementation 'com.miglayout:miglayout-swing:11.4.2'
+}
+
+tasks.register('runHackerServer', JavaExec) {
+    group = 'application'
+    description = 'Runs Server.HackerServer with server id 1.'
+    dependsOn tasks.named('classes')
+    javaLauncher = javaToolchains.launcherFor {
+        languageVersion = JavaLanguageVersion.of(rootProject.ext.javaToolchainVersion as Integer)
+    }
+    classpath = files(
+            sourceSets.main.output,
+            project(':HackWars').sourceSets.main.output,
+            project(':Client').sourceSets.main.output,
+            sourceSets.main.runtimeClasspath,
+            rootProject.ext.resourcesRootDir
+    )
+    mainClass = 'Server.HackerServer'
+    args '1'
+    workingDir = rootProject.ext.resourcesRootDir
+}

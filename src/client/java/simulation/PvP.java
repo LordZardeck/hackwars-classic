@@ -179,8 +179,7 @@ public class PvP {
         }
         System.out.println("        Current minimum attack XP: " + currentLevelMinXP);
         int xpUntilNextLevel = xpTable[currentLevel - 1] - currentLevelMinXP;
-        int battlesTillLevelUp = xpUntilNextLevel /;
-        System.out.println("        Battles like this until next attack level increase: " + battlesTillLevelUp);
+        System.out.println("        Battles like this until next attack level increase: " + xpUntilNextLevel);
         System.out.println("        Time required (assuming max simultaneous farming): BOOBIES!");
 
         // overheating an NPC really fucks shit up calculation wise, cause it's free game until they're un-overheated

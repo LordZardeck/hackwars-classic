@@ -1,0 +1,10 @@
+<component name="libraryTable">
+  <library name="Gradle: com.miglayout:miglayout-core:11.4.2" type="java-imported" external-system-id="GRADLE">
+    <properties groupId="com.miglayout" artifactId="miglayout-core" version="11.4.2" baseVersion="11.4.2" />
+    <CLASSES>
+      <root url="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/com.miglayout/miglayout-core/11.4.2/994a23f8c271cb1c22e74d6ebec67850b84613e0/miglayout-core-11.4.2.jar!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES />
+  </library>
+</component>

@@ -1,0 +1,10 @@
+<component name="libraryTable">
+  <library name="Gradle: net.java.dev.gluegen:gluegen-rt-linux-i586:1.0b05" type="java-imported" external-system-id="GRADLE">
+    <properties groupId="net.java.dev.gluegen" artifactId="gluegen-rt-linux-i586" version="1.0b05" baseVersion="1.0b05" />
+    <CLASSES>
+      <root url="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/net.java.dev.gluegen/gluegen-rt-linux-i586/1.0b05/d4e6966389759a3127a351e17492995e4ed1284e/gluegen-rt-linux-i586-1.0b05.jar!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES />
+  </library>
+</component>

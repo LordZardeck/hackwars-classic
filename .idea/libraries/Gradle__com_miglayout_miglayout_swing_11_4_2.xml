@@ -1,0 +1,10 @@
+<component name="libraryTable">
+  <library name="Gradle: com.miglayout:miglayout-swing:11.4.2" type="java-imported" external-system-id="GRADLE">
+    <properties groupId="com.miglayout" artifactId="miglayout-swing" version="11.4.2" baseVersion="11.4.2" />
+    <CLASSES>
+      <root url="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/com.miglayout/miglayout-swing/11.4.2/f93a3587e77d2a3fb6448452dde818e8cc62dfc1/miglayout-swing-11.4.2.jar!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES />
+  </library>
+</component>
