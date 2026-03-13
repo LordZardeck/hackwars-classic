@@ -1,6 +1,14 @@
 import java.util.Locale
 
 def legacyOrgClassesDir = file("${projectDir}/java")
+def joglNativeCoordinates = [
+        'net.java.dev.jogl:jogl-linux-i586:1.1.1-rc6',
+        'net.java.dev.jogl:jogl-macosx-universal:1.1.1-rc6',
+        'net.java.dev.jogl:jogl-windows-i586:1.1.1-rc6',
+        'net.java.dev.gluegen:gluegen-rt-linux-i586:1.0b05',
+        'net.java.dev.gluegen:gluegen-rt-macosx-universal:1.0b05',
+        'net.java.dev.gluegen:gluegen-rt-windows-i586:1.0b05'
+]
 
 dependencies {
     implementation project(':hackwars')
@@ -9,7 +17,7 @@ dependencies {
     implementation 'com.miglayout:miglayout-swing:11.4.2'
     implementation 'net.java.dev.jogl:jogl:1.1.1-rc6'
     implementation 'net.java.dev.gluegen:gluegen-rt:1.0b05'
-    implementation fileTree(dir: "${rootDir}/libs/legacy", include: ['**/*.jar'], exclude: ['Hack.jar'])
+    joglNativeCoordinates.each { runtimeOnly it }
 }
 
 sourceSets {
@@ -45,7 +53,7 @@ dependencies {
     implementation files(tasks.named('clientLegacyOrgShimJar'))
     nativePackageRuntimeJars 'net.java.dev.jogl:jogl:1.1.1-rc6'
     nativePackageRuntimeJars 'net.java.dev.gluegen:gluegen-rt:1.0b05'
-    nativePackageRuntimeJars fileTree(dir: "${rootDir}/libs/legacy", include: ['**/*.jar'], exclude: ['Hack.jar'])
+    joglNativeCoordinates.each { nativePackageRuntimeJars it }
     nativePackageRuntimeJars files(tasks.named('clientLegacyOrgShimJar'))
 }
 

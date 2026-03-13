@@ -20,7 +20,12 @@ dependencies {
     managedRuntimeJars 'commons-logging:commons-logging:1.2'
     managedRuntimeJars 'net.java.dev.jogl:jogl:1.1.1-rc6'
     managedRuntimeJars 'net.java.dev.gluegen:gluegen-rt:1.0b05'
-    managedRuntimeJars fileTree(dir: "${rootDir}/libs/legacy", include: ['**/*.jar'])
+    managedRuntimeJars 'net.java.dev.jogl:jogl-linux-i586:1.1.1-rc6'
+    managedRuntimeJars 'net.java.dev.jogl:jogl-macosx-universal:1.1.1-rc6'
+    managedRuntimeJars 'net.java.dev.jogl:jogl-windows-i586:1.1.1-rc6'
+    managedRuntimeJars 'net.java.dev.gluegen:gluegen-rt-linux-i586:1.0b05'
+    managedRuntimeJars 'net.java.dev.gluegen:gluegen-rt-macosx-universal:1.0b05'
+    managedRuntimeJars 'net.java.dev.gluegen:gluegen-rt-windows-i586:1.0b05'
 }
 
 def localTomcatVersion = providers.gradleProperty('localTomcatVersion').orElse('9.0.104').get()

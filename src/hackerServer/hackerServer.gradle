@@ -2,7 +2,6 @@ dependencies {
     implementation project(':hackwars')
     implementation project(':client')
     implementation 'com.miglayout:miglayout-swing:11.4.2'
-    implementation fileTree(dir: "${rootDir}/libs/legacy", include: ['**/*.jar'], exclude: ['Hack.jar'])
 }
 
 tasks.register('runHackerServer', JavaExec) {
