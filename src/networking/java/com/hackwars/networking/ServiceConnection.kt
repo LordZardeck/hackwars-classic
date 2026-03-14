@@ -23,6 +23,10 @@ private const val SOCKET_TIMEOUT: Int = 5000
  */
 class ServiceConnection(private val endpoint: String, private val port: Int) {
     /**
+     * Guards request lifecycle state shared across request, listener, and close paths.
+     */
+    private val requestStateLock = Any()
+    /**
      * Serializes reads/writes of the nullable socket reference so callers cannot
      * observe it while authenticate is setting it up.
      */
@@ -104,9 +108,7 @@ class ServiceConnection(private val endpoint: String, private val port: Int) {
      * logs a message indicating the request is unknown.
      */
     private fun readIncomingMessage() {
-        val frame = synchronized(socketLock) {
-            decodeFrame(checkNotNull(socket) { "Socket is not initialized" }.getInputStream())
-        }
+        val frame = decodeFrame(checkNotNull(socket) { "Socket is not initialized" }.getInputStream())
         val message = Response.parseFrom(frame.payload)
         val requestId = message.requestId.toShort()
 
@@ -116,13 +118,15 @@ class ServiceConnection(private val endpoint: String, private val port: Int) {
             return
         }
 
-        if (requestId !in requestCallbacks) {
+        val callback = synchronized(requestStateLock) {
+            requestCallbacks[requestId]
+        }
+        if (callback == null) {
             // TODO: Replace with proper logging system
             println("Received response for unknown request: ${requestId}")
             return
         }
-
-        requestCallbacks[requestId]?.invoke(message.payload)
+        callback.invoke(message.payload)
     }
 
     /**
@@ -132,9 +136,11 @@ class ServiceConnection(private val endpoint: String, private val port: Int) {
      * @return The next available unique request ID as a `Short` value.
      */
     private fun getNextRequest(): Short {
-        while (activeRequests.contains(nextRequestId)) nextRequestId++
-        activeRequests.add(nextRequestId)
-        return nextRequestId
+        return synchronized(requestStateLock) {
+            while (activeRequests.contains(nextRequestId)) nextRequestId++
+            activeRequests.add(nextRequestId)
+            nextRequestId
+        }
     }
 
     /**
@@ -150,12 +156,22 @@ class ServiceConnection(private val endpoint: String, private val port: Int) {
         responseClass: KClass<ResponseMessage>
     ): ResponseMessage =
         suspendCancellableCoroutine { continuation ->
-            requestCallbacks[requestId] = { response ->
-                // TODO: Handle failure in which the response was not the expected message type
-                continuation.resume(response.unpack(responseClass.java)) {
+            synchronized(requestStateLock) {
+                requestCallbacks[requestId] = { response ->
+                    synchronized(requestStateLock) {
+                        requestCallbacks.remove(requestId)
+                        activeRequests.remove(requestId)
+                    }
+                    // TODO: Handle failure in which the response was not the expected message type
+                    val unpacked = runCatching { response.unpack(responseClass.java) }
+                    continuation.resumeWith(unpacked)
+                }
+            }
+            continuation.invokeOnCancellation {
+                synchronized(requestStateLock) {
+                    requestCallbacks.remove(requestId)
                     activeRequests.remove(requestId)
                 }
-                activeRequests.remove(requestId)
             }
         }
 
@@ -169,29 +185,30 @@ class ServiceConnection(private val endpoint: String, private val port: Int) {
      * @return A boolean indicating whether the authentication was successful.
      */
     fun authenticate(authToken: ByteArray): Boolean {
-        val newSocket = Socket()
-        synchronized(socketLock) {
+        socket = synchronized(socketLock) {
+            val newSocket = Socket()
             newSocket.keepAlive = true
             newSocket.connect(InetSocketAddress(endpoint, port), SOCKET_TIMEOUT)
-            socket = newSocket
+            newSocket
+        }
 
-            listenJob = scope.launch {
-                try {
-                    while (isActive) {
-                        readIncomingMessage()
-                    }
-                } catch (e: Exception) {
-                    // TODO: Replace with proper logging system
-                    println("Socket listener error: ${e.message}")
-                } finally {
-                    close()
+        listenJob = scope.launch {
+            try {
+                while (isActive) {
+                    readIncomingMessage()
                 }
+            } catch (e: Exception) {
+                // TODO: Replace with proper logging system
+                println("Socket listener error: ${e.message}")
+            } finally {
+                close()
             }
         }
 
-        val response =
-            request(AuthRequest.newBuilder().setJwt(ByteString.copyFrom(authToken)).build(), AuthResponse::class)
-        return response.hasAccepted()
+        return request(
+            AuthRequest.newBuilder().setJwt(ByteString.copyFrom(authToken)).build(),
+            AuthResponse::class
+        ).hasAccepted()
     }
 
     /**
@@ -209,14 +226,23 @@ class ServiceConnection(private val endpoint: String, private val port: Int) {
         val requestMessage = Request.newBuilder().setRequestId(requestId.toInt()).setPayload(Any.pack(message)).build()
         val encodedFrame = encodeFrame(FrameMessageType.SERVICE, requestMessage)
 
-        synchronized(socketLock) {
-            val outputStream = checkNotNull(socket) { "Socket is not initialized" }.getOutputStream()
-            outputStream.write(encodedFrame)
-            outputStream.flush()
-        }
-
         return runBlocking {
-            waitForResponse(requestId, responseClass)
+            val waitJob = async(start = CoroutineStart.UNDISPATCHED) {
+                waitForResponse(requestId, responseClass)
+            }
+
+            try {
+                synchronized(socketLock) {
+                    val outputStream = checkNotNull(socket) { "Socket is not initialized" }.getOutputStream()
+                    outputStream.write(encodedFrame)
+                    outputStream.flush()
+                }
+            } catch (t: Throwable) {
+                waitJob.cancel("Failed to write request frame.", t)
+                throw t
+            }
+
+            waitJob.await()
         }
     }
 
@@ -233,8 +259,10 @@ class ServiceConnection(private val endpoint: String, private val port: Int) {
      */
     fun close() {
         listenJob?.cancel()
-        activeRequests.clear()
-
+        synchronized(requestStateLock) {
+            activeRequests.clear()
+            requestCallbacks.clear()
+        }
         synchronized(socketLock) {
             socket?.close()
             socket = null
