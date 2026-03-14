@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+package hackwars.networking.v1;
+
+import "google/protobuf/any.proto";
+
+option java_multiple_files = true;
+option java_package = "com.hackwars.networking.v1";
+option java_outer_classname = "CoreProto";
+option go_package = "hackwars/networking/v1;corev1";
+
+message Request {
+  int32 request_id = 1;
+  google.protobuf.Any payload = 2;
+}
+
+message Response {
+  int32 request_id = 1;
+  google.protobuf.Any payload = 2;
+}

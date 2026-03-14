@@ -33,6 +33,16 @@ sourceSets {
             include 'chat/client/**/*.java'
             include 'com/plink/Hack3D/**/*.java'
         }
+        kotlin {
+            include 'Browser/**/*.kt'
+            include 'Client/**/*.kt'
+            include 'GUI/**/*.kt'
+            include 'View/**/*.kt'
+            include 'Game/MMO/**/*.kt'
+            include 'Hacktendo/**/*.kt'
+            include 'chat/client/**/*.kt'
+            include 'com/plink/Hack3D/**/*.kt'
+        }
     }
 }
 

@@ -1,5 +1,10 @@
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import org.jetbrains.kotlin.gradle.dsl.jvm.JvmTargetValidationMode
+import org.jetbrains.kotlin.gradle.tasks.KotlinJvmCompile
+
 plugins {
     id 'base'
+    id 'org.jetbrains.kotlin.jvm' version '2.1.20' apply false
 }
 
 group = 'com.hackwars'
@@ -7,6 +12,7 @@ version = '0.1.0'
 
 ext {
     javaToolchainVersion = 25
+    kotlinJvmTargetVersion = Math.min(javaToolchainVersion as Integer, 23)
     resourcesRootDir = file("${rootDir}/src/main/resources")
 }
 
@@ -18,6 +24,7 @@ allprojects {
 
 subprojects {
     apply plugin: 'java'
+    apply plugin: 'org.jetbrains.kotlin.jvm'
 
     java {
         toolchain {
@@ -30,11 +37,27 @@ subprojects {
     sourceSets {
         main {
             java.setSrcDirs(['java'])
+            kotlin.setSrcDirs(['java'])
             resources.setSrcDirs([])
         }
     }
 
+    kotlin {
+        jvmToolchain(rootProject.ext.javaToolchainVersion as Integer)
+    }
+
     tasks.withType(JavaCompile).configureEach {
         options.encoding = 'UTF-8'
+    }
+
+    tasks.withType(KotlinJvmCompile).configureEach {
+        compilerOptions {
+            jvmTarget.set(
+                    JvmTarget.fromTarget(
+                            (rootProject.ext.kotlinJvmTargetVersion as Integer).toString()
+                    )
+            )
+        }
+        jvmTargetValidationMode.set(JvmTargetValidationMode.WARNING)
     }
 }

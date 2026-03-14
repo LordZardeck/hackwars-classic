@@ -4,15 +4,19 @@ plugins {
 }
 
 def protobufVersion = '3.25.5'
+def generatedProtoJavaDir = layout.buildDirectory.dir('generated/source/proto/main/java')
 
 dependencies {
     api "com.google.protobuf:protobuf-java:${protobufVersion}"
+    implementation "org.jetbrains.kotlin:kotlin-reflect:2.1.21"
+    implementation "org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2"
+    testImplementation 'junit:junit:4.13.2'
 }
 
 sourceSets {
     main {
         java {
-            srcDir "${buildDir}/generated/source/proto/main/java"
+            srcDir generatedProtoJavaDir
         }
         proto {
             srcDir 'proto'
@@ -21,6 +25,18 @@ sourceSets {
             srcDir 'proto'
             include '**/*.proto'
         }
+    }
+    test {
+        java.setSrcDirs(['test'])
+        kotlin.setSrcDirs(['test'])
+        resources.setSrcDirs([])
+    }
+}
+
+tasks.named('compileKotlin') {
+    dependsOn tasks.named('generateProto')
+    compilerOptions {
+        freeCompilerArgs.add("-Xjava-source-roots=${generatedProtoJavaDir.get().asFile.absolutePath}")
     }
 }
 

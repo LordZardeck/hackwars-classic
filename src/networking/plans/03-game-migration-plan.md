@@ -6,7 +6,7 @@ Move game communication from `Assignment`/`RemoteFunctionCall` to typed protobuf
 ## Chunk 1: Build Game Protobuf Session Endpoint
 - Add game protobuf server endpoint (new port pair optional during dual stack; single socket preferred).
 - Apply Plan 01 auth state machine and JWT gate.
-- Route authenticated messages into a new `GameProtoDispatcher`.
+- Route authenticated `SERVICE` frames into `core.v1.Request` parsing and then a new `GameProtoDispatcher`.
 - Done when: authenticated client can send a typed ping command and receive typed ping response.
 
 ## Chunk 2: Implement Command Group A (Core Session + Navigation)
@@ -59,6 +59,9 @@ Move game communication from `Assignment`/`RemoteFunctionCall` to typed protobuf
   - login send path
   - command send path (`addFunctionCall`)
   - packet consumption path
+- Use shared connection contract:
+  - auth uses `AUTH` frame + `auth.v1.AuthRequest`
+  - runtime traffic uses `SERVICE` frame + `core.v1.Request/Response` wrappers
 - Keep legacy reporter path behind feature flag until cutover.
 - Done when: game client can run full login->play loop over protobuf transport.
 

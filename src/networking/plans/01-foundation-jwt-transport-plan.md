@@ -7,23 +7,26 @@ Establish a new socket transport baseline shared by GameServer and ChatServer:
 - explicit connection state machine
 - no app payloads before auth success
 
-## Chunk 1: Define Wire Framing + Envelope
-- Implement fixed framing rule: `uint32_be length` + protobuf payload bytes.
-- Introduce top-level envelope (`NetworkEnvelope`) with:
-  - `message_id`
-  - `sent_unix_ms`
-  - `service` (`GAME`, `CHAT`)
-  - `oneof payload`
+## Chunk 1: Define Wire Framing + Message Type Header
+- Implement fixed framing rule: `int8 message_type` + `int32_be payload_length` + protobuf payload bytes.
+- Define wire message types:
+  - `AUTH` (first frame on every new connection)
+  - `SERVICE` (normal game/chat traffic after auth)
+- Enforce payload caps by message type:
+  - `AUTH` max payload size = `2048` bytes
+  - `SERVICE` max payload size = configurable runtime limit
 - Add parser/encoder utilities in `src/Networking/java/...`.
-- Done when: transport tests round-trip frames and reject malformed/oversized frames.
+- Done when: transport tests round-trip typed frames and reject malformed, unsupported-type, and oversized frames.
 
-## Chunk 2: Add JWT Auth Handshake Messages
-- Add protobuf messages:
-  - `AuthInit { jwt, client_build, client_nonce }`
-  - `AuthAccepted { session_id, user_id, expires_unix_ms }`
+## Chunk 2: Add JWT Auth Handshake Messages (Shared)
+- Add shared protobuf auth messages in `auth/v1/auth.proto`:
+  - `AuthRequest { jwt(bytes), client_build }`
+  - `AuthResponse { oneof { AuthAccepted, AuthRejected } }`
+  - `AuthAccepted { success }`
   - `AuthRejected { reason_code, reason_text }`
-- Require first inbound message on a new socket to be `AuthInit`.
-- Done when: server closes unauthenticated sockets on first invalid/missing auth message.
+- Keep service payload schemas in per-service `.proto` files (game/chat are separate).
+- Require first inbound frame on a new socket to be message type `AUTH`, and its payload to parse as `AuthRequest`.
+- Done when: server closes unauthenticated sockets on first invalid/missing auth frame or oversized auth payload.
 
 ## Chunk 3: Implement JWT Validation Service
 - Add `JwtValidator` abstraction with config for:

@@ -6,6 +6,7 @@ Move chat traffic from `MessageInPacket/MessageOutPacket` serialized payloads to
 ## Chunk 1: Build Chat Protobuf Session Endpoint
 - Add chat protobuf endpoint with same auth gating as Plan 01.
 - Keep current `MainServer` and `MsgProcessorThread` logic intact behind adapter boundary.
+- Parse authenticated `SERVICE` frames as `core.v1.Request`, then dispatch typed chat payloads.
 - Done when: authenticated chat client can connect and round-trip ping.
 
 ## Chunk 2: Inbound Chat Message Adapter
@@ -29,6 +30,9 @@ Move chat traffic from `MessageInPacket/MessageOutPacket` serialized payloads to
 ## Chunk 4: Client ChatController Integration
 - Replace `MessageInPacket(ArrayMessageIn)` emission with protobuf chat send pipeline.
 - Replace `ArrayMessageOut` processing path with protobuf receive dispatcher.
+- Use shared transport wrappers:
+  - auth on `AUTH` frame via `auth.v1.AuthRequest`
+  - chat traffic on `SERVICE` frame via `core.v1.Request/Response`
 - Preserve UI semantics (`viewMain`, channel tab updates, admin markers).
 - Done when: chat controller can operate with protobuf transport and no Java serialization dependency.
 

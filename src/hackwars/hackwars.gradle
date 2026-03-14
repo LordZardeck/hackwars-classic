@@ -20,5 +20,18 @@ sourceSets {
             include 'View/Task.java'
             include 'util/**/*.java'
         }
+        kotlin {
+            include 'Assignments/**/*.kt'
+            include 'Game/**/*.kt'
+            include 'Hackscript/**/*.kt'
+            include 'HackerLogin/Toy*.kt'
+            include 'Legacy/**/*.kt'
+            include 'chat/messages/**/*.kt'
+            include 'chat/util/**/*.kt'
+            include 'com/plink/dolphinnet/**/*.kt'
+            include 'com/plink/dolphinstem/**/*.kt'
+            include 'View/Task.kt'
+            include 'util/**/*.kt'
+        }
     }
 }
