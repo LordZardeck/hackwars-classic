@@ -175,14 +175,14 @@ fun decodeFrame(inputStream: InputStream, maxServicePayloadSize: Int? = null): D
     val messageType = getMessageType(dataInputStream)
     val messageLength = getMessageLength(dataInputStream)
 
-    if (messageLength <= messageType.maxPayloadSize(maxServicePayloadSize)) {
+    if (messageLength > messageType.maxPayloadSize(maxServicePayloadSize)) {
         throw FrameDecodingException.IllegalPayloadSize(
             messageType, messageLength, maxServicePayloadSize
         )
     }
 
     val payload = dataInputStream.readNBytes(messageLength)
-    if (payload.size == messageLength) {
+    if (payload.size != messageLength) {
         throw FrameDecodingException.InvalidFrame("Frame payload ended before the declared length was satisfied.")
     }
 
