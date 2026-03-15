@@ -5,35 +5,32 @@ package gui;
  * main file for front end.
  */
 
+import assignments.PacketNetwork;
+import assignments.PacketPort;
+import assignments.PacketWatch;
+import assignments.RemoteFunctionCall;
+import chat.client.ChatController;
+import chat.client.viewMain;
+import chat.client.viewRelationList;
+import chat.messages.MsgOutChannelText;
+import com.hackwars.gui.OSMenuBar;
+import game.HackerFile;
+import game.Port;
+import game.mmo.HacktendoPacket;
+import view.View;
+
+import javax.imageio.ImageIO;
 import javax.swing.*;
-import javax.swing.border.*;
+import javax.swing.JInternalFrame.JDesktopIcon;
 import java.awt.*;
 import java.awt.event.*;
-import javax.swing.event.*;
-import java.awt.Toolkit;
-
-import com.hackwars.gui.OSMenuBar;
-import view.*;
-
-import java.awt.geom.Point2D;
-import java.util.*;
-
-import assignments.*;
-import game.*;
-
-import java.text.*;
-import javax.imageio.*;
-import java.net.URL;
-import java.io.*;
-
-import chat.client.*;
-import chat.messages.*;
-import game.mmo.*;
-
-import javax.swing.JInternalFrame.JDesktopIcon;
-
-import net.miginfocom.swing.*;
-import hacktendo.*;
+import java.io.File;
+import java.text.DecimalFormat;
+import java.text.NumberFormat;
+import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.HashMap;
+import java.util.Vector;
 
 public class Hacker implements ActionListener, WindowListener, ComponentListener {
     //data
@@ -71,7 +68,7 @@ public class Hacker implements ActionListener, WindowListener, ComponentListener
     private JFrame frame;// = new JFrame("Hacker");  //main frame
     private Desktop panel = new Desktop();  //panel that all applications are on
     private Color desktopColour;
-    ///background colour of main panel.
+    /// background colour of main panel.
     //whether specified application is open or not.
     private boolean FTPOpen = false, depositOpen = false, transferOpen = false, withdrawOpen = false;
     private boolean scriptEditorOpen = false, messagerOpen = false, attackOpen = false, scanOpen = false;
@@ -158,7 +155,6 @@ public class Hacker implements ActionListener, WindowListener, ComponentListener
     private Deposit depositWindow;
     private float healDiscount = 1.0f;
     private OSMenuBar menuBar;
-    private TaskBar taskBar = null;
     private int iconCount = 0;
     private CommandPrompt commandPromptRequestedDirectory;
     private boolean offline;
@@ -345,7 +341,7 @@ public class Hacker implements ActionListener, WindowListener, ComponentListener
 
 
     /**
-     Add a packet for the Hacktendo MMO engine.
+     * Add a packet for the Hacktendo MMO engine.
      */
     public void addHacktendoPacket(HacktendoPacket Packet) {
         //HMMO.addPacket(Packet);
@@ -363,7 +359,7 @@ public class Hacker implements ActionListener, WindowListener, ComponentListener
     }
 
     /**
-     Return a users preference for a given system option.
+     * Return a users preference for a given system option.
      */
     public String getPreference(String preference) {
         if (preferences != null) {
@@ -376,7 +372,7 @@ public class Hacker implements ActionListener, WindowListener, ComponentListener
     }
 
     /**
-     Get all of the preferences for this user.
+     * Get all of the preferences for this user.
      */
     public HashMap getPreferences() {
         return preferences;
@@ -384,14 +380,14 @@ public class Hacker implements ActionListener, WindowListener, ComponentListener
     }
 
     /**
-     Set all the preferences for this user.  Done on startup, or when Apply is clicked from the Preferences window.
+     * Set all the preferences for this user.  Done on startup, or when Apply is clicked from the Preferences window.
      */
     public void setPreferences(HashMap prefs) {
         this.preferences = prefs;
     }
 
     /**
-     Set a single user preference.  This will be done from the option popup.
+     * Set a single user preference.  This will be done from the option popup.
      */
     public void setPreference(String key, String value) {
         if (preferences == null) {
@@ -411,7 +407,7 @@ public class Hacker implements ActionListener, WindowListener, ComponentListener
     }
 
     /**
-     Send the preferences to the server.  Done when a user clicks Apply on the Preferences window.
+     * Send the preferences to the server.  Done when a user clicks Apply on the Preferences window.
      */
     public void sendPreferences() {
         Object[] objects = {encryptedIP, preferences};
@@ -565,8 +561,8 @@ public class Hacker implements ActionListener, WindowListener, ComponentListener
     }
 
     /**
-     setDefaultBank(int port) <br />
-     sets the value for the default bank port.
+     * setDefaultBank(int port) <br />
+     * sets the value for the default bank port.
      */
     public void setDefaultBank(int port) {
         defaultBankPort = port;
@@ -577,8 +573,8 @@ public class Hacker implements ActionListener, WindowListener, ComponentListener
     }
 
     /**
-     setDefaultAttack(int port) <br />
-     sets the value for the default attack port.
+     * setDefaultAttack(int port) <br />
+     * sets the value for the default attack port.
      */
     public void setDefaultAttack(int port) {
         defaultAttackPort = port;
@@ -597,8 +593,8 @@ public class Hacker implements ActionListener, WindowListener, ComponentListener
     }
 
     /**
-     setDefaultFTP(int port) <br />
-     sets the value for the default ftp port.
+     * setDefaultFTP(int port) <br />
+     * sets the value for the default ftp port.
      */
     public void setDefaultFTP(int port) {
         defaultFTPPort = port;
@@ -606,8 +602,8 @@ public class Hacker implements ActionListener, WindowListener, ComponentListener
 
 
     /**
-     setDefaultHTTP(int port) <br />
-     sets the value for the default http port.
+     * setDefaultHTTP(int port) <br />
+     * sets the value for the default http port.
      */
     public void setDefaultHTTP(int port) {
         defaultHTTPPort = port;
@@ -751,16 +747,16 @@ public class Hacker implements ActionListener, WindowListener, ComponentListener
 
 
     /**
-     setCPUType(int CPUType) <br />
-     sets the type of cpu currently installed on the players computer.
+     * setCPUType(int CPUType) <br />
+     * sets the type of cpu currently installed on the players computer.
      */
     public void setCPUType(int CPUType) {
         this.CPUType = CPUType;
     }
 
     /**
-     setHDType(int HDType) <br />
-     sets the type of hard drive currently installed on the players computer.
+     * setHDType(int HDType) <br />
+     * sets the type of hard drive currently installed on the players computer.
      */
     public void setHDType(int HDType) {
         if (HDType != this.HDType) {
@@ -770,8 +766,8 @@ public class Hacker implements ActionListener, WindowListener, ComponentListener
     }
 
     /**
-     setHDQuantity(int HDQuantity) <br />
-     sets the amount of files on the players hard drive.
+     * setHDQuantity(int HDQuantity) <br />
+     * sets the amount of files on the players hard drive.
      */
     public void setHDQuantity(int HDQuantity) {
         if (HDQuantity != this.HDQuantity) {
@@ -799,24 +795,24 @@ public class Hacker implements ActionListener, WindowListener, ComponentListener
     }
 
     /**
-     getCPUType() <br />
-     returns the current cpu type installed on the players computer.
+     * getCPUType() <br />
+     * returns the current cpu type installed on the players computer.
      */
     public int getCPUType() {
         return (CPUType);
     }
 
     /**
-     getHDType() <br />
-     returns the current hard drive type installed on the players computer.
+     * getHDType() <br />
+     * returns the current hard drive type installed on the players computer.
      */
     public int getHDType() {
         return (HDType);
     }
 
     /**
-     getHDQuantity() <br />
-     returns the current amount of files on the players hard drive.
+     * getHDQuantity() <br />
+     * returns the current amount of files on the players hard drive.
      */
     public int getHDQuantity() {
         return (HDQuantity);
@@ -827,8 +823,8 @@ public class Hacker implements ActionListener, WindowListener, ComponentListener
     }
 
     /**
-     createXPTable() <br />
-     this creates the experience table used to determine level.
+     * createXPTable() <br />
+     * this creates the experience table used to determine level.
      */
     private void createXPTable() {
         int xp = 83; //experience to reach level 1.
@@ -842,16 +838,16 @@ public class Hacker implements ActionListener, WindowListener, ComponentListener
     }
 
     /**
-     getXPTable() <br />
-     this returns the experience table used to determine level.
+     * getXPTable() <br />
+     * this returns the experience table used to determine level.
      */
     public int[] getXPTable() {
         return (xpTable);
     }
 
     /**
-     setPorts(PacketPort ports[]) <br />
-     sets the array of ports.
+     * setPorts(PacketPort ports[]) <br />
+     * sets the array of ports.
      */
     public void setPorts(PacketPort ports[]) {
         this.ports = ports;
@@ -887,48 +883,48 @@ public class Hacker implements ActionListener, WindowListener, ComponentListener
     }
 
     /**
-     getCurrentDirectory() <br />
-     returns the current working directory.
+     * getCurrentDirectory() <br />
+     * returns the current working directory.
      */
     public Object[] getCurrentDirectory() {
         return (currentDirectory);
     }
 
     /**
-     getCurrentFolder() <br />
-     returns the current working folder.
+     * getCurrentFolder() <br />
+     * returns the current working folder.
      */
     public String getCurrentFolder() {
         return (currentFolder);
     }
 
     /**
-     getSecondaryFolder() <br />
-     returns the current secondary folder. (Store or Public)
+     * getSecondaryFolder() <br />
+     * returns the current secondary folder. (Store or Public)
      */
     public String getSecondaryFolder() {
         return (secondaryFolder);
     }
 
     /**
-     setCurrentFolder(String currentFolder) <br />
-     sets the current working folder.
+     * setCurrentFolder(String currentFolder) <br />
+     * sets the current working folder.
      */
     public void setCurrentFolder(String currentFolder) {
         this.currentFolder = currentFolder;
     }
 
     /**
-     setSecondaryFolder(String secondaryFolder) <br />
-     sets the current secondary folder.
+     * setSecondaryFolder(String secondaryFolder) <br />
+     * sets the current secondary folder.
      */
     public void setSecondaryFolder(String secondaryFolder) {
         this.secondaryFolder = secondaryFolder;
     }
 
     /**
-     setFileChooser(HackerFileChooser fileChooser) <br />
-     sets the file chooser being used by the script editor so that the program knows where to send the directory.
+     * setFileChooser(HackerFileChooser fileChooser) <br />
+     * sets the file chooser being used by the script editor so that the program knows where to send the directory.
      */
     public void setFileChooser(HackerFileChooser fileChooser) {
         this.fileChooser = fileChooser;
@@ -939,16 +935,16 @@ public class Hacker implements ActionListener, WindowListener, ComponentListener
     }
 
     /**
-     setAttackFileChooser(AttackFileChooser fileChooser) <br />
-     sets the file chooser being used by the attack pane so that the program knows where to send the directory.
+     * setAttackFileChooser(AttackFileChooser fileChooser) <br />
+     * sets the file chooser being used by the attack pane so that the program knows where to send the directory.
      */
     public void setAttackFileChooser(AttackFileChooser fileChooser) {
         this.attackFileChooser = fileChooser;
     }
 
     /**
-     setInstallFileChooser(InstallFileChooser fileChooser) <br />
-     sets the file chooser being used by the port management so that the program knows where to send the directory.
+     * setInstallFileChooser(InstallFileChooser fileChooser) <br />
+     * sets the file chooser being used by the port management so that the program knows where to send the directory.
      */
     public void setInstallFileChooser(InstallFileChooser fileChooser) {
         installFileChooser = fileChooser;
@@ -959,24 +955,24 @@ public class Hacker implements ActionListener, WindowListener, ComponentListener
     }
 
     /**
-     setWatchInstallFileChooser(WatchInstallFileChooser fileChooser) <br />
-     sets the file chooser being used by the watch manager so that the program knows where to send the directory.
+     * setWatchInstallFileChooser(WatchInstallFileChooser fileChooser) <br />
+     * sets the file chooser being used by the watch manager so that the program knows where to send the directory.
      */
     public void setWatchInstallFileChooser(WatchInstallFileChooser fileChooser) {
         watchInstallFileChooser = fileChooser;
     }
 
     /**
-     setFireWallFileChooser(FireWallFileChooser fileChooser) <br />
-     sets the file chooser being used by the port management so that the program knows where to send the directory.
+     * setFireWallFileChooser(FireWallFileChooser fileChooser) <br />
+     * sets the file chooser being used by the port management so that the program knows where to send the directory.
      */
     public void setFireWallFileChooser(FireWallFileChooser fileChooser) {
         firewallFileChooser = fileChooser;
     }
 
     /**
-     setShowChoicesFileChooser(ShowChoicesFileChooser fileChooser) <br />
-     sets the file chooser being used by the show choices dialog so that the program knows where to send the directory.
+     * setShowChoicesFileChooser(ShowChoicesFileChooser fileChooser) <br />
+     * sets the file chooser being used by the show choices dialog so that the program knows where to send the directory.
      */
     public int setShowChoicesFileChooser(ShowChoicesFileChooser fileChooser) {
         directoryRequests.put(new Integer(showChoices), fileChooser);
@@ -989,8 +985,8 @@ public class Hacker implements ActionListener, WindowListener, ComponentListener
     }
 
     /**
-     receivedDirectory(Object[] currentDirectory) <br />
-     called from View when a directory is received by the server.
+     * receivedDirectory(Object[] currentDirectory) <br />
+     * called from View when a directory is received by the server.
      */
     public synchronized void receivedDirectory(Object[] currentDirectory) {
         if (currentDirectory != null) {
@@ -1013,8 +1009,8 @@ public class Hacker implements ActionListener, WindowListener, ComponentListener
     }
 
     /**
-     receivedSecondaryDirectory(Object[] secondaryDirectory) <br />
-     called from View when a Store or Public directory is received from the server.
+     * receivedSecondaryDirectory(Object[] secondaryDirectory) <br />
+     * called from View when a Store or Public directory is received from the server.
      */
     public synchronized void receivedSecondaryDirectory(Object[] secondaryDirectory, boolean allowedDir) {
         //System.out.println("Received Secondary Directory -- "+secondaryDirectory.length);
@@ -1030,8 +1026,8 @@ public class Hacker implements ActionListener, WindowListener, ComponentListener
     }
 
     /**
-     receivedScan(PacketPort scan[]) <br />
-     called from View when a scan is received from the server and sent on to Port Scan application.
+     * receivedScan(PacketPort scan[]) <br />
+     * called from View when a scan is received from the server and sent on to Port Scan application.
      */
     public void receivedScan(PacketPort scan[]) {
         if (MyPortScan != null) {
@@ -1042,8 +1038,8 @@ public class Hacker implements ActionListener, WindowListener, ComponentListener
     }
 
     /**
-     receivedWatched(PacketWatch watches[]) <br />
-     called from View when watches are received from the server and sent on to Watch Manager.
+     * receivedWatched(PacketWatch watches[]) <br />
+     * called from View when watches are received from the server and sent on to Watch Manager.
      */
     public void receivedWatches(PacketWatch watches[]) {
         if (MyWatchManager != null)
@@ -1051,9 +1047,9 @@ public class Hacker implements ActionListener, WindowListener, ComponentListener
     }
 
     /**
-     Object[] sortDirectory(Object[] directory,int type) <br />
-     sorts the directory passed in by directories alphabetically, the files alphabetically. <br />
-     type - 0 for primary directory, 1 for secondary directory.
+     * Object[] sortDirectory(Object[] directory,int type) <br />
+     * sorts the directory passed in by directories alphabetically, the files alphabetically. <br />
+     * type - 0 for primary directory, 1 for secondary directory.
      */
     public synchronized Object[] sortDirectory(Object[] directory, int type, int directoryRequest, boolean allowedDir) {
         Object returnMe[] = new Object[directory.length - 1];  //array to be returned when done sorting.
@@ -1159,7 +1155,7 @@ public class Hacker implements ActionListener, WindowListener, ComponentListener
     }
 
     /**
-     This is only used for Hacktendo Games. It is the save data loaded off a player's HD.
+     * This is only used for Hacktendo Games. It is the save data loaded off a player's HD.
      */
     HashMap LoadFile = null;
 
@@ -1172,8 +1168,8 @@ public class Hacker implements ActionListener, WindowListener, ComponentListener
     }
 
     /**
-     receivedFile(HackerFile file) <br />
-     called from View when a file is received from the server.
+     * receivedFile(HackerFile file) <br />
+     * called from View when a file is received from the server.
      */
     public void receivedFile(HackerFile file) {
         //if the file was requested from the script editor, send it there.
@@ -1207,8 +1203,8 @@ public class Hacker implements ActionListener, WindowListener, ComponentListener
     }
 
     /**
-     setRequestedFile(int app) <br />
-     sets which application requested a file from the server.
+     * setRequestedFile(int app) <br />
+     * sets which application requested a file from the server.
      */
     public void setRequestedFile(int app) {
         fileRequest = app;
@@ -1219,8 +1215,8 @@ public class Hacker implements ActionListener, WindowListener, ComponentListener
     }
 
     /**
-     setRequestedDirectory(int app) <br />
-     sets which application requested a directory from the server.
+     * setRequestedDirectory(int app) <br />
+     * sets which application requested a directory from the server.
      */
     public void setRequestedDirectory(int app) {
         directoryRequest = app;
@@ -1235,8 +1231,8 @@ public class Hacker implements ActionListener, WindowListener, ComponentListener
     }
 
     /**
-     setSiteRequest(int app) <br />
-     sets which application requested a site.
+     * setSiteRequest(int app) <br />
+     * sets which application requested a site.
      */
     public void setSiteRequest(int app) {
         siteRequest = app;
@@ -1247,8 +1243,8 @@ public class Hacker implements ActionListener, WindowListener, ComponentListener
     }
 
     /**
-     receivedPage(String title,String page) <br />
-     called from View when a web page is received from the server.
+     * receivedPage(String title,String page) <br />
+     * called from View when a web page is received from the server.
      */
     public void receivedPage(String title, String page) {
         if (siteRequest == BROWSER)
@@ -1352,8 +1348,8 @@ public class Hacker implements ActionListener, WindowListener, ComponentListener
     }
 
     /**
-     String getIP() <br />
-     returns the ip of the player.
+     * String getIP() <br />
+     * returns the ip of the player.
      */
     public String getIP() {
         return (ip);
@@ -1365,8 +1361,8 @@ public class Hacker implements ActionListener, WindowListener, ComponentListener
 
 
     /**
-     String getUsername() <br />
-     returns the username of the player.
+     * String getUsername() <br />
+     * returns the username of the player.
      */
     public String getUsername() {
         return (username);
@@ -1391,64 +1387,64 @@ public class Hacker implements ActionListener, WindowListener, ComponentListener
     }
 
     /**
-     getMerchantingIcon() <br />
-     this returns the icon that represents the merchanting statistic.
+     * getMerchantingIcon() <br />
+     * this returns the icon that represents the merchanting statistic.
      */
     public StatIcon getMerchantingIcon() {
         return (MerchantingIcon);
     }
 
     /**
-     getAttackIcon() <br />
-     this returns the icon that represents the attack statistic.
+     * getAttackIcon() <br />
+     * this returns the icon that represents the attack statistic.
      */
     public StatIcon getAttackIcon() {
         return (AttackIcon);
     }
 
     /**
-     getWatchIcon() <br />
-     this returns the icon that represents the watch statistic.
+     * getWatchIcon() <br />
+     * this returns the icon that represents the watch statistic.
      */
     public StatIcon getWatchIcon() {
         return (WatchIcon);
     }
 
     /**
-     getScanIcon() <br />
-     this returns the icon that represents the scanning statistic.
+     * getScanIcon() <br />
+     * this returns the icon that represents the scanning statistic.
      */
     public StatIcon getScanIcon() {
         return (ScanIcon);
     }
 
     /**
-     getFireWallIcon() <br />
-     this returns the icon that represents the firewall statistic.
+     * getFireWallIcon() <br />
+     * this returns the icon that represents the firewall statistic.
      */
     public StatIcon getFireWallIcon() {
         return (FireWallIcon);
     }
 
     /**
-     getTotalLevelIcon() <br />
-     this returns the icon that represents the total level.
+     * getTotalLevelIcon() <br />
+     * this returns the icon that represents the total level.
      */
     public TotalLevelIcon getTotalLevelIcon() {
         return (TotalIcon);
     }
 
     /**
-     getCPULoadIcon() <br />
-     returns the icon that represents the cpu load.
+     * getCPULoadIcon() <br />
+     * returns the icon that represents the cpu load.
      */
     public CPULoadIcon getCPULoadIcon() {
         return (CPUIcon);
     }
 
     /**
-     createMenu() <br />
-     this creates the main menu for the program.
+     * createMenu() <br />
+     * this creates the main menu for the program.
      */
     private void createMenu() {
         JMenu menu;
@@ -1471,34 +1467,20 @@ public class Hacker implements ActionListener, WindowListener, ComponentListener
         right.setActionCommand("Right");
         right.setEnabled(false);
 
-        taskBar = new TaskBar(left, right);
-        taskBar.setPreferredSize(new Dimension(menuBar.getPreferredSize().width, 25));
-
-        menuBar.add(taskBar, "growx");
-
-        left.addActionListener(taskBar);
-        menuBar.add(left, "w 16:16:16");
-
-        right.addActionListener(taskBar);
-        menuBar.add(right, "w 16:16:16");
-
         frame.setJMenuBar(menuBar);
     }
 
     public void addMinimizedFrame(JDesktopIcon icon) {
-        taskBar.addIcon(icon);
-        menuBar.repaint();
+        menuBar.getTaskBar().addMinimizedApplication(icon);
     }
 
     public void removeMinimizedFrame(JDesktopIcon icon) {
-        taskBar.removeIcon(icon);
-        menuBar.repaint();
-
+        menuBar.getTaskBar().removeRestoredApplication(icon);
     }
 
     /**
-     createPopUPMenu() <br />
-     this creates the right click pop up menu
+     * createPopUPMenu() <br />
+     * this creates the right click pop up menu
      */
     private void createPopUpMenu() {
         popUp = new JPopupMenu();
@@ -1508,32 +1490,32 @@ public class Hacker implements ActionListener, WindowListener, ComponentListener
     }
 
     /**
-     getColour() <br />
-     this returns the desktop colour.
+     * getColour() <br />
+     * this returns the desktop colour.
      */
     public Color getColour() {
         return (desktopColour);
     }
 
     /**
-     getIconList() <br />
-     this returns all of the desktop icons.
+     * getIconList() <br />
+     * this returns all of the desktop icons.
      */
     public HashMap getIconList() {
         return (icons);
     }
 
     /**
-     getPopUp() <br />
-     this returns the right click pop up menu.
+     * getPopUp() <br />
+     * this returns the right click pop up menu.
      */
     public JPopupMenu getPopUp() {
         return (popUp);
     }
 
     /**
-     setPettyCash(float pettyCash) <br />
-     this sets the current value for petty cash.
+     * setPettyCash(float pettyCash) <br />
+     * this sets the current value for petty cash.
      */
     public void setPettyCash(float pettyCash) {
         if (pettyCash != this.pettyCash) {
@@ -1560,8 +1542,8 @@ public class Hacker implements ActionListener, WindowListener, ComponentListener
     }
 
     /**
-     setBankMoney(float bankMoney) <br />
-     this sets the current value for bank money.
+     * setBankMoney(float bankMoney) <br />
+     * this sets the current value for bank money.
      */
     public void setBankMoney(float bankMoney) {
         if (bankMoney != this.bankMoney) {
@@ -1678,40 +1660,40 @@ public class Hacker implements ActionListener, WindowListener, ComponentListener
     }
 
     /**
-     getPettyCash() <br />
-     this returns the current value of petty cash.
+     * getPettyCash() <br />
+     * this returns the current value of petty cash.
      */
     public float getPettyCash() {
         return (pettyCash);
     }
 
     /**
-     getBankMoney() <br />
-     this returns the current value of bank money.
+     * getBankMoney() <br />
+     * this returns the current value of bank money.
      */
     public float getBankMoney() {
         return (bankMoney);
     }
 
     /**
-     getView() <br />
-     this returns the view handler.
+     * getView() <br />
+     * this returns the view handler.
      */
     public View getView() {
         return (MyView);
     }
 
     /**
-     setDesktopColour(Color newColour) <br />
-     this sets the desktop colour
+     * setDesktopColour(Color newColour) <br />
+     * this sets the desktop colour
      */
     public void setDesktopColour(Color newColour) {
         panel.setBackground(newColour);
     }
 
     /**
-     setFTPOpen(boolean FTPOpen) <br />
-     this lets the program know that the FTP program is open, so that the user can't open another one.
+     * setFTPOpen(boolean FTPOpen) <br />
+     * this lets the program know that the FTP program is open, so that the user can't open another one.
      */
     public void setFTPOpen(boolean FTPOpen) {
         this.FTPOpen = FTPOpen;
@@ -1731,6 +1713,7 @@ public class Hacker implements ActionListener, WindowListener, ComponentListener
 
     /**
      * Get a Vector of all the bank ports this computer has installed.
+     *
      * @return Vector
      */
     public Vector getBankPorts() {
@@ -1766,6 +1749,7 @@ public class Hacker implements ActionListener, WindowListener, ComponentListener
 
     /**
      * Update the deposit window if it's open.  This will be triggered whenever the list of bank ports changes.
+     *
      * @return void
      */
     public void updateDepositWindow() {
@@ -1781,6 +1765,7 @@ public class Hacker implements ActionListener, WindowListener, ComponentListener
 
     /**
      * Update the withdraw window if it's open.  This will be triggered whenever the list of bank ports changes.
+     *
      * @return void
      */
     public void updateWithdrawWindow() {
@@ -1796,6 +1781,7 @@ public class Hacker implements ActionListener, WindowListener, ComponentListener
 
     /**
      * Update the transfer window if it's open.  This will be triggered whenever the list of bank ports changes.
+     *
      * @return void
      */
     public void updateTransferWindow() {
@@ -1824,16 +1810,16 @@ public class Hacker implements ActionListener, WindowListener, ComponentListener
     }
 
     /**
-     setTransferOpen(boolean FTPOpen) <br />
-     this lets the program know that the transfer program is open, so that the user can't open another one.
+     * setTransferOpen(boolean FTPOpen) <br />
+     * this lets the program know that the transfer program is open, so that the user can't open another one.
      */
     public void setTransferOpen(boolean FTPOpen) {
         this.transferOpen = FTPOpen;
     }
 
     /**
-     setWithdrawOpen(boolean FTPOpen) <br />
-     this lets the program know that the withdraw program is open, so that the user can't open another one.
+     * setWithdrawOpen(boolean FTPOpen) <br />
+     * this lets the program know that the withdraw program is open, so that the user can't open another one.
      */
     public void setWithdrawOpen(boolean FTPOpen) {
         this.withdrawOpen = FTPOpen;
@@ -1844,80 +1830,80 @@ public class Hacker implements ActionListener, WindowListener, ComponentListener
     }
 
     /**
-     setScriptEditorOpen(boolean FTPOpen) <br />
-     this lets the program know that the script editor is open, so that the user can't open another one.
+     * setScriptEditorOpen(boolean FTPOpen) <br />
+     * this lets the program know that the script editor is open, so that the user can't open another one.
      */
     public void setScriptEditorOpen(boolean FTPOpen) {
         this.scriptEditorOpen = FTPOpen;
     }
 
     /**
-     setMessagerOpen(boolean FTPOpen) <br />
-     this lets the program know that the instant messager is open, so that the user can't open another one.
+     * setMessagerOpen(boolean FTPOpen) <br />
+     * this lets the program know that the instant messager is open, so that the user can't open another one.
      */
     public void setMessagerOpen(boolean FTPOpen) {
         this.messagerOpen = FTPOpen;
     }
 
     /**
-     setColourOpen(boolean FTPOpen) <br />
-     this lets the program know that the desktop colour program is open, so that the user can't open another one.
+     * setColourOpen(boolean FTPOpen) <br />
+     * this lets the program know that the desktop colour program is open, so that the user can't open another one.
      */
     public void setColourOpen(boolean FTPOpen) {
         this.colourOpen = FTPOpen;
     }
 
     /**
-     setAttackOpen(boolean FTPOpen) <br />
-     this lets the program know that the attack program is open, so that the user can't open another one.
+     * setAttackOpen(boolean FTPOpen) <br />
+     * this lets the program know that the attack program is open, so that the user can't open another one.
      */
     public void setAttackOpen(boolean FTPOpen) {
         this.attackOpen = FTPOpen;
     }
 
     /**
-     setScanOpen(boolean FTPOpen) <br />
-     this lets the program know that the port scan program is open, so that the user can't open another one.
+     * setScanOpen(boolean FTPOpen) <br />
+     * this lets the program know that the port scan program is open, so that the user can't open another one.
      */
     public void setScanOpen(boolean FTPOpen) {
         this.scanOpen = FTPOpen;
     }
 
     /**
-     setPortManagementOpen(boolean FTPOpen) <br />
-     this lets the program know that the port management program is open, so that the user can't open another one.
+     * setPortManagementOpen(boolean FTPOpen) <br />
+     * this lets the program know that the port management program is open, so that the user can't open another one.
      */
     public void setPortManagementOpen(boolean FTPOpen) {
         this.portManagementOpen = FTPOpen;
     }
 
     /**
-     setHomeOpen(boolean FTPOpen) <br />
-     this lets the program know that the file browser is open, so that the user can't open another one.
+     * setHomeOpen(boolean FTPOpen) <br />
+     * this lets the program know that the file browser is open, so that the user can't open another one.
      */
     public void setHomeOpen(boolean FTPOpen) {
         this.homeOpen = FTPOpen;
     }
 
     /**
-     setWatchOpen(boolean FTPOpen) <br />
-     this lets the program know that the watch manager is open, so that the user can't open another one.
+     * setWatchOpen(boolean FTPOpen) <br />
+     * this lets the program know that the watch manager is open, so that the user can't open another one.
      */
     public void setWatchOpen(boolean FTPOpen) {
         this.watchOpen = FTPOpen;
     }
 
     /**
-     setMessageWindowOpen(boolean FTPOpen) <br />
-     this lets the program know that the message window is open, so that the user can't open another one.
+     * setMessageWindowOpen(boolean FTPOpen) <br />
+     * this lets the program know that the message window is open, so that the user can't open another one.
      */
     public void setMessageWindowOpen(boolean FTPOpen) {
         this.messageWindowOpen = FTPOpen;
     }
 
     /**
-     startFTP() <br />
-     this opens the FTP program.
+     * startFTP() <br />
+     * this opens the FTP program.
      */
     public void startFTP(int type, int port) {
         Insets insets = panel.getInsets();
@@ -1948,8 +1934,8 @@ public class Hacker implements ActionListener, WindowListener, ComponentListener
     }
 
     /**
-     startDeposit()
-     this opens the deposit program.
+     * startDeposit()
+     * this opens the deposit program.
      */
     public void startDeposit(int port) {
         if (!depositOpen) {
@@ -1969,8 +1955,8 @@ public class Hacker implements ActionListener, WindowListener, ComponentListener
     }
 
     /**
-     startWithdraw()
-     this opens the withdraw program.
+     * startWithdraw()
+     * this opens the withdraw program.
      */
     public void startWithdraw(int port) {
         if (!withdrawOpen) {
@@ -1988,8 +1974,8 @@ public class Hacker implements ActionListener, WindowListener, ComponentListener
     }
 
     /**
-     startTransfer()
-     this opens the transfer program.
+     * startTransfer()
+     * this opens the transfer program.
      */
     public void startTransfer(int port) {
         if (!transferOpen) {
@@ -2007,8 +1993,8 @@ public class Hacker implements ActionListener, WindowListener, ComponentListener
     }
 
     /**
-     startScriptEditor()
-     this opens the script editor.
+     * startScriptEditor()
+     * this opens the script editor.
      */
     public void startScriptEditor() {
         Insets insets = panel.getInsets();
@@ -2050,8 +2036,8 @@ public class Hacker implements ActionListener, WindowListener, ComponentListener
     }
 
     /**
-     startAttack()
-     this opens the attack program.
+     * startAttack()
+     * this opens the attack program.
      */
     public void startAttack() {
 	    /*Insets insets = panel.getInsets();
@@ -2079,8 +2065,8 @@ public class Hacker implements ActionListener, WindowListener, ComponentListener
 
 
     /**
-     showAttack(int port)
-     this shows the attack pane when needed.
+     * showAttack(int port)
+     * this shows the attack pane when needed.
      */
     public AttackPane showAttack(int port) {
 	    /*if(MyAttackPane[port]!=null){
@@ -2348,8 +2334,8 @@ public class Hacker implements ActionListener, WindowListener, ComponentListener
 
 
     /**
-     startScan()
-     this opens the port scan program.
+     * startScan()
+     * this opens the port scan program.
      */
     public void startScan(String ip) {
         if (!scanOpen) {
@@ -2374,8 +2360,8 @@ public class Hacker implements ActionListener, WindowListener, ComponentListener
     }
 
     /**
-     startPortManagement()
-     this opens the port management program.
+     * startPortManagement()
+     * this opens the port management program.
      */
     public void startPortManagement() {
         if (!portManagementOpen) {
@@ -2420,8 +2406,8 @@ public class Hacker implements ActionListener, WindowListener, ComponentListener
     }
 
     /**
-     startHome()
-     this opens the file browser.
+     * startHome()
+     * this opens the file browser.
      */
     public void startHome() {
         if (!homeOpen) {
@@ -2467,8 +2453,8 @@ public class Hacker implements ActionListener, WindowListener, ComponentListener
 
 
     /**
-     startWatchManager()
-     this opens the watch manager.
+     * startWatchManager()
+     * this opens the watch manager.
      */
     public void startWatchManager() {
         if (!watchOpen) {
@@ -2492,8 +2478,8 @@ public class Hacker implements ActionListener, WindowListener, ComponentListener
     }
 
     /**
-     startWebsiteEditor()
-     this opens the watch manager.
+     * startWebsiteEditor()
+     * this opens the watch manager.
      */
     public void startWebsiteEditor() {
         Insets insets = panel.getInsets();
@@ -2653,8 +2639,8 @@ public class Hacker implements ActionListener, WindowListener, ComponentListener
     }
 
     /**
-     showMessage(String message)
-     shows a message received from the server.
+     * showMessage(String message)
+     * shows a message received from the server.
      */
     public void showMessage(Object message) {
         //MyMessageWindow.setMessage(newMessage);
@@ -2789,8 +2775,8 @@ public class Hacker implements ActionListener, WindowListener, ComponentListener
     }
 
     /**
-     showAttackMessage(int damage,int port)
-     shows a damage message in an attack window.
+     * showAttackMessage(int damage,int port)
+     * shows a damage message in an attack window.
      */
     public void showAttackMessage(float damage, int windowHandle, boolean firewall, boolean mining) {
         //System.out.println("Received attack message: "+damage+" "+port+" "+firewall+" "+mining);
@@ -2895,7 +2881,7 @@ public class Hacker implements ActionListener, WindowListener, ComponentListener
 
 
     /**
-     convenience functions for command prompt / bash linker.
+     * convenience functions for command prompt / bash linker.
      **/
 
     public void portOnOff(int port, boolean on) {
@@ -2912,8 +2898,8 @@ public class Hacker implements ActionListener, WindowListener, ComponentListener
 
 
     /**
-     actionPerformed(ActionEvent e)
-     runs the actions of the main menu.
+     * actionPerformed(ActionEvent e)
+     * runs the actions of the main menu.
      */
     public void actionPerformed(ActionEvent e) {
         if (e.getActionCommand().equals("Exit")) {
@@ -3089,9 +3075,6 @@ public class Hacker implements ActionListener, WindowListener, ComponentListener
         //}
         height = frameSize.height;
         width = frameSize.width;
-        if (taskBar != null) {
-            taskBar.enableButtons();
-        }
     }
 
     public void componentShown(ComponentEvent e) {

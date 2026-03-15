@@ -6,10 +6,12 @@ package gui;
  */
 
 import javax.swing.*;
-import javax.swing.border.*;
-import javax.swing.event.*;
-import java.awt.*;
-import java.awt.event.*;
+import javax.swing.event.InternalFrameEvent;
+import javax.swing.event.InternalFrameListener;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.awt.event.MouseEvent;
+import java.awt.event.MouseListener;
 
 public class Application extends JInternalFrame implements ActionListener, MouseListener, InternalFrameListener {
 
@@ -55,24 +57,7 @@ public class Application extends JInternalFrame implements ActionListener, Mouse
     }
 
     public void internalFrameIconified(InternalFrameEvent e) {
-        JDesktopIcon DI = getDesktopIcon();
-        DI.setBackground(new Color(41, 42, 41));
-
-        JButton b = (JButton) DI.getUI().getAccessibleChild(DI, 0);
-        JLabel l = (JLabel) DI.getUI().getAccessibleChild(DI, 1);
-        //b.setFocusPainted(false);
-        b.setContentAreaFilled(false);
-        b.setForeground(Color.WHITE);
-        //b.setBorderPainted(false);
-
-        DI.getUI().update(DI.getGraphics(), DI);
-        DI.setLocation(2, 2);
-        //System.out.println(getTitle()+"  "+DI.getPreferredSize().width);
-        DI.setPreferredSize(new Dimension(120, 25));
-        //mainPanel.setComponentZOrder(DI,0);
-        //mainPanel.remove(DI);
-        MyHacker.addMinimizedFrame(DI);
-
+        MyHacker.addMinimizedFrame(getDesktopIcon());
     }
 
     public void internalFrameDeiconified(InternalFrameEvent e) {

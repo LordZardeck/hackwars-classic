@@ -1,5 +1,7 @@
 package com.hackwars.gui
 
+import java.awt.Color
+import java.awt.Dimension
 import java.awt.event.ActionEvent
 import java.awt.event.ActionListener
 import javax.swing.Icon
@@ -120,6 +122,10 @@ class OSMenuBar : JMenuBar(), ActionListener {
     private val tutorialMenu = object : JMenu("Tutorials") {
         val firstAttackMenuItem = add(OSMenuBarItem("First Attack", Command.TUTORIAL_FIRST_ATTACK, "images/attack.png"))
     }.also { add(it) }
+
+    val taskBar = TaskBar().also {
+        add(it)
+    }
 
     fun addActionListener(l: ActionListener) {
         listenerList.add(ActionListener::class.java, l)
