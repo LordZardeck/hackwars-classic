@@ -14,6 +14,7 @@ dependencies {
     implementation project(':HackWars')
     implementation project(':Networking')
     implementation 'org.apache.axis:axis:1.4'
+    implementation 'com.github.weisj:jsvg:1.7.0'
     implementation 'de.sciss:jsyntaxpane:1.0.0'
     implementation 'com.miglayout:miglayout-swing:11.4.2'
     implementation 'net.java.dev.jogl:jogl:1.1.1-rc6'
