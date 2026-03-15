@@ -27,6 +27,11 @@ import javax.swing.border.LineBorder
 import com.github.weisj.jsvg.SVGDocument
 import com.github.weisj.jsvg.attributes.ViewBox
 import com.github.weisj.jsvg.parser.SVGLoader
+import javax.swing.AbstractButton
+import javax.swing.BorderFactory
+import javax.swing.BoxLayout
+import javax.swing.plaf.ButtonUI
+import javax.swing.plaf.basic.BasicButtonUI
 import kotlin.math.max
 
 class LoginPanel : JPanel() {
@@ -127,45 +132,41 @@ class LoginPanel : JPanel() {
     }
 
     private fun buildForm() {
-        val formX = scaleX(USERNAME_X)
-        val firstFieldY = scaleY(FIRST_FIELD_Y)
-        val secondFieldY = scaleY(SECOND_FIELD_Y)
-        val fieldWidth = max(scaleX(FIELD_WIDTH), 220)
-        val fieldHeight = max(scaleY(FIELD_HEIGHT), 26)
-        val labelHeight = 20
-        val linkY = scaleY(LINK_Y)
-        val buttonX = max(scaleX(BUTTON_X), formX + fieldWidth - max(scaleX(BUTTON_WIDTH), 80))
-        val buttonY = scaleY(BUTTON_Y)
-        val buttonWidth = max(scaleX(BUTTON_WIDTH), 80)
-        val buttonHeight = max(scaleY(BUTTON_HEIGHT), 30)
+        val formX = 280
+        val formY = 130
+        val fieldWidth = 100
+        val fieldHeight = 30
+        val buttonWidth = 86
+        val buttonHeight = 29
         val baseFont = Font("SansSerif", Font.BOLD, 16)
 
         val usernameLabel = JLabel("Username").apply {
             foreground = LABEL_COLOR
             font = baseFont
-            setBounds(formX, firstFieldY - 26, fieldWidth, labelHeight)
         }
 
-        val usernameField = JTextField(20).apply {
+        val usernameField = JTextField(15).apply {
             styleField(this)
-            setBounds(formX, firstFieldY, fieldWidth, fieldHeight)
+            preferredSize = Dimension(fieldWidth, fieldHeight)
+            minimumSize = Dimension(fieldWidth, fieldHeight)
         }
 
         val passwordLabel = JLabel("Password").apply {
             foreground = LABEL_COLOR
             font = baseFont
-            setBounds(formX, secondFieldY - 26, fieldWidth, labelHeight)
         }
 
-        val passwordField = JPasswordField(20).apply {
+        val passwordField = JPasswordField(15).apply {
             styleField(this)
-            setBounds(formX, secondFieldY, fieldWidth, fieldHeight)
+            preferredSize = Dimension(fieldWidth, fieldHeight)
+            minimumSize = Dimension(fieldWidth, fieldHeight)
         }
 
         val signupLink = JLabel("<html><span style='color:#DFEDFA; text-decoration:underline;'>Create Account</span></html>").apply {
             font = Font("SansSerif", Font.BOLD, 14)
             cursor = Cursor.getPredefinedCursor(Cursor.HAND_CURSOR)
-            setBounds(formX, linkY, 140, 26)
+            preferredSize = Dimension(112, 22)
+            minimumSize = Dimension(112, 22)
             addMouseListener(object : MouseAdapter() {
                 override fun mouseClicked(e: MouseEvent?) {
                     openSignupUrl()
@@ -173,61 +174,97 @@ class LoginPanel : JPanel() {
             })
         }
 
-        val separator = object : JComponent() {
-            init {
-                isOpaque = false
-            }
-
-            override fun paintComponent(g: Graphics) {
-                val g2 = g as Graphics2D
-                g2.color = Color(0xFF, 0xFF, 0xFF, 190)
-                g2.stroke = BasicStroke(1f)
-                g2.drawLine(0, height / 2, width, height / 2)
-            }
-        }.apply {
-            setBounds(formX, linkY + 22, 112, 4)
-        }
-
         val loginButton = object : JButton("Login") {
-            override fun paintComponent(g: Graphics) {
-                val g2 = g.create() as Graphics2D
-                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON)
-                g2.color = FIELD_BACKGROUND
-                g2.fillRoundRect(0, 0, width - 1, height - 1, 8, 8)
-                g2.color = FIELD_BORDER
-                g2.stroke = BasicStroke(2f)
-                g2.drawRoundRect(1, 1, width - 3, height - 3, 8, 8)
-                g2.dispose()
-                super.paintComponent(g)
-            }
+//            override fun paintComponent(g: Graphics) {
+//                val g2 = g.create() as Graphics2D
+//                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON)
+//                g2.color = FIELD_BACKGROUND
+//                g2.fillRoundRect(0, 0, width - 1, height - 1, 8, 8)
+//                g2.color = FIELD_BORDER
+//                g2.stroke = BasicStroke(2f)
+//                g2.drawRoundRect(1, 1, width - 3, height - 3, 8, 8)
+//                g2.dispose()
+//                super.paintComponent(g)
+//            }
         }.apply {
             horizontalAlignment = SwingConstants.CENTER
             foreground = TEXT_COLOR
             font = Font("SansSerif", Font.BOLD, 14)
-            isOpaque = false
-            isContentAreaFilled = false
+//            isOpaque = false
+//            isContentAreaFilled = false
             isFocusPainted = false
-            border = EmptyBorder(0, 0, 0, 0)
-            setBounds(buttonX, buttonY, buttonWidth, buttonHeight)
+//            border = EmptyBorder(0, 0, 0, 0)
+            background = FIELD_BACKGROUND
+            ui = object : BasicButtonUI() {
+                override fun paintButtonPressed(g: Graphics, b: AbstractButton) {
+                    g.color = Color(58, 63, 73)
+                    g.fillRect(0, 0, b.size.width, b.size.height);
+                }
+            }
+            border = BorderFactory.createLineBorder(FIELD_BORDER)
+            preferredSize = Dimension(buttonWidth, buttonHeight)
+            minimumSize = Dimension(buttonWidth, buttonHeight)
+            maximumSize = Dimension(buttonWidth, buttonHeight)
             addActionListener {
                 // Placeholder action: login wiring comes later.
             }
         }
 
-        add(usernameLabel)
-        add(usernameField)
-        add(passwordLabel)
-        add(passwordField)
-        add(signupLink)
-        add(separator)
-        add(loginButton)
+        val linkSection = JPanel().apply {
+            layout = javax.swing.BoxLayout(this, javax.swing.BoxLayout.Y_AXIS)
+            isOpaque = false
+            add(signupLink)
+        }
+
+        val actionsRow = JPanel().apply {
+            layout = BoxLayout(this, BoxLayout.X_AXIS)
+            isOpaque = false
+            add(linkSection, java.awt.BorderLayout.WEST)
+            add(loginButton, java.awt.BorderLayout.EAST)
+            preferredSize = Dimension(fieldWidth, buttonHeight)
+        }
+
+        val formPanel = JPanel(java.awt.GridBagLayout()).apply {
+            isOpaque = false
+        }
+
+        val constraints = java.awt.GridBagConstraints().apply {
+            gridx = 0
+            fill = java.awt.GridBagConstraints.HORIZONTAL
+            anchor = java.awt.GridBagConstraints.WEST
+            weightx = 1.0
+        }
+
+        constraints.gridy = 0
+        constraints.insets = java.awt.Insets(0, 0, 4, 0)
+        formPanel.add(usernameLabel, constraints)
+
+        constraints.gridy = 1
+        constraints.insets = java.awt.Insets(0, 0, 12, 0)
+        formPanel.add(usernameField, constraints)
+
+        constraints.gridy = 2
+        constraints.insets = java.awt.Insets(0, 0, 4, 0)
+        formPanel.add(passwordLabel, constraints)
+
+        constraints.gridy = 3
+        constraints.insets = java.awt.Insets(0, 0, 12, 0)
+        formPanel.add(passwordField, constraints)
+
+        constraints.gridy = 4
+        constraints.insets = java.awt.Insets(0, 0, 0, 0)
+        formPanel.add(actionsRow, constraints)
+
+        val formSize = formPanel.preferredSize
+        formPanel.setBounds(formX, formY, formSize.width, formSize.height)
+        add(formPanel)
     }
 
     private fun styleField(field: JTextField) {
         field.foreground = TEXT_COLOR
         field.background = FIELD_BACKGROUND
         field.caretColor = TEXT_COLOR
-        field.font = Font("SansSerif", Font.BOLD, 16)
+        field.font = Font("SansSerif", Font.BOLD, 14)
         field.border = CompoundBorder(
             LineBorder(FIELD_BORDER, 2, true),
             EmptyBorder(2, 12, 2, 12)

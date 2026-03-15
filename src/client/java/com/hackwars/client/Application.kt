@@ -28,7 +28,7 @@ class ApplicationWindow : JFrame() {
         }
         addWindowListener(object : WindowAdapter() {
             override fun windowClosing(e: WindowEvent?) {
-                TODO("Handle closing down any running panels")
+                // TODO("Handle closing down any running panels")
             }
         })
         pack()
