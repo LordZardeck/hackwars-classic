@@ -1,9 +1,6 @@
 package com.hackwars.gui
 
-import java.awt.BorderLayout
-import java.awt.Color
-import java.awt.Dimension
-import java.awt.Insets
+import java.awt.*
 import java.awt.event.ActionEvent
 import java.awt.event.ActionListener
 import javax.swing.*
@@ -42,18 +39,21 @@ fun styleDesktopIcon(desktopIcon: JInternalFrame.JDesktopIcon): JInternalFrame.J
 }
 
 class TaskBar : JPanel(BorderLayout()) {
+    private companion object {
+        const val MIN_SCROLL_STEP = 32
+    }
+
     private enum class ScrollActionCommand(val command: String) {
         LEFT("scrollLeft"), RIGHT("scrollRight")
     }
 
     private val scrollHandler = object : ActionListener {
         override fun actionPerformed(e: ActionEvent?) {
-            when(e?.actionCommand) {
-                ScrollActionCommand.LEFT.command -> return TODO("Not yet implemented")
-                ScrollActionCommand.RIGHT.command -> return TODO("Not yet implemented")
+            when (e?.actionCommand) {
+                ScrollActionCommand.LEFT.command -> scrollMinimizedApplications(ScrollActionCommand.LEFT)
+                ScrollActionCommand.RIGHT.command -> scrollMinimizedApplications(ScrollActionCommand.RIGHT)
             }
         }
-
     }
 
     private inner class ScrollButton(action: ScrollActionCommand) : JButton() {
@@ -62,7 +62,7 @@ class TaskBar : JPanel(BorderLayout()) {
             preferredSize = Dimension(16, preferredSize.height)
             actionCommand = action.command
             isEnabled = false
-            icon = when(action) {
+            icon = when (action) {
                 ScrollActionCommand.LEFT -> LEGACY_getImageIcon("images/taskBarLeft.png")
                 ScrollActionCommand.RIGHT -> LEGACY_getImageIcon("images/taskBarRight.png")
             }
@@ -70,18 +70,20 @@ class TaskBar : JPanel(BorderLayout()) {
         }
     }
 
-    private val minimizedApplications = JScrollPane().run {
-        // TODO: Add manual scrolling using left/right arrow buttons
+
+    private val minimizedApplications = JPanel()
+        .apply {
+            layout = BoxLayout(this, BoxLayout.X_AXIS)
+            border = null
+        }
+    private val applicationScrollPane = JScrollPane().apply {
         horizontalScrollBarPolicy = JScrollPane.HORIZONTAL_SCROLLBAR_NEVER
         verticalScrollBarPolicy = JScrollPane.VERTICAL_SCROLLBAR_NEVER
         border = null
+        setViewportView(minimizedApplications)
+        viewport.addChangeListener { updateScrollButtonsEnabledState() }
 
         this@TaskBar.add(this, BorderLayout.CENTER)
-        JPanel().also {
-            it.layout = BoxLayout(it, BoxLayout.X_AXIS)
-            it.border = null
-            setViewportView(it)
-        }
     }
 
     private val scrollButtons = object : JPanel() {
@@ -92,11 +94,45 @@ class TaskBar : JPanel(BorderLayout()) {
         add(it, BorderLayout.EAST)
     }
 
+    private fun scrollMinimizedApplications(direction: ScrollActionCommand) {
+        val viewRect = applicationScrollPane.viewport.viewRect
+        val step = (viewRect.width / 2).coerceAtLeast(MIN_SCROLL_STEP)
+        val delta = when (direction) {
+            ScrollActionCommand.LEFT -> -step
+            ScrollActionCommand.RIGHT -> step
+        }
+
+        val viewWidth = applicationScrollPane.viewport.view.preferredSize.width
+        val maxX = (viewWidth - viewRect.width).coerceAtLeast(0)
+        val targetX = (viewRect.x + delta).coerceIn(0, maxX)
+        applicationScrollPane.viewport.viewPosition = Point(targetX, viewRect.y)
+        updateScrollButtonsEnabledState()
+    }
+
+    private fun updateScrollButtonsEnabledState() {
+        val viewRect = applicationScrollPane.viewport.viewRect
+        val viewWidth = applicationScrollPane.viewport.view.preferredSize.width
+        val hasOverflow = viewRect.width > 0 && viewWidth > viewRect.width
+
+        scrollButtons.leftScrollButton.isEnabled = hasOverflow && viewRect.x > 0
+        scrollButtons.rightScrollButton.isEnabled = hasOverflow && (viewRect.x + viewRect.width) < viewWidth
+    }
+
+    private fun queueScrollButtonsEnabledStateUpdate() {
+        SwingUtilities.invokeLater { updateScrollButtonsEnabledState() }
+    }
+
     fun addMinimizedApplication(icon: JInternalFrame.JDesktopIcon) {
         minimizedApplications.add(styleDesktopIcon(icon))
+        applicationScrollPane.viewport.view.revalidate()
+        applicationScrollPane.viewport.view.repaint()
+        queueScrollButtonsEnabledStateUpdate()
     }
 
     fun removeRestoredApplication(icon: JInternalFrame.JDesktopIcon) {
         minimizedApplications.remove(icon)
+        applicationScrollPane.viewport.view.revalidate()
+        applicationScrollPane.viewport.view.repaint()
+        queueScrollButtonsEnabledStateUpdate()
     }
 }
