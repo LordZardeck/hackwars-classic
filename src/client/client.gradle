@@ -32,6 +32,7 @@ sourceSets {
             include 'hacktendo/**/*.java'
             include 'chat/client/**/*.java'
             include 'com/plink/hack3d/**/*.java'
+            include 'com/hackwars/**/*.java'
         }
         kotlin {
             include 'browser/**/*.kt'
@@ -42,6 +43,7 @@ sourceSets {
             include 'hacktendo/**/*.kt'
             include 'chat/client/**/*.kt'
             include 'com/plink/hack3d/**/*.kt'
+            include 'com/hackwars/**/*.kt'
         }
     }
 }

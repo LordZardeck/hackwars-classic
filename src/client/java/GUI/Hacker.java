@@ -12,6 +12,7 @@ import java.awt.event.*;
 import javax.swing.event.*;
 import java.awt.Toolkit;
 
+import com.hackwars.gui.OSMenuBar;
 import view.*;
 
 import java.awt.geom.Point2D;
@@ -156,7 +157,7 @@ public class Hacker implements ActionListener, WindowListener, ComponentListener
     private Transfer transferWindow;
     private Deposit depositWindow;
     private float healDiscount = 1.0f;
-    private JMenuBar menuBar;
+    private OSMenuBar menuBar;
     private TaskBar taskBar = null;
     private int iconCount = 0;
     private CommandPrompt commandPromptRequestedDirectory;
@@ -1450,150 +1451,12 @@ public class Hacker implements ActionListener, WindowListener, ComponentListener
      this creates the main menu for the program.
      */
     private void createMenu() {
-        JMenu menu, subMenu;
+        JMenu menu;
         JMenuItem menuItem;
-        JRadioButtonMenuItem rbMenuItem;
-        JCheckBoxMenuItem cbMenuItem;
 
         //Create the menu bar.
-        menuBar = new JMenuBar();
-        //menuBar.setLayout(new FlowLayout(FlowLayout.LEADING,2,0));
-        menuBar.setLayout(new MigLayout("fillx,gap 2 0,top,left,ins 0"));
-        //APPLICATIONS
-        menu = new JMenu("Applications");
-        menuBar.add(menu);
-
-        subMenu = new JMenu("Banking");
-        menu.add(subMenu);
-        menuItem = new JMenuItem("Deposit", ImageLoader.getImageIcon("images/calc.png"));
-        subMenu.add(menuItem);
-        menuItem.addActionListener(this);
-        menuItem = new JMenuItem("Withdraw", ImageLoader.getImageIcon("images/calc.png"));
-        subMenu.add(menuItem);
-        menuItem.addActionListener(this);
-        menuItem = new JMenuItem("Transfer", ImageLoader.getImageIcon("images/calc.png"));
-        subMenu.add(menuItem);
-        menuItem.addActionListener(this);
-
-        subMenu = new JMenu("Internet");
-        menu.add(subMenu);
-        menuItem = new JMenuItem("Web Browser", ImageLoader.getImageIcon("images/browser.png"));
-        subMenu.add(menuItem);
-        menuItem.addActionListener(this);
-        menuItem = new JMenuItem("Store", ImageLoader.getImageIcon("images/browser.png"));
-        subMenu.add(menuItem);
-        menuItem.addActionListener(this);
-        menuItem = new JMenuItem("Site Editor", ImageLoader.getImageIcon("images/edit.png"));
-        subMenu.add(menuItem);
-        menuItem.addActionListener(this);
-
-
-        subMenu = new JMenu("Hacking Tools");
-        menu.add(subMenu);
-        menuItem = new JMenuItem("Port Scan", ImageLoader.getImageIcon("images/scan.png"));
-        subMenu.add(menuItem);
-        menuItem.addActionListener(this);
-        menuItem = new JMenuItem("Attack Port", ImageLoader.getImageIcon("images/attack.png"));
-        subMenu.add(menuItem);
-        menuItem.addActionListener(this);
-        menuItem = new JMenuItem("Redirect Port", ImageLoader.getImageIcon("images/redirect.png"));
-        subMenu.add(menuItem);
-        menuItem.addActionListener(this);
-        menuItem = new JMenuItem("Zombie Attack", ImageLoader.getImageIcon("images/attack.png"));
-        subMenu.add(menuItem);
-        menuItem.addActionListener(this);
-
-
-        menuItem = new JMenuItem("Script Editor", ImageLoader.getImageIcon("images/edit.png"));
-        menu.add(menuItem);
-        menuItem.addActionListener(this);
-
-        menuItem = new JMenuItem("Create Bounty");
-        menu.add(menuItem);
-        menuItem.addActionListener(this);
-
-        if (paidHacktendo) {
-            menuItem = new JMenuItem("Hacktendo Game Creator");
-            menu.add(menuItem);
-            menuItem.addActionListener(this);
-        }
-
-	/*menuItem = new JMenuItem("Command Prompt");
-	menu.add(menuItem);
-	menuItem.addActionListener(this);*/
-/*
-	menuItem = new JMenuItem("Hacktendo Game Player");
-	menu.add(menuItem);
-	menuItem.addActionListener(this);
-*/
-
-        //PLACES
-        menu = new JMenu("Places");
-        menuBar.add(menu);
-
-        menuItem = new JMenuItem("Shop FTP", ImageLoader.getImageIcon("images/ftp.png"));
-        menu.add(menuItem);
-        menuItem.addActionListener(this);
-
-        menuItem = new JMenuItem("Public FTP", ImageLoader.getImageIcon("images/ftp.png"));
-        menu.add(menuItem);
-        menuItem.addActionListener(this);
-
-        menuItem = new JMenuItem("Home", ImageLoader.getImageIcon("images/home.png"));
-        menu.add(menuItem);
-        menuItem.addActionListener(this);
-
-        menuItem = new JMenuItem("Network", ImageLoader.getImageIcon("images/home.png"));
-        menu.add(menuItem);
-        menuItem.addActionListener(this);
-
-        menuItem = new JMenuItem("Log Window");
-        menu.add(menuItem);
-        menuItem.addActionListener(this);
-
-
-        //SYSTEM
-        menu = new JMenu("System");
-        menuBar.add(menu);
-        subMenu = new JMenu("Administration");
-
-        menuItem = new JMenuItem("Port Management", ImageLoader.getImageIcon("images/ports.png"));
-        menu.add(menuItem);
-        menuItem.addActionListener(this);
-
-        menuItem = new JMenuItem("Watch Manager", ImageLoader.getImageIcon("images/watch.png"));
-        menu.add(menuItem);
-        menuItem.addActionListener(this);
-
-        menuItem = new JMenuItem("Equipment Manager", ImageLoader.getImageIcon("images/cpu.png"));
-        menu.add(menuItem);
-        menuItem.addActionListener(this);
-
-        menuItem = new JMenuItem("Firewall Manager", ImageLoader.getImageIcon("images/firewall.png"));
-        menu.add(menuItem);
-        menuItem.addActionListener(this);
-
-        menuItem = new JMenuItem("Set Public FTP Password");
-        menuItem.setActionCommand("FTPPass");
-        menu.add(menuItem);
-        menuItem.addActionListener(this);
-
-        menuItem = new JMenuItem("Personal Settings");
-        menu.add(menuItem);
-        menuItem.addActionListener(this);
-
-        menuItem = new JMenuItem("Preferences...");
-        menuItem.setActionCommand("preferences");
-        menuItem.addActionListener(this);
-        menu.add(menuItem);
-
-        //TUTORIAL
-        menu = new JMenu("Tutorials");
-        menuBar.add(menu);
-
-        menuItem = new JMenuItem("First Attack", ImageLoader.getImageIcon("images/attack.png"));
-        menu.add(menuItem);
-        menuItem.addActionListener(this);
+        menuBar = new OSMenuBar();
+        menuBar.addActionListener(this);
         menuBar.setPreferredSize(new Dimension(menuBar.getPreferredSize().width, 30));
 
         JButton left = new JButton(ImageLoader.getImageIcon("images/taskBarLeft.png"));
@@ -1610,10 +1473,7 @@ public class Hacker implements ActionListener, WindowListener, ComponentListener
 
         taskBar = new TaskBar(left, right);
         taskBar.setPreferredSize(new Dimension(menuBar.getPreferredSize().width, 25));
-        //taskBar.setLayout(new FlowLayout(FlowLayout.LEADING,2,0));
-        menu.setBackground(taskBar.getBackground());
 
-        //taskBar.setBorder(menuBar.getBorder());
         menuBar.add(taskBar, "growx");
 
         left.addActionListener(taskBar);
@@ -3063,63 +2923,63 @@ public class Hacker implements ActionListener, WindowListener, ComponentListener
             //MyViewRelation.dispose();
 
         }
-        if (e.getActionCommand().equals("Shop FTP")) {
+        if (OSMenuBar.Command.SHOP_FTP.matches(e.getActionCommand())) {
             startFTP(0, defaultFTPPort);
         }
-        if (e.getActionCommand().equals("Public FTP")) {
+        if (OSMenuBar.Command.PUBLIC_FTP.matches(e.getActionCommand())) {
             startFTP(1, defaultFTPPort);
         }
-        if (e.getActionCommand().equals("Deposit")) {
+        if (OSMenuBar.Command.DEPOSIT.matches(e.getActionCommand())) {
             startDeposit(defaultBankPort);
         }
-        if (e.getActionCommand().equals("Withdraw")) {
+        if (OSMenuBar.Command.WITHDRAW.matches(e.getActionCommand())) {
             startWithdraw(defaultBankPort);
         }
-        if (e.getActionCommand().equals("Transfer")) {
+        if (OSMenuBar.Command.TRANSFER.matches(e.getActionCommand())) {
             startTransfer(defaultBankPort);
         }
-        if (e.getActionCommand().equals("Script Editor")) {
+        if (OSMenuBar.Command.SCRIPT_EDITOR.matches(e.getActionCommand())) {
             showScriptEditor();
         }
         if (e.getActionCommand().equals("Help")) {
             frame.setCursor(new Cursor(Cursor.WAIT_CURSOR));
             showHelp();
         }
-        if (e.getActionCommand().equals("Attack Port")) {
+        if (OSMenuBar.Command.ATTACK_PORT.matches(e.getActionCommand())) {
             showAttack(defaultAttackPort);
         }
-        if (e.getActionCommand().equals("Redirect Port")) {
+        if (OSMenuBar.Command.REDIRECT_PORT.matches(e.getActionCommand())) {
             showRedirect(defaultRedirectPort);
         }
-        if (e.getActionCommand().equals("Port Scan")) {
+        if (OSMenuBar.Command.PORT_SCAN.matches(e.getActionCommand())) {
             startScan("");
         }
-        if (e.getActionCommand().equals("Port Management")) {
+        if (OSMenuBar.Command.PORT_MANAGEMENT.matches(e.getActionCommand())) {
             startPortManagement();
         }
-        if (e.getActionCommand().equals("Home")) {
+        if (OSMenuBar.Command.HOME.matches(e.getActionCommand())) {
             showHome();
         }
-        if (e.getActionCommand().equals("Firewall Manager")) {
+        if (OSMenuBar.Command.FIREWALL_MANAGER.matches(e.getActionCommand())) {
             showFirewallBrowser();
         }
-        if (e.getActionCommand().equals("Watch Manager")) {
+        if (OSMenuBar.Command.WATCH_MANAGER.matches(e.getActionCommand())) {
             startWatchManager();
         }
-        if (e.getActionCommand().equals("Site Editor")) {
+        if (OSMenuBar.Command.SITE_EDITOR.matches(e.getActionCommand())) {
             showWebsiteEditor();
         }
-        if (e.getActionCommand().equals("Web Browser")) {
+        if (OSMenuBar.Command.WEB_BROWSER.matches(e.getActionCommand())) {
             frame.setCursor(new Cursor(Cursor.WAIT_CURSOR));
             showWebBrowser();
         }
-        if (e.getActionCommand().equals("Store")) {
+        if (OSMenuBar.Command.STORE.matches(e.getActionCommand())) {
             goToStore();
         }
-        if (e.getActionCommand().equals("Network")) {
+        if (OSMenuBar.Command.NETWORK.matches(e.getActionCommand())) {
             startNetwork();
         }
-        if (e.getActionCommand().equals("FTPPass")) {
+        if (OSMenuBar.Command.SET_PUBLIC_FTP_PASSWORD.matches(e.getActionCommand())) {
             String answer = (String) JOptionPane.showInputDialog(
                     panel,
                     "New Password:",
@@ -3135,34 +2995,34 @@ public class Hacker implements ActionListener, WindowListener, ComponentListener
                 MyView.addFunctionCall(new RemoteFunctionCall(0, "setftppassword", objects));
             }
         }
-        if (e.getActionCommand().equals("preferences")) {
+        if (OSMenuBar.Command.PREFERENCES.matches(e.getActionCommand())) {
             startPreferences();
         }
-        if (e.getActionCommand().equals("Log Window")) {
+        if (OSMenuBar.Command.LOG_WINDOW.matches(e.getActionCommand())) {
             startLogWindow();
         }
-        if (e.getActionCommand().equals("Personal Settings")) {
+        if (OSMenuBar.Command.PERSONAL_SETTINGS.matches(e.getActionCommand())) {
             showPersonalSettings(username);
         }
         if (e.getActionCommand().equals("Options")) {
             showOptions(username);
         }
-        if (e.getActionCommand().equals("Zombie Attack")) {
+        if (OSMenuBar.Command.ZOMBIE_ATTACK.matches(e.getActionCommand())) {
             ZombieAttackDialog ZAD = new ZombieAttackDialog(this);
         }
-        if (e.getActionCommand().equals("Create Bounty")) {
+        if (OSMenuBar.Command.CREATE_BOUNTY.matches(e.getActionCommand())) {
             BountyWindow BW = new BountyWindow(this);
         }
-        if (e.getActionCommand().equals("Equipment Manager")) {
+        if (OSMenuBar.Command.EQUIPMENT_MANAGER.matches(e.getActionCommand())) {
             showEquipmentManager();
         }
-        if (e.getActionCommand().equals("Hacktendo Game Creator")) {
+        if (OSMenuBar.Command.HACKTENDO_GAME_CREATOR.matches(e.getActionCommand())) {
             startHacktendoCreator();
         }
         if (e.getActionCommand().equals("Hacktendo Game Player")) {
             startHacktendoPlayer();
         }
-        if (e.getActionCommand().equals("First Attack")) {
+        if (OSMenuBar.Command.TUTORIAL_FIRST_ATTACK.matches(e.getActionCommand())) {
             setTutorial(true);
         }
         if (e.getActionCommand().equals("Command Prompt")) {
