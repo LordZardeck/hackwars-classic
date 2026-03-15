@@ -127,6 +127,10 @@ class OSMenuBar : JMenuBar(), ActionListener {
         add(it)
     }
 
+    init {
+        preferredSize = Dimension(preferredSize.width, 30)
+    }
+
     fun addActionListener(l: ActionListener) {
         listenerList.add(ActionListener::class.java, l)
     }

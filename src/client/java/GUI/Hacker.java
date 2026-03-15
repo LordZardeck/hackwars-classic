@@ -1447,26 +1447,9 @@ public class Hacker implements ActionListener, WindowListener, ComponentListener
      * this creates the main menu for the program.
      */
     private void createMenu() {
-        JMenu menu;
-        JMenuItem menuItem;
-
         //Create the menu bar.
         menuBar = new OSMenuBar();
         menuBar.addActionListener(this);
-        menuBar.setPreferredSize(new Dimension(menuBar.getPreferredSize().width, 30));
-
-        JButton left = new JButton(ImageLoader.getImageIcon("images/taskBarLeft.png"));
-        left.setContentAreaFilled(false);
-        left.setPreferredSize(new Dimension(16, left.getPreferredSize().height));
-        left.setActionCommand("Left");
-        left.setEnabled(false);
-
-        JButton right = new JButton(ImageLoader.getImageIcon("images/taskBarRight.png"));
-        right.setContentAreaFilled(false);
-        right.setPreferredSize(new Dimension(16, right.getPreferredSize().height));
-        right.setActionCommand("Right");
-        right.setEnabled(false);
-
         frame.setJMenuBar(menuBar);
     }
 
