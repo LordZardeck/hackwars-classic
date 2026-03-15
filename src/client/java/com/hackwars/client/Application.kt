@@ -38,7 +38,8 @@ class ApplicationWindow : JFrame() {
 }
 
 fun main() {
-    runCatching { UIManager.setLookAndFeel(UIManager.getCrossPlatformLookAndFeelClassName()) }.onFailure { println("Warning: Unable to set system look and feel: ${it.message}") }
+//    This breaks normal copy/paste functionality. Hopefully we can switch between native and cross platform when we switch to the app view
+//    runCatching { UIManager.setLookAndFeel(UIManager.getCrossPlatformLookAndFeelClassName()) }.onFailure { println("Warning: Unable to set system look and feel: ${it.message}") }
     SwingUtilities.invokeLater(object : Runnable {
         override fun run() {
             ApplicationWindow()
