@@ -1,10 +1,12 @@
 package com.hackwars.gui
 
-import java.awt.*
-import javax.swing.JButton
-import javax.swing.JInternalFrame
-import javax.swing.JPanel
-import javax.swing.JScrollPane
+import java.awt.BorderLayout
+import java.awt.Color
+import java.awt.Dimension
+import java.awt.Insets
+import java.awt.event.ActionEvent
+import java.awt.event.ActionListener
+import javax.swing.*
 import javax.swing.border.EmptyBorder
 
 /**
@@ -40,6 +42,34 @@ fun styleDesktopIcon(desktopIcon: JInternalFrame.JDesktopIcon): JInternalFrame.J
 }
 
 class TaskBar : JPanel(BorderLayout()) {
+    private enum class ScrollActionCommand(val command: String) {
+        LEFT("scrollLeft"), RIGHT("scrollRight")
+    }
+
+    private val scrollHandler = object : ActionListener {
+        override fun actionPerformed(e: ActionEvent?) {
+            when(e?.actionCommand) {
+                ScrollActionCommand.LEFT.command -> return TODO("Not yet implemented")
+                ScrollActionCommand.RIGHT.command -> return TODO("Not yet implemented")
+            }
+        }
+
+    }
+
+    private inner class ScrollButton(action: ScrollActionCommand) : JButton() {
+        init {
+            isContentAreaFilled = false
+            preferredSize = Dimension(16, preferredSize.height)
+            actionCommand = action.command
+            isEnabled = false
+            icon = when(action) {
+                ScrollActionCommand.LEFT -> LEGACY_getImageIcon("images/taskBarLeft.png")
+                ScrollActionCommand.RIGHT -> LEGACY_getImageIcon("images/taskBarRight.png")
+            }
+            addActionListener(scrollHandler)
+        }
+    }
+
     private val minimizedApplications = JScrollPane().run {
         // TODO: Add manual scrolling using left/right arrow buttons
         horizontalScrollBarPolicy = JScrollPane.HORIZONTAL_SCROLLBAR_NEVER
@@ -47,26 +77,20 @@ class TaskBar : JPanel(BorderLayout()) {
         border = null
 
         this@TaskBar.add(this, BorderLayout.CENTER)
-        JPanel(FlowLayout(FlowLayout.LEADING, 0, 0)).also {
+        JPanel().also {
+            it.layout = BoxLayout(it, BoxLayout.X_AXIS)
             it.border = null
             setViewportView(it)
         }
     }
 
-    private val scrollButtons = object : JPanel(FlowLayout(FlowLayout.LEADING, 0, 0)) {
-        val leftScrollButton = JButton(LEGACY_getImageIcon("images/taskBarLeft.png")).apply {
-            isContentAreaFilled = false
-            preferredSize = Dimension(16, getPreferredSize().height)
-            actionCommand = "Left"
-            isEnabled = false
-        }.also { add(it) }
-        val rightScrollButton = JButton(LEGACY_getImageIcon("images/taskBarRight.png")).apply {
-            isContentAreaFilled = false
-            preferredSize = Dimension(16, getPreferredSize().height)
-            actionCommand = "Left"
-            isEnabled = false
-        }.also { add(it) }
-    }.also { add(it, BorderLayout.EAST) }
+    private val scrollButtons = object : JPanel() {
+        val leftScrollButton = ScrollButton(ScrollActionCommand.LEFT).also { add(it) }
+        val rightScrollButton = ScrollButton(ScrollActionCommand.RIGHT).also { add(it) }
+    }.also {
+        it.layout = BoxLayout(it, BoxLayout.X_AXIS)
+        add(it, BorderLayout.EAST)
+    }
 
     fun addMinimizedApplication(icon: JInternalFrame.JDesktopIcon) {
         minimizedApplications.add(styleDesktopIcon(icon))
