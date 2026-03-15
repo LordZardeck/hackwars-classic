@@ -1,11 +1,10 @@
 package com.hackwars.gui
 
-import java.awt.BorderLayout
-import java.awt.Color
-import java.awt.Dimension
-import java.awt.FlowLayout
-import java.awt.Insets
-import javax.swing.*
+import java.awt.*
+import javax.swing.JButton
+import javax.swing.JInternalFrame
+import javax.swing.JPanel
+import javax.swing.JScrollPane
 import javax.swing.border.EmptyBorder
 
 /**
@@ -53,6 +52,21 @@ class TaskBar : JPanel(BorderLayout()) {
             setViewportView(it)
         }
     }
+
+    private val scrollButtons = object : JPanel(FlowLayout(FlowLayout.LEADING, 0, 0)) {
+        val leftScrollButton = JButton(LEGACY_getImageIcon("images/taskBarLeft.png")).apply {
+            isContentAreaFilled = false
+            preferredSize = Dimension(16, getPreferredSize().height)
+            actionCommand = "Left"
+            isEnabled = false
+        }.also { add(it) }
+        val rightScrollButton = JButton(LEGACY_getImageIcon("images/taskBarRight.png")).apply {
+            isContentAreaFilled = false
+            preferredSize = Dimension(16, getPreferredSize().height)
+            actionCommand = "Left"
+            isEnabled = false
+        }.also { add(it) }
+    }.also { add(it, BorderLayout.EAST) }
 
     fun addMinimizedApplication(icon: JInternalFrame.JDesktopIcon) {
         minimizedApplications.add(styleDesktopIcon(icon))

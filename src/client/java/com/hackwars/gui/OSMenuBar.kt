@@ -9,7 +9,7 @@ import javax.swing.JMenu
 import javax.swing.JMenuBar
 import javax.swing.JMenuItem
 
-private fun LEGACY_getImageIcon(iconPath: String?): Icon? {
+fun LEGACY_getImageIcon(iconPath: String?): Icon? {
     if (iconPath == null) {
         return null
     }
