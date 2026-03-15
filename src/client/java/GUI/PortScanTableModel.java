@@ -1,4 +1,4 @@
-package GUI;
+package gui;
 /**
  * PortScanTableModel.java
  */
@@ -10,8 +10,8 @@ import javax.swing.table.*;
 import java.awt.*;
 import java.awt.event.*;
 
-import Assignments.*;
-import View.*;
+import assignments.*;
+import view.*;
 
 public class PortScanTableModel extends AbstractTableModel {
     private Object[][] rowData;

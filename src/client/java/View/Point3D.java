@@ -7,7 +7,7 @@
 
  Programmer: Ben Coe.
  **********************************************************/
-package View;
+package view;
 
 public class Point3D {
     //data.

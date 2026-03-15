@@ -1,4 +1,4 @@
-package GUI;
+package gui;
 
 import javax.swing.*;
 import javax.swing.border.*;
@@ -7,8 +7,8 @@ import javax.imageio.*;
 import java.awt.*;
 import java.awt.event.*;
 
-import Assignments.*;
-import View.*;
+import assignments.*;
+import view.*;
 
 import java.text.*;
 import java.math.*;

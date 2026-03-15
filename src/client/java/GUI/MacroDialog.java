@@ -1,4 +1,4 @@
-package GUI;
+package gui;
 /**
  * FunctionCallDialog.java
  * <p>
@@ -12,11 +12,11 @@ import java.awt.*;
 import java.awt.event.*;
 import java.text.*;
 
-import View.*;
+import view.*;
 
 import java.awt.image.*;
 
-import Assignments.*;
+import assignments.*;
 //import java.awt.Dialog.ModalityType;
 
 public class MacroDialog extends JInternalFrame implements ActionListener {

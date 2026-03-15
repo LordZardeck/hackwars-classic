@@ -1,4 +1,4 @@
-package HackerSearch.util;
+package hackersearch.util;
 
 /**
  * Represents a GUI task, used to keep things thread safe.

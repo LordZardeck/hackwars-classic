@@ -1,4 +1,4 @@
-package Hackscript.Model;
+package hackscript.model;
 /*
 Porgrammer: Ben Coe.(2008)<br />
 

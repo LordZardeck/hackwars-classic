@@ -1,4 +1,4 @@
-package GUI;
+package gui;
 /**
  * Deposit.java
  * this is the deposit window.
@@ -11,9 +11,9 @@ import javax.swing.text.MaskFormatter;
 import java.awt.*;
 import java.awt.event.*;
 
-import Assignments.*;
-import View.*;
-import Game.Port;
+import assignments.*;
+import view.*;
+import game.Port;
 
 import java.text.*;
 import java.math.*;

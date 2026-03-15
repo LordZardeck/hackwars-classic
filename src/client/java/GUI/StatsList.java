@@ -1,10 +1,10 @@
-package GUI;
+package gui;
 
 
 import java.util.*;
 import java.util.concurrent.*;
 
-import View.*;
+import view.*;
 
 import javax.swing.*;
 import java.awt.*;

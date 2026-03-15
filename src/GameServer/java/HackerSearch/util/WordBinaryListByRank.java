@@ -1,4 +1,4 @@
-package HackerSearch.util;
+package hackersearch.util;
 
 import com.plink.dolphinstem.*;
 import com.plink.dolphinnet.util.*;

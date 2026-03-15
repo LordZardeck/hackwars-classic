@@ -1,4 +1,4 @@
-package GUI;
+package gui;
 
 import javax.swing.*;
 import javax.swing.border.*;
@@ -6,8 +6,8 @@ import javax.swing.event.*;
 import java.awt.*;
 import java.awt.event.*;
 
-import Assignments.*;
-import View.*;
+import assignments.*;
+import view.*;
 
 public class ShowChoices extends Application {
     public final static int BANK = 0;

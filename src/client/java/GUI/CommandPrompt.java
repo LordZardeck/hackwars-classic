@@ -1,4 +1,4 @@
-package GUI;
+package gui;
 /**
  * CommandPrompt.java
  */
@@ -10,16 +10,16 @@ import javax.swing.event.*;
 import java.awt.*;
 import java.awt.event.*;
 
-import Game.*;
-import View.*;
-import Assignments.*;
+import game.*;
+import view.*;
+import assignments.*;
 
 import java.text.*;
 import java.util.*;
 import java.net.URL;
 
 import net.miginfocom.swing.*;
-import Hackscript.Model.*;
+import hackscript.model.*;
 
 public class CommandPrompt extends Application implements KeyListener {
 

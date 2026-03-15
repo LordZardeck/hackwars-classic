@@ -1,4 +1,4 @@
-package Game;
+package game;
 /**
  * This singleton delivers files to a player when they purchase them via the Game's store.
  */

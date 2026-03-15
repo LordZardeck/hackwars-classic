@@ -1,8 +1,8 @@
-package Client;
+package client;
 /**
  * Launcher.java
  * <p>
- * Performs the loading step necessary to bootstrap the GUI.
+ * Performs the loading step necessary to bootstrap the gui.
  */
 
 import java.net.*;
@@ -12,12 +12,12 @@ import java.awt.event.*;
 import java.io.*;
 import java.awt.image.BufferedImage;
 
-import View.*;
+import view.*;
 
 import javax.imageio.*;
 import java.net.URL;
 
-import GUI.*;
+import gui.*;
 import util.XmlRpcProxy;
 
 public class Launcher extends JPanel implements ActionListener {
@@ -378,7 +378,7 @@ public class Launcher extends JPanel implements ActionListener {
     }
 
     /**
-     Connect to the Hack Wars Server.
+     Connect to the Hack Wars server.
      */
     public void reconnect() {
         MyView = new View(ip, this);

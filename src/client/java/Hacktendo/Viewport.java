@@ -1,4 +1,4 @@
-package Hacktendo;
+package hacktendo;
 /*
 Porgrammer: Ben Coe.(2007)<br />
 
@@ -17,18 +17,18 @@ import java.awt.geom.*;
 import java.awt.event.*;
 import java.util.concurrent.Semaphore;
 
-import GUI.Sound;
+import gui.Sound;
 
 import javax.imageio.*;
 
-import GUI.ImageLoader;
-import GUI.Hacker;
-import View.*;
-import Assignments.*;
+import gui.ImageLoader;
+import gui.Hacker;
+import view.*;
+import assignments.*;
 
 import java.util.*;
 
-import GUI.*;
+import gui.*;
 
 public class Viewport extends JComponent implements Runnable, FocusListener, MouseListener {
     /// //////////////////

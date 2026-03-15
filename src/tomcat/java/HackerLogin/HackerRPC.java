@@ -1,6 +1,6 @@
-package HackerLogin;
+package hackerlogin;
 /**
- * HackerSearch.java
+ * hackersearch.java
  * <p>
  * HackerRPC provides a system for performing remote function calls. This is good for attaching PHP to the server,
  * It is also good for performing some central tasks like search engine indexing, etc.
@@ -13,22 +13,22 @@ import javax.servlet.*;
 import javax.servlet.http.*;
 
 import com.plink.dolphinnet.*;
-import HackerSearch.Assignments.*;
-import HackerSearch.util.*;
-import HackerSearch.Server.*;
+import hackersearch.assignments.*;
+import hackersearch.util.*;
+import hackersearch.server.*;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 
-import Assignments.*;
+import assignments.*;
 import util.*;
-import Hackscript.Model.*;
+import hackscript.model.*;
 
 import java.util.concurrent.Semaphore;
 
-import Game.*;
-import Assignments.*;
-import Server.*;
+import game.*;
+import assignments.*;
+import server.*;
 
 public class HackerRPC extends HttpServlet implements DataHandler {
 

@@ -1,4 +1,4 @@
-package GUI;
+package gui;
 
 import javax.swing.*;
 import javax.swing.border.*;
@@ -6,8 +6,8 @@ import java.awt.*;
 import java.awt.event.*;
 import javax.swing.event.*;
 
-import Assignments.*;
-import View.*;
+import assignments.*;
+import view.*;
 
 public class NPCLabel extends JLabel implements ActionListener, MouseListener {
     public static final int QUEST = 0;

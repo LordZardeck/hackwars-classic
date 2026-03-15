@@ -1,4 +1,4 @@
-package GUI;
+package gui;
 /**
  * PortScan.java
  * this is the attack window.
@@ -11,8 +11,8 @@ import javax.swing.table.*;
 import java.awt.*;
 import java.awt.event.*;
 
-import Assignments.*;
-import View.*;
+import assignments.*;
+import view.*;
 
 import java.text.*;
 

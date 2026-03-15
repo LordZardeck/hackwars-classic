@@ -1,4 +1,4 @@
-package GUI;
+package gui;
 /**
  * ManageBookmarks.java
  * this is where the user manages their bookmarks.
@@ -13,7 +13,7 @@ import java.awt.*;
 import java.awt.event.*;
 import javax.swing.table.TableModel;
 
-import View.*;
+import view.*;
 
 
 public class ManageBookmarks extends Application implements TableModelListener {

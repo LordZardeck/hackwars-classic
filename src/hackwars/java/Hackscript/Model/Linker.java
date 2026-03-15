@@ -3,7 +3,7 @@ Programmer: Benjamin E. Coe 2008
 
 Description: The linker used to execute external functions.
 */
-package Hackscript.Model;
+package hackscript.model;
 
 import org.antlr.runtime.*;
 import org.antlr.runtime.debug.*;

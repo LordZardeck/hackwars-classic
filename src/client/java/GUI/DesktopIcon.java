@@ -1,4 +1,4 @@
-package GUI;
+package gui;
 /**
  * DesktopIcon.java
  * <p>

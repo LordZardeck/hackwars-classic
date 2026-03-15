@@ -1,4 +1,4 @@
-package GUI;
+package gui;
 
 
 import javax.swing.*;
@@ -7,14 +7,14 @@ import javax.swing.event.*;
 import java.awt.*;
 import java.awt.event.*;
 
-import Hacktendo.*;
+import hacktendo.*;
 
 import java.util.*;
 import javax.imageio.*;
 import java.awt.image.*;
 import java.io.*;
 
-import Game.MMO.*;
+import game.mmo.*;
 
 public class HacktendoMMO extends Application implements FocusListener, MouseListener {
 

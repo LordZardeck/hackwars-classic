@@ -1,4 +1,4 @@
-package Game;
+package game;
 /**
  * ComputerHandler.java<br />
  * (c) Hacker 2007<br />
@@ -9,7 +9,7 @@ package Game;
 import java.util.*;
 
 import com.plink.dolphinnet.*;
-import Assignments.*;
+import assignments.*;
 import util.*;
 
 import java.util.concurrent.Semaphore;

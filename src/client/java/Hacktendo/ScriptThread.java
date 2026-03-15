@@ -1,4 +1,4 @@
-package Hacktendo;
+package hacktendo;
 /*
 Programmer: Ben Coe/C-Dog.(2007)<br />
 
@@ -16,7 +16,7 @@ import java.awt.geom.*;
 import java.awt.event.*;
 import java.util.*;
 
-import Hackscript.Model.*;
+import hackscript.model.*;
 
 public class ScriptThread implements Runnable {
     private static int threadCount = 0;

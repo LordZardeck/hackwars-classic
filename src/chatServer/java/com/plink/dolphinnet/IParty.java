@@ -33,7 +33,7 @@ abstract public class IParty {
     }
 
     /**
-     * An editor represents the server for distributing Assignments. And is required.
+     * An editor represents the server for distributing assignments. And is required.
      */
     public IParty(Editor editor) {
         this.editor = editor;
@@ -49,7 +49,7 @@ abstract public class IParty {
     // Setters.
 
     /**
-     * An editor represents the server for distributing Assignments. And is required.
+     * An editor represents the server for distributing assignments. And is required.
      */
     public void setEditor(Editor editor) {
         this.editor = editor;

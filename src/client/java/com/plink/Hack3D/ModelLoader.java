@@ -1,4 +1,4 @@
-package com.plink.Hack3D;
+package com.plink.hack3d;
 /**
  * This tool is used to load in models.
  */
@@ -18,11 +18,11 @@ import javax.media.opengl.GLAutoDrawable;
 import javax.media.opengl.GLCanvas;
 import javax.media.opengl.GLEventListener;
 
-import GUI.*;
+import gui.*;
 
 import java.util.*;
 
-import Hacktendo.*;
+import hacktendo.*;
 
 public class ModelLoader {
     private static ArrayList TempModelData = new ArrayList();//Used to hold temporary model data.

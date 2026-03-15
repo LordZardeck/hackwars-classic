@@ -1,4 +1,4 @@
-package GUI;
+package gui;
 
 
 import javax.swing.*;
@@ -7,7 +7,7 @@ import javax.swing.event.*;
 import java.awt.*;
 import java.awt.event.*;
 
-import Hacktendo.*;
+import hacktendo.*;
 
 import java.util.*;
 import javax.imageio.*;

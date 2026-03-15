@@ -1,4 +1,4 @@
-package Hacktendo;
+package hacktendo;
 /*
 HackerLinker.java
 
@@ -7,13 +7,13 @@ Contains all the functions available to a player using the Hack Wars scriptting 
 
 import java.util.ArrayList;
 
-import Hackscript.Model.*;
+import hackscript.model.*;
 
 import java.util.*;
 
 import util.*;
-import GUI.Sound;
-import Hacktendo.Functions.*;
+import gui.Sound;
+import hacktendo.functions.*;
 
 public class HacktendoLinker extends Linker {
 

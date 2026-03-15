@@ -1,4 +1,4 @@
-package Game.RunChallenge;
+package game.runchallenge;
 /**
  * A singleton to run a challenge.
  */
@@ -6,8 +6,8 @@ package Game.RunChallenge;
 import java.util.ArrayList;
 import java.util.HashMap;
 
-import Hackscript.Model.*;
-import HackerLogin.*;
+import hackscript.model.*;
+import hackerlogin.*;
 
 public class ChallengeRunner {
     private static ChallengeRunner instance = null;

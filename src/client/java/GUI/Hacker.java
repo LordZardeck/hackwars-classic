@@ -1,4 +1,4 @@
-package GUI;
+package gui;
 /**
  * Hacker.java
  * <p>
@@ -12,13 +12,13 @@ import java.awt.event.*;
 import javax.swing.event.*;
 import java.awt.Toolkit;
 
-import View.*;
+import view.*;
 
 import java.awt.geom.Point2D;
 import java.util.*;
 
-import Assignments.*;
-import Game.*;
+import assignments.*;
+import game.*;
 
 import java.text.*;
 import javax.imageio.*;
@@ -27,12 +27,12 @@ import java.io.*;
 
 import chat.client.*;
 import chat.messages.*;
-import Game.MMO.*;
+import game.mmo.*;
 
 import javax.swing.JInternalFrame.JDesktopIcon;
 
 import net.miginfocom.swing.*;
-import Hacktendo.*;
+import hacktendo.*;
 
 public class Hacker implements ActionListener, WindowListener, ComponentListener {
     //data

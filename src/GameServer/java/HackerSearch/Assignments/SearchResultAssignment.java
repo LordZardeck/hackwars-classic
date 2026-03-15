@@ -1,4 +1,4 @@
-package HackerSearch.Assignments;
+package hackersearch.assignments;
 
 import com.plink.dolphinnet.*;
 

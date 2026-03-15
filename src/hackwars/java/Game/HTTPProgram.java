@@ -1,16 +1,16 @@
-package Game;
+package game;
 /**
  * FTPProgram.java
  * <p>
  * A program that can be installed on a port of type HTTP and which performs "enter" and "exit" and "submit" operations.
  */
 
-import Hackscript.Model.*;
+import hackscript.model.*;
 
 import java.io.*;
 import java.util.*;
 
-import Assignments.*;
+import assignments.*;
 
 public class HTTPProgram extends Program {
 

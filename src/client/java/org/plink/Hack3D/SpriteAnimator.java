@@ -1,4 +1,4 @@
-package com.plink.Hack3D;
+package com.plink.hack3d;
 /**
  * This tool is used to animate models.
  */
@@ -19,11 +19,11 @@ import javax.media.opengl.GLAutoDrawable;
 import javax.media.opengl.GLCanvas;
 import javax.media.opengl.GLEventListener;
 
-import GUI.*;
+import gui.*;
 
 import java.util.*;
 
-import Hacktendo.OpenGLImageHandler;
+import hacktendo.OpenGLImageHandler;
 
 public class SpriteAnimator {
     private HashMap Animations = new HashMap();

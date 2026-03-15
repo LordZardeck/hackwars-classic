@@ -1,4 +1,4 @@
-package Game;
+package game;
 
 /**
  * FileSystem.java<br />

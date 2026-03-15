@@ -1,4 +1,4 @@
-package Game;
+package game;
 /**
  * UserBinaryList.java<br />
  * (c) Vulgate 2007<br />

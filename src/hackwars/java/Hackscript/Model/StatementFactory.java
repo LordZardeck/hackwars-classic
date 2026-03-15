@@ -3,7 +3,7 @@ Programmer: Benjamin E. Coe 2008
 
 Description: Parses a statement from the AST tree.
 */
-package Hackscript.Model;
+package hackscript.model;
 
 import org.antlr.runtime.*;
 import org.antlr.runtime.debug.*;

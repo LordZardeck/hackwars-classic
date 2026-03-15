@@ -1,4 +1,4 @@
-package DBAdmin.Quest;
+package dbadmin.quest;
 
 import javax.swing.*;
 import java.awt.*;

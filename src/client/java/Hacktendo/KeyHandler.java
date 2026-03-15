@@ -1,4 +1,4 @@
-package Hacktendo;
+package hacktendo;
 
 import java.awt.*;
 import java.awt.event.*;

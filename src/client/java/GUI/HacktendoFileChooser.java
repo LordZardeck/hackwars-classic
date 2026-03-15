@@ -1,4 +1,4 @@
-package GUI;
+package gui;
 /**
  * HackerFileChooser.java
  * this is for the script editor to save and open files.
@@ -10,9 +10,9 @@ import javax.swing.event.*;
 import java.awt.*;
 import java.awt.event.*;
 
-import Game.*;
-import View.*;
-import Assignments.*;
+import game.*;
+import view.*;
+import assignments.*;
 
 public class HacktendoFileChooser extends JInternalFrame implements ActionListener, MouseListener {
     //data

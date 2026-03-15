@@ -1,4 +1,4 @@
-package GUI;
+package gui;
 /**
  * FireWallFileChooser.java
  * this is to choose a firewall to install onto a port.
@@ -10,9 +10,9 @@ import javax.swing.event.*;
 import java.awt.*;
 import java.awt.event.*;
 
-import Game.*;
-import View.*;
-import Assignments.*;
+import game.*;
+import view.*;
+import assignments.*;
 
 public class FireWallFileChooser extends JInternalFrame implements ActionListener, MouseListener {
     //data

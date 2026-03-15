@@ -1,4 +1,4 @@
-package GUI;
+package gui;
 /**
  * FTP.java
  * this is a ftp program gui.
@@ -11,9 +11,9 @@ import java.awt.*;
 import java.awt.event.*;
 import java.util.*;
 
-import Game.*;
-import View.*;
-import Assignments.*;
+import game.*;
+import view.*;
+import assignments.*;
 
 public class FTP extends Application implements UndoableEditListener, FocusListener {
     //data

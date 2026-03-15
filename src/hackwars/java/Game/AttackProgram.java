@@ -4,9 +4,9 @@
  * A class for housing attack scripts and storing various state information.
  */
 
-package Game;
+package game;
 
-import Hackscript.Model.*;
+import hackscript.model.*;
 
 import java.io.*;
 import java.util.HashMap;

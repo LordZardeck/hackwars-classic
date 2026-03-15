@@ -1,4 +1,4 @@
-package Hacktendo;
+package hacktendo;
 /*
 Porgrammer: Ben Coe/Cam(2007)<br />
 
@@ -23,10 +23,10 @@ import org.w3c.dom.NamedNodeMap;
 
 import java.util.concurrent.Semaphore;
 
-import Hackscript.Model.*;
-import GUI.Sound;
-import View.*;
-import GUI.*;
+import hackscript.model.*;
+import gui.Sound;
+import view.*;
+import gui.*;
 
 public class RenderEngine implements KeyListener {
     //SHAPE CONSTANTS.

@@ -16,7 +16,7 @@
  *
  * See COPYING.TXT for details.
  */
-package com.Ostermiller.util;
+package com.ostermiller.util;
 
 import java.awt.*;
 import java.awt.event.*;
@@ -30,7 +30,7 @@ import javax.swing.*;
 /**
  * Allows URLs to be opened in the system browser on Windows and Unix.
  * More information about this class is available from <a target="_top" href=
- * "http://ostermiller.org/utils/Browser.html">ostermiller.org</a>.
+ * "http://ostermiller.org/utils/browser.html">ostermiller.org</a>.
  *
  * @author Stephen Ostermiller http://ostermiller.org/contact.pl?regarding=Java+Utilities
  * @since ostermillerutils 1.00.00
@@ -49,7 +49,7 @@ public class Browser {
      *
      * @since ostermillerutils 1.00.00
      */
-    protected static ResourceBundle labels = ResourceBundle.getBundle("com.Ostermiller.util.Browser", Locale.getDefault());
+    protected static ResourceBundle labels = ResourceBundle.getBundle("com.ostermiller.util.Browser", Locale.getDefault());
 
     /**
      * Set the locale used for getting localized
@@ -59,7 +59,7 @@ public class Browser {
      * @since ostermillerutils 1.00.00
      */
     public static void setLocale(Locale locale) {
-        labels = ResourceBundle.getBundle("com.Ostermiller.util.Browser", locale);
+        labels = ResourceBundle.getBundle("com.ostermiller.util.Browser", locale);
     }
 
     /**
@@ -211,7 +211,7 @@ public class Browser {
 
     /**
      * Save the options used to the given properties file.
-     * Property names used will all start with com.Ostermiller.util.Browser
+     * Property names used will all start with com.ostermiller.util.Browser
      * Properties are saved in such a way that a call to load(props); will
      * restore the state of this class.
      * If the default commands to open a browser are being used then
@@ -223,11 +223,11 @@ public class Browser {
      */
     public static void save(Properties props) {
         boolean saveBrowser = false;
-        if (Browser.exec != null && Browser.exec.length > 0) {
-            String[] execLocal = Browser.defaultCommands();
-            if (execLocal != null && execLocal.length == Browser.exec.length) {
+        if (browser.exec != null && browser.exec.length > 0) {
+            String[] execLocal = browser.defaultCommands();
+            if (execLocal != null && execLocal.length == browser.exec.length) {
                 for (int i = 0; i < execLocal.length; i++) {
-                    if (!execLocal[i].equals(Browser.exec[i])) {
+                    if (!execLocal[i].equals(browser.exec[i])) {
                         saveBrowser = true;
                     }
                 }
@@ -237,29 +237,29 @@ public class Browser {
         }
         if (saveBrowser) {
             StringBuffer sb = new StringBuffer();
-            for (int i = 0; Browser.exec != null && i < Browser.exec.length; i++) {
-                sb.append(Browser.exec[i]).append('\n');
+            for (int i = 0; browser.exec != null && i < browser.exec.length; i++) {
+                sb.append(browser.exec[i]).append('\n');
             }
-            props.put("com.Ostermiller.util.Browser.open", sb.toString());
+            props.put("com.ostermiller.util.browser.open", sb.toString());
         } else {
-            props.remove("com.Ostermiller.util.Browser.open");
+            props.remove("com.ostermiller.util.browser.open");
         }
     }
 
     /**
      * Load the options for this class from the given properties file.
      * This method is designed to work with the save(props) method.  All
-     * properties used will start with com.Ostermiller.util.Browser.  If
+     * properties used will start with com.ostermiller.util.browser.  If
      * no configuration is found, the default configuration will be used.
-     * If this method is used, a call to Browser.init(); is not needed.
+     * If this method is used, a call to browser.init(); is not needed.
      *
      * @param props properties file from which configuration is loaded.
      * @since ostermillerutils 1.00.00
      */
     public static void load(Properties props) {
-        if (props.containsKey("com.Ostermiller.util.Browser.open")) {
+        if (props.containsKey("com.ostermiller.util.browser.open")) {
             java.util.StringTokenizer tok = new java.util.StringTokenizer(
-                    props.getProperty("com.Ostermiller.util.Browser.open"),
+                    props.getProperty("com.ostermiller.util.browser.open"),
                     "\r\n",
                     false
             );
@@ -268,17 +268,17 @@ public class Browser {
             for (int i = 0; i < count; i++) {
                 exec[i] = tok.nextToken();
             }
-            Browser.exec = exec;
+            browser.exec = exec;
         } else {
-            Browser.init();
+            browser.init();
         }
     }
 
     /**
      * Display a URL in the system browser.
      * <p>
-     * Browser.init() should be called before calling this function or
-     * Browser.exec should be set explicitly.
+     * browser.init() should be called before calling this function or
+     * browser.exec should be set explicitly.
      * <p>
      * For security reasons, the URL will may not be passed directly to the
      * browser as it is passed to this method.  The URL may be made safe for
@@ -447,8 +447,8 @@ public class Browser {
     /**
      * Display the URLs, each in their own window, in the system browser.
      * <p>
-     * Browser.init() should be called before calling this function or
-     * Browser.exec should be set explicitly.
+     * browser.init() should be called before calling this function or
+     * browser.exec should be set explicitly.
      * <p>
      * If more than one URL is given an HTML page containing JavaScript will
      * be written to the local drive, that page will be opened, and it will
@@ -505,8 +505,8 @@ public class Browser {
      * Some browsers do not allow the length of history to be viewed by a web page.  In that
      * case, the url will be displayed in the current window.
      * <p>
-     * Browser.init() should be called before calling this function or
-     * Browser.exec should be set explicitly.
+     * browser.init() should be called before calling this function or
+     * browser.exec should be set explicitly.
      *
      * @param url the url to display in a new window.
      * @throws IOException if the url is not valid or the browser fails to star
@@ -523,8 +523,8 @@ public class Browser {
      * The first URL will only be opened in the named window if the browser did no
      * open it in a new window to begin with.
      * <p>
-     * Browser.init() should be called before calling this function or
-     * Browser.exec should be set explicitly.
+     * browser.init() should be called before calling this function or
+     * browser.exec should be set explicitly.
      * <p>
      * An html page containing javascript will
      * be written to the local drive, that page will be opened, and it will
@@ -584,8 +584,8 @@ public class Browser {
      * If the browser opens a new window by default, this will likely cause a duplicate window
      * to be opened.
      * <p>
-     * Browser.init() should be called before calling this function or
-     * Browser.exec should be set explicitly.
+     * browser.init() should be called before calling this function or
+     * browser.exec should be set explicitly.
      *
      * @param url         the url to display
      * @param namedWindow the name of the desired window.
@@ -602,8 +602,8 @@ public class Browser {
      * If the browser opens a new window by default, this will likely cause a duplicate window
      * to be opened.  This method relies on the browser to support javascript.
      * <p>
-     * Browser.init() should be called before calling this function or
-     * Browser.exec should be set explicitly.
+     * browser.init() should be called before calling this function or
+     * browser.exec should be set explicitly.
      * <p>
      * Extra names for windows will be ignored, and if there are too few names, the remaining
      * windows will be named "_blank".
@@ -651,8 +651,8 @@ public class Browser {
      * If the browser opens a new window by default, this will likely cause a duplicate window
      * to be opened.  This method relies on the browser to support javascript.
      * <p>
-     * Browser.init() should be called before calling this function or
-     * Browser.exec should be set explicitly.
+     * browser.init() should be called before calling this function or
+     * browser.exec should be set explicitly.
      *
      * @param urls        the list of urls to display
      * @param namedWindow the name of the first window to use.
@@ -670,18 +670,18 @@ public class Browser {
      */
     public static void main(String[] args) {
         try {
-            Browser.init();
-            if (Browser.dialogConfiguration(null)) {
+            browser.init();
+            if (browser.dialogConfiguration(null)) {
                 if (args.length == 0) {
-                    Browser.displayURLs(new String[]{
+                    browser.displayURLs(new String[]{
                             "http://www.google.com/",
                             "http://dmoz.org/",
                             "http://ostermiller.org",
                     }, "fun");
                 } else if (args.length == 1) {
-                    Browser.displayURL(args[0], "fun");
+                    browser.displayURL(args[0], "fun");
                 } else {
-                    Browser.displayURLs(args, "fun");
+                    browser.displayURLs(args, "fun");
                 }
             }
             try {
@@ -705,7 +705,7 @@ public class Browser {
      */
     public static boolean dialogConfiguration(Frame owner) {
         dialogConfiguration(owner, null);
-        return Browser.dialog.changed();
+        return browser.dialog.changed();
     }
 
     /**
@@ -716,30 +716,30 @@ public class Browser {
      * multiple languages.
      * <p>
      * Properties that are used:
-     * com.Ostermiller.util.BrowserDialog.title<br>
-     * com.Ostermiller.util.BrowserDialog.description<br>
-     * com.Ostermiller.util.BrowserDialog.label<br>
-     * com.Ostermiller.util.BrowserDialog.defaults<br>
-     * com.Ostermiller.util.BrowserDialog.browse<br>
-     * com.Ostermiller.util.BrowserDialog.ok<br>
-     * com.Ostermiller.util.BrowserDialog.cancel<br>
+     * com.ostermiller.util.BrowserDialog.title<br>
+     * com.ostermiller.util.BrowserDialog.description<br>
+     * com.ostermiller.util.BrowserDialog.label<br>
+     * com.ostermiller.util.BrowserDialog.defaults<br>
+     * com.ostermiller.util.BrowserDialog.browse<br>
+     * com.ostermiller.util.BrowserDialog.ok<br>
+     * com.ostermiller.util.BrowserDialog.cancel<br>
      *
      * @param owner The frame that owns this dialog.
      * @param props contains the strings used in the dialog.
      * @return whether or not the dialog has changed
      * @since ostermillerutils 1.00.00
-     * @deprecated Use the com.Ostermiller.util.Browser resource bundle to set strings for the given locale.
+     * @deprecated Use the com.ostermiller.util.Browser resource bundle to set strings for the given locale.
      */
     @Deprecated
     public static boolean dialogConfiguration(Frame owner, Properties props) {
-        if (Browser.dialog == null) {
-            Browser.dialog = new BrowserDialog(owner);
+        if (browser.dialog == null) {
+            browser.dialog = new BrowserDialog(owner);
         }
         if (props != null) {
-            Browser.dialog.setProps(props);
+            browser.dialog.setProps(props);
         }
-        Browser.dialog.show();
-        return Browser.dialog.changed();
+        browser.dialog.show();
+        return browser.dialog.changed();
     }
 
     /**
@@ -795,11 +795,11 @@ public class Browser {
      * one just for the browser, use this method to get a JPanel that can
      * be added to your own dialog.
      * <p>
-     * mydialog.add(Browser.getDialogPanel(mydialog));
-     * Browser.initPanel();
+     * mydialog.add(browser.getDialogPanel(mydialog));
+     * browser.initPanel();
      * mydialog.show();
      * if (ok_pressed){
-     * &nbsp;&nbsp;Browser.userOKedPanelChanges();
+     * &nbsp;&nbsp;browser.userOKedPanelChanges();
      * }
      *
      * @param parent window into which panel with eventually be placed.
@@ -822,7 +822,7 @@ public class Browser {
                 public void actionPerformed(ActionEvent e) {
                     Object source = e.getSource();
                     if (source == resetButton) {
-                        setCommands(Browser.defaultCommands());
+                        setCommands(browser.defaultCommands());
                     } else if (source == browseButton) {
                         if (fileChooser == null) {
                             fileChooser = new JFileChooser();
@@ -930,39 +930,39 @@ public class Browser {
 
         /**
          * Properties that are used:
-         * com.Ostermiller.util.BrowserDialog.title<br>
-         * com.Ostermiller.util.BrowserDialog.description<br>
-         * com.Ostermiller.util.BrowserDialog.label<br>
-         * com.Ostermiller.util.BrowserDialog.defaults<br>
-         * com.Ostermiller.util.BrowserDialog.browse<br>
-         * com.Ostermiller.util.BrowserDialog.ok<br>
-         * com.Ostermiller.util.BrowserDialog.cancel<br>
+         * com.ostermiller.util.BrowserDialog.title<br>
+         * com.ostermiller.util.BrowserDialog.description<br>
+         * com.ostermiller.util.BrowserDialog.label<br>
+         * com.ostermiller.util.BrowserDialog.defaults<br>
+         * com.ostermiller.util.BrowserDialog.browse<br>
+         * com.ostermiller.util.BrowserDialog.ok<br>
+         * com.ostermiller.util.BrowserDialog.cancel<br>
          *
          * @since ostermillerutils 1.00.00
-         * @deprecated Use the com.Ostermiller.util.Browser resource bundle to set strings for the given locale.
+         * @deprecated Use the com.ostermiller.util.Browser resource bundle to set strings for the given locale.
          */
         @Deprecated
         private void setProps(Properties props) {
-            if (props.containsKey("com.Ostermiller.util.BrowserDialog.title")) {
-                setTitle(props.getProperty("com.Ostermiller.util.BrowserDialog.title"));
+            if (props.containsKey("com.ostermiller.util.BrowserDialog.title")) {
+                setTitle(props.getProperty("com.ostermiller.util.BrowserDialog.title"));
             }
-            if (props.containsKey("com.Ostermiller.util.BrowserDialog.description")) {
-                description.setText(props.getProperty("com.Ostermiller.util.BrowserDialog.description"));
+            if (props.containsKey("com.ostermiller.util.BrowserDialog.description")) {
+                description.setText(props.getProperty("com.ostermiller.util.BrowserDialog.description"));
             }
-            if (props.containsKey("com.Ostermiller.util.BrowserDialog.label")) {
-                commandLinesLabel.setText(props.getProperty("com.Ostermiller.util.BrowserDialog.label"));
+            if (props.containsKey("com.ostermiller.util.BrowserDialog.label")) {
+                commandLinesLabel.setText(props.getProperty("com.ostermiller.util.BrowserDialog.label"));
             }
-            if (props.containsKey("com.Ostermiller.util.BrowserDialog.defaults")) {
-                resetButton.setText(props.getProperty("com.Ostermiller.util.BrowserDialog.defaults"));
+            if (props.containsKey("com.ostermiller.util.BrowserDialog.defaults")) {
+                resetButton.setText(props.getProperty("com.ostermiller.util.BrowserDialog.defaults"));
             }
-            if (props.containsKey("com.Ostermiller.util.BrowserDialog.browse")) {
-                browseButton.setText(props.getProperty("com.Ostermiller.util.BrowserDialog.browse"));
+            if (props.containsKey("com.ostermiller.util.BrowserDialog.browse")) {
+                browseButton.setText(props.getProperty("com.ostermiller.util.BrowserDialog.browse"));
             }
-            if (props.containsKey("com.Ostermiller.util.BrowserDialog.ok")) {
-                okButton.setText(props.getProperty("com.Ostermiller.util.BrowserDialog.ok"));
+            if (props.containsKey("com.ostermiller.util.BrowserDialog.ok")) {
+                okButton.setText(props.getProperty("com.ostermiller.util.BrowserDialog.ok"));
             }
-            if (props.containsKey("com.Ostermiller.util.BrowserDialog.cancel")) {
-                cancelButton.setText(props.getProperty("com.Ostermiller.util.BrowserDialog.cancel"));
+            if (props.containsKey("com.ostermiller.util.BrowserDialog.cancel")) {
+                cancelButton.setText(props.getProperty("com.ostermiller.util.BrowserDialog.cancel"));
             }
             pack();
         }
@@ -1073,11 +1073,11 @@ public class Browser {
      * If you are using the getDialogPanel() method to create your own dialog, this
      * method should be called every time before you display the dialog.
      * <p>
-     * mydialog.add(Browser.getDialogPanel(mydialog));
-     * Browser.initPanel();
+     * mydialog.add(browser.getDialogPanel(mydialog));
+     * browser.initPanel();
      * mydialog.show();
      * if (ok_pressed){
-     * &nbsp;&nbsp;Browser.userOKedPanelChanges();
+     * &nbsp;&nbsp;browser.userOKedPanelChanges();
      * }
      *
      * @since ostermillerutils 1.02.22
@@ -1090,11 +1090,11 @@ public class Browser {
      * If you are using the getDialogPanel() method to create your own dialog, this
      * method should be called after you display the dialog if the user pressed ok.
      * <p>
-     * mydialog.add(Browser.getDialogPanel(mydialog));
-     * Browser.initPanel();
+     * mydialog.add(browser.getDialogPanel(mydialog));
+     * browser.initPanel();
      * mydialog.show();
      * if (ok_pressed){
-     * &nbsp;&nbsp;Browser.userOKedPanelChanges();
+     * &nbsp;&nbsp;browser.userOKedPanelChanges();
      * }
      *
      * @since ostermillerutils 1.02.22
@@ -1106,6 +1106,6 @@ public class Browser {
         for (int i = 0; i < count; i++) {
             exec[i] = tok.nextToken();
         }
-        Browser.exec = exec;
+        browser.exec = exec;
     }
 }

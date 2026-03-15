@@ -1,4 +1,4 @@
-package GUI;
+package gui;
 /**
  * The attack panel that is shown when a player is attacking.
  *
@@ -15,12 +15,12 @@ import javax.swing.text.StyleContext;
 import java.awt.*;
 import java.awt.event.*;
 
-import Assignments.*;
-import View.*;
+import assignments.*;
+import view.*;
 
 import java.lang.*;
 
-import Game.*;
+import game.*;
 
 import java.text.*;
 import javax.swing.Timer;

@@ -7,7 +7,7 @@ import java.util.concurrent.Semaphore;
 import java.util.TreeMap;
 import java.util.Set;
 
-import GUI.*;
+import gui.*;
 
 import java.util.HashMap;
 

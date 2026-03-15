@@ -7,9 +7,9 @@
  * 2) You can't use the zombie play mechanic.
  */
 
-package Game;
+package game;
 
-import Hackscript.Model.*;
+import hackscript.model.*;
 
 import java.io.*;
 import java.util.HashMap;

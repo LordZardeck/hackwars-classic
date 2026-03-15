@@ -1,4 +1,4 @@
-package Game;
+package game;
 /**
  * FireWall.java
  * <p>
@@ -7,7 +7,7 @@ package Game;
 
 import java.util.*;
 
-import Assignments.*;
+import assignments.*;
 
 public class NewFireWall {
     public final static String FireWallNames[] = {"None", "PortProtector", "PwnPreventer", "DataShield", "PacketBuster", "TrafficTender", "DigitalFortress", "ForceField", "RubyGuardian", "DiamondDefender", "ADNArmour"};

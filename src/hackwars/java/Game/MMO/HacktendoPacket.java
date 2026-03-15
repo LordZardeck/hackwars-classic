@@ -1,4 +1,4 @@
-package Game.MMO;
+package game.mmo;
 
 import com.plink.dolphinnet.*;
 

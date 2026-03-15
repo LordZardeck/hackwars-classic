@@ -1,4 +1,4 @@
-package GUI;
+package gui;
 /**
  * Deposit.java
  * this is the deposit window.

@@ -1,4 +1,4 @@
-package HackerSearch.Assignments;
+package hackersearch.assignments;
 
 /**
  * A WebFile contains both data and

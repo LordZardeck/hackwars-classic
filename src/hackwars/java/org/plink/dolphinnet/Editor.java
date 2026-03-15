@@ -21,7 +21,7 @@ import java.awt.event.*;
 
 public class Editor implements Runnable {
     //Data.
-    private ArrayList Assignments;
+    private ArrayList assignments;
     private ClientBinaryList Clients = null;
     private int maxAssignments = 1024;
     private int clientJobSize = 2;
@@ -116,9 +116,9 @@ public class Editor implements Runnable {
     public synchronized void addAssignment(Assignment A) throws Exception {
         if (IP == null)
             throw (new Exception("No IParty has yet been attached."));
-        if (Assignments.size() >= maxAssignments)
+        if (assignments.size() >= maxAssignments)
             throw (new Exception("Assignment list is full."));
-        Assignments.add((Object) A);
+        assignments.add((Object) A);
 
         //Logging.
         //System.out.println("Assignment has been added to assignment queue.");
@@ -142,12 +142,12 @@ public class Editor implements Runnable {
         int id = A.getReporterID();
         IP.returnAssignment(A);
         ClientData Client = (ClientData) Clients.get((Object) new Integer(id));
-        //if(Client.getJobCount()<clientJobSize)
-        Client.setJobCount(Client.getJobCount() + 1);
+        //if(client.getJobCount()<clientJobSize)
+        client.setJobCount(client.getJobCount() + 1);
 
         //Logging.
         //System.out.println("Assignment Returned.");
-        Client.removeOutAssignment(A);
+        client.removeOutAssignment(A);
     }
 
     /**
@@ -157,36 +157,36 @@ public class Editor implements Runnable {
         ClientData Client = (ClientData) Clients.get((Object) new Integer(id));
 
         //Kill all running assignments.
-        if (Client.getKill()) {
-            Client.setKill(false);
+        if (client.getKill()) {
+            client.setKill(false);
             return (new Integer(-1));
         }
 
         //Client has no job space.
-        //if(Client.getJobCount()<=0)
+        //if(client.getJobCount()<=0)
         //	return(null);
 
         //Get assignment from local assignment list.
-        Object temp = Client.getJob();
+        Object temp = client.getJob();
         if (temp != null) {
             if (temp instanceof Assignment) {
-                //Client.setJobCount(Client.getJobCount()-1);
-                Client.addOutAssignment((Assignment) temp);
+                //client.setJobCount(client.getJobCount()-1);
+                client.addOutAssignment((Assignment) temp);
             }
             //System.out.println("Dispatching Assignment.");
             return (temp);
         }
 
-        if (Assignments.size() <= 0)
+        if (assignments.size() <= 0)
             return (null);
 
-        Client.setJobCount(Client.getJobCount() - 1);
+        client.setJobCount(client.getJobCount() - 1);
 
         //Logging.
         //System.out.println("Dispatching Assignment");
 
-        temp = Assignments.remove(0);
-        Client.addOutAssignment((Assignment) temp);
+        temp = assignments.remove(0);
+        client.addOutAssignment((Assignment) temp);
         return ((Assignment) temp);
     }
 
@@ -211,7 +211,7 @@ public class Editor implements Runnable {
      */
     public synchronized void removeClient(int id) {
         ClientData Client = (ClientData) Clients.get((Object) new Integer(id));
-        Client.fail(IP);
+        client.fail(IP);
         Clients.remove((Object) new Integer(id));
     }
 
@@ -224,9 +224,9 @@ public class Editor implements Runnable {
             ClientData temp = (ClientData) Data.get(i);
             temp.setKill(true);
         }
-        int size = Assignments.size();
+        int size = assignments.size();
         for (int i = 0; i < size; i++)
-            Assignments.remove(0);
+            assignments.remove(0);
     }
 
     /**

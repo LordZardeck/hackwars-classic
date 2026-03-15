@@ -1,4 +1,4 @@
-package Hacktendo;
+package hacktendo;
 /*
 Programmer: Ben Coe/Cam(2007)<br />
 
@@ -23,17 +23,17 @@ import org.w3c.dom.NamedNodeMap;
 
 import java.util.concurrent.Semaphore;
 
-import Hackscript.Model.*;
-import GUI.Sound;
-import View.*;
-import GUI.*;
+import hackscript.model.*;
+import gui.Sound;
+import view.*;
+import gui.*;
 
 import javax.media.opengl.glu.*;
 import javax.media.opengl.*;
 
 import com.sun.opengl.util.*;
 import com.sun.opengl.util.texture.*;
-import com.plink.Hack3D.*;
+import com.plink.hack3d.*;
 
 import java.nio.*;
 

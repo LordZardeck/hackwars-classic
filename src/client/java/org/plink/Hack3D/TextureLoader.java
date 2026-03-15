@@ -1,4 +1,4 @@
-package com.plink.Hack3D;
+package com.plink.hack3d;
 /**
  * This helper class is used to load textures.
  */

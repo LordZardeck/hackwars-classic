@@ -1,4 +1,4 @@
-package GUI;
+package gui;
 
 
 import javax.swing.*;
@@ -7,9 +7,9 @@ import javax.swing.event.*;
 import java.awt.*;
 import java.awt.event.*;
 
-import Game.*;
-import View.*;
-import Assignments.*;
+import game.*;
+import view.*;
+import assignments.*;
 
 public class HomeActionListener implements ActionListener {
 

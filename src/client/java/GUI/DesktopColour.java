@@ -1,4 +1,4 @@
-package GUI;
+package gui;
 /**
  * DesktopColour.java
  * this is the desktop colour chooser window.

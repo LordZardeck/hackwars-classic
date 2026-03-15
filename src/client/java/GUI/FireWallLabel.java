@@ -1,4 +1,4 @@
-package GUI;
+package gui;
 
 import javax.swing.*;
 import javax.swing.border.*;
@@ -6,11 +6,11 @@ import java.awt.*;
 import java.awt.event.*;
 import javax.swing.event.*;
 
-import Assignments.*;
+import assignments.*;
 
 import java.util.*;
 
-import View.*;
+import view.*;
 
 import java.text.*;
 

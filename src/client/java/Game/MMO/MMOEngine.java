@@ -1,11 +1,11 @@
-package Game.MMO;
+package game.mmo;
 /*
 Programmer: Ben Coe(2007)<br />
 
 This is the game that is maintained server-side, it runs all the same logic as a client, in an attempt to synchronize everything.
 */
 
-import Hacktendo.*;
+import hacktendo.*;
 
 import javax.swing.*;
 import java.awt.*;
@@ -25,9 +25,9 @@ import org.w3c.dom.NamedNodeMap;
 
 import java.util.concurrent.Semaphore;
 
-import Hackscript.Model.*;
-import GUI.Sound;
-import View.*;
+import hackscript.model.*;
+import gui.Sound;
+import view.*;
 
 import javax.media.opengl.glu.*;
 import javax.media.opengl.GL;
@@ -37,7 +37,7 @@ import javax.media.opengl.GLEventListener;
 
 import com.sun.opengl.util.*;
 import com.sun.opengl.util.texture.*;
-import com.plink.Hack3D.*;
+import com.plink.hack3d.*;
 
 import java.nio.*;
 
@@ -176,7 +176,7 @@ public class MMOEngine extends OpenGLRenderEngine implements Runnable {
 
     private SpriteBinaryList sprites[] = new SpriteBinaryList[2];//The 3-Layer Stack of Sprites.
 
-    private Hacktendo.Map Maps[] = new Hacktendo.Map[9];//The 9 Game Maps.
+    private hacktendo.Map Maps[] = new hacktendo.Map[9];//The 9 Game Maps.
     private int currentMap = 0;//The Current Map.
     private TerrainHandler MyTerrainHandler = null;
 
@@ -250,7 +250,7 @@ public class MMOEngine extends OpenGLRenderEngine implements Runnable {
     /**
      * Return the current map structure that is running
      */
-    public Hacktendo.Map getCurrentMap() {
+    public hacktendo.Map getCurrentMap() {
         return (Maps[currentMap]);
     }
 
@@ -1154,7 +1154,7 @@ public class MMOEngine extends OpenGLRenderEngine implements Runnable {
                         mapTiles[ii] = (byte) tileID;
                         ii++;
                     }
-                    Maps[id] = new Hacktendo.Map(scriptID, mapTiles);
+                    Maps[id] = new hacktendo.Map(scriptID, mapTiles);
                     i++;
                 }
 

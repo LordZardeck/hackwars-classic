@@ -1,4 +1,4 @@
-package GUI;
+package gui;
 
 
 import javax.swing.*;
@@ -7,9 +7,9 @@ import javax.swing.event.*;
 import java.awt.*;
 import java.awt.event.*;
 
-import View.*;
-import Assignments.*;
-import Game.*;
+import view.*;
+import assignments.*;
+import game.*;
 
 import java.util.*;
 import javax.imageio.*;

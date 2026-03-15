@@ -1,4 +1,4 @@
-package GUI;
+package gui;
 /**
  * PortManagementMouseListener.java
  * this is the mouse listener for the port management window.
@@ -10,8 +10,8 @@ import javax.swing.event.*;
 import java.awt.*;
 import java.awt.event.*;
 
-import Assignments.*;
-import View.*;
+import assignments.*;
+import view.*;
 
 import java.text.*;
 

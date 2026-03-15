@@ -1,4 +1,4 @@
-package GUI;
+package gui;
 /**
  * Base class for all in game applications.
  *

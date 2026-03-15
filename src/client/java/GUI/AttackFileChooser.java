@@ -1,4 +1,4 @@
-package GUI;
+package gui;
 /**
  * this is for the attack pane to choose a file to install.
  *
@@ -12,9 +12,9 @@ import javax.swing.event.*;
 import java.awt.*;
 import java.awt.event.*;
 
-import Game.*;
-import View.*;
-import Assignments.*;
+import game.*;
+import view.*;
+import assignments.*;
 
 public class AttackFileChooser extends JInternalFrame implements ActionListener, MouseListener {
     //data

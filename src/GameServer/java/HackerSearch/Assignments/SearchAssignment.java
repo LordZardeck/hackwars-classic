@@ -1,4 +1,4 @@
-package HackerSearch.Assignments;
+package hackersearch.assignments;
 /**
  * (C) Ben Coe 2007 <br />
  * Control the parsing of visited HTML documents. And pre-proccessing on user's
@@ -12,7 +12,7 @@ import java.util.*;
 import com.plink.dolphinstem.util.*;
 import com.plink.dolphinstem.*;
 import com.plink.dolphinnet.*;
-import HackerSearch.util.*;
+import hackersearch.util.*;
 
 public class SearchAssignment extends Assignment {
     //Data.

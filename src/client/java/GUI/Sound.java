@@ -1,4 +1,4 @@
-package GUI;
+package gui;
 
 import javax.sound.sampled.*;
 import java.io.*;

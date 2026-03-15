@@ -1,4 +1,4 @@
-package GUI;
+package gui;
 
 
 import javax.swing.*;
@@ -8,7 +8,7 @@ import java.awt.*;
 import java.awt.event.*;
 import java.text.*;
 
-import Game.*;
+import game.*;
 
 public class HomePopUp extends JPanel {
     private final int FILE = 0;

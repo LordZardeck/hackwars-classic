@@ -1,4 +1,4 @@
-package HackerLogin;
+package hackerlogin;
 /**
  * CheckOutSingleton.java
  * <p>

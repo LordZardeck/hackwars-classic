@@ -1,4 +1,4 @@
-package Hacktendo.Functions;
+package hacktendo.functions;
 /*
 HackerLinker.java
 
@@ -7,7 +7,7 @@ Contains all the functions available to a player using the Hack Wars scriptting 
 
 import java.util.ArrayList;
 
-import Hacktendo.*;
+import hacktendo.*;
 
 public abstract class LinkerFunctions {
 

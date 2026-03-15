@@ -1,4 +1,4 @@
-package Browser;
+package browser;
 
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -21,7 +21,7 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.*;
 
-import GUI.*;
+import gui.*;
 
 import java.util.logging.*;
 import java.io.*;

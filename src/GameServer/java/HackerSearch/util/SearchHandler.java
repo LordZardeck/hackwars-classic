@@ -1,4 +1,4 @@
-package HackerSearch.util;
+package hackersearch.util;
 
 /**
  * SearchHandler.java<br />
@@ -11,10 +11,10 @@ import java.io.*;
 import java.util.*;
 
 import com.plink.dolphinnet.assignments.*;
-import HackerSearch.Server.*;
-import HackerSearch.Assignments.*;
+import hackersearch.server.*;
+import hackersearch.assignments.*;
 import com.plink.dolphinstem.*;
-import HackerSearch.Assignments.*;
+import hackersearch.assignments.*;
 
 import java.util.concurrent.Semaphore;
 

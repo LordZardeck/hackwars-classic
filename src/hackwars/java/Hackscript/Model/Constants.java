@@ -3,7 +3,7 @@ Porgrammer: Ben Coe.(2007)<br />
 
 Description: The constant variables used in the parser.
 */
-package Hackscript.Model;
+package hackscript.model;
 
 import org.antlr.runtime.*;
 import org.antlr.runtime.debug.*;

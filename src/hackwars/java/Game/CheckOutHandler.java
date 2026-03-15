@@ -16,7 +16,7 @@
  You should have received a copy of the GNU General Public License
  along with HackWars.  If not, see <http://www.gnu.org/licenses/>.
  */
-package Game;
+package game;
 /**
  Description: This class looks for data to be saved and makes a connection to the Tomcat server/MySQL and
  saves a profile.

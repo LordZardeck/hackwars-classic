@@ -1,4 +1,4 @@
-package GUI;
+package gui;
 /**
  *
  * the dialog box for asking user if they are sure they want to pay for an attack.

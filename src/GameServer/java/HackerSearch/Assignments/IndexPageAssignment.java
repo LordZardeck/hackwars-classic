@@ -1,4 +1,4 @@
-package HackerSearch.Assignments;
+package hackersearch.assignments;
 /**
  * (C) Ben Coe 2007 <br />
  * Control the parsing of visited HTML documents. And pre-proccessing on user's

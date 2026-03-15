@@ -1,4 +1,4 @@
-package Game;
+package game;
 import org.apache.xmlrpc.client.XmlRpcClient;
 import org.apache.xmlrpc.client.XmlRpcClientConfigImpl;
 import java.net.URL;

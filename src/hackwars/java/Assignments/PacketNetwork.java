@@ -1,4 +1,4 @@
-package Assignments;
+package assignments;
 
 /**
  * PacketNetwork.java

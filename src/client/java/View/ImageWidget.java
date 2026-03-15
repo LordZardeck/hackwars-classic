@@ -1,4 +1,4 @@
-package View;
+package view;
 /*
 Programmed: Ben Coe.(2006)<br />
 Allows an editor to choose tiles to place.

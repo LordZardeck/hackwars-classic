@@ -1,4 +1,4 @@
-package Game;
+package game;
 /**
  * Handles all the watches currently installed.
  */

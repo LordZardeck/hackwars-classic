@@ -14,12 +14,12 @@ sourceSets {
 
 tasks.register('runChatServer', JavaExec) {
     group = 'application'
-    description = 'Runs chatServer/Server.ChatServer.'
+    description = 'Runs chatServer/server.ChatServer.'
     dependsOn tasks.named('classes')
     javaLauncher = javaToolchains.launcherFor {
         languageVersion = JavaLanguageVersion.of(rootProject.ext.javaToolchainVersion as Integer)
     }
     classpath = sourceSets.main.runtimeClasspath
-    mainClass = 'Server.ChatServer'
+    mainClass = 'server.ChatServer'
     workingDir = moduleChatServerResourcesDir
 }

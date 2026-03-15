@@ -3,7 +3,7 @@ Programmer: Benjamin E. Coe 2008
 
 Description: A statement in our scriptting language.
 */
-package Hackscript.Model;
+package hackscript.model;
 
 import org.antlr.runtime.*;
 import org.antlr.runtime.debug.*;

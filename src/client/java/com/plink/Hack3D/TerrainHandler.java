@@ -1,4 +1,4 @@
-package com.plink.Hack3D;
+package com.plink.hack3d;
 /**
  * This class controls terrain meshes.
  */
@@ -12,12 +12,12 @@ import java.io.*;
 import javax.imageio.*;
 import java.awt.image.*;
 
-import Hacktendo.*;
+import hacktendo.*;
 
 import java.awt.*;
 import java.nio.*;
 
-import GUI.*;
+import gui.*;
 
 
 import javax.media.opengl.glu.*;

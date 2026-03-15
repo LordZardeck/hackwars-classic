@@ -3,9 +3,9 @@ Programmer: Benjamin E. Coe 2008
 
 Description: Used to provide compatibility with Alex's code.
 */
-package Hackscript.Model;
+package hackscript.model;
 
-//import Hacktendo.*;
+//import hacktendo.*;
 
 import org.antlr.runtime.*;
 import org.antlr.runtime.debug.*;

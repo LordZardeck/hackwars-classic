@@ -1,4 +1,4 @@
-package GUI;
+package gui;
 /**
  * PortManagementActionListener.java
  * <p>
@@ -11,8 +11,8 @@ import javax.swing.event.*;
 import java.awt.*;
 import java.awt.event.*;
 
-import Assignments.*;
-import View.*;
+import assignments.*;
+import view.*;
 
 public class WatchActionListener implements ActionListener {
     //data

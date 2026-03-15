@@ -1,8 +1,8 @@
-package GUI;
+package gui;
 
 import java.util.ArrayList;
 
-import Hackscript.Model.*;
+import hackscript.model.*;
 
 import java.util.*;
 

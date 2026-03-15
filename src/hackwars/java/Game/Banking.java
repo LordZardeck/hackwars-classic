@@ -1,10 +1,10 @@
-package Game;
+package game;
 
 /**
  * Class which contains the banking application.
  */
 
-import Hackscript.Model.*;
+import hackscript.model.*;
 
 import java.io.*;
 import java.util.HashMap;

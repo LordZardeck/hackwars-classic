@@ -4,7 +4,7 @@ Programmer: Ben Coe.(2007)<br />
 This creates a panel that can be used to modify face control points.
 */
 
-package Hacktendo;
+package hacktendo;
 
 import java.awt.Frame;
 import java.awt.event.WindowAdapter;
@@ -21,16 +21,16 @@ import java.awt.*;
 import java.awt.event.*;
 
 import com.sun.opengl.util.GLUT;
-import Assignments.*;
-import View.*;
+import assignments.*;
+import view.*;
 
 import java.text.*;
 import java.math.*;
 
-import Browser.*;
-import Game.*;
+import browser.*;
+import game.*;
 
-//Stuff borrowed from Hacktendo.
+//Stuff borrowed from hacktendo.
 import javax.swing.*;
 import java.awt.*;
 import java.awt.image.*;
@@ -42,25 +42,25 @@ import java.awt.geom.*;
 import java.awt.event.*;
 import java.util.concurrent.Semaphore;
 
-import GUI.Sound;
+import gui.Sound;
 
 import javax.imageio.*;
 
-import GUI.ImageLoader;
-import GUI.Hacker;
-import View.*;
-import Assignments.*;
+import gui.ImageLoader;
+import gui.Hacker;
+import view.*;
+import assignments.*;
 
 import java.util.*;
 
-import Hacktendo.*;
-import Game.MMO.*;
+import hacktendo.*;
+import game.mmo.*;
 
 import java.util.Map;
 
 import com.sun.opengl.util.*;
 import com.sun.opengl.util.texture.*;
-import com.plink.Hack3D.*;
+import com.plink.hack3d.*;
 import net.miginfocom.swing.*;
 
 

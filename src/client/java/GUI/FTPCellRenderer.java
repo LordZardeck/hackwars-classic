@@ -1,4 +1,4 @@
-package GUI;
+package gui;
 /**
  * FTPCellRenderer.java
  * <p>
@@ -12,7 +12,7 @@ import java.awt.*;
 import java.awt.event.*;
 import java.util.*;
 
-import Game.*;
+import game.*;
 
 public class FTPCellRenderer extends JLabel implements ListCellRenderer {
 

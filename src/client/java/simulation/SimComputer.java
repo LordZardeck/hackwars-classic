@@ -1,6 +1,6 @@
 package simulation;
 
-import Game.*;
+import game.*;
 
 public class SimComputer {
 

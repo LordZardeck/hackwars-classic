@@ -1,4 +1,4 @@
-package Game;
+package game;
 
 /**
  * Description: This is the Network singleton.  It loads all the networks into existence.  Sometimes it blows boiling hot lava all over your keyboard, forcing upgrades.
@@ -7,7 +7,7 @@ package Game;
 import java.util.*;
 
 import util.*;
-import Assignments.*;
+import assignments.*;
 
 public class Network implements Runnable {
     //The root network.

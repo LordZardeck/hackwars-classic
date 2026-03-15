@@ -1,7 +1,7 @@
-package Game.ComputerFunctions;
+package game.computerfunctions;
 
-import Game.*;
-import Assignments.*;
+import game.*;
+import assignments.*;
 /**
  A function that is run within Computer.java.
 
@@ -10,8 +10,8 @@ import Assignments.*;
 
 import java.util.*;
 
-import Assignments.*;
-import Hackscript.Model.*;
+import assignments.*;
+import hackscript.model.*;
 
 public class setDefaultPort extends function {
     public setDefaultPort(Computer MyComputer) {

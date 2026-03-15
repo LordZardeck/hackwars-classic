@@ -1,9 +1,9 @@
-package Hacktendo.Functions;
+package hacktendo.functions;
 
 import java.util.ArrayList;
 
-import Hackscript.Model.*;
-import Hacktendo.*;
+import hackscript.model.*;
+import hacktendo.*;
 
 import java.util.*;
 

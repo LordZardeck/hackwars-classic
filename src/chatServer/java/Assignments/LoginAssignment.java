@@ -1,4 +1,4 @@
-package Assignments;
+package assignments;
 
 import com.plink.dolphinnet.*;
 

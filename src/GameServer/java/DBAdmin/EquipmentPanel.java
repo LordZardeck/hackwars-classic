@@ -1,12 +1,12 @@
-package DBAdmin;
+package dbadmin;
 
-import GUI.Equipment; // 
+import gui.Equipment; // 
 
 import javax.swing.*;
 
 import net.miginfocom.swing.*;
-import Game.Computer; // for CPU, WATCHES, MEMORY
-import Game.FileSystem; // for HD sizes
+import game.Computer; // for CPU, WATCHES, MEMORY
+import game.FileSystem; // for HD sizes
 
 public class EquipmentPanel extends JPanel {
 
@@ -225,7 +225,7 @@ public class EquipmentPanel extends JPanel {
 
     public static void main(String[] args) {
         //Schedule a job for the event-dispatching thread:
-        //creating and showing this application's GUI.
+        //creating and showing this application's gui.
         javax.swing.SwingUtilities.invokeLater(new Runnable() {
             public void run() {
                 createAndShowGUI();

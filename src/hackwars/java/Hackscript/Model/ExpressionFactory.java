@@ -3,9 +3,9 @@ Programmer: Benjamin E. Coe 2008
 
 Description: Parses an expression from the AST tree.
 */
-package Hackscript.Model;
+package hackscript.model;
 
-import Hackscript.*;
+import hackscript.*;
 
 import org.antlr.runtime.*;
 import org.antlr.runtime.debug.*;

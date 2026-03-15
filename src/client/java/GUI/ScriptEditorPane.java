@@ -1,4 +1,4 @@
-package GUI;
+package gui;
 /**
  * ScriptEditorPane.java
  * Editing Section inside the script editor.

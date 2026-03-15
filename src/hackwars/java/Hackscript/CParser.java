@@ -1,8 +1,8 @@
 // $ANTLR 3.0.1 /Users/benjamincoe/HackWars/C.g 2009-01-01 16:21:19
 
-package Hackscript;
+package hackscript;
 
-import Hackscript.Model.*;
+import hackscript.model.*;
 
 
 import org.antlr.runtime.*;

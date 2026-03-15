@@ -1,11 +1,11 @@
-package Hacktendo.Functions;
+package hacktendo.functions;
 
 
 import java.util.ArrayList;
 
-import Hackscript.Model.*;
-import Hacktendo.*;
-import Game.MMO.*;
+import hackscript.model.*;
+import hacktendo.*;
+import game.mmo.*;
 
 public class invalidate extends LinkerFunctions {
 

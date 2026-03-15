@@ -1,4 +1,4 @@
-package Hacktendo;
+package hacktendo;
 /*
 Porgrammer: Ben Coe.(2007)<br />
 

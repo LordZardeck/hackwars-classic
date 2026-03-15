@@ -1,4 +1,4 @@
-package GUI;
+package gui;
 
 
 import java.awt.*;
@@ -7,7 +7,7 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.*;
 
-import Assignments.*;
+import assignments.*;
 
 import java.util.*;
 

@@ -1,4 +1,4 @@
-package View;
+package view;
 
 /**
  * Represents a GUI task, used to keep things thread safe.

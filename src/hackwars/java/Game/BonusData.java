@@ -5,11 +5,11 @@ Description: This file keeps track of the bonus offered to a specific skill by a
 
  */
 
-package Game;
+package game;
 
 import java.util.ArrayList;
 
-import Hackscript.Model.*;
+import hackscript.model.*;
 
 import java.util.HashMap;
 

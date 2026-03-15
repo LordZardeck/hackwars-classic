@@ -1,4 +1,4 @@
-package Game;
+package game;
 /**
  * HackerFile.java
  * <p>

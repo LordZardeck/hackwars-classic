@@ -1,4 +1,4 @@
-package GUI;
+package gui;
 /**
  * MessageWindow.java
  * this is the message window.
@@ -12,13 +12,13 @@ import java.awt.*;
 import java.awt.event.*;
 import java.awt.image.*;
 
-import Assignments.*;
-import View.*;
+import assignments.*;
+import view.*;
 
 import java.text.*;
 import java.math.*;
 
-import Browser.*;
+import browser.*;
 
 import java.net.*;
 import java.util.*;

@@ -1,4 +1,4 @@
-package Hacktendo;
+package hacktendo;
 /*
 Porgrammer: Ben Coe.(2007)<br />
 
@@ -19,7 +19,7 @@ import javax.imageio.*;
 import java.util.zip.*;
 
 import org.apache.axis.encoding.Base64;
-import GUI.*;
+import gui.*;
 
 import javax.media.opengl.glu.*;
 import javax.media.opengl.GL;
@@ -27,10 +27,10 @@ import javax.media.opengl.GLAutoDrawable;
 import javax.media.opengl.GLCanvas;
 import javax.media.opengl.GLEventListener;
 
-import com.plink.Hack3D.*;
+import com.plink.hack3d.*;
 import com.sun.opengl.util.*;
 import com.sun.opengl.util.texture.*;
-import com.plink.Hack3D.*;
+import com.plink.hack3d.*;
 
 import java.util.*;
 

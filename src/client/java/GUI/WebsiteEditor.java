@@ -1,4 +1,4 @@
-package GUI;
+package gui;
 /**
  * ScriptEditor.java
  * this is the deposit window.
@@ -12,12 +12,12 @@ import javax.swing.text.BadLocationException;
 import java.awt.*;
 import java.awt.event.*;
 
-import View.*;
-import Game.*;
+import view.*;
+import game.*;
 
 import java.util.*;
 
-import Assignments.*;
+import assignments.*;
 
 import java.lang.Math.*;
 import javax.swing.text.html.HTMLEditorKit;
@@ -25,7 +25,7 @@ import javax.swing.text.StyledDocument;
 import javax.swing.text.Style;
 import javax.swing.text.SimpleAttributeSet;
 
-import Browser.*;
+import browser.*;
 import jsyntaxpane.*;
 import jsyntaxpane.syntaxkits.*;
 

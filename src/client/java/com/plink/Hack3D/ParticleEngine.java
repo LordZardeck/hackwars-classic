@@ -1,4 +1,4 @@
-package com.plink.Hack3D;
+package com.plink.hack3d;
 /**
  * This tool is used to perform particle effects.
  */
@@ -12,7 +12,7 @@ import java.io.*;
 import javax.imageio.*;
 import java.awt.image.*;
 
-import Hacktendo.*;
+import hacktendo.*;
 
 import javax.media.opengl.glu.*;
 import javax.media.opengl.GL;

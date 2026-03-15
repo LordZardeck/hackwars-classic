@@ -15,7 +15,7 @@
  *
  * Modified: Benjamin E. Coe 2007.
  */
-package Browser;
+package browser;
 //import DolphinBlog.element.Textile.*;
 
 /**

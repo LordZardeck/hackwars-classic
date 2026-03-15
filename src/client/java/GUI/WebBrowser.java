@@ -1,4 +1,4 @@
-package GUI;
+package gui;
 /**
  * WebBrowser.java
  * this is the web browser.
@@ -12,12 +12,12 @@ import javax.swing.text.BadLocationException;
 import java.awt.*;
 import java.awt.event.*;
 
-import View.*;
-import Game.*;
+import view.*;
+import game.*;
 
 import java.util.*;
 
-import Assignments.*;
+import assignments.*;
 
 import java.lang.Math.*;
 import javax.swing.text.html.HTMLEditorKit;
@@ -34,7 +34,7 @@ import util.*;
 import java.util.concurrent.Semaphore;
 import java.text.*;
 
-import Browser.*;
+import browser.*;
 import org.lobobrowser.html.*;
 //import org.lobobrowser.html.gui.DocumentNotification;
 import net.miginfocom.swing.*;

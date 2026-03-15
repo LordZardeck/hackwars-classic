@@ -9,7 +9,7 @@ package util;
 
 import java.util.*;
 
-import Assignments.*;
+import assignments.*;
 import util.*;
 import chat.messages.*;
 import chat.server.*;

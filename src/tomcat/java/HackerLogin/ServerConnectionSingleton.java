@@ -1,13 +1,13 @@
-package HackerLogin;
+package hackerlogin;
 /**
  * ServerConnectionSingleton.java
  * <p>
  * A Client for connecting to the main game server.
  */
 
-import Game.*;
-import Assignments.*;
-import Server.*;
+import game.*;
+import assignments.*;
+import server.*;
 import com.plink.dolphinnet.*;
 import util.*;
 

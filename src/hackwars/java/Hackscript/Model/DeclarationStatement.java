@@ -5,7 +5,7 @@ DeclarationStatement.java
 
 Description: A statement in the scripting language for declaring new variables, either: x=y or type x=y;
 */
-package Hackscript.Model;
+package hackscript.model;
 
 import org.antlr.runtime.*;
 import org.antlr.runtime.debug.*;

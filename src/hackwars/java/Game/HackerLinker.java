@@ -4,11 +4,11 @@ HackerLinker.java
 Contains all the functions available to a player using the Hack Wars scriptting language.
  */
 
-package Game;
+package game;
 
 import java.util.ArrayList;
 
-import Hackscript.Model.*;
+import hackscript.model.*;
 import util.*;
 
 import java.util.*;

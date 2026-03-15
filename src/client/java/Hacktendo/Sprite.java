@@ -1,4 +1,4 @@
-package Hacktendo;
+package hacktendo;
 /*
 Programmer: Ben Coe.(2007)<br />
 
@@ -16,7 +16,7 @@ import java.awt.geom.*;
 import java.awt.event.*;
 import java.util.*;
 
-import com.plink.Hack3D.*;
+import com.plink.hack3d.*;
 
 import java.util.concurrent.Semaphore;
 

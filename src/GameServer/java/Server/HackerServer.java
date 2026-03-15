@@ -1,4 +1,4 @@
-package Server;
+package server;
 
 /**
  * (c) Hack Wars 2008
@@ -18,14 +18,14 @@ import java.util.TimerTask;
 import java.util.Timer;
 import java.util.Calendar;
 
-import Assignments.*;
+import assignments.*;
 import com.plink.dolphinnet.assignments.*;
-import Game.*;
+import game.*;
 
 import java.util.concurrent.Semaphore;
 
 public class HackerServer extends IParty implements Runnable, HackerServerBridge {
-    //Singleton instance of the Hacker Server.
+    //Singleton instance of the Hacker server.
     private static HackerServer MyHackerServer = null;
     private static Editor E = null;
     public static boolean TESTING = false;

@@ -4,7 +4,7 @@
  * An OpenGL frame for 3D graphics.
  */
 
-package GUI;
+package gui;
 
 import java.awt.Frame;
 import java.awt.event.WindowAdapter;
@@ -19,14 +19,14 @@ import javax.swing.event.*;
 import java.awt.*;
 import java.awt.event.*;
 
-import Assignments.*;
-import View.*;
+import assignments.*;
+import view.*;
 
 import java.text.*;
 import java.math.*;
 
-import Browser.*;
-import Game.*;
+import browser.*;
+import game.*;
 
 
 public class OpenGLWindow extends JFrame implements GLEventListener {

@@ -3,14 +3,14 @@ Programmer: Benjamin E. Coe 2008
 
 Description: Walks the tree building the model.
 */
-package Hackscript.Model;
+package hackscript.model;
 
 import org.antlr.runtime.*;
 import org.antlr.runtime.debug.*;
 
 import java.util.*;
 
-import Hackscript.*;
+import hackscript.*;
 
 import java.io.*;
 

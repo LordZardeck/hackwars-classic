@@ -9,7 +9,7 @@ import java.util.ArrayList;
 
 import chat.client.HtmlCellRender;
 import chat.messages.MsgOutError;
-import GUI.*;
+import gui.*;
 
 import java.util.Calendar;
 

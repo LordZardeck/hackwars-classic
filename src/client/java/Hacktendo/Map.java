@@ -1,4 +1,4 @@
-package Hacktendo;
+package hacktendo;
 /*
 Porgrammer: Ben Coe/C-Dog.(2007)<br />
 

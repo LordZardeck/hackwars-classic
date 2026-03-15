@@ -1,4 +1,4 @@
-package GUI;
+package gui;
 /**
  * ScriptEditorCellRenderer.java
  * <p>
@@ -12,7 +12,7 @@ import java.awt.*;
 import java.awt.event.*;
 import java.util.*;
 
-import Game.*;
+import game.*;
 
 public class HacktendoCellRenderer extends JLabel implements ListCellRenderer {
 

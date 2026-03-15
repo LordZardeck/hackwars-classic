@@ -7,7 +7,7 @@ dependencies {
 
 tasks.register('runHackerServer', JavaExec) {
     group = 'application'
-    description = 'Runs Server.HackerServer with server id 1.'
+    description = 'Runs server.HackerServer with server id 1.'
     dependsOn tasks.named('classes')
     javaLauncher = javaToolchains.launcherFor {
         languageVersion = JavaLanguageVersion.of(rootProject.ext.javaToolchainVersion as Integer)
@@ -19,7 +19,7 @@ tasks.register('runHackerServer', JavaExec) {
             sourceSets.main.runtimeClasspath,
             rootProject.ext.resourcesRootDir
     )
-    mainClass = 'Server.HackerServer'
+    mainClass = 'server.HackerServer'
     args '1'
     workingDir = rootProject.ext.resourcesRootDir
 }

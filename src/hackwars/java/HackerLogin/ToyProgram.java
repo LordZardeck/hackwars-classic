@@ -1,4 +1,4 @@
-package HackerLogin;
+package hackerlogin;
 /**
  * Program.java
  * <p>
@@ -6,11 +6,11 @@ package HackerLogin;
  * (Banking,Attacking,FTP,etc.).
  */
 
-import Game.*;
+import game.*;
 
 import java.util.*;
 
-import Hackscript.Model.*;
+import hackscript.model.*;
 
 public class ToyProgram extends Program {
     private int MAX_ARRAY = 64;

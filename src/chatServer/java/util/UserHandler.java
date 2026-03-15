@@ -12,8 +12,8 @@ import java.util.*;
 import com.plink.dolphinnet.util.*;
 import com.plink.dolphinnet.*;
 import util.*;
-import Server.*;
-import Assignments.*;
+import server.*;
+import assignments.*;
 import chat.server.*;
 import chat.messages.*;
 

@@ -3,9 +3,9 @@ Porgrammer: Ben Coe.(2007)<br />
 
 Description: Returns a model parsed from the string provided.
 */
-package Hackscript.Model;
+package hackscript.model;
 
-import Hackscript.*;
+import hackscript.*;
 
 import org.antlr.runtime.*;
 import org.antlr.runtime.debug.*;

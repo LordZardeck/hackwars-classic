@@ -1,4 +1,4 @@
-package GUI;
+package gui;
 
 import javax.swing.*;
 import javax.swing.border.*;
@@ -8,12 +8,12 @@ import javax.swing.text.BadLocationException;
 import java.awt.*;
 import java.awt.event.*;
 
-import View.*;
-import Game.*;
+import view.*;
+import game.*;
 
 import java.util.*;
 
-import Assignments.*;
+import assignments.*;
 
 import java.lang.Math.*;
 import java.net.URL;

@@ -7,11 +7,11 @@
  *
  */
 
-package Game;
+package game;
 
 import java.util.ArrayList;
 
-import Hackscript.Model.*;
+import hackscript.model.*;
 
 import java.util.HashMap;
 

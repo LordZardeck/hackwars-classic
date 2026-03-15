@@ -1,4 +1,4 @@
-package DBAdmin;
+package dbadmin;
 
 import javax.swing.*;
 import java.awt.*;

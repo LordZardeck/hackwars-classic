@@ -1,4 +1,4 @@
-package GUI;
+package gui;
 /**
  * AttackPane.java
  * this is the attack window.
@@ -11,12 +11,12 @@ import javax.swing.table.*;
 import java.awt.*;
 import java.awt.event.*;
 
-import Assignments.*;
-import View.*;
+import assignments.*;
+import view.*;
 
 import java.lang.*;
 
-import Game.*;
+import game.*;
 
 import java.text.*;
 import java.io.*;

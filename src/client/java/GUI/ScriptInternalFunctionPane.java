@@ -1,4 +1,4 @@
-package GUI;
+package gui;
 /**
  * ScriptInternalFunctionPane.java
  * <p>

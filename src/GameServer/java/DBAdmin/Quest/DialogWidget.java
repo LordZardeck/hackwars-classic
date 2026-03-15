@@ -1,4 +1,4 @@
-package DBAdmin.Quest;
+package dbadmin.quest;
 /*
 HackWars (2008)
 

@@ -1,4 +1,4 @@
-package GUI;
+package gui;
 /**
  * ScriptEditor.java
  * this is the deposit window.
@@ -12,19 +12,19 @@ import javax.swing.text.BadLocationException;
 import java.awt.*;
 import java.awt.event.*;
 
-import View.*;
-import Game.*;
+import view.*;
+import game.*;
 
 import java.util.*;
 
-import Assignments.*;
+import assignments.*;
 
 import java.lang.Math.*;
 import java.net.URL;
 import java.text.*;
 
-import Hackscript.Model.*;
-import Hacktendo.*;
+import hackscript.model.*;
+import hacktendo.*;
 
 public class HacktendoScriptEditor extends ScriptEditor {
     private final int TEXT_LIMIT = 30000;

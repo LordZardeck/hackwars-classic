@@ -1,4 +1,4 @@
-package Assignments;
+package assignments;
 
 import com.plink.dolphinnet.*;
 
@@ -6,7 +6,7 @@ import java.util.*;
 import java.io.*;
 import java.math.*;
 
-import Game.*;
+import game.*;
 
 /**
  * An implementation of the abstract base assignment...This is where the

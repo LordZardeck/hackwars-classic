@@ -1,6 +1,6 @@
 package simulation;
 
-import Game.*;
+import game.*;
 
 /**
  * Class used to calculate the length of time/rounds until a victory is achieved in a pvp battle.

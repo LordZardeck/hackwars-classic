@@ -7,13 +7,13 @@
  *
  */
 
-package HackerLogin;
+package hackerlogin;
 
-import Game.*;
+import game.*;
 
 import java.util.ArrayList;
 
-import Hackscript.Model.*;
+import hackscript.model.*;
 
 import java.util.*;
 

@@ -9,29 +9,29 @@ dependencies {
 sourceSets {
     main {
         java {
-            include 'Assignments/**/*.java'
-            include 'Game/**/*.java'
-            include 'Hackscript/**/*.java'
-            include 'HackerLogin/Toy*.java'
-            include 'Legacy/**/*.java'
+            include 'assignments/**/*.java'
+            include 'game/**/*.java'
+            include 'hackscript/**/*.java'
+            include 'hackerlogin/Toy*.java'
+            include 'legacy/**/*.java'
             include 'chat/messages/**/*.java'
             include 'chat/util/**/*.java'
             include 'com/plink/dolphinnet/**/*.java'
             include 'com/plink/dolphinstem/**/*.java'
-            include 'View/Task.java'
+            include 'view/Task.java'
             include 'util/**/*.java'
         }
         kotlin {
-            include 'Assignments/**/*.kt'
-            include 'Game/**/*.kt'
-            include 'Hackscript/**/*.kt'
-            include 'HackerLogin/Toy*.kt'
-            include 'Legacy/**/*.kt'
+            include 'assignments/**/*.kt'
+            include 'game/**/*.kt'
+            include 'hackscript/**/*.kt'
+            include 'hackerlogin/Toy*.kt'
+            include 'legacy/**/*.kt'
             include 'chat/messages/**/*.kt'
             include 'chat/util/**/*.kt'
             include 'com/plink/dolphinnet/**/*.kt'
             include 'com/plink/dolphinstem/**/*.kt'
-            include 'View/Task.kt'
+            include 'view/Task.kt'
             include 'util/**/*.kt'
         }
     }

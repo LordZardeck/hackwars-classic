@@ -1,11 +1,11 @@
-package Hacktendo.Functions;
+package hacktendo.functions;
 
 
 import java.util.ArrayList;
 
-import Hackscript.Model.*;
-import Hacktendo.*;
-import com.plink.Hack3D.*;
+import hackscript.model.*;
+import hacktendo.*;
+import com.plink.hack3d.*;
 
 public class setTerrain extends LinkerFunctions {
 

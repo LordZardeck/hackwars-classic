@@ -1,4 +1,4 @@
-package Hacktendo;
+package hacktendo;
 
 import java.util.*;
 import java.io.*;

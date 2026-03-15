@@ -1,4 +1,4 @@
-package Game;
+package game;
 
 /**
  * Port.java
@@ -9,7 +9,7 @@ package Game;
 
 import java.util.*;
 
-import Assignments.*;
+import assignments.*;
 
 import java.text.*;
 

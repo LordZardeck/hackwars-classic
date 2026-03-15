@@ -24,24 +24,24 @@ dependencies {
 sourceSets {
     main {
         java {
-            include 'Browser/**/*.java'
-            include 'Client/**/*.java'
-            include 'GUI/**/*.java'
-            include 'View/**/*.java'
-            include 'Game/MMO/**/*.java'
-            include 'Hacktendo/**/*.java'
+            include 'browser/**/*.java'
+            include 'client/**/*.java'
+            include 'gui/**/*.java'
+            include 'view/**/*.java'
+            include 'game/mmo/**/*.java'
+            include 'hacktendo/**/*.java'
             include 'chat/client/**/*.java'
-            include 'com/plink/Hack3D/**/*.java'
+            include 'com/plink/hack3d/**/*.java'
         }
         kotlin {
-            include 'Browser/**/*.kt'
-            include 'Client/**/*.kt'
-            include 'GUI/**/*.kt'
-            include 'View/**/*.kt'
-            include 'Game/MMO/**/*.kt'
-            include 'Hacktendo/**/*.kt'
+            include 'browser/**/*.kt'
+            include 'client/**/*.kt'
+            include 'gui/**/*.kt'
+            include 'view/**/*.kt'
+            include 'game/mmo/**/*.kt'
+            include 'hacktendo/**/*.kt'
             include 'chat/client/**/*.kt'
-            include 'com/plink/Hack3D/**/*.kt'
+            include 'com/plink/hack3d/**/*.kt'
         }
     }
 }
@@ -84,7 +84,7 @@ def resolveJpackageExecutable = {
 
 tasks.register('runClientDesktop', JavaExec) {
     group = 'application'
-    description = 'Starts the desktop client using Client.Launcher as a regular Swing application.'
+    description = 'Starts the desktop client using client.Launcher as a regular Swing application.'
     dependsOn tasks.named('classes'), project(':HackWars').tasks.named('classes')
     javaLauncher = javaToolchains.launcherFor {
         languageVersion = JavaLanguageVersion.of(rootProject.ext.javaToolchainVersion as Integer)
@@ -95,7 +95,7 @@ tasks.register('runClientDesktop', JavaExec) {
             sourceSets.main.runtimeClasspath,
             rootProject.ext.resourcesRootDir
     )
-    mainClass = 'Client.Launcher'
+    mainClass = 'client.Launcher'
     workingDir = rootProject.ext.resourcesRootDir
 }
 
@@ -117,7 +117,7 @@ tasks.register('clientLauncherJar', Jar) {
         exclude 'chatServer/**'
     }
     manifest {
-        attributes('Main-Class': 'Client.Launcher')
+        attributes('Main-Class': 'client.Launcher')
     }
 }
 
@@ -146,7 +146,7 @@ tasks.register('packageClientNative', Exec) {
                 '--dest', outputDir.absolutePath,
                 '--name', 'HackWars',
                 '--main-jar', 'hackwars-client.jar',
-                '--main-class', 'Client.Launcher'
+                '--main-class', 'client.Launcher'
         ]
         if (isMac) {
             args += ['--mac-package-name', 'HackWars']

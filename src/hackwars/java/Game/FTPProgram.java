@@ -1,16 +1,16 @@
-package Game;
+package game;
 /**
  * FTPProgram.java
  * <p>
  * A program that can be installed on a port of type FTP and which performs "get" and "put" operations.
  */
 
-import Hackscript.Model.*;
+import hackscript.model.*;
 
 import java.io.*;
 import java.util.HashMap;
 
-import Assignments.*;
+import assignments.*;
 
 public class FTPProgram extends Program {
 

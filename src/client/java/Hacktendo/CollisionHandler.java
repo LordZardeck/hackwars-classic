@@ -1,4 +1,4 @@
-package Hacktendo;
+package hacktendo;
 /*
 Porgrammer: Ben Coe.(2007)<br />
 
@@ -15,7 +15,7 @@ import java.util.*;
 import java.awt.geom.*;
 
 import util.*;
-import Game.MMO.*;
+import game.mmo.*;
 
 public class CollisionHandler {
     /// //////////////////

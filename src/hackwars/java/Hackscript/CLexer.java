@@ -1,5 +1,5 @@
 // $ANTLR 3.0.1 /Users/benjamincoe/HackWars/C.g 2009-01-01 16:21:20
-package Hackscript;
+package hackscript;
 
 import org.antlr.runtime.*;
 

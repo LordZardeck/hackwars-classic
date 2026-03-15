@@ -1,4 +1,4 @@
-package Game;
+package game;
 
 /**
  * Computer.java
@@ -17,7 +17,7 @@ import java.util.concurrent.Semaphore;
 
 import org.apache.xmlrpc.client.XmlRpcClient;
 import org.apache.xmlrpc.client.XmlRpcClientConfigImpl;
-import Assignments.*;
+import assignments.*;
 
 import java.io.*;
 import java.net.URL;

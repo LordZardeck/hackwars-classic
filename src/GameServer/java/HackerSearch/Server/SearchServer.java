@@ -1,4 +1,4 @@
-package HackerSearch.Server;
+package hackersearch.server;
 
 /**
  * (c) Vulgate 2007<br />
@@ -7,7 +7,7 @@ package HackerSearch.Server;
 
 import com.plink.dolphinnet.*;
 import com.plink.dolphinnet.util.*;
-import HackerSearch.util.*;
+import hackersearch.util.*;
 
 import java.io.*;
 import java.math.*;
@@ -16,8 +16,8 @@ import java.util.TimerTask;
 import java.util.Timer;
 import java.util.Calendar;
 
-import HackerSearch.Assignments.*;
-import Assignments.*;
+import hackersearch.assignments.*;
+import assignments.*;
 
 public class SearchServer {
 

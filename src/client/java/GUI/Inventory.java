@@ -1,4 +1,4 @@
-package GUI;
+package gui;
 
 
 import javax.swing.*;
@@ -7,8 +7,8 @@ import javax.swing.event.*;
 import java.awt.*;
 import java.awt.event.*;
 
-import View.*;
-import Assignments.*;
+import view.*;
+import assignments.*;
 
 /**
  * This is the popup menu for the Equipment Manager.

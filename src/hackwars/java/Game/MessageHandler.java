@@ -1,4 +1,4 @@
-package Game;
+package game;
 
 import java.util.ArrayList;
 
@@ -10,7 +10,7 @@ public class MessageHandler {
     public static final int ATTACK_MESSAGE = 3;
     public static final int REDIRECT_MESSAGE = 4;
 
-    // Keep option keys local so this shared class does not depend on GUI.OptionPanel.
+    // Keep option keys local so this shared class does not depend on gui.OptionPanel.
     private static final String APP_REPLACED_KEY = "appreplaced";
     private static final String HEALING_KEY = "healing";
     private static final String CARD_REPAIRED_KEY = "cardrepaired";

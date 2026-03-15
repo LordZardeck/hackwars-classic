@@ -1,15 +1,15 @@
-package Game.ComputerFunctions;
+package game.computerfunctions;
 
-import Game.*;
+import game.*;
 /**
  Represents a watch which will fire given an appropriate event in the computer.
  */
 
 import java.util.*;
 
-import Assignments.*;
-import Hackscript.Model.*;
-import Assignments.*;
+import assignments.*;
+import hackscript.model.*;
+import assignments.*;
 
 public abstract class function {
     private Computer MyComputer = null;

@@ -1,10 +1,10 @@
-package Game;
+package game;
 /**
  * WatchProgram.java
  * A watch program is executed by the watch handler when a specific event has fired.
  */
 
-import Hackscript.Model.*;
+import hackscript.model.*;
 
 import java.io.*;
 import java.util.HashMap;

@@ -1,11 +1,11 @@
-package Game.MMO;
+package game.mmo;
 /*
 Programmer: Ben Coe/Cam(2007)<br />
 
 This singleton maintains a list of the different 3D chat worlds based on the current network a player is on.
 */
 
-import Hacktendo.*;
+import hacktendo.*;
 
 import javax.swing.*;
 import java.awt.*;
@@ -26,9 +26,9 @@ import org.w3c.dom.NamedNodeMap;
 
 import java.util.concurrent.Semaphore;
 
-import Hackscript.Model.*;
-import GUI.Sound;
-import View.*;
+import hackscript.model.*;
+import gui.Sound;
+import view.*;
 
 import javax.media.opengl.glu.*;
 import javax.media.opengl.GL;
@@ -38,7 +38,7 @@ import javax.media.opengl.GLEventListener;
 
 import com.sun.opengl.util.*;
 import com.sun.opengl.util.texture.*;
-import com.plink.Hack3D.*;
+import com.plink.hack3d.*;
 
 import java.nio.*;
 import java.util.*;

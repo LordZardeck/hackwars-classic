@@ -1,4 +1,4 @@
-package GUI;
+package gui;
 /**
  * PopUpActionListener.java
  * <p>

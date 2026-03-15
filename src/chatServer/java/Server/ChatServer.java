@@ -1,13 +1,13 @@
-package Server;
+package server;
 
 /**
  * (c) Vulgate 2007<br />
  * The main server entry point, pulls everything together.
  */
 
-import Assignments.LoginAssignment;
-import Assignments.MessageInPacket;
-import Assignments.PingAssignment;
+import assignments.LoginAssignment;
+import assignments.MessageInPacket;
+import assignments.PingAssignment;
 import com.plink.dolphinnet.Assignment;
 import com.plink.dolphinnet.ClientBinaryList;
 import com.plink.dolphinnet.ClientData;

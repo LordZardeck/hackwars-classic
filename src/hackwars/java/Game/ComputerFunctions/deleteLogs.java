@@ -1,6 +1,6 @@
-package Game.ComputerFunctions;
+package game.computerfunctions;
 
-import Game.*;
+import game.*;
 /**
  A function that is run within Computer.java.
 
@@ -9,8 +9,8 @@ import Game.*;
 
 import java.util.*;
 
-import Assignments.*;
-import Hackscript.Model.*;
+import assignments.*;
+import hackscript.model.*;
 
 public class deleteLogs extends function {
     public deleteLogs(Computer MyComputer) {

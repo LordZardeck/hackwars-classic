@@ -1,4 +1,4 @@
-package Game.MMO;
+package game.mmo;
 
 import com.plink.dolphinnet.*;
 
@@ -6,7 +6,7 @@ import java.util.*;
 import java.io.*;
 import java.math.*;
 
-import Hacktendo.Sprite;
+import hacktendo.Sprite;
 
 /**
  * This provides information about the state of sprites in a Hacktendo game.

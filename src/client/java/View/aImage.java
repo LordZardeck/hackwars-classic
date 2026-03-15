@@ -1,4 +1,4 @@
-package View;
+package view;
 /**
  * Programmer: Ben Coe<br />
  * (2005)<br  />

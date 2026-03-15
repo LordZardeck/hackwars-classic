@@ -1,4 +1,4 @@
-package GUI;
+package gui;
 /**
  * MessageWindow.java
  * this is the message window.
@@ -12,7 +12,7 @@ import javax.imageio.*;
 import java.awt.*;
 import java.awt.event.*;
 
-import Assignments.*;
+import assignments.*;
 
 public class NetworkInfoPanel extends JPanel {
 

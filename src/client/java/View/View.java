@@ -1,4 +1,4 @@
-package View;
+package view;
 /**
  * (C) Ben Coe 2007 <br />
  * The main controller for Coezilla.
@@ -8,17 +8,17 @@ import javax.swing.*;
 
 import com.plink.dolphinnet.*;
 import com.plink.dolphinnet.assignments.*;
-import Assignments.*;
+import assignments.*;
 
 import java.util.*;
 
 import util.*;
-import GUI.*;
+import gui.*;
 
 import java.util.concurrent.Semaphore;
 
-import Game.*;
-import Client.*;
+import game.*;
+import client.*;
 import chat.messages.*;
 
 import java.awt.image.*;

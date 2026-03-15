@@ -1,4 +1,4 @@
-package GUI;
+package gui;
 
 
 import javax.swing.*;
@@ -11,8 +11,8 @@ import java.io.*;
 import javax.imageio.*;
 import java.util.*;
 
-import Assignments.*;
-import View.*;
+import assignments.*;
+import view.*;
 
 
 public class HomeList extends JPanel {

@@ -1,4 +1,4 @@
-package Assignments;
+package assignments;
 
 /**
  * PacketPort.java
