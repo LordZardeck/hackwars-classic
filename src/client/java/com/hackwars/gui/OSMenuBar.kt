@@ -59,5 +59,20 @@ class OSMenuBar : JMenuBar() {
             }
     }
 
+    class PlacesMenu : JMenu("Places") {
+        class ShopFtpMenuItem : JMenuItem("Shop FTP", ImageLoader.getImageIcon("images/ftp.png"))
+        class PublicFtpMenuItem : JMenuItem("Public FTP", ImageLoader.getImageIcon("images/ftp.png"))
+        class HomeMenuItem : JMenuItem("Home", ImageLoader.getImageIcon("images/home.png"))
+        class NetworkMenuItem : JMenuItem("Network", ImageLoader.getImageIcon("images/home.png"))
+        class LogWindowMenuItem : JMenuItem("Log Window")
+
+        val shopFtpMenuItem = add(ShopFtpMenuItem()) as ShopFtpMenuItem
+        val publicFtpMenuItem = add(PublicFtpMenuItem()) as PublicFtpMenuItem
+        val homeMenuItem = add(HomeMenuItem()) as HomeMenuItem
+        val networkMenuItem = add(NetworkMenuItem()) as NetworkMenuItem
+        val logWindowMenuItem = add(LogWindowMenuItem()) as LogWindowMenuItem
+    }
+
     val applicationMenu = add(ApplicationMenu()) as ApplicationMenu
+    val placesMenu = add(PlacesMenu()) as PlacesMenu
 }
