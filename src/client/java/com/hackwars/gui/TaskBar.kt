@@ -21,6 +21,9 @@ import javax.swing.border.EmptyBorder
 fun styleDesktopIcon(desktopIcon: JInternalFrame.JDesktopIcon): JInternalFrame.JDesktopIcon {
     // Limit the width of the desktop icon as it wants to be much bigger than it should
     desktopIcon.maximumSize = Dimension(120, Integer.MAX_VALUE)
+    // Prevent dragging the desktop icon within the taskbar
+    desktopIcon.mouseListeners.forEach(desktopIcon::removeMouseListener)
+    desktopIcon.mouseMotionListeners.forEach(desktopIcon::removeMouseMotionListener)
     // Remove the drag handle
     desktopIcon.components.elementAtOrNull(1)?.let { desktopIcon.remove(it) }
 
