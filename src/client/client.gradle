@@ -45,6 +45,9 @@ sourceSets {
             include 'com/plink/hack3d/**/*.kt'
             include 'com/hackwars/**/*.kt'
         }
+        resources {
+            setSrcDirs(['resources'])
+        }
     }
 }
 
