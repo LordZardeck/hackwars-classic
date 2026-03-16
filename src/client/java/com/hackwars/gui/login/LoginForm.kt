@@ -83,7 +83,7 @@ class LoginForm : JPanel(GridBagLayout()) {
     private inner class LoginCardPanel : JPanel() {
         private val labelFont = interFont(Font.PLAIN, 14f)
         private val smallFont = interFont(Font.PLAIN, 14f)
-        private val linkFont = interFont(Font.BOLD, 16f)
+        private val linkFont = interFont(Font.BOLD, 14f)
         private val contentPanel = JPanel().apply {
             isOpaque = false
             layout = BoxLayout(this, BoxLayout.Y_AXIS)
