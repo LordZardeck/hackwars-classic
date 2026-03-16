@@ -262,18 +262,8 @@ class LoginForm : JPanel(GridBagLayout()) {
         init {
             isOpaque = false
             layout = BoxLayout(this, BoxLayout.X_AXIS)
-            minimumSize = Dimension(420, 58)
-            preferredSize = Dimension(420, 58)
-            maximumSize = Dimension(420, 58)
-
-            if (field is JTextField) {
-                field.minimumSize = Dimension(366, 58)
-                field.preferredSize = Dimension(366, 58)
-                field.maximumSize = Dimension(Short.MAX_VALUE.toInt(), 58)
-            }
 
             add(field)
-            add(Box.createHorizontalStrut(14))
         }
     }
 
