@@ -364,39 +364,6 @@ class LoginForm : JPanel(GridBagLayout()) {
         }
     }
 
-    private inner class TrackingLabel(
-        private val labelText: String,
-        private val labelFont: Font,
-        private val color: Color,
-        private val tracking: Float
-    ) : JComponent() {
-        init {
-            isOpaque = false
-            font = labelFont
-            foreground = color
-            val fm = getFontMetrics(labelFont)
-            val width = fm.stringWidth(labelText) + (tracking * labelText.length * labelFont.size).toInt()
-            val height = fm.height
-            minimumSize = Dimension(width, height)
-            preferredSize = Dimension(width, height)
-            maximumSize = Dimension(width, height)
-        }
-
-        override fun paintComponent(g: Graphics) {
-            val g2 = g.create() as Graphics2D
-            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON)
-            g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON)
-            val attributed = AttributedString(labelText).apply {
-                addAttribute(TextAttribute.FONT, labelFont)
-                addAttribute(TextAttribute.FOREGROUND, color)
-                addAttribute(TextAttribute.TRACKING, tracking)
-            }
-            val fm = g2.getFontMetrics(labelFont)
-            g2.drawString(attributed.iterator, 0f, fm.ascent.toFloat())
-            g2.dispose()
-        }
-    }
-
     private fun interFont(style: Int, size: Float): Font {
         return Font("Inter", style, 1).deriveFont(size)
     }

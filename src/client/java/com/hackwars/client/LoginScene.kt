@@ -8,7 +8,7 @@ import java.awt.GridBagLayout
 import java.awt.Insets
 import javax.swing.JPanel
 
-class LoginPanel : LoginBackgroundPanel() {
+class LoginScene : LoginBackgroundPanel() {
     companion object {
         private const val PANEL_WIDTH = 710
         private const val PANEL_HEIGHT = 450

@@ -10,7 +10,7 @@ import javax.swing.UIManager
 import javax.swing.border.EmptyBorder
 
 class ApplicationWindow : JFrame() {
-    private val activePanel = LoginPanel()
+    private val activePanel = LoginScene()
 
     init {
         defaultCloseOperation = EXIT_ON_CLOSE
