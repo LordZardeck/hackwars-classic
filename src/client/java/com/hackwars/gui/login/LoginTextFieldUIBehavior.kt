@@ -22,7 +22,10 @@ class LoginTextFieldUIBehavior : TextFieldUIBehavior {
         Timer(16) {
             component?.let {
                 if(!it.isFocusOwner) {
-                    scanX = -80f
+                    if (scanX != -80f) {
+                        scanX = -80f
+                        it.repaint()
+                    }
                     return@let
                 }
 
