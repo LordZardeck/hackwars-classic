@@ -4,8 +4,8 @@ import com.github.weisj.jsvg.attributes.ViewBox
 import com.github.weisj.jsvg.geometry.size.FloatSize
 import com.hackwars.gui.svgResource
 import java.awt.*
-import javax.naming.Reference
 import javax.swing.JPanel
+import kotlin.math.roundToInt
 
 /**
  * A custom panel that renders a split gradient background and a centrally aligned SVG logo.
@@ -62,11 +62,16 @@ open class LoginBackgroundPanel : JPanel() {
         const val REFERENCE_WIDTH = 1280f
         const val REFERENCE_HEIGHT = 862f
         const val REFERENCE_SPLIT_RATIO = 0.24f
-        const val SPLIT_X = 308
-        const val LOGO_LEFT_MIN_OFFSET = 60f
-        const val LOGO_TOP_MIN_OFFSET = 60f
+        const val MAX_LEFT_SPLIT_WIDTH = 308
+        const val LOGO_LEFT_MIN_OFFSET = 100f
+        const val LOGO_TOP_MIN_OFFSET = 200f
 
         val logoDocument = svgResource("images/hackwars-logo-split.svg")
+    }
+
+    private fun getSplitX(componentWidth: Int): Int {
+        val split = (componentWidth * REFERENCE_SPLIT_RATIO).roundToInt()
+        return split.coerceIn(0, minOf(componentWidth, MAX_LEFT_SPLIT_WIDTH))
     }
 
     /**
@@ -78,16 +83,21 @@ open class LoginBackgroundPanel : JPanel() {
      * @return The adjusted size of the logo as a `FloatSize` object, scaled if necessary to meet the constraints.
      */
     internal fun getScaledLogoSize(documentSize: FloatSize, componentSize: Dimension): FloatSize {
-        val leftOffset = SPLIT_X - (documentSize.width / 2)
+        val splitX = getSplitX(componentSize.width)
+        val widthScale = (componentSize.width / REFERENCE_WIDTH).coerceAtMost(1f)
+        val heightScale = (componentSize.height / REFERENCE_HEIGHT).coerceAtMost(1f)
+        val minLeftOffset = LOGO_LEFT_MIN_OFFSET * widthScale
+        val minTopOffset = LOGO_TOP_MIN_OFFSET * heightScale
+        val leftOffset = splitX - (documentSize.width / 2)
         val topOffset = (componentSize.height / 2) - (documentSize.height / 2)
 
         // If the logo already fits in the component's viewport, then leave it as is
-        if (leftOffset >= LOGO_LEFT_MIN_OFFSET && topOffset >= LOGO_TOP_MIN_OFFSET) {
+        if (leftOffset >= minLeftOffset && topOffset >= minTopOffset) {
             return documentSize
         }
 
-        val maxAllowedWidth = ((SPLIT_X - LOGO_LEFT_MIN_OFFSET) * 2f).coerceAtLeast(1f)
-        val maxAllowedHeight = (componentSize.height - (LOGO_TOP_MIN_OFFSET * 2f)).coerceAtLeast(1f)
+        val maxAllowedWidth = ((splitX - minLeftOffset) * 2f).coerceAtLeast(1f)
+        val maxAllowedHeight = (componentSize.height - (minTopOffset * 2f)).coerceAtLeast(1f)
         val scale = minOf(
             1f,
             maxAllowedWidth / documentSize.width.coerceAtLeast(1f),
@@ -107,18 +117,19 @@ open class LoginBackgroundPanel : JPanel() {
         (g as? Graphics2D)?.run {
             setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY)
             setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON)
+            val splitX = getSplitX(width)
 
             // Paint the left and right split background gradients
             paint = BackgroundGradient.LEFT.toLinearGradientPaint(height.toFloat())
-            fillRect(0, 0, SPLIT_X, height)
+            fillRect(0, 0, splitX, height)
             paint = BackgroundGradient.RIGHT.toLinearGradientPaint(height.toFloat())
-            fillRect(SPLIT_X, 0, width - SPLIT_X, height)
+            fillRect(splitX, 0, width - splitX, height)
 
             // Render the logo document if it exists
             logoDocument?.let {
                 val scaledSize = getScaledLogoSize(it.size(), component.size)
                 val position = Point(
-                    (SPLIT_X - (scaledSize.width / 2)).toInt(),
+                    (splitX - (scaledSize.width / 2)).toInt(),
                     ((height / 2) - (scaledSize.height / 2)).toInt()
                 )
 
