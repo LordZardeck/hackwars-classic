@@ -10,10 +10,11 @@ import javax.swing.JPanel
 
 class LoginPanel : LoginBackgroundPanel() {
     companion object {
-        private const val PANEL_WIDTH = 700
+        private const val PANEL_WIDTH = 710
         private const val PANEL_HEIGHT = 450
-        private const val FORM_TOP_INSET = 0
         private const val LOGO_CLEARANCE_PX = 30
+        private const val FORM_SIDE_INSET = 30
+        private const val FORM_VERTICAL_INSET = 30
     }
 
     private val emptyColumn = JPanel().apply {
@@ -29,10 +30,10 @@ class LoginPanel : LoginBackgroundPanel() {
         gridy = 0
         weightx = 1.0
         weighty = 1.0
-        anchor = GridBagConstraints.LINE_START
-        insets = Insets(FORM_TOP_INSET, 0, 0, 0)
+        fill = GridBagConstraints.BOTH
+        anchor = GridBagConstraints.CENTER
+        insets = Insets(0, 0, 0, 0)
     }
-    private var appliedLeftInset = Int.MIN_VALUE
 
     init {
         isOpaque = true
@@ -58,12 +59,8 @@ class LoginPanel : LoginBackgroundPanel() {
     private fun updateFormInsets(splitX: Int) {
         val logoRightEdge = getLogoRightEdgeX(size)
         val requiredLeftInset = (logoRightEdge - splitX + LOGO_CLEARANCE_PX).coerceAtLeast(0)
-        if (requiredLeftInset == appliedLeftInset) {
-            return
-        }
 
-        appliedLeftInset = requiredLeftInset
-        formConstraints.insets = Insets(FORM_TOP_INSET, requiredLeftInset, 0, 0)
+        formConstraints.insets = Insets(FORM_VERTICAL_INSET, requiredLeftInset, FORM_VERTICAL_INSET, FORM_SIDE_INSET)
         (formColumn.layout as GridBagLayout).setConstraints(formPanel, formConstraints)
     }
 }

@@ -46,31 +46,62 @@ class LoginForm : JPanel(GridBagLayout()) {
         const val INNER_INSET = 1.25f
 
         const val SIGNUP_URL = "https://www.reddit.com/r/HackWars/"
+
+        val MIN_FORM_SIZE = Dimension(320, 360)
+        val PREFERRED_FORM_SIZE = Dimension(420, 420)
+        val MAX_FORM_SIZE = Dimension(420, 520)
     }
 
     private val cardPanel = LoginCardPanel()
 
     init {
         isOpaque = false
+        minimumSize = MIN_FORM_SIZE
+        preferredSize = PREFERRED_FORM_SIZE
+        maximumSize = MAX_FORM_SIZE
 
         val constraints = GridBagConstraints().apply {
             gridx = 0
             gridy = 0
+            weightx = 1.0
+            weighty = 1.0
+            fill = GridBagConstraints.BOTH
             insets = Insets(0,0,0,0)
         }
         add(cardPanel, constraints)
+    }
+
+    override fun setBounds(x: Int, y: Int, width: Int, height: Int) {
+        // Respect max bounds, but allow shrinking below minimum when parent space is constrained.
+        val clampedWidth = width.coerceAtMost(maximumSize.width)
+        val clampedHeight = height.coerceIn(minimumSize.height, maximumSize.height)
+        val centeredX = if (width > clampedWidth) x + ((width - clampedWidth) / 2) else x
+        val centeredY = if (height > clampedHeight) y + ((height - clampedHeight) / 2) else y
+        super.setBounds(centeredX, centeredY, clampedWidth, clampedHeight)
     }
 
     private inner class LoginCardPanel : JPanel() {
         private val labelFont = interFont(Font.PLAIN, 14f)
         private val smallFont = interFont(Font.PLAIN, 14f)
         private val linkFont = interFont(Font.BOLD, 16f)
+        private val contentPanel = JPanel().apply {
+            isOpaque = false
+            layout = BoxLayout(this, BoxLayout.Y_AXIS)
+            border = BorderFactory.createEmptyBorder(30, 30, 30, 30)
+        }
 
         init {
             isOpaque = false
-            layout = BoxLayout(this, BoxLayout.Y_AXIS)
-            border = BorderFactory.createEmptyBorder(30,30,30,30)
-            buildContent()
+            layout = GridBagLayout()
+            buildContent(contentPanel)
+            add(contentPanel, GridBagConstraints().apply {
+                gridx = 0
+                gridy = 0
+                weightx = 1.0
+                weighty = 1.0
+                fill = GridBagConstraints.HORIZONTAL
+                anchor = GridBagConstraints.CENTER
+            })
         }
 
 
@@ -135,7 +166,7 @@ class LoginForm : JPanel(GridBagLayout()) {
             super.paintComponent(g)
         }
 
-        private fun buildContent() {
+        private fun buildContent(container: JPanel) {
             val usernameLabel = createLabel("Username")
             val passwordLabel = createLabel("Password")
 
@@ -156,15 +187,15 @@ class LoginForm : JPanel(GridBagLayout()) {
             val footerPanel = createFooterPanel()
 
 
-            add(leftRow(10, usernameLabel))
-            add(fillRow(usernameFieldPanel))
-            add(add(Box.createVerticalStrut(10)))
-            add(leftRow(10, passwordLabel))
-            add(fillRow(passwordFieldPanel))
-            add(fillRow(LoginFormSeparator()))
-            add(fillRow(loginButton))
-            add(add(Box.createVerticalStrut(20)))
-            add(fillRow(footerPanel))
+            container.add(leftRow(10, usernameLabel))
+            container.add(fillRow(usernameFieldPanel))
+            container.add(Box.createVerticalStrut(10))
+            container.add(leftRow(10, passwordLabel))
+            container.add(fillRow(passwordFieldPanel))
+            container.add(fillRow(LoginFormSeparator()))
+            container.add(fillRow(loginButton))
+            container.add(Box.createVerticalStrut(20))
+            container.add(fillRow(footerPanel))
         }
 
         private fun createLabel(text: String): JLabel {

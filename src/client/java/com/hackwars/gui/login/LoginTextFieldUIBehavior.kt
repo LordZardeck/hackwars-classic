@@ -50,6 +50,9 @@ class LoginTextFieldUIBehavior : TextFieldUIBehavior {
         c.foreground = Color(0xD3, 0xD9, 0xE3)
         c.caretColor = Color(0xD3, 0xD9, 0xE3)
         c.font = Font("Inter", Font.BOLD, 1).deriveFont(16f)
+        c.preferredSize = Dimension(200, 40)
+        c.minimumSize = Dimension(100, 40)
+        c.maximumSize = Dimension(Int.MAX_VALUE, 40)
     }
 
     override fun paintFieldBackground(c: JTextField, g: Graphics?) {

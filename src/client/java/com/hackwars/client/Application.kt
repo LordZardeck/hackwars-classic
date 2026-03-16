@@ -30,6 +30,7 @@ class ApplicationWindow : JFrame() {
             }
         })
         pack()
+        minimumSize = activePanel.preferredSize
         setLocationRelativeTo(null)
         isVisible = true
     }
