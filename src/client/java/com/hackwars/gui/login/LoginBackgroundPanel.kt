@@ -4,6 +4,7 @@ import com.github.weisj.jsvg.attributes.ViewBox
 import com.github.weisj.jsvg.geometry.size.FloatSize
 import com.hackwars.gui.svgResource
 import java.awt.*
+import java.awt.geom.Rectangle2D
 import javax.swing.JPanel
 import javax.swing.Timer
 import kotlin.math.ceil
@@ -115,6 +116,22 @@ open class LoginBackgroundPanel : JPanel() {
         val scaledSize = getScaledLogoSize(document.size(), componentSize)
         val logoLeft = (splitX - (scaledSize.width / 2f)).toInt()
         return logoLeft + ceil(scaledSize.width.toDouble()).toInt()
+    }
+
+    /**
+     * Returns the rendered bounds of the logo for the given component size.
+     * If the logo cannot be loaded, returns null.
+     */
+    protected fun getLogoBounds(componentSize: Dimension): Rectangle2D.Float? {
+        val splitX = getSplitX(componentSize.width)
+        val document = logoDocument ?: return null
+        val scaledSize = getScaledLogoSize(document.size(), componentSize)
+        return Rectangle2D.Float(
+            splitX - (scaledSize.width / 2f),
+            (componentSize.height / 2f) - (scaledSize.height / 2f),
+            scaledSize.width,
+            scaledSize.height
+        )
     }
 
     /**
