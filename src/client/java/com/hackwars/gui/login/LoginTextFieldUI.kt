@@ -17,7 +17,8 @@ open class LoginTextFieldUI : BasicTextFieldUI(), TextFieldUIBehavior by LoginTe
         (component as? JTextField)?.let { installFieldDefaults(it) }
     }
 
-    override fun paintBackground(g: Graphics?) {
+    override fun paintSafely(g: Graphics) {
         (component as? JTextField)?.let { paintFieldBackground(it, g) }
+        super.paintSafely(g)
     }
 }

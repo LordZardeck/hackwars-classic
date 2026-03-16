@@ -17,7 +17,8 @@ class LoginPasswordFieldUI : BasicPasswordFieldUI(),TextFieldUIBehavior by Login
         (component as? JTextField)?.let { installFieldDefaults(it) }
     }
 
-    override fun paintBackground(g: Graphics?) {
+    override fun paintSafely(g: Graphics) {
         (component as? JTextField)?.let { paintFieldBackground(it, g) }
+        super.paintSafely(g)
     }
 }
