@@ -322,7 +322,10 @@ class LoginForm : JPanel(GridBagLayout()) {
             g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON)
             g2.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY)
 
-            g2.color = Color(0x37, 0xC6, 0xFF, 38)
+            val isPressed = model.isArmed && model.isPressed
+            val textYOffset = if (isPressed) 1f else 0f
+
+            g2.color = if (isPressed) Color(0x37, 0xC6, 0xFF, 20) else Color(0x37, 0xC6, 0xFF, 38)
             g2.fillRoundRect(1, 1, width - 2, height - 2, 12, 12)
 
             val fill = LinearGradientPaint(
@@ -330,27 +333,32 @@ class LoginForm : JPanel(GridBagLayout()) {
                 Point2D.Float(width.toFloat(), 0f),
                 floatArrayOf(0f, 0.55f, 1f),
                 arrayOf(
-                    Color(0x0B, 0x8F, 0xFF),
-                    Color(0x16, 0xB2, 0xFF),
-                    Color(0x19, 0x8D, 0xFF)
+                    if (isPressed) Color(0x08, 0x72, 0xCC) else Color(0x0B, 0x8F, 0xFF),
+                    if (isPressed) Color(0x0E, 0x95, 0xD6) else Color(0x16, 0xB2, 0xFF),
+                    if (isPressed) Color(0x10, 0x75, 0xC8) else Color(0x19, 0x8D, 0xFF)
                 )
             )
             g2.paint = fill
             g2.fillRoundRect(0, 0, width - 1, height - 1, 12, 12)
 
-            g2.color = Color(0x68, 0xD8, 0xFF, 140)
+            if (isPressed) {
+                g2.color = Color(0x04, 0x3D, 0x70, 90)
+                g2.fillRoundRect(1, 1, width - 3, height - 3, 10, 10)
+            }
+
+            g2.color = if (isPressed) Color(0x68, 0xD8, 0xFF, 100) else Color(0x68, 0xD8, 0xFF, 140)
             g2.stroke = BasicStroke(2f)
             g2.drawRoundRect(1, 1, width - 3, height - 3, 10, 10)
 
             val trackingText = AttributedString(text.uppercase()).apply {
                 addAttribute(TextAttribute.FONT, buttonFont)
-                addAttribute(TextAttribute.FOREGROUND, foreground)
+                addAttribute(TextAttribute.FOREGROUND, if (isPressed) Color(0xE7, 0xF5, 0xFF) else foreground)
                 addAttribute(TextAttribute.TRACKING, 0.022f)
             }
             val iterator = trackingText.iterator
             val layout = g2.fontMetrics.getStringBounds(text.uppercase(), g2)
             val drawX = ((width - layout.width) / 2f).toFloat()
-            val drawY = ((height - layout.height) / 2f + g2.fontMetrics.ascent).toFloat()
+            val drawY = ((height - layout.height) / 2f + g2.fontMetrics.ascent).toFloat() + textYOffset
             g2.drawString(iterator, drawX, drawY)
             g2.dispose()
         }
