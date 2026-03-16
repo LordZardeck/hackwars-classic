@@ -21,7 +21,7 @@ class LoginScene : LoginBackgroundPanel() {
         private const val FORM_VERTICAL_INSET = 30
     }
 
-    private val isAuthenticating = true
+    private var isAuthenticating = true
 
     private val emptyColumn = JPanel().apply {
         isOpaque = false
@@ -61,10 +61,20 @@ class LoginScene : LoginBackgroundPanel() {
         formPanel.apply {
             addAuthenticationListener(object : LoginForm.AuthenticationListener {
                 override fun onAuthenticationEvent(event: LoginForm.AuthenticationEvent) {
-                    when(event.eventType) {
-                        LoginForm.AuthenticationEvent.EventType.STARTED -> toggleLogin(false)
-                        LoginForm.AuthenticationEvent.EventType.FAILURE -> toggleLogin(true)
-                        else -> {}
+                    when (event.eventType) {
+                        LoginForm.AuthenticationEvent.EventType.STARTED -> {
+                            this@LoginScene.isAuthenticating = true
+                            toggleLogin(false)
+                        }
+
+                        LoginForm.AuthenticationEvent.EventType.FAILURE -> {
+                            this@LoginScene.isAuthenticating = false
+                            toggleLogin(true)
+                        }
+
+                        LoginForm.AuthenticationEvent.EventType.SUCCESS -> {
+                            this@LoginScene.isAuthenticating = false
+                        }
                     }
                 }
             })
