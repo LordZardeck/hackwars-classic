@@ -5,6 +5,8 @@
       <root url="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/com.github.weisj/jsvg/1.7.0/756302434965522693c9ba091a6e11e5f2aca7f6/jsvg-1.7.0.jar!/" />
     </CLASSES>
     <JAVADOC />
-    <SOURCES />
+    <SOURCES>
+      <root url="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/com.github.weisj/jsvg/1.7.0/cf53e21a5b470830b79bcfec5f925e6c952e735a/jsvg-1.7.0-sources.jar!/" />
+    </SOURCES>
   </library>
 </component>

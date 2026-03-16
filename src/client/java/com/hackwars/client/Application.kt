@@ -6,7 +6,6 @@ import java.awt.event.WindowEvent
 import javax.swing.JFrame
 import javax.swing.JPanel
 import javax.swing.SwingUtilities
-import javax.swing.UIManager
 import javax.swing.WindowConstants
 import javax.swing.border.EmptyBorder
 
@@ -14,8 +13,7 @@ class ApplicationWindow : JFrame() {
     private val activePanel = LoginPanel()
 
     init {
-        defaultCloseOperation = WindowConstants.EXIT_ON_CLOSE
-        isResizable = false
+        defaultCloseOperation = EXIT_ON_CLOSE
         if (System.getProperty("os.name").lowercase().contains("mac")) {
             rootPane.putClientProperty("apple.awt.fullWindowContent", true)
             rootPane.putClientProperty("apple.awt.transparentTitleBar", true)

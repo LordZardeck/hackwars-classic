@@ -48,10 +48,10 @@
     </content>
     <orderEntry type="jdk" jdkName="openjdk-25" jdkType="JavaSDK" />
     <orderEntry type="sourceFolder" forTests="false" />
-    <orderEntry type="module" module-name="src.HackwarsClassic.HackWars.main" />
-    <orderEntry type="module" module-name="src.HackwarsClassic.GameServer.main" />
-    <orderEntry type="module" module-name="src.HackwarsClassic.Client.main" />
-    <orderEntry type="module" module-name="src.HackwarsClassic.Networking.main" />
+    <orderEntry type="module" module-name="src.HackwarsClassic.HackWars.main~1" />
+    <orderEntry type="module" module-name="src.HackwarsClassic.GameServer.main~1" />
+    <orderEntry type="module" module-name="src.HackwarsClassic.Client.main~1" />
+    <orderEntry type="module" module-name="src.HackwarsClassic.Networking.main~1" />
     <orderEntry type="library" scope="PROVIDED" name="Gradle: org.jetbrains.kotlin:kotlin-stdlib:2.1.20" level="project" />
     <orderEntry type="library" scope="PROVIDED" name="Gradle: org.apache.tomcat:servlet-api:6.0.53" level="project" />
     <orderEntry type="library" name="Gradle: com.google.protobuf:protobuf-java:3.25.5" level="project" />

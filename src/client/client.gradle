@@ -19,6 +19,7 @@ dependencies {
     implementation 'com.miglayout:miglayout-swing:11.4.2'
     implementation 'net.java.dev.jogl:jogl:1.1.1-rc6'
     implementation 'net.java.dev.gluegen:gluegen-rt:1.0b05'
+    testImplementation 'junit:junit:4.13.2'
     joglNativeCoordinates.each { runtimeOnly it }
 }
 
@@ -49,6 +50,11 @@ sourceSets {
         resources {
             setSrcDirs(['resources'])
         }
+    }
+    test {
+        java.setSrcDirs(['test'])
+        kotlin.setSrcDirs(['test'])
+        resources.setSrcDirs([])
     }
 }
 

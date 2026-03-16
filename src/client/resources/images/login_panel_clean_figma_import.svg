@@ -1,0 +1,108 @@
+<svg width="620" height="560" viewBox="0 0 620 560" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="panelBg" x1="64" y1="40" x2="556" y2="520" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#15395D"/>
+      <stop offset="0.55" stop-color="#0A223B"/>
+      <stop offset="1" stop-color="#061321"/>
+    </linearGradient>
+
+    <linearGradient id="panelStroke" x1="310" y1="40" x2="310" y2="520" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#2A5E8E"/>
+      <stop offset="1" stop-color="#16324D"/>
+    </linearGradient>
+
+    <linearGradient id="lineGlow" x1="130" y1="0" x2="490" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#2D5E8B" stop-opacity="0"/>
+      <stop offset="0.5" stop-color="#49C7FF" stop-opacity="0.65"/>
+      <stop offset="1" stop-color="#2D5E8B" stop-opacity="0"/>
+    </linearGradient>
+
+    <linearGradient id="fieldFill" x1="100" y1="0" x2="520" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#08111D" stop-opacity="0.96"/>
+      <stop offset="0.55" stop-color="#091522" stop-opacity="0.98"/>
+      <stop offset="1" stop-color="#0A1320" stop-opacity="0.96"/>
+    </linearGradient>
+
+    <linearGradient id="fieldStroke" x1="100" y1="0" x2="520" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#3E678A" stop-opacity="0.8"/>
+      <stop offset="1" stop-color="#314D69" stop-opacity="0.8"/>
+    </linearGradient>
+
+    <linearGradient id="buttonFill" x1="100" y1="0" x2="520" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#0B8FFF"/>
+      <stop offset="0.55" stop-color="#16B2FF"/>
+      <stop offset="1" stop-color="#198DFF"/>
+    </linearGradient>
+
+    <filter id="panelShadow" x="28" y="8" width="564" height="544" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="18" stdDeviation="18" flood-color="#03101C" flood-opacity="0.55"/>
+      <feDropShadow dx="0" dy="5" stdDeviation="4" flood-color="#50C9FF" flood-opacity="0.08"/>
+    </filter>
+
+    <filter id="topGlow" x="150" y="22" width="320" height="28" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feGaussianBlur stdDeviation="6" result="blur"/>
+    </filter>
+
+    <filter id="fieldOuterGlow" x="92" y="195" width="436" height="68" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="0" stdDeviation="2.2" flood-color="#52C8FF" flood-opacity="0.12"/>
+    </filter>
+
+    <filter id="passwordFocusGlow" x="92" y="306" width="436" height="68" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="0" stdDeviation="2.4" flood-color="#47C5FF" flood-opacity="0.28"/>
+    </filter>
+
+    <filter id="buttonGlow" x="90" y="400" width="456" height="82" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="0" stdDeviation="5" flood-color="#37C6FF" flood-opacity="0.32"/>
+    </filter>
+
+    <style>
+      .title { font: 700 40px Inter, Arial, sans-serif; letter-spacing: 1px; fill: #F4F7FB; }
+      .label { font: 600 25px Inter, Arial, sans-serif; fill: #E3E8F0; }
+      .inputText { font: 600 22px Inter, Arial, sans-serif; fill: #D3D9E3; }
+      .buttonText { font: 700 27px Inter, Arial, sans-serif; letter-spacing: 0.6px; fill: #FFFFFF; }
+      .smallText { font: 500 18px Inter, Arial, sans-serif; fill: #9AA8B8; }
+      .linkText { font: 700 18px Inter, Arial, sans-serif; fill: #17AEFF; }
+    </style>
+  </defs>
+
+  <g filter="url(#panelShadow)">
+    <rect x="56" y="40" width="508" height="490" rx="20" fill="url(#panelBg)"/>
+    <rect x="57" y="41" width="506" height="488" rx="19" stroke="url(#panelStroke)" stroke-width="2"/>
+  </g>
+
+  <g filter="url(#topGlow)">
+    <rect x="214" y="30" width="192" height="4" rx="2" fill="#4DCDFF" fill-opacity="0.7"/>
+  </g>
+
+  <text x="310" y="105" text-anchor="middle" class="title">LOGIN</text>
+
+  <line x1="104" y1="135.5" x2="516" y2="135.5" stroke="url(#lineGlow)" stroke-width="1"/>
+  <line x1="104" y1="430.5" x2="516" y2="430.5" stroke="url(#lineGlow)" stroke-width="1"/>
+
+  <text x="105" y="185" class="label">Username</text>
+
+  <g filter="url(#fieldOuterGlow)">
+    <rect x="100" y="198" width="420" height="58" rx="6" fill="url(#fieldFill)"/>
+  </g>
+  <rect x="100.75" y="198.75" width="418.5" height="56.5" rx="5.25" stroke="url(#fieldStroke)" stroke-width="1.5"/>
+
+  <text x="124" y="234" class="inputText">localuser</text>
+
+  <text x="105" y="296" class="label">Password</text>
+
+  <g filter="url(#passwordFocusGlow)">
+    <rect x="100" y="309" width="420" height="58" rx="6" fill="url(#fieldFill)"/>
+  </g>
+  <rect x="100.75" y="309.75" width="418.5" height="56.5" rx="5.25" stroke="url(#fieldStroke)" stroke-width="1.5"/>
+  <text x="124" y="345" class="inputText">••••••••••••</text>
+
+  <g filter="url(#buttonGlow)">
+    <rect x="100" y="406" width="420" height="60" rx="6" fill="url(#buttonFill)"/>
+    <rect x="101" y="407" width="418" height="58" rx="5" stroke="#68D8FF" stroke-opacity="0.55" stroke-width="2"/>
+  </g>
+  <text x="310" y="446" text-anchor="middle" class="buttonText">LOGIN</text>
+
+  <text x="270" y="500" text-anchor="middle" class="smallText">Don't have an account?</text>
+  <text x="387" y="498" class="linkText">Create one</text>
+  <line x1="390" y1="504" x2="478" y2="504" stroke="#17AEFF" stroke-width="1"/>
+</svg>

@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="24 16 80 96" role="img" aria-label="HackWars logo">
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 128 128" role="img" aria-label="HackWars logo">
   <defs>
     <linearGradient id="bgGrad" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0%" stop-color="#3f4d57"/>
@@ -26,19 +26,23 @@
       <feDropShadow dx="0" dy="0" stdDeviation="2.2" flood-color="#14caff" flood-opacity="0.75"/>
     </filter>
     <filter id="hGlow" x="-35%" y="-35%" width="170%" height="170%">
-      <feDropShadow dx="0" dy="0" stdDeviation="1" flood-color="#11dbff" flood-opacity="0.85"/>
+      <feDropShadow dx="0" dy="0" stdDeviation="1.8" flood-color="#11dbff" flood-opacity="0.85"/>
     </filter>
     <clipPath id="badgeClip">
-      <rect x="7.5" y="7.5" width="113" height="113" rx="15"/>
-    </clipPath>
-    <clipPath id="leftHalfClip">
-      <rect x="0" y="0" width="64" height="128"/>
-    </clipPath>
-    <clipPath id="rightHalfClip">
-      <rect x="64" y="0" width="64" height="128"/>
+      <rect x="7.5" y="7.5" width="113" height="113" rx="56.5"/>
     </clipPath>
   </defs>
 
-  <path clip-path="url(#leftHalfClip)" fill="url(#hGrad)" fill-rule="evenodd" d="M26 20H44V54H84V20H102V96L90 108H38L26 96V20ZM44 66H58V96H44V66ZM70 66H84V96H70V66ZM58 66H70V74H58V66Z"/>
-  <path clip-path="url(#rightHalfClip)" fill="url(#bgGrad)" fill-rule="evenodd" d="M26 20H44V54H84V20H102V96L90 108H38L26 96V20ZM44 66H58V96H44V66ZM70 66H84V96H70V66ZM58 66H70V74H58V66Z"/>
+  <g filter="url(#badgeGlow)">
+    <rect x="7.5" y="7.5" width="113" height="113" rx="56.5" fill="url(#bgGrad)" stroke="url(#borderGrad)" stroke-width="2.5"/>
+  </g>
+
+  <g clip-path="url(#badgeClip)">
+    <rect x="7.5" y="7.5" width="113" height="50" fill="url(#sheenGrad)"/>
+    <rect x="7.5" y="7.5" width="113" height="113" fill="url(#vignette)"/>
+  </g>
+
+  <g filter="url(#hGlow)" transform="translate(64 64) scale(0.85) translate(-64 -64)">
+    <path fill="url(#hGrad)" fill-rule="evenodd" d="M26 20H44V54H84V20H102V96L90 108H38L26 96V20ZM44 66H58V96H44V66ZM70 66H84V96H70V66ZM58 66H70V74H58V66Z"/>
+  </g>
 </svg>
