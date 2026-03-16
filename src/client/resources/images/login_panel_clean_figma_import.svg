@@ -74,8 +74,6 @@
     <rect x="214" y="30" width="192" height="4" rx="2" fill="#4DCDFF" fill-opacity="0.7"/>
   </g>
 
-  <text x="310" y="105" text-anchor="middle" class="title">LOGIN</text>
-
   <line x1="104" y1="135.5" x2="516" y2="135.5" stroke="url(#lineGlow)" stroke-width="1"/>
   <line x1="104" y1="430.5" x2="516" y2="430.5" stroke="url(#lineGlow)" stroke-width="1"/>
 

@@ -1,38 +1,14 @@
-package com.hackwars.gui
+package com.hackwars.gui.login
 
-import java.awt.BasicStroke
-import java.awt.Color
-import java.awt.Component
-import java.awt.Dimension
-import java.awt.Font
-import java.awt.GradientPaint
-import java.awt.Graphics
-import java.awt.Graphics2D
-import java.awt.GridBagConstraints
-import java.awt.GridBagLayout
-import java.awt.Insets
-import java.awt.LinearGradientPaint
-import java.awt.RenderingHints
+import java.awt.*
 import java.awt.event.MouseAdapter
 import java.awt.event.MouseEvent
 import java.awt.font.TextAttribute
-import java.awt.geom.Path2D
 import java.awt.geom.Point2D
 import java.awt.geom.RoundRectangle2D
+import java.net.URI
 import java.text.AttributedString
-import javax.swing.BorderFactory
-import javax.swing.Box
-import javax.swing.BoxLayout
-import javax.swing.JButton
-import javax.swing.JComponent
-import javax.swing.JFrame
-import javax.swing.JLabel
-import javax.swing.JPanel
-import javax.swing.JPasswordField
-import javax.swing.JTextField
-import javax.swing.SwingConstants
-import javax.swing.SwingUtilities
-import javax.swing.WindowConstants
+import javax.swing.*
 import javax.swing.border.EmptyBorder
 
 class LoginForm : JPanel(GridBagLayout()) {
@@ -60,6 +36,7 @@ class LoginForm : JPanel(GridBagLayout()) {
         const val BOTTOM_LINE_Y = 390
         const val LINE_X = 48
         const val LINE_WIDTH = 412
+        const val SIGNUP_URL = "https://www.reddit.com/r/HackWars/"
     }
 
     private val cardPanel = LoginCardPanel()
@@ -186,29 +163,19 @@ class LoginForm : JPanel(GridBagLayout()) {
         }
 
         private fun buildContent() {
-            val title = TrackingLabel("LOGIN", titleFont, Color(0xF4, 0xF7, 0xFB), 0.05f)
             val usernameLabel = createLabel("Username")
             val passwordLabel = createLabel("Password")
 
-            val usernameField = JTextField("localuser").apply {
-                isOpaque = false
-                border = EmptyBorder(0, 24, 0, 24)
-                foreground = Color(0xD3, 0xD9, 0xE3)
-                caretColor = Color(0xD3, 0xD9, 0xE3)
-                font = inputFont
+            val usernameField = LoginTextField().apply {
+                text = "localuser"
             }
 
-            val passwordField = JPasswordField("password1234").apply {
-                isOpaque = false
-                border = EmptyBorder(0, 24, 0, 12)
-                foreground = Color(0xD3, 0xD9, 0xE3)
-                caretColor = Color(0xD3, 0xD9, 0xE3)
-                echoChar = '\u2022'
-                font = inputFont
+            val passwordField = LoginPasswordField().apply {
+                text = "password1234"
             }
 
-            val usernameFieldPanel = LoginFieldPanel(usernameField, focused = false, showEye = false)
-            val passwordFieldPanel = LoginFieldPanel(passwordField, focused = true, showEye = true)
+            val usernameFieldPanel = LoginFieldPanel(usernameField)
+            val passwordFieldPanel = LoginFieldPanel(passwordField)
 
             val loginButton = LoginButton("LOGIN")
             val footerPanel = createFooterPanel()
@@ -228,7 +195,7 @@ class LoginForm : JPanel(GridBagLayout()) {
 
             fun addRow(targetY: Int, height: Int, row: JComponent) {
                 addGapUntil(targetY)
-                row.alignmentX = Component.LEFT_ALIGNMENT
+                row.alignmentX = LEFT_ALIGNMENT
                 row.minimumSize = Dimension(CARD_WIDTH, height)
                 row.preferredSize = Dimension(CARD_WIDTH, height)
                 row.maximumSize = Dimension(CARD_WIDTH, height)
@@ -236,9 +203,7 @@ class LoginForm : JPanel(GridBagLayout()) {
                 cursor += height
             }
 
-            val titleHeight = getFontMetrics(titleFont).height
             val labelHeight = getFontMetrics(labelFont).height
-            addRow(titleTop, titleHeight, centeredRow(title))
             addRow(labelTop, labelHeight, leftRow(60, usernameLabel))
             addRow(USERNAME_FIELD_TOP_Y, 58, leftRow(44, usernameFieldPanel))
             addRow(passwordLabelTop, labelHeight, leftRow(60, passwordLabel))
@@ -286,8 +251,12 @@ class LoginForm : JPanel(GridBagLayout()) {
                 isOpaque = false
                 foreground = Color(0x17, 0xAE, 0xFF)
                 font = linkFont
-                cursor = java.awt.Cursor.getPredefinedCursor(java.awt.Cursor.HAND_CURSOR)
+                cursor = Cursor.getPredefinedCursor(Cursor.HAND_CURSOR)
                 addMouseListener(object : MouseAdapter() {
+                    override fun mouseClicked(e: MouseEvent?) {
+                        openSignupUrl()
+                    }
+
                     override fun mouseEntered(e: MouseEvent?) {
                         foreground = Color(0x4D, 0xC5, 0xFF)
                         repaint()
@@ -333,6 +302,20 @@ class LoginForm : JPanel(GridBagLayout()) {
             }
         }
 
+        private fun openSignupUrl() {
+            if (!Desktop.isDesktopSupported()) {
+                return
+            }
+
+            val desktop = Desktop.getDesktop()
+            if (!desktop.isSupported(Desktop.Action.BROWSE)) {
+                return
+            }
+            runCatching {
+                desktop.browse(URI(SIGNUP_URL))
+            }
+        }
+
         private fun wrapWithTopOffset(component: JComponent, topOffset: Int, height: Int): JPanel {
             return JPanel().apply {
                 isOpaque = false
@@ -343,7 +326,7 @@ class LoginForm : JPanel(GridBagLayout()) {
                 if (topOffset > 0) {
                     add(Box.createVerticalStrut(topOffset))
                 }
-                component.alignmentX = Component.LEFT_ALIGNMENT
+                component.alignmentX = LEFT_ALIGNMENT
                 add(component)
                 val usedHeight = topOffset + component.preferredSize.height
                 if (usedHeight < height) {
@@ -373,11 +356,7 @@ class LoginForm : JPanel(GridBagLayout()) {
         }
     }
 
-    private inner class LoginFieldPanel(
-        private val field: JComponent,
-        private val focused: Boolean,
-        showEye: Boolean
-    ) : JPanel() {
+    private inner class LoginFieldPanel(field: JComponent) : JPanel() {
         init {
             isOpaque = false
             layout = BoxLayout(this, BoxLayout.X_AXIS)
@@ -392,55 +371,7 @@ class LoginForm : JPanel(GridBagLayout()) {
             }
 
             add(field)
-            if (showEye) {
-                add(JPanel().apply {
-                    isOpaque = false
-                    layout = BoxLayout(this, BoxLayout.X_AXIS)
-                    border = EmptyBorder(0, 0, 0, 14)
-                    minimumSize = Dimension(54, 58)
-                    preferredSize = Dimension(54, 58)
-                    maximumSize = Dimension(54, 58)
-                })
-            } else {
-                add(Box.createHorizontalStrut(14))
-            }
-        }
-
-        override fun paintComponent(g: Graphics) {
-            val g2 = g.create() as Graphics2D
-            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON)
-            g2.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY)
-
-            val glowAlpha = if (focused) 58 else 26
-            g2.color = Color(0x47, 0xC5, 0xFF, glowAlpha)
-            g2.fillRoundRect(2, 2, width - 4, height - 4, 12, 12)
-
-            val fillPaint = LinearGradientPaint(
-                Point2D.Float(0f, 0f),
-                Point2D.Float(width.toFloat(), 0f),
-                floatArrayOf(0f, 0.55f, 1f),
-                arrayOf(
-                    Color(0x08, 0x11, 0x1D, 245),
-                    Color(0x09, 0x15, 0x22, 250),
-                    Color(0x0A, 0x13, 0x20, 245)
-                )
-            )
-            g2.paint = fillPaint
-            g2.fillRoundRect(0, 0, width - 1, height - 1, 12, 12)
-
-            g2.paint = LinearGradientPaint(
-                Point2D.Float(0f, 0f),
-                Point2D.Float(width.toFloat(), 0f),
-                floatArrayOf(0f, 1f),
-                arrayOf(
-                    Color(0x3E, 0x67, 0x8A, 204),
-                    Color(0x31, 0x4D, 0x69, 204)
-                )
-            )
-            g2.stroke = BasicStroke(1.5f)
-            g2.drawRoundRect(1, 1, width - 3, height - 3, 11, 11)
-            g2.dispose()
-            super.paintComponent(g)
+            add(Box.createHorizontalStrut(14))
         }
     }
 
@@ -455,11 +386,17 @@ class LoginForm : JPanel(GridBagLayout()) {
             border = BorderFactory.createEmptyBorder()
             foreground = Color.WHITE
             font = buttonFont
-            horizontalAlignment = SwingConstants.CENTER
-            verticalAlignment = SwingConstants.CENTER
+            horizontalAlignment = CENTER
+            verticalAlignment = CENTER
             minimumSize = Dimension(420, 60)
             preferredSize = Dimension(420, 60)
             maximumSize = Dimension(420, 60)
+//            ui = object : BasicButtonUI() {
+//                override fun paintButtonPressed(g: Graphics, b: AbstractButton) {
+//                    g.color = Color(58, 63, 73)
+//                    g.fillRect(0, 0, b.size.width, b.size.height);
+//                }
+//            }
         }
 
         override fun paintComponent(g: Graphics) {
@@ -536,17 +473,5 @@ class LoginForm : JPanel(GridBagLayout()) {
 
     private fun interFont(style: Int, size: Float): Font {
         return Font("Inter", style, 1).deriveFont(size)
-    }
-}
-
-fun main() {
-    // Ensure Swing components are created on the Event Dispatch Thread
-    SwingUtilities.invokeLater {
-        val frame = JFrame("Kotlin Swing Window")
-        frame.defaultCloseOperation = WindowConstants.EXIT_ON_CLOSE
-        frame.setSize(400, 300)
-        frame.contentPane = LoginForm()
-        frame.pack()
-        frame.isVisible = true
     }
 }

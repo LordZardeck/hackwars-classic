@@ -6,7 +6,7 @@ import java.awt.event.WindowEvent
 import javax.swing.JFrame
 import javax.swing.JPanel
 import javax.swing.SwingUtilities
-import javax.swing.WindowConstants
+import javax.swing.UIManager
 import javax.swing.border.EmptyBorder
 
 class ApplicationWindow : JFrame() {
@@ -37,7 +37,7 @@ class ApplicationWindow : JFrame() {
 
 fun main() {
 //    This breaks normal copy/paste functionality. Hopefully we can switch between native and cross platform when we switch to the app view
-//    runCatching { UIManager.setLookAndFeel(UIManager.getCrossPlatformLookAndFeelClassName()) }.onFailure { println("Warning: Unable to set system look and feel: ${it.message}") }
+    runCatching { UIManager.setLookAndFeel("com.hackwars.gui.HackWarsLookAndFeel") }.onFailure { println("Warning: Unable to set system look and feel: ${it.message}") }
     SwingUtilities.invokeLater(object : Runnable {
         override fun run() {
             ApplicationWindow()
