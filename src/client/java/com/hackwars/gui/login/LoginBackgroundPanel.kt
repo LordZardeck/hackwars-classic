@@ -5,6 +5,7 @@ import com.github.weisj.jsvg.geometry.size.FloatSize
 import com.hackwars.gui.svgResource
 import java.awt.*
 import javax.swing.JPanel
+import kotlin.math.ceil
 import kotlin.math.roundToInt
 
 /**
@@ -69,9 +70,21 @@ open class LoginBackgroundPanel : JPanel() {
         val logoDocument = svgResource("images/hackwars-logo-split.svg")
     }
 
-    private fun getSplitX(componentWidth: Int): Int {
+    protected fun getSplitX(componentWidth: Int): Int {
         val split = (componentWidth * REFERENCE_SPLIT_RATIO).roundToInt()
         return split.coerceIn(0, minOf(componentWidth, MAX_LEFT_SPLIT_WIDTH))
+    }
+
+    /**
+     * Returns the absolute x-coordinate of the rendered logo's right edge for the given component size.
+     * If the logo is unavailable, falls back to the split position.
+     */
+    protected fun getLogoRightEdgeX(componentSize: Dimension): Int {
+        val splitX = getSplitX(componentSize.width)
+        val document = logoDocument ?: return splitX
+        val scaledSize = getScaledLogoSize(document.size(), componentSize)
+        val logoLeft = (splitX - (scaledSize.width / 2f)).toInt()
+        return logoLeft + ceil(scaledSize.width.toDouble()).toInt()
     }
 
     /**

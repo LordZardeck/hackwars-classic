@@ -9,147 +9,22 @@ import java.awt.geom.RoundRectangle2D
 import java.net.URI
 import java.text.AttributedString
 import javax.swing.*
-import javax.swing.border.EmptyBorder
 
-class LoginForm : JPanel(GridBagLayout()) {
-    private companion object {
-        const val ROOT_WIDTH = 620
-        const val ROOT_HEIGHT = 560
-        const val CARD_WIDTH = 508
-        const val CARD_HEIGHT = 490
-
-        const val TOP_GLOW_X = 158
-        const val TOP_GLOW_Y = -10
-        const val TOP_GLOW_WIDTH = 192
-        const val TOP_GLOW_HEIGHT = 2
-
-        const val TITLE_BASELINE_Y = 65
-        const val USERNAME_LABEL_BASELINE_Y = 145
-        const val USERNAME_FIELD_TOP_Y = 158
-        const val PASSWORD_LABEL_BASELINE_Y = 256
-        const val PASSWORD_FIELD_TOP_Y = 269
-        const val BUTTON_TOP_Y = 366
-        const val FOOTER_SMALL_BASELINE_Y = 460
-        const val FOOTER_LINK_BASELINE_Y = 458
-
-        const val TOP_LINE_Y = 95
-        const val BOTTOM_LINE_Y = 390
-        const val LINE_X = 48
-        const val LINE_WIDTH = 412
-        const val SIGNUP_URL = "https://www.reddit.com/r/HackWars/"
-    }
-
-    private val cardPanel = LoginCardPanel()
-
+class LoginFormSeparator : JPanel() {
     init {
         isOpaque = false
-        preferredSize = Dimension(ROOT_WIDTH, ROOT_HEIGHT)
-        minimumSize = Dimension(ROOT_WIDTH, ROOT_HEIGHT)
-        maximumSize = Dimension(ROOT_WIDTH, ROOT_HEIGHT)
-
-        val constraints = GridBagConstraints().apply {
-            gridx = 0
-            gridy = 0
-            insets = Insets(40, 56, 30, 56)
-        }
-        add(cardPanel, constraints)
+        preferredSize = Dimension(300, 50)
     }
 
-    override fun paintComponent(g: Graphics) {
-        super.paintComponent(g)
-        val g2 = g.create() as Graphics2D
-        g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON)
-        g2.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY)
+    override fun paintComponent(g: Graphics?) {
+        val width = width
+        val xOffset = width * .1
+        val y = (height / 2)
 
-        val card = cardPanel.bounds
-        if (card.width > 0 && card.height > 0) {
-            paintCardShadow(g2, card.x, card.y, card.width, card.height)
-            paintTopGlow(g2, card.x + TOP_GLOW_X, card.y + TOP_GLOW_Y)
-        }
-        g2.dispose()
-    }
-
-    private fun paintCardShadow(g2: Graphics2D, x: Int, y: Int, width: Int, height: Int) {
-        g2.color = Color(0x03, 0x10, 0x1C, 100)
-        g2.fillRoundRect(x - 5, y + -5, width + 10, height + 10, 52, 52)
-
-        g2.color = Color(0x50, 0xC9, 0xFF, 38)
-        g2.fillRoundRect(x - 4, y + -4, width + 8, height + 8, 46, 46)
-    }
-
-    private fun paintTopGlow(g2: Graphics2D, x: Int, y: Int) {
-        for (i in 4 downTo 0) {
-            val alpha = (12 + i * 9).coerceAtMost(90)
-            g2.color = Color(0x4D, 0xCD, 0xFF, alpha)
-            g2.fillRoundRect(
-                x - i,
-                y - i,
-                TOP_GLOW_WIDTH + i * 2,
-                TOP_GLOW_HEIGHT + i * 2,
-                6 + i * 2,
-                6 + i * 2
-            )
-        }
-    }
-
-    private inner class LoginCardPanel : JPanel() {
-        private val titleFont = interFont(Font.BOLD, 40f)
-        private val labelFont = interFont(Font.BOLD, 25f)
-        private val inputFont = interFont(Font.BOLD, 22f)
-        private val smallFont = interFont(Font.PLAIN, 18f)
-        private val linkFont = interFont(Font.BOLD, 18f)
-
-        init {
-            isOpaque = false
-            layout = BoxLayout(this, BoxLayout.Y_AXIS)
-            preferredSize = Dimension(CARD_WIDTH, CARD_HEIGHT)
-            minimumSize = Dimension(CARD_WIDTH, CARD_HEIGHT)
-            maximumSize = Dimension(CARD_WIDTH, CARD_HEIGHT)
-            buildContent()
-        }
-
-        override fun paintComponent(g: Graphics) {
-            val g2 = g.create() as Graphics2D
-            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON)
-            g2.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY)
-
-            val backgroundPaint = LinearGradientPaint(
-                Point2D.Float(8f, 0f),
-                Point2D.Float(500f, 480f),
-                floatArrayOf(0f, 0.55f, 1f),
-                arrayOf(
-                    Color(0x15, 0x39, 0x5D),
-                    Color(0x0A, 0x22, 0x3B),
-                    Color(0x06, 0x13, 0x21)
-                )
-            )
-            g2.paint = backgroundPaint
-            g2.fillRoundRect(0, 0, width - 1, height - 1, 40, 40)
-
-            val strokePaint = GradientPaint(
-                0f,
-                0f,
-                Color(0x2A, 0x5E, 0x8E),
-                0f,
-                height.toFloat(),
-                Color(0x16, 0x32, 0x4D)
-            )
-            g2.paint = strokePaint
-            g2.stroke = BasicStroke(2f)
-            val border = RoundRectangle2D.Float(1f, 1f, width - 2f, height - 2f, 38f, 38f)
-            g2.draw(border)
-
-            paintGlowLine(g2, TOP_LINE_Y)
-            paintGlowLine(g2, BOTTOM_LINE_Y)
-
-            g2.dispose()
-            super.paintComponent(g)
-        }
-
-        private fun paintGlowLine(g2: Graphics2D, y: Int) {
+        (g?.create() as? Graphics2D)?.run {
             val linePaint = LinearGradientPaint(
-                Point2D.Float(LINE_X.toFloat(), y.toFloat()),
-                Point2D.Float((LINE_X + LINE_WIDTH).toFloat(), y.toFloat()),
+                Point2D.Float(xOffset.toFloat(), y.toFloat()),
+                Point2D.Float((width - xOffset).toFloat(), y.toFloat()),
                 floatArrayOf(0f, 0.5f, 1f),
                 arrayOf(
                     Color(0x2D, 0x5E, 0x8B, 0),
@@ -157,9 +32,107 @@ class LoginForm : JPanel(GridBagLayout()) {
                     Color(0x2D, 0x5E, 0x8B, 0)
                 )
             )
-            g2.paint = linePaint
-            g2.stroke = BasicStroke(1f)
-            g2.drawLine(LINE_X, y, LINE_X + LINE_WIDTH, y)
+            paint = linePaint
+            stroke = BasicStroke(1f)
+            drawLine(xOffset.toInt(), y, (width - xOffset).toInt(), y)
+        }
+    }
+}
+
+class LoginForm : JPanel(GridBagLayout()) {
+    private companion object {
+        const val GLOW_INSET = 10f
+        const val OUTER_ARC = 40f
+        const val INNER_INSET = 1.25f
+
+        const val SIGNUP_URL = "https://www.reddit.com/r/HackWars/"
+    }
+
+    private val cardPanel = LoginCardPanel()
+
+    init {
+        isOpaque = false
+
+        val constraints = GridBagConstraints().apply {
+            gridx = 0
+            gridy = 0
+            insets = Insets(0,0,0,0)
+        }
+        add(cardPanel, constraints)
+    }
+
+    private inner class LoginCardPanel : JPanel() {
+        private val labelFont = interFont(Font.PLAIN, 14f)
+        private val smallFont = interFont(Font.PLAIN, 14f)
+        private val linkFont = interFont(Font.BOLD, 16f)
+
+        init {
+            isOpaque = false
+            layout = BoxLayout(this, BoxLayout.Y_AXIS)
+            border = BorderFactory.createEmptyBorder(30,30,30,30)
+            buildContent()
+        }
+
+
+        private fun Color.withAlpha(alpha: Int): Color = Color(red, green, blue, alpha.coerceIn(0, 255))
+
+        override fun paintComponent(g: Graphics) {
+            val c = this
+            (g?.create() as? Graphics2D)?.run {
+                setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON)
+                setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY)
+
+                composite = AlphaComposite.SrcOver
+
+                val width = c.width
+                val height = c.height
+                if (width <= 1 || height <= 1) {
+                    dispose()
+                    return
+                }
+
+                // Keep border/glow slightly inset so thicker strokes are not clipped by component bounds.
+                val outerX = GLOW_INSET + 0.5f
+                val outerY = GLOW_INSET + 0.5f
+                val outerW = (width - (GLOW_INSET * 2f) - 1f).coerceAtLeast(2f)
+                val outerH = (height - (GLOW_INSET * 2f) - 1f).coerceAtLeast(2f)
+                val rect = RoundRectangle2D.Float(outerX, outerY, outerW, outerH, OUTER_ARC, OUTER_ARC)
+
+                // Soft static glow
+                for (i in 6 downTo 1) {
+                    color = Color(4, 12, 20).withAlpha(60-(i*15).coerceAtLeast(0))
+                    stroke = BasicStroke(i * 2.8f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND)
+                    draw(rect)
+                }
+
+                // Draw background over gradient lines so that the inside of the input doesn't have the gradient
+                paint = LinearGradientPaint(
+                    Point2D.Float(8f, 0f),
+                    Point2D.Float(c.width * .8f, c.height * 1.4f),
+                    floatArrayOf(0f, 0.55f, 1f),
+                    arrayOf(
+                        Color(0x15, 0x39, 0x5D),
+                        Color(0x0A, 0x22, 0x3B),
+                        Color(0x06, 0x13, 0x21)
+                    )
+                )
+
+                val innerArc = (OUTER_ARC - 2f).coerceAtLeast(2f)
+                fill(
+                    RoundRectangle2D.Float(
+                        outerX + INNER_INSET,
+                        outerY + INNER_INSET,
+                        (outerW - (INNER_INSET * 2f)).coerceAtLeast(1f),
+                        (outerH - (INNER_INSET * 2f)).coerceAtLeast(1f),
+                        innerArc,
+                        innerArc
+                    )
+                )
+
+                dispose()
+            }
+
+            super.paintComponent(g)
         }
 
         private fun buildContent() {
@@ -175,50 +148,23 @@ class LoginForm : JPanel(GridBagLayout()) {
             }
 
             val usernameFieldPanel = LoginFieldPanel(usernameField)
+            usernameFieldPanel.preferredSize = Dimension(200, 46)
             val passwordFieldPanel = LoginFieldPanel(passwordField)
+            passwordFieldPanel.preferredSize = Dimension(200, 46)
 
             val loginButton = LoginButton("LOGIN")
             val footerPanel = createFooterPanel()
 
-            val titleTop = TITLE_BASELINE_Y - getFontMetrics(titleFont).ascent
-            val labelTop = USERNAME_LABEL_BASELINE_Y - getFontMetrics(labelFont).ascent
-            val passwordLabelTop = PASSWORD_LABEL_BASELINE_Y - getFontMetrics(labelFont).ascent
 
-            var cursor = 0
-            fun addGapUntil(targetY: Int) {
-                val gap = targetY - cursor
-                if (gap > 0) {
-                    add(Box.createVerticalStrut(gap))
-                    cursor += gap
-                }
-            }
-
-            fun addRow(targetY: Int, height: Int, row: JComponent) {
-                addGapUntil(targetY)
-                row.alignmentX = LEFT_ALIGNMENT
-                row.minimumSize = Dimension(CARD_WIDTH, height)
-                row.preferredSize = Dimension(CARD_WIDTH, height)
-                row.maximumSize = Dimension(CARD_WIDTH, height)
-                add(row)
-                cursor += height
-            }
-
-            val labelHeight = getFontMetrics(labelFont).height
-            addRow(labelTop, labelHeight, leftRow(60, usernameLabel))
-            addRow(USERNAME_FIELD_TOP_Y, 58, leftRow(44, usernameFieldPanel))
-            addRow(passwordLabelTop, labelHeight, leftRow(60, passwordLabel))
-            addRow(PASSWORD_FIELD_TOP_Y, 58, leftRow(44, passwordFieldPanel))
-            addRow(BUTTON_TOP_Y, 60, leftRow(44, loginButton))
-
-            val footerTop = minOf(
-                FOOTER_SMALL_BASELINE_Y - getFontMetrics(smallFont).ascent,
-                FOOTER_LINK_BASELINE_Y - getFontMetrics(linkFont).ascent
-            )
-            addRow(footerTop, footerPanel.preferredSize.height, footerPanel)
-
-            if (cursor < CARD_HEIGHT) {
-                add(Box.createVerticalStrut(CARD_HEIGHT - cursor))
-            }
+            add(leftRow(10, usernameLabel))
+            add(fillRow(usernameFieldPanel))
+            add(add(Box.createVerticalStrut(10)))
+            add(leftRow(10, passwordLabel))
+            add(fillRow(passwordFieldPanel))
+            add(fillRow(LoginFormSeparator()))
+            add(fillRow(loginButton))
+            add(add(Box.createVerticalStrut(20)))
+            add(fillRow(footerPanel))
         }
 
         private fun createLabel(text: String): JLabel {
@@ -269,35 +215,13 @@ class LoginForm : JPanel(GridBagLayout()) {
                 })
             }
 
-            val smallMetrics = smallLabel.getFontMetrics(smallFont)
-            val smallWidth = smallMetrics.stringWidth(smallLabel.text)
-            val smallAscent = smallMetrics.ascent
-            val smallHeight = smallMetrics.height
-
-            val linkMetrics = linkLabel.getFontMetrics(linkFont)
-            val linkAscent = linkMetrics.ascent
-            val linkHeight = linkMetrics.height
-
-            val smallTop = FOOTER_SMALL_BASELINE_Y - smallAscent
-            val linkTop = FOOTER_LINK_BASELINE_Y - linkAscent
-            val rowTop = minOf(smallTop, linkTop)
-            val smallOffset = smallTop - rowTop
-            val linkOffset = linkTop - rowTop
-            val rowHeight = maxOf(smallOffset + smallHeight, linkOffset + linkHeight + 7)
-
-            val smallStartX = (214 - (smallWidth / 2f)).toInt().coerceAtLeast(0)
-            val gap = (331 - (smallStartX + smallWidth)).coerceAtLeast(8)
-
             return JPanel().apply {
                 isOpaque = false
                 layout = BoxLayout(this, BoxLayout.X_AXIS)
-                preferredSize = Dimension(CARD_WIDTH, rowHeight)
-                minimumSize = Dimension(CARD_WIDTH, rowHeight)
-                maximumSize = Dimension(CARD_WIDTH, rowHeight)
-                add(Box.createHorizontalStrut(smallStartX))
-                add(wrapWithTopOffset(smallLabel, smallOffset, rowHeight))
-                add(Box.createHorizontalStrut(gap))
-                add(wrapWithTopOffset(linkLabel, linkOffset, rowHeight))
+                add(Box.createHorizontalGlue())
+                add(smallLabel)
+                add(Box.createHorizontalStrut(30))
+                add(linkLabel)
                 add(Box.createHorizontalGlue())
             }
         }
@@ -316,32 +240,10 @@ class LoginForm : JPanel(GridBagLayout()) {
             }
         }
 
-        private fun wrapWithTopOffset(component: JComponent, topOffset: Int, height: Int): JPanel {
-            return JPanel().apply {
+        private fun fillRow(component: JComponent): JPanel {
+            return JPanel(BorderLayout()).apply {
                 isOpaque = false
-                layout = BoxLayout(this, BoxLayout.Y_AXIS)
-                minimumSize = Dimension(component.preferredSize.width, height)
-                preferredSize = Dimension(component.preferredSize.width, height)
-                maximumSize = Dimension(component.preferredSize.width, height)
-                if (topOffset > 0) {
-                    add(Box.createVerticalStrut(topOffset))
-                }
-                component.alignmentX = LEFT_ALIGNMENT
-                add(component)
-                val usedHeight = topOffset + component.preferredSize.height
-                if (usedHeight < height) {
-                    add(Box.createVerticalStrut(height - usedHeight))
-                }
-            }
-        }
-
-        private fun centeredRow(component: JComponent): JPanel {
-            return JPanel().apply {
-                isOpaque = false
-                layout = BoxLayout(this, BoxLayout.X_AXIS)
-                add(Box.createHorizontalGlue())
-                add(component)
-                add(Box.createHorizontalGlue())
+                add(component, BorderLayout.CENTER)
             }
         }
 
@@ -376,21 +278,16 @@ class LoginForm : JPanel(GridBagLayout()) {
     }
 
     private inner class LoginButton(text: String) : JButton(text) {
-        private val buttonFont = interFont(Font.BOLD, 27f)
+        private val buttonFont = interFont(Font.BOLD, 18f)
 
         init {
             isOpaque = false
             isFocusPainted = false
             isBorderPainted = false
             isContentAreaFilled = false
-            border = BorderFactory.createEmptyBorder()
+            border = BorderFactory.createEmptyBorder(8, 8, 8, 8)
             foreground = Color.WHITE
             font = buttonFont
-            horizontalAlignment = CENTER
-            verticalAlignment = CENTER
-            minimumSize = Dimension(420, 60)
-            preferredSize = Dimension(420, 60)
-            maximumSize = Dimension(420, 60)
 //            ui = object : BasicButtonUI() {
 //                override fun paintButtonPressed(g: Graphics, b: AbstractButton) {
 //                    g.color = Color(58, 63, 73)

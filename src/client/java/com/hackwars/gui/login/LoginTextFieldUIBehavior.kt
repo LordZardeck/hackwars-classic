@@ -45,11 +45,11 @@ class LoginTextFieldUIBehavior : TextFieldUIBehavior {
     override fun installFieldDefaults(c: JTextField) {
         component = c
         c.isOpaque = false
-        c.border = EmptyBorder(0, 24, 0, 24)
+        c.border = EmptyBorder(0, 16, 0, 16)
         c.background = Color(0x08, 0x11, 0x1D)
         c.foreground = Color(0xD3, 0xD9, 0xE3)
         c.caretColor = Color(0xD3, 0xD9, 0xE3)
-        c.font = Font("Inter", Font.BOLD, 1).deriveFont(22f)
+        c.font = Font("Inter", Font.BOLD, 1).deriveFont(16f)
     }
 
     override fun paintFieldBackground(c: JTextField, g: Graphics?) {
