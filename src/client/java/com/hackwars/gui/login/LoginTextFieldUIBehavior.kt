@@ -14,6 +14,12 @@ interface TextFieldUIBehavior {
 }
 
 class LoginTextFieldUIBehavior : TextFieldUIBehavior {
+    private companion object {
+        const val GLOW_INSET = 4f
+        const val OUTER_ARC = 12f
+        const val INNER_INSET = 1.25f
+    }
+
     private var scanX = -80f
 
     private var component: JTextField? = null
@@ -21,7 +27,7 @@ class LoginTextFieldUIBehavior : TextFieldUIBehavior {
     init {
         Timer(16) {
             component?.let {
-                if(!it.isFocusOwner) {
+                if (!it.isFocusOwner) {
                     if (scanX != -80f) {
                         scanX = -80f
                         it.repaint()
@@ -59,17 +65,33 @@ class LoginTextFieldUIBehavior : TextFieldUIBehavior {
                 return
             }
 
-            /** Draw Scan Line around input */
-            val rect: RoundRectangle2D =
-                RoundRectangle2D.Float(0.5f, 0.5f, width - 1f, height - 1f, 12f, 12f)
+            // Keep border/glow slightly inset so thicker strokes are not clipped by component bounds.
+            val outerX = GLOW_INSET + 0.5f
+            val outerY = GLOW_INSET + 0.5f
+            val outerW = (width - (GLOW_INSET * 2f) - 1f).coerceAtLeast(2f)
+            val outerH = (height - (GLOW_INSET * 2f) - 1f).coerceAtLeast(2f)
+            val rect = RoundRectangle2D.Float(outerX, outerY, outerW, outerH, OUTER_ARC, OUTER_ARC)
 
             // Ensure a deterministic dark base each repaint without painting square corners.
             color = c.background
             fill(rect)
 
             // Soft static glow
-            color = Color(73, 199, 255, 10)
-            for (i in 3 downTo 1) {
+            val isFocused = c.isFocusOwner
+            val glowLayers = if (isFocused) 2 else 4
+            val innerGlowColor = Color(73, 199, 255)
+            val outerGlowColor = Color(4, 12, 20)
+            val innerGlowAlpha = if (isFocused) 30 else 60
+            val outerGlowAlpha = 20
+            for (i in glowLayers downTo 1) {
+                val linearT = if (glowLayers == 1) 1f else (i - 1f) / (glowLayers - 1f)
+                val t = linearT
+                // Aggressive falloff: keep only the innermost band bright.
+                val fade = 1f - t
+                val falloff = fade * fade * fade * fade
+                val layerAlpha =
+                    (outerGlowAlpha + ((innerGlowAlpha - outerGlowAlpha) * falloff)).toInt()
+                color = blend(outerGlowColor, innerGlowColor, fade).withAlpha(layerAlpha)
                 stroke = BasicStroke(i * 1.8f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND)
                 draw(rect)
             }
@@ -85,11 +107,11 @@ class LoginTextFieldUIBehavior : TextFieldUIBehavior {
             )
             paint = scanner
             stroke = BasicStroke(3f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND)
-            if(c.isFocusOwner) {
+            if (isFocused) {
                 draw(rect)
             }
 
-            color = Color(73, 199, 255, 70)
+            color = Color(73, 199, 255).withAlpha(if (isFocused) 70 else 24)
             stroke = BasicStroke(1f)
             draw(rect)
 
@@ -105,12 +127,28 @@ class LoginTextFieldUIBehavior : TextFieldUIBehavior {
                 )
             )
             paint = fillPaint
+            val innerArc = (OUTER_ARC - 2f).coerceAtLeast(2f)
             fill(
-                RoundRectangle2D.Float(1.5f, 1.5f, width - 3f, height - 3f, 10f, 10f)
+                RoundRectangle2D.Float(
+                    outerX + INNER_INSET,
+                    outerY + INNER_INSET,
+                    (outerW - (INNER_INSET * 2f)).coerceAtLeast(1f),
+                    (outerH - (INNER_INSET * 2f)).coerceAtLeast(1f),
+                    innerArc,
+                    innerArc
+                )
             )
 
             dispose()
         }
+    }
+
+    private fun blend(from: Color, to: Color, t: Float): Color {
+        val ratio = t.coerceIn(0f, 1f)
+        val r = (from.red + ((to.red - from.red) * ratio)).toInt()
+        val g = (from.green + ((to.green - from.green) * ratio)).toInt()
+        val b = (from.blue + ((to.blue - from.blue) * ratio)).toInt()
+        return Color(r, g, b)
     }
 
     private fun Color.withAlpha(alpha: Int): Color = Color(red, green, blue, alpha.coerceIn(0, 255))
