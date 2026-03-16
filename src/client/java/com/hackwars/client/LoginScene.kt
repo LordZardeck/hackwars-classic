@@ -6,7 +6,11 @@ import java.awt.Dimension
 import java.awt.GridBagConstraints
 import java.awt.GridBagLayout
 import java.awt.Insets
+import java.awt.event.HierarchyEvent
+import java.awt.event.HierarchyListener
+import java.util.*
 import javax.swing.JPanel
+import kotlin.concurrent.schedule
 
 class LoginScene : LoginBackgroundPanel() {
     companion object {
@@ -16,6 +20,8 @@ class LoginScene : LoginBackgroundPanel() {
         private const val FORM_SIDE_INSET = 30
         private const val FORM_VERTICAL_INSET = 30
     }
+
+    private val isAuthenticating = true
 
     private val emptyColumn = JPanel().apply {
         isOpaque = false
@@ -40,6 +46,34 @@ class LoginScene : LoginBackgroundPanel() {
         layout = null
         preferredSize = Dimension(PANEL_WIDTH, PANEL_HEIGHT)
         buildColumns()
+        formPanel.isVisible = false
+
+        addHierarchyListener(object : HierarchyListener {
+            override fun hierarchyChanged(e: HierarchyEvent?) {
+                e?.changeFlags?.let {
+                    when {
+                        (e.changeFlags and HierarchyEvent.SHOWING_CHANGED.toLong()) != 0L -> Timer().schedule(1000) { toggleLogin() }
+                    }
+                }
+            }
+        })
+
+        formPanel.apply {
+            addAuthenticationListener(object : LoginForm.AuthenticationListener {
+                override fun onAuthenticationEvent(event: LoginForm.AuthenticationEvent) {
+                    when(event.eventType) {
+                        LoginForm.AuthenticationEvent.EventType.STARTED -> toggleLogin(false)
+                        LoginForm.AuthenticationEvent.EventType.FAILURE -> toggleLogin(true)
+                        else -> {}
+                    }
+                }
+            })
+        }
+    }
+
+    private fun toggleLogin(force: Boolean = !formPanel.isVisible) {
+        formPanel.isVisible = force
+        centered = !formPanel.isVisible
     }
 
     private fun buildColumns() {

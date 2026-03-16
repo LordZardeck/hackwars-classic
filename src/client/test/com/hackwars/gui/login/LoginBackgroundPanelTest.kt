@@ -123,6 +123,39 @@ class LoginBackgroundPanelTest {
         assertEquals(Color(0x2C, 0xEE, 0xFF), splitRightTop)
     }
 
+    @Test
+    fun paint_splitPosition_movesToCenter_whenCenteredIsTrue() {
+        val panel = LoginBackgroundPanel()
+        val componentSize = Dimension(640, 400)
+        panel.centered = true
+        val splitX = getCenteredSplitX(componentSize.width)
+        val image = renderPanel(panel, componentSize)
+
+        val splitLeftTop = Color(image.getRGB(splitX - 1, 0), true)
+        val splitRightTop = Color(image.getRGB(splitX, 0), true)
+
+        assertEquals(Color(0x3F, 0x4D, 0x57), splitLeftTop)
+        assertEquals(Color(0x2C, 0xEE, 0xFF), splitRightTop)
+    }
+
+    @Test
+    fun setCentered_animatedWithZeroDuration_appliesTargetStateImmediately() {
+        val panel = LoginBackgroundPanel()
+        val componentSize = Dimension(640, 400)
+        val centeredSplitX = getCenteredSplitX(componentSize.width)
+
+        panel.setCentered(centered = true, animate = true, durationMs = 0)
+        val centeredImage = renderPanel(panel, componentSize)
+        assertEquals(Color(0x3F, 0x4D, 0x57), Color(centeredImage.getRGB(centeredSplitX - 1, 0), true))
+        assertEquals(Color(0x2C, 0xEE, 0xFF), Color(centeredImage.getRGB(centeredSplitX, 0), true))
+
+        panel.setCentered(centered = false, animate = true, durationMs = 0)
+        val dynamicSplitX = getSplitX(componentSize.width)
+        val dynamicImage = renderPanel(panel, componentSize)
+        assertEquals(Color(0x3F, 0x4D, 0x57), Color(dynamicImage.getRGB(dynamicSplitX - 1, 0), true))
+        assertEquals(Color(0x2C, 0xEE, 0xFF), Color(dynamicImage.getRGB(dynamicSplitX, 0), true))
+    }
+
     private fun renderPanel(panel: LoginBackgroundPanel, componentSize: Dimension): BufferedImage {
         panel.size = componentSize
         return BufferedImage(componentSize.width, componentSize.height, BufferedImage.TYPE_INT_ARGB).also { image ->
@@ -140,6 +173,10 @@ class LoginBackgroundPanelTest {
         return split.coerceIn(0, minOf(componentWidth, MAX_LEFT_SPLIT_WIDTH))
     }
 
+    private fun getCenteredSplitX(componentWidth: Int): Int {
+        return (componentWidth * CENTERED_SPLIT_RATIO).roundToInt()
+    }
+
     private fun assertFloatEquals(expected: Float, actual: Float) {
         assertTrue("Expected $expected but was $actual", abs(expected - actual) <= EPSILON)
     }
@@ -151,6 +188,7 @@ class LoginBackgroundPanelTest {
         private const val MAX_LEFT_SPLIT_WIDTH = 308
         private const val LOGO_LEFT_MIN_OFFSET = 100f
         private const val LOGO_TOP_MIN_OFFSET = 200f
+        private const val CENTERED_SPLIT_RATIO = 0.5f
         private const val EPSILON = 0.001f
     }
 }

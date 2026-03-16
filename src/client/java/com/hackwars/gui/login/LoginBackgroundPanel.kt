@@ -5,6 +5,7 @@ import com.github.weisj.jsvg.geometry.size.FloatSize
 import com.hackwars.gui.svgResource
 import java.awt.*
 import javax.swing.JPanel
+import javax.swing.Timer
 import kotlin.math.ceil
 import kotlin.math.roundToInt
 
@@ -66,13 +67,42 @@ open class LoginBackgroundPanel : JPanel() {
         const val MAX_LEFT_SPLIT_WIDTH = 308
         const val LOGO_LEFT_MIN_OFFSET = 100f
         const val LOGO_TOP_MIN_OFFSET = 200f
+        const val DEFAULT_CENTER_ANIMATION_DURATION_MS = 320
+        const val ANIMATION_FRAME_DELAY_MS = 16
 
         val logoDocument = svgResource("images/hackwars-logo-split.svg")
     }
 
+    private var centeredState = true
+    private var centeredProgress = 1f
+    private var centerAnimationTimer: Timer? = null
+
+    var centered: Boolean
+        get() = centeredState
+        set(value) {
+            applyCenteredState(value, animate = true, durationMs = DEFAULT_CENTER_ANIMATION_DURATION_MS)
+        }
+
+    @JvmOverloads
+    fun setCentered(centered: Boolean, animate: Boolean, durationMs: Int = DEFAULT_CENTER_ANIMATION_DURATION_MS) {
+        applyCenteredState(centered, animate, durationMs)
+    }
+
+    @JvmOverloads
+    fun animateCentering(durationMs: Int = DEFAULT_CENTER_ANIMATION_DURATION_MS) {
+        applyCenteredState(centered = true, animate = true, durationMs = durationMs)
+    }
+
+    @JvmOverloads
+    fun animateUncentering(durationMs: Int = DEFAULT_CENTER_ANIMATION_DURATION_MS) {
+        applyCenteredState(centered = false, animate = true, durationMs = durationMs)
+    }
+
     protected fun getSplitX(componentWidth: Int): Int {
         val split = (componentWidth * REFERENCE_SPLIT_RATIO).roundToInt()
-        return split.coerceIn(0, minOf(componentWidth, MAX_LEFT_SPLIT_WIDTH))
+        val leftSplit = split.coerceIn(0, minOf(componentWidth, MAX_LEFT_SPLIT_WIDTH))
+        val centeredSplit = (componentWidth * 0.5f).roundToInt()
+        return lerp(leftSplit, centeredSplit, centeredProgress).roundToInt()
     }
 
     /**
@@ -121,6 +151,79 @@ open class LoginBackgroundPanel : JPanel() {
             documentSize.width * scale,
             documentSize.height * scale
         )
+    }
+
+    override fun removeNotify() {
+        stopCenterAnimation()
+        super.removeNotify()
+    }
+
+    private fun applyCenteredState(centered: Boolean, animate: Boolean, durationMs: Int) {
+        centeredState = centered
+        val target = if (centered) 1f else 0f
+        if (!animate || durationMs <= 0) {
+            stopCenterAnimation()
+            centeredProgress = target
+            onSplitChanged()
+            return
+        }
+
+        startCenterAnimation(target, durationMs.coerceAtLeast(1))
+    }
+
+    private fun startCenterAnimation(targetProgress: Float, durationMs: Int) {
+        if (centeredProgress == targetProgress) {
+            stopCenterAnimation()
+            centeredProgress = targetProgress
+            onSplitChanged()
+            return
+        }
+
+        stopCenterAnimation()
+        val startProgress = centeredProgress
+        val animationStart = System.nanoTime()
+
+        centerAnimationTimer = Timer(ANIMATION_FRAME_DELAY_MS) {
+            val elapsedMs = (System.nanoTime() - animationStart) / 1_000_000f
+            val t = (elapsedMs / durationMs).coerceIn(0f, 1f)
+            centeredProgress = lerp(startProgress, targetProgress, easeInOutCubic(t))
+            onSplitChanged()
+
+            if (t >= 1f) {
+                centeredProgress = targetProgress
+                stopCenterAnimation()
+                onSplitChanged()
+            }
+        }.apply {
+            isCoalesce = true
+            start()
+        }
+    }
+
+    private fun stopCenterAnimation() {
+        centerAnimationTimer?.stop()
+        centerAnimationTimer = null
+    }
+
+    private fun onSplitChanged() {
+        revalidate()
+        repaint()
+    }
+
+    private fun easeInOutCubic(t: Float): Float {
+        val x = t.coerceIn(0f, 1f)
+        return if (x < 0.5f) {
+            4f * x * x * x
+        } else {
+            1f - (((-2f * x) + 2f) * ((-2f * x) + 2f) * ((-2f * x) + 2f)) / 2f
+        }
+    }
+
+    private fun lerp(start: Int, end: Int, t: Float): Float = lerp(start.toFloat(), end.toFloat(), t)
+
+    private fun lerp(start: Float, end: Float, t: Float): Float {
+        val ratio = t.coerceIn(0f, 1f)
+        return start + ((end - start) * ratio)
     }
 
     override fun paintComponent(g: Graphics) {

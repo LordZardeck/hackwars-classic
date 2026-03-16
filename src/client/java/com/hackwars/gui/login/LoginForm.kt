@@ -8,38 +8,46 @@ import java.awt.geom.Point2D
 import java.awt.geom.RoundRectangle2D
 import java.net.URI
 import java.text.AttributedString
+import java.util.*
+import java.util.Timer
 import javax.swing.*
-
-class LoginFormSeparator : JPanel() {
-    init {
-        isOpaque = false
-        preferredSize = Dimension(300, 50)
-    }
-
-    override fun paintComponent(g: Graphics?) {
-        val width = width
-        val xOffset = width * .1
-        val y = (height / 2)
-
-        (g?.create() as? Graphics2D)?.run {
-            val linePaint = LinearGradientPaint(
-                Point2D.Float(xOffset.toFloat(), y.toFloat()),
-                Point2D.Float((width - xOffset).toFloat(), y.toFloat()),
-                floatArrayOf(0f, 0.5f, 1f),
-                arrayOf(
-                    Color(0x2D, 0x5E, 0x8B, 0),
-                    Color(0x49, 0xC7, 0xFF, 166),
-                    Color(0x2D, 0x5E, 0x8B, 0)
-                )
-            )
-            paint = linePaint
-            stroke = BasicStroke(1f)
-            drawLine(xOffset.toInt(), y, (width - xOffset).toInt(), y)
-        }
-    }
-}
+import kotlin.concurrent.schedule
 
 class LoginForm : JPanel(GridBagLayout()) {
+    class AuthenticationEvent(val eventType: EventType) {
+        enum class EventType {
+            STARTED,
+            SUCCESS,
+            FAILURE
+        }
+    }
+
+    interface AuthenticationListener : EventListener {
+        fun onAuthenticationEvent(event: AuthenticationEvent)
+    }
+
+    fun addAuthenticationListener(l: AuthenticationListener?) {
+        listenerList.add(AuthenticationListener::class.java, l)
+    }
+
+    fun removeAuthenticationListener(l: AuthenticationListener?) {
+        listenerList.remove(AuthenticationListener::class.java, l)
+    }
+
+    fun fireAuthenticationEvent(event: AuthenticationEvent) {
+        // Guaranteed to return a non-null array
+        val listeners = listenerList.getListenerList()
+        // Process the listeners last to first, notifying
+        // those that are interested in this event
+        var i = listeners.size - 2
+        while (i >= 0) {
+            if (listeners[i] === AuthenticationListener::class.java) {
+                (listeners[i + 1] as AuthenticationListener).onAuthenticationEvent(event)
+            }
+            i -= 2
+        }
+    }
+
     private companion object {
         const val GLOW_INSET = 10f
         const val OUTER_ARC = 40f
@@ -54,7 +62,16 @@ class LoginForm : JPanel(GridBagLayout()) {
 
     private val cardPanel = LoginCardPanel()
 
+    var isAuthenticating = false
+        private set(value) {
+            field = value
+
+            if (value)
+                fireAuthenticationEvent(AuthenticationEvent(AuthenticationEvent.EventType.STARTED))
+        }
+
     init {
+        listenerList
         isOpaque = false
         minimumSize = MIN_FORM_SIZE
         preferredSize = PREFERRED_FORM_SIZE
@@ -66,7 +83,7 @@ class LoginForm : JPanel(GridBagLayout()) {
             weightx = 1.0
             weighty = 1.0
             fill = GridBagConstraints.BOTH
-            insets = Insets(0,0,0,0)
+            insets = Insets(0, 0, 0, 0)
         }
         add(cardPanel, constraints)
     }
@@ -131,7 +148,7 @@ class LoginForm : JPanel(GridBagLayout()) {
 
                 // Soft static glow
                 for (i in 6 downTo 1) {
-                    color = Color(4, 12, 20).withAlpha(60-(i*15).coerceAtLeast(0))
+                    color = Color(4, 12, 20).withAlpha(60 - (i * 15).coerceAtLeast(0))
                     stroke = BasicStroke(i * 2.8f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND)
                     draw(rect)
                 }
@@ -183,7 +200,17 @@ class LoginForm : JPanel(GridBagLayout()) {
             val passwordFieldPanel = LoginFieldPanel(passwordField)
             passwordFieldPanel.preferredSize = Dimension(200, 46)
 
-            val loginButton = LoginButton("LOGIN")
+            val loginButton = LoginButton("LOGIN").apply {
+                addMouseListener(object : MouseAdapter() {
+                    override fun mouseClicked(e: MouseEvent?) {
+                        isAuthenticating = true
+                        Timer().schedule(1000) {
+                            isAuthenticating = false
+                            fireAuthenticationEvent(AuthenticationEvent(AuthenticationEvent.EventType.FAILURE))
+                        }
+                    }
+                })
+            }
             val footerPanel = createFooterPanel()
 
 
