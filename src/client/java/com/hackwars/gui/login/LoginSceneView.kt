@@ -1,8 +1,6 @@
-package com.hackwars.client
+package com.hackwars.gui.login
 
 import com.github.weisj.jsvg.attributes.ViewBox
-import com.hackwars.gui.login.LoginBackgroundPanel
-import com.hackwars.gui.login.LoginForm
 import com.hackwars.gui.svgResource
 import java.awt.Dimension
 import java.awt.Graphics
@@ -14,14 +12,13 @@ import java.awt.RenderingHints
 import java.awt.event.HierarchyEvent
 import java.awt.event.HierarchyListener
 import java.awt.geom.Rectangle2D
-import java.util.Timer
 import javax.swing.JPanel
 import javax.swing.SwingUtilities
+import javax.swing.Timer
 import kotlin.concurrent.schedule
-import javax.swing.Timer as SwingTimer
 import kotlin.math.hypot
 
-class LoginScene : LoginBackgroundPanel() {
+abstract class LoginSceneView : LoginBackgroundPanel() {
     companion object {
         private const val PANEL_WIDTH = 710
         private const val PANEL_HEIGHT = 450
@@ -54,7 +51,7 @@ class LoginScene : LoginBackgroundPanel() {
         }
 
     private var spinnerAngleDeg = 0f
-    private var spinnerTimer: SwingTimer? = null
+    private var spinnerTimer: Timer? = null
 
     private val emptyColumn = JPanel().apply {
         isOpaque = false
@@ -85,33 +82,26 @@ class LoginScene : LoginBackgroundPanel() {
             override fun hierarchyChanged(e: HierarchyEvent?) {
                 e?.changeFlags?.let {
                     when {
-                        (e.changeFlags and HierarchyEvent.SHOWING_CHANGED.toLong()) != 0L -> Timer().schedule(1000) { toggleLogin() }
+                        (e.changeFlags and HierarchyEvent.SHOWING_CHANGED.toLong()) != 0L -> java.util.Timer().schedule(1000) { toggleLogin() }
                     }
                 }
             }
         })
 
         formPanel.apply {
-            addAuthenticationListener(object : LoginForm.AuthenticationListener {
-                override fun onAuthenticationEvent(event: LoginForm.AuthenticationEvent) {
-                    when (event.eventType) {
-                        LoginForm.AuthenticationEvent.EventType.STARTED -> {
-                            this@LoginScene.isAuthenticating = true
-                            toggleLogin(false)
-                        }
-
-                        LoginForm.AuthenticationEvent.EventType.FAILURE -> {
-                            this@LoginScene.isAuthenticating = false
-                            toggleLogin(true)
-                        }
-
-                        LoginForm.AuthenticationEvent.EventType.SUCCESS -> {
-                            this@LoginScene.isAuthenticating = false
-                        }
-                    }
-                }
-            })
+            addPasswordAuthenticationListener { event ->
+                onUsernamePasswordAuthenticate(event.username, event.password)
+            }
         }
+    }
+
+    protected fun onUsernamePasswordAuthenticate(username: String, password: CharArray){
+        isAuthenticating = true
+        toggleLogin(false)
+    }
+    fun onAuthenticationFailure(reason: String) {
+        isAuthenticating = false
+        toggleLogin(true)
     }
 
     override fun addNotify() {
@@ -168,7 +158,7 @@ class LoginScene : LoginBackgroundPanel() {
             return
         }
 
-        spinnerTimer = SwingTimer(SPINNER_FRAME_DELAY_MS) {
+        spinnerTimer = Timer(SPINNER_FRAME_DELAY_MS) {
             spinnerAngleDeg = (spinnerAngleDeg + SPINNER_ROTATION_STEP_DEG) % 360f
             repaint()
         }.apply {

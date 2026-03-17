@@ -7,6 +7,9 @@ import java.net.URL;
 
 public class XmlRpcProxy {
 
+    public static Object execute(String method, Object[] send) {
+        return execute("", method, send);
+    }
     public static Object execute(String url, String method, Object[] send) {
         Object result = null;
         Endpoint endpoint = rewriteEndpoint(url, method);

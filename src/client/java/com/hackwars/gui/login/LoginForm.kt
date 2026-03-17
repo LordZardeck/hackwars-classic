@@ -9,40 +9,33 @@ import java.awt.geom.RoundRectangle2D
 import java.net.URI
 import java.text.AttributedString
 import java.util.*
-import java.util.Timer
 import javax.swing.*
-import kotlin.concurrent.schedule
 
 class LoginForm : JPanel(GridBagLayout()) {
-    class AuthenticationEvent(val eventType: EventType) {
-        enum class EventType {
-            STARTED,
-            SUCCESS,
-            FAILURE
-        }
+    sealed class AuthenticationEvent(source: Any) : EventObject(source)
+    class PasswordAuthenticationEvent(source: Any, val username: String, val password: CharArray) :
+        AuthenticationEvent(source)
+
+    interface AuthenticationListener : EventListener
+    fun interface PasswordAuthenticationListener : AuthenticationListener {
+        fun onPasswordAuthenticate(event: PasswordAuthenticationEvent)
     }
 
-    interface AuthenticationListener : EventListener {
-        fun onAuthenticationEvent(event: AuthenticationEvent)
-    }
+    fun addPasswordAuthenticationListener(l: PasswordAuthenticationListener) =
+        listenerList.add(PasswordAuthenticationListener::class.java, l)
 
-    fun addAuthenticationListener(l: AuthenticationListener?) {
-        listenerList.add(AuthenticationListener::class.java, l)
-    }
+    fun removePasswordAuthenticationListener(l: PasswordAuthenticationListener) =
+        listenerList.remove(PasswordAuthenticationListener::class.java, l)
 
-    fun removeAuthenticationListener(l: AuthenticationListener?) {
-        listenerList.remove(AuthenticationListener::class.java, l)
-    }
-
-    fun fireAuthenticationEvent(event: AuthenticationEvent) {
+    fun firePasswordAuthenticationEvent(event: PasswordAuthenticationEvent) {
         // Guaranteed to return a non-null array
         val listeners = listenerList.getListenerList()
         // Process the listeners last to first, notifying
         // those that are interested in this event
         var i = listeners.size - 2
         while (i >= 0) {
-            if (listeners[i] === AuthenticationListener::class.java) {
-                (listeners[i + 1] as AuthenticationListener).onAuthenticationEvent(event)
+            if (listeners[i] === PasswordAuthenticationListener::class.java) {
+                (listeners[i + 1] as PasswordAuthenticationListener).onPasswordAuthenticate(event)
             }
             i -= 2
         }
@@ -61,14 +54,6 @@ class LoginForm : JPanel(GridBagLayout()) {
     }
 
     private val cardPanel = LoginCardPanel()
-
-    var isAuthenticating = false
-        private set(value) {
-            field = value
-
-            if (value)
-                fireAuthenticationEvent(AuthenticationEvent(AuthenticationEvent.EventType.STARTED))
-        }
 
     init {
         listenerList
@@ -110,7 +95,6 @@ class LoginForm : JPanel(GridBagLayout()) {
         init {
             isOpaque = false
             layout = GridBagLayout()
-            buildContent(contentPanel)
             add(contentPanel, GridBagConstraints().apply {
                 gridx = 0
                 gridy = 0
@@ -119,6 +103,7 @@ class LoginForm : JPanel(GridBagLayout()) {
                 fill = GridBagConstraints.HORIZONTAL
                 anchor = GridBagConstraints.CENTER
             })
+            buildContent(contentPanel)
         }
 
 
@@ -201,15 +186,15 @@ class LoginForm : JPanel(GridBagLayout()) {
             passwordFieldPanel.preferredSize = Dimension(200, 46)
 
             val loginButton = LoginButton("LOGIN").apply {
-                addMouseListener(object : MouseAdapter() {
-                    override fun mouseClicked(e: MouseEvent?) {
-                        isAuthenticating = true
-                        Timer().schedule(5000) {
-                            isAuthenticating = false
-                            fireAuthenticationEvent(AuthenticationEvent(AuthenticationEvent.EventType.FAILURE))
-                        }
-                    }
-                })
+                addActionListener {
+                    firePasswordAuthenticationEvent(
+                        PasswordAuthenticationEvent(
+                            this@LoginForm,
+                            usernameField.text,
+                            passwordField.password
+                        )
+                    )
+                }
             }
             val footerPanel = createFooterPanel()
 
@@ -223,6 +208,9 @@ class LoginForm : JPanel(GridBagLayout()) {
             container.add(fillRow(loginButton))
             container.add(Box.createVerticalStrut(20))
             container.add(fillRow(footerPanel))
+
+//            TODO: This can't be done yet since the content panel isn't set until after all initialization is complete
+//            rootPane.defaultButton = loginButton
         }
 
         private fun createLabel(text: String): JLabel {
@@ -336,12 +324,6 @@ class LoginForm : JPanel(GridBagLayout()) {
             border = BorderFactory.createEmptyBorder(8, 8, 8, 8)
             foreground = Color.WHITE
             font = buttonFont
-//            ui = object : BasicButtonUI() {
-//                override fun paintButtonPressed(g: Graphics, b: AbstractButton) {
-//                    g.color = Color(58, 63, 73)
-//                    g.fillRect(0, 0, b.size.width, b.size.height);
-//                }
-//            }
         }
 
         override fun paintComponent(g: Graphics) {

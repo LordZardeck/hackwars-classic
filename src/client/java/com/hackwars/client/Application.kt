@@ -1,5 +1,7 @@
 package com.hackwars.client
 
+import com.hackwars.gui.login.LoginScene
+import com.hackwars.gui.login.LoginSceneView
 import java.awt.BorderLayout
 import java.awt.event.WindowAdapter
 import java.awt.event.WindowEvent

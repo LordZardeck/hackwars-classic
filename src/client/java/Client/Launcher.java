@@ -5,30 +5,29 @@ package client;
  * Performs the loading step necessary to bootstrap the gui.
  */
 
-import javax.swing.*;
-import java.awt.*;
-import java.awt.event.*;
-import java.io.*;
-import java.awt.image.BufferedImage;
-
+import com.hackwars.client.ConfigurationState;
 import com.hackwars.state.GameState;
-
-import javax.imageio.*;
-import java.net.URL;
-
-import gui.*;
+import gui.CentredBackgroundBorder;
 import org.jetbrains.annotations.NotNull;
 import util.XmlRpcProxy;
 
+import javax.imageio.ImageIO;
+import javax.swing.*;
+import java.awt.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
+import java.awt.image.BufferedImage;
+import java.io.File;
+import java.io.InputStream;
+import java.net.URL;
+
 public class Launcher extends JPanel implements ActionListener, GameState.MessageEventListener, GameState.FinishLoadingEventListener, GameState.ExitProgramEventListener {
-    private final String checksum = "dec 19";
-    private static final String DEFAULT_SERVER_HOST = "127.0.0.1";
     private static final String DEFAULT_PLAYER_IP = "192.168.2.002";
     private boolean LoaderSet = false;
-    private String ip = DEFAULT_SERVER_HOST;
     private boolean remoteAuth = false;
     private String checkDateRpcURL = "";
-    private String loginRpcURL = "";
     private String loginBackgroundURL = "";
     private String fallbackPlayerIP = DEFAULT_PLAYER_IP;
     private JLabel message = null;
@@ -36,7 +35,6 @@ public class Launcher extends JPanel implements ActionListener, GameState.Messag
     private JTextField usernameField, ipField;
     private GameState myGameState = null;
     private JButton button = null;
-    private JProgressBar JPB = null;
     private JLabel label = null;
     private JPanel panel = null;
     private String clientDate = "Jan 9th, 2010 @ 8:00 PM";
@@ -59,7 +57,6 @@ public class Launcher extends JPanel implements ActionListener, GameState.Messag
             e.printStackTrace();
         }
         createLoginWidget();
-        getFiles(JPB);
         reconnect();
     }
 
@@ -69,11 +66,10 @@ public class Launcher extends JPanel implements ActionListener, GameState.Messag
     }
 
     private void loadConfiguration() {
-        ip = getConfigValue("serverHost", "hackwars.server.host", DEFAULT_SERVER_HOST);
         fallbackPlayerIP = getConfigValue("playerIP", "hackwars.player.ip", DEFAULT_PLAYER_IP);
         remoteAuth = "true".equalsIgnoreCase(getConfigValue("remoteAuth", "hackwars.remoteAuth", "false"));
-        checkDateRpcURL = getConfigValue("checkDateRpcURL", "hackwars.checkDateRpcURL", "http://" + ip + "/xmlrpc/checkdate.php");
-        loginRpcURL = getConfigValue("loginRpcURL", "hackwars.loginRpcURL", "http://" + ip + "/xmlrpc/loginrpc.php");
+        checkDateRpcURL = getConfigValue("checkDateRpcURL", "hackwars.checkDateRpcURL", "http://" + ConfigurationState.XMLRPCServer.Address + "/xmlrpc/checkdate.php");
+        String loginRpcURL = getConfigValue("loginRpcURL", "hackwars.loginRpcURL", "http://" + ConfigurationState.XMLRPCServer.Address + "/xmlrpc/loginrpc.php");
         loginBackgroundURL = getConfigValue("loginBackgroundURL", "hackwars.loginBackgroundURL", "");
     }
 
@@ -201,100 +197,6 @@ public class Launcher extends JPanel implements ActionListener, GameState.Messag
         this.add(LoginFrame);
     }
 
-    /**
-     Download any files that might currently be needed.
-     */
-    private int imageCount = 86;
-
-    public void getFiles(JProgressBar JPB) {
-        //System.out.println("Getting Images");
-        if (JPB == null)
-            JPB = new JProgressBar();
-        panel.setVisible(false);
-        JPB.setVisible(true);
-
-        JPB.setIndeterminate(false);
-        JPB.setStringPainted(true);
-
-        JPB.setString("Downloading Images 0%");
-        JPB.setMinimum(0);
-        JPB.setMaximum(imageCount);
-        boolean download = false;
-        //Check to see whether we have the images directory.
-        String tmpDir = "";
-        try {
-            tmpDir = System.getProperty("java.io.tmpdir");
-        } catch (SecurityException e) {
-        }
-        File imageDir = (tmpDir != null && tmpDir.trim().length() > 0) ? new File(tmpDir, "images") : new File("images");
-        File CF = new File(imageDir, "checksum.txt");
-        boolean canUseFileCache = true;
-        try {
-            if (CF.exists()) {
-                //System.out.println("File Exists");
-                try {
-                    BufferedReader in = new BufferedReader(new InputStreamReader(new FileInputStream(CF)));
-                    String check = "";
-                    try {
-                        check = in.readLine().toLowerCase();
-                    } catch (Exception e) {
-                        download = true;
-                    }
-                    //System.out.println("|"+check.length()+"|   |"+checksum.length()+"|");
-                    if (!(check.equals(checksum))) {
-                        //System.out.println("Not Equal");
-                        download = true;
-                    }
-                    in.close();
-
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-            } else {
-                //System.out.println("File Does not Exist");
-                download = true;
-            }
-        } catch (SecurityException e) {
-            canUseFileCache = false;
-        }
-        if (canUseFileCache && download) {//Download the image pack.
-            try {
-                imageDir.mkdirs();
-                BufferedWriter out = new BufferedWriter(new FileWriter(CF));
-                out.write(checksum);
-                out.close();
-            } catch (Exception e) {
-            }
-        }
-        JPB.setIndeterminate(true);
-        JPB.setString("Initializing Classes");
-        JPB.setVisible(false);
-        panel.setVisible(true);
-    }
-
-    public void linkGo(URL link) {
-        if (link == null) {
-            return;
-        }
-        try {
-            if (java.awt.Desktop.isDesktopSupported()) {
-                java.awt.Desktop.getDesktop().browse(link.toURI());
-                return;
-            }
-        } catch (Exception e) {
-        }
-        String os = System.getProperty("os.name", "").toLowerCase();
-        try {
-            if (os.indexOf("win") >= 0) {
-                Runtime.getRuntime().exec(new String[]{"rundll32", "url.dll,FileProtocolHandler", link.toString()});
-            } else if (os.indexOf("mac") >= 0) {
-                Runtime.getRuntime().exec(new String[]{"open", link.toString()});
-            } else {
-                Runtime.getRuntime().exec(new String[]{"xdg-open", link.toString()});
-            }
-        } catch (Exception e) {
-        }
-    }
 
     //Action Listener.
     public void actionPerformed(ActionEvent e) {
@@ -313,7 +215,7 @@ public class Launcher extends JPanel implements ActionListener, GameState.Messag
             Object[] response = new Object[]{};
             try {
                 Object[] params = {username, password, clientDate};
-                response = (Object[]) XmlRpcProxy.execute(loginRpcURL, "login", params);
+                response = (Object[]) XmlRpcProxy.execute("login", params);
                 if (response != null && response.length > 0 && response[0] instanceof Boolean) {
                     correct = ((Boolean) response[0]).booleanValue();
                     if (response.length > 1 && response[1] instanceof String && ((String) response[1]).trim().length() > 0) {
@@ -358,14 +260,6 @@ public class Launcher extends JPanel implements ActionListener, GameState.Messag
         reconnect();
         panel.setVisible(true);
         button.setEnabled(true);
-    }
-
-    public void loginFailed() {
-        panel.setVisible(true);
-        message.setVisible(true);
-        if (button != null) {
-            button.setEnabled(true);
-        }
     }
 
     /**
