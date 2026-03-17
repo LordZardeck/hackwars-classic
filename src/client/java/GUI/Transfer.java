@@ -10,7 +10,7 @@ import java.awt.*;
 import java.awt.event.*;
 
 import assignments.*;
-import com.hackwars.state.View;
+import com.hackwars.state.GameState;
 
 import java.text.*;
 import java.util.Vector;
@@ -147,15 +147,15 @@ public class Transfer extends Application implements UndoableEditListener, Focus
         } else if (value instanceof Double) {
             amount = (float) (double) (Double) value;
         }
-        View MyView = MyHacker.getView();
+        GameState myGameState = MyHacker.getView();
         //get ip from main class.
         //String ip="192.168.2.100";
         String ip = MyHacker.getEncryptedIP();
         int port = (new Integer((((String) bankPortsCbo.getSelectedItem()).split(":")[0]))).intValue();
         String targetIP = ipPanel.getIP();//ipField1.getText()+"."+ipField2.getText()+"."+ipField3.getText()+"."+ipField4.getText();
         Object objects[] = {new Float(amount), ip, targetIP, new Integer(port)};
-        MyView.setFunction("transfer");
-        MyView.addFunctionCall(new RemoteFunctionCall(0, "transfer", objects));
+        myGameState.setFunction("transfer");
+        myGameState.addFunctionCall(new RemoteFunctionCall(0, "transfer", objects));
         this.hide();
         mainPanel.repaint();
         MyHacker.setTransferOpen(false);

@@ -9,7 +9,7 @@ import javax.swing.event.*;
 import java.awt.*;
 import java.awt.event.*;
 
-import com.hackwars.state.View;
+import com.hackwars.state.GameState;
 import game.*;
 
 import java.util.*;
@@ -504,11 +504,11 @@ public class ScriptEditor extends Application {
     public void openFile(String answer, String folder) {
         //REQUEST FILE
         MyHacker.setRequestedFile(Hacker.SCRIPT_EDITOR);
-        View MyView = MyHacker.getView();
+        GameState myGameState = MyHacker.getView();
         String ip = MyHacker.getEncryptedIP();
         Object objects[] = {ip, folder, answer};
-        MyView.setFunction("requestfile");
-        MyView.addFunctionCall(new RemoteFunctionCall(0, "requestfile", objects));
+        myGameState.setFunction("requestfile");
+        myGameState.addFunctionCall(new RemoteFunctionCall(0, "requestfile", objects));
     }
 
     public void receivedFile(HackerFile HF) {
@@ -693,7 +693,7 @@ public class ScriptEditor extends Application {
 
 
     public void saveFile(String answer, String folder) {
-        View MyView = MyHacker.getView();
+        GameState myGameState = MyHacker.getView();
         String ip = MyHacker.getEncryptedIP();
         String username = MyHacker.getUsername();
         HackerFile HF = new HackerFile(0);
@@ -864,10 +864,10 @@ public class ScriptEditor extends Application {
             if (SIFP.getType() == ScriptInternalFunctionPane.CHALLENGE)
                 HF.setType(ScriptInternalFunctionPane.TEXT);
             Object objects[] = {ip, folder, HF};
-            MyView.setFunction("savefile");
-            MyView.addFunctionCall(new RemoteFunctionCall(0, "savefile", objects));
+            myGameState.setFunction("savefile");
+            myGameState.addFunctionCall(new RemoteFunctionCall(0, "savefile", objects));
             objects = new Object[]{ip, folder};
-            MyView.addFunctionCall(new RemoteFunctionCall(0, "requestdirectory", objects));
+            myGameState.addFunctionCall(new RemoteFunctionCall(0, "requestdirectory", objects));
             SIFP.setTitle(answer);
             tabbedPane.setTitleAt(tabbedPane.getSelectedIndex(), answer);
         }
@@ -1104,7 +1104,7 @@ public class ScriptEditor extends Application {
         if (ac.equals("CompileTest")) {
             if (tabbedPane.getTabCount() > 0) {
                 //check to see if it will compile.
-                View MyView = MyHacker.getView();
+                GameState myGameState = MyHacker.getView();
                 String ip = MyHacker.getIP();
                 String username = MyHacker.getUsername();
                 HackerFile HF = new HackerFile(0);
@@ -1249,7 +1249,7 @@ public class ScriptEditor extends Application {
 
                     try {
                         Object[] params = new Object[]{new Integer(type), HM, levels};
-                        HashMap result = (HashMap) XMLRPCCall.execute(LocalWebConfig.getXmlRpcUrl(MyView.getIP()), "hackerRPC.compileApplication", params);
+                        HashMap result = (HashMap) XMLRPCCall.execute(LocalWebConfig.getXmlRpcUrl(myGameState.getIP()), "hackerRPC.compileApplication", params);
                         if (((String) (result.get("error"))).length() > 0)
                             //System.out.println(result.get("error"));
                             JOptionPane.showMessageDialog(this,
@@ -1278,7 +1278,7 @@ public class ScriptEditor extends Application {
             if (tabbedPane.getTabCount() > 0) {
                 //String folder=MyHacker.getCurrentFolder();
                 //compile code and close tab.
-                View MyView = MyHacker.getView();
+                GameState myGameState = MyHacker.getView();
                 String ip = MyHacker.getEncryptedIP();
                 String username = MyHacker.getUsername();
                 HackerFile HF = new HackerFile(0);
@@ -1426,7 +1426,7 @@ public class ScriptEditor extends Application {
                     levels.put("Redirect", new Integer(MyHacker.getStatsPanel().getRedirectIcon().getLevel()));
                     try {
                         Object[] params = new Object[]{new Integer(type), HM, levels};
-                        HashMap result = (HashMap) XMLRPCCall.execute(LocalWebConfig.getXmlRpcUrl(MyView.getIP()), "hackerRPC.compileApplication", params);
+                        HashMap result = (HashMap) XMLRPCCall.execute(LocalWebConfig.getXmlRpcUrl(myGameState.getIP()), "hackerRPC.compileApplication", params);
                         if (((String) (result.get("error"))).length() > 0)
                             JOptionPane.showMessageDialog(this,
                                     result.get("error"),
@@ -1454,8 +1454,8 @@ public class ScriptEditor extends Application {
                                 if (n == 0) {
                                     HF.setCPUCost((float) (double) (Double) (result.get("cpucost")));
                                     Object objects[] = {ip, folder, HF, price};
-                                    MyView.setFunction("compilefile");
-                                    MyView.addFunctionCall(new RemoteFunctionCall(0, "compilefile", objects));
+                                    myGameState.setFunction("compilefile");
+                                    myGameState.addFunctionCall(new RemoteFunctionCall(0, "compilefile", objects));
                                 }
                             }
                         }
@@ -1477,7 +1477,7 @@ public class ScriptEditor extends Application {
         if (ac.equals("TestChallenge")) {
             if (tabbedPane.getTabCount() > 0) {
                 //check to see if it will compile.
-                View MyView = MyHacker.getView();
+                GameState myGameState = MyHacker.getView();
                 String ip = MyHacker.getIP();
                 String username = MyHacker.getUsername();
                 HackerFile HF = new HackerFile(0);
@@ -1497,8 +1497,8 @@ public class ScriptEditor extends Application {
                         null,
                         null);
                 Object[] objects = new Object[]{MyHacker.getEncryptedIP(), function, s};
-                MyView.setFunction("dochallenge");
-                MyView.addFunctionCall(new RemoteFunctionCall(0, "dochallenge", objects));
+                myGameState.setFunction("dochallenge");
+                myGameState.addFunctionCall(new RemoteFunctionCall(0, "dochallenge", objects));
             }
 
         }

@@ -5,7 +5,7 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.*;
 
-import com.hackwars.state.View;
+import com.hackwars.state.GameState;
 import assignments.*;
 import game.*;
 
@@ -162,10 +162,10 @@ public class HomeIcon extends JPanel implements MouseListener, ActionListener {
             if (type != FOLDER) {
                 MyHacker.setRequestedFileIcon(this);
                 MyHacker.setRequestedFile(Hacker.HOME);
-                View MyView = MyHacker.getView();
+                GameState myGameState = MyHacker.getView();
                 Object objects[] = {MyHacker.getEncryptedIP(), folder, name};
-                MyView.setFunction("requestfile");
-                MyView.addFunctionCall(new RemoteFunctionCall(0, "requestfile", objects));
+                myGameState.setFunction("requestfile");
+                myGameState.addFunctionCall(new RemoteFunctionCall(0, "requestfile", objects));
                 int x = 0;
                 int y = 0;
                 try {
@@ -287,11 +287,11 @@ public class HomeIcon extends JPanel implements MouseListener, ActionListener {
                 im.setVisible(true);
             } else if (type == HackerFile.GAME || type == HackerFile.QUEST_GAME) {
                 String encryptedIP = MyHacker.getEncryptedIP();
-                View MyView = MyHacker.getView();
+                GameState myGameState = MyHacker.getView();
                 MyHacker.setRequestedFile(Hacker.HACKTENDO_PLAYER);
                 Object[] objects = {encryptedIP, folder, name};
-                MyView.setFunction("requestgame");
-                MyView.addFunctionCall(new RemoteFunctionCall(0, "requestgame", objects));
+                myGameState.setFunction("requestgame");
+                myGameState.addFunctionCall(new RemoteFunctionCall(0, "requestgame", objects));
             }
         }
     }

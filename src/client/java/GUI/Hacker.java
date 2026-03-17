@@ -17,7 +17,7 @@ import com.hackwars.gui.OSMenuBar;
 import game.HackerFile;
 import game.Port;
 import game.mmo.HacktendoPacket;
-import com.hackwars.state.View;
+import com.hackwars.state.GameState;
 
 import javax.imageio.ImageIO;
 import javax.swing.*;
@@ -78,7 +78,7 @@ public class Hacker implements ActionListener, WindowListener, ComponentListener
     private HashMap icons = new HashMap();  //list of all desktop icons...probably going to get rid of this
     private JPopupMenu popUp;  //pop up menu for right clicking on main panel...also probably going to get rid of
     private float pettyCash, bankMoney; //money in petty cash and bank
-    private View MyView; //View that is running this and connecting to the server
+    private GameState myGameState; //View that is running this and connecting to the server
     private int xpTable[] = new int[100];  //table of experience values for each level
     private StatIcon MerchantingIcon, AttackIcon, WatchIcon, ScanIcon, FireWallIcon, HTTPIcon; //icons for showing levels for each stat
     private TotalLevelIcon TotalIcon; //total level icon
@@ -167,10 +167,10 @@ public class Hacker implements ActionListener, WindowListener, ComponentListener
 
     //private ChatResizeLine sep;
     //constructor
-    public Hacker(View MyView, String username, String ip, boolean npc, String encryptedIP, boolean offline) {
+    public Hacker(GameState myGameState, String username, String ip, boolean npc, String encryptedIP, boolean offline) {
         ImageLoader.init();
         Application.setHacker(this);
-        this.MyView = MyView;
+        this.myGameState = myGameState;
         this.encryptedIP = encryptedIP;
         //System.out.println("Starting Hacker");
         frame = new JFrame("Hack Wars");
@@ -298,7 +298,7 @@ public class Hacker implements ActionListener, WindowListener, ComponentListener
         countDownLabel.setBounds(frameSize.width - countDownLabel.getPreferredSize().width - 30, frameSize.height - 210 - countDownLabel.getPreferredSize().height, countDownLabel.getPreferredSize().width, countDownLabel.getPreferredSize().height);
         countDownLabel.setVisible(false);
         frame.setVisible(true);
-        MyView.finishedLoading();
+        myGameState.finishedLoading();
         statList = new StatsList(this);
 
         if (!offline) {
@@ -333,8 +333,8 @@ public class Hacker implements ActionListener, WindowListener, ComponentListener
         //This requests the initial equipment and the message is used server-side to determine the GUI is actually ready.
         Object[] params = new Object[]{encryptedIP};
         setRequestedDirectory(EQUIPMENT);
-        MyView.addFunctionCall(new RemoteFunctionCall(EQUIPMENT, "requestequipment", params));
-        MyView.addFunctionCall(new RemoteFunctionCall(0, "fetchports", params));
+        myGameState.addFunctionCall(new RemoteFunctionCall(EQUIPMENT, "requestequipment", params));
+        myGameState.addFunctionCall(new RemoteFunctionCall(0, "fetchports", params));
 
         frame.pack();
     }
@@ -411,8 +411,8 @@ public class Hacker implements ActionListener, WindowListener, ComponentListener
      */
     public void sendPreferences() {
         Object[] objects = {encryptedIP, preferences};
-        MyView.setFunction("setpreferences");
-        MyView.addFunctionCall(new RemoteFunctionCall(0, "setpreferences", objects));
+        myGameState.setFunction("setpreferences");
+        myGameState.addFunctionCall(new RemoteFunctionCall(0, "setpreferences", objects));
     }
 
     public void setTutorial() {
@@ -475,8 +475,8 @@ public class Hacker implements ActionListener, WindowListener, ComponentListener
         frame.setTitle("Hack Wars - " + ip + " | CPU: " + cpuFormat.format(cpu) + "% | HD: " + HDQuantity + "/" + HDMax + " | " + nf.format(pettyCash) + " | " + "DT: " + ductTape + " | GE: " + germanium + " | SI: " + silicon + " | YBCO: " + ybco + " | PU: " + plutonium);
     }
 
-    public void update(View MyView, String username, String ip, boolean npc, String encryptedIP) {
-        this.MyView = MyView;
+    public void update(GameState myGameState, String username, String ip, boolean npc, String encryptedIP) {
+        this.myGameState = myGameState;
         this.username = username;
         this.ip = ip;
         this.encryptedIP = encryptedIP;
@@ -1662,8 +1662,8 @@ public class Hacker implements ActionListener, WindowListener, ComponentListener
      * getView() <br />
      * this returns the view handler.
      */
-    public View getView() {
-        return (MyView);
+    public GameState getView() {
+        return (myGameState);
     }
 
     /**
@@ -2487,8 +2487,8 @@ public class Hacker implements ActionListener, WindowListener, ComponentListener
         MyWebsiteEditor.moveToFront();
         siteRequest = WEBSITE_EDITOR;
         Object objects[] = {encryptedIP};
-        MyView.setFunction("requestpage");
-        MyView.addFunctionCall(new RemoteFunctionCall(0, "requestpage", objects));
+        myGameState.setFunction("requestpage");
+        myGameState.addFunctionCall(new RemoteFunctionCall(0, "requestpage", objects));
     }
 
     public void startWebBrowser() {
@@ -2869,14 +2869,14 @@ public class Hacker implements ActionListener, WindowListener, ComponentListener
 
     public void portOnOff(int port, boolean on) {
         Object objects[] = {getEncryptedIP(), port, on};
-        MyView.setFunction("portonoff");
-        MyView.addFunctionCall(new RemoteFunctionCall(0, "portonoff", objects));
+        myGameState.setFunction("portonoff");
+        myGameState.addFunctionCall(new RemoteFunctionCall(0, "portonoff", objects));
     }
 
     public void watchOnOff(int watchID, boolean on) {
         Object objects[] = {getEncryptedIP(), new Integer(watchID), new Boolean(on)};
-        MyView.setFunction("setwatchonoff");
-        MyView.addFunctionCall(new RemoteFunctionCall(0, "setwatchonoff", objects));
+        myGameState.setFunction("setwatchonoff");
+        myGameState.addFunctionCall(new RemoteFunctionCall(0, "setwatchonoff", objects));
     }
 
 
@@ -2887,7 +2887,7 @@ public class Hacker implements ActionListener, WindowListener, ComponentListener
     public void actionPerformed(ActionEvent e) {
         if (e.getActionCommand().equals("Exit")) {
             //System.exit(0);
-            MyView.exitProgram();
+            myGameState.exitProgram();
             frame.dispose();
             //MyViewRelation.dispose();
 
@@ -2960,8 +2960,8 @@ public class Hacker implements ActionListener, WindowListener, ComponentListener
             if (answer != null) {
                 // System.out.println(answer);
                 Object[] objects = {encryptedIP, answer};
-                MyView.setFunction("setftppassword");
-                MyView.addFunctionCall(new RemoteFunctionCall(0, "setftppassword", objects));
+                myGameState.setFunction("setftppassword");
+                myGameState.addFunctionCall(new RemoteFunctionCall(0, "setftppassword", objects));
             }
         }
         if (OSMenuBar.Command.PREFERENCES.matches(e.getActionCommand())) {
@@ -3005,7 +3005,7 @@ public class Hacker implements ActionListener, WindowListener, ComponentListener
     }
 
     public void windowClosing(WindowEvent e) {
-        MyView.exitProgram();
+        myGameState.exitProgram();
         //MyViewRelation.dispose();
         //System.out.println("Window Closing");
     }

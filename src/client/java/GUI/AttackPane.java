@@ -15,7 +15,7 @@ import java.awt.*;
 import java.awt.event.*;
 
 import assignments.*;
-import com.hackwars.state.View;
+import com.hackwars.state.GameState;
 
 import java.lang.*;
 
@@ -421,7 +421,7 @@ public class AttackPane extends Application implements ChangeListener, FocusList
         messages.add(getTypeString() + " commencing on " + targetIP + " at port " + targetPort + "...\n");
         repopulateMessagePane();
 
-        View MyView = MyHacker.getView();
+        GameState myGameState = MyHacker.getView();
         //get ip from main class.
         String ip = MyHacker.getEncryptedIP();
         port = (new Integer((((String) fromPorts.getSelectedItem()).split(":")[0]))).intValue();
@@ -445,15 +445,15 @@ public class AttackPane extends Application implements ChangeListener, FocusList
             otherInfo[4] = attackMaliciousIP;
 
             Object objects[] = {targetIP, targetPort, ip, new Integer(port), secondaryPorts, scripts, otherInfo, windowHandle};
-            MyView.setFunction("requestattack");
-            MyView.addFunctionCall(new RemoteFunctionCall(0, "requestattack", objects));
+            myGameState.setFunction("requestattack");
+            myGameState.addFunctionCall(new RemoteFunctionCall(0, "requestattack", objects));
         } else if (type == REDIRECT) {
             Integer secondaryPorts[] = new Integer[0];
             String scripts[][] = new String[4][2];
             Object otherInfo[] = new Object[5];
             Object objects[] = {targetIP, targetPort, ip, new Integer(port), secondaryPorts, scripts, otherInfo, windowHandle};
-            MyView.setFunction("requestattack");
-            MyView.addFunctionCall(new RemoteFunctionCall(0, "requestattack", objects));
+            myGameState.setFunction("requestattack");
+            myGameState.addFunctionCall(new RemoteFunctionCall(0, "requestattack", objects));
         }
 
     }
@@ -508,10 +508,10 @@ public class AttackPane extends Application implements ChangeListener, FocusList
             //textPane.setText(textPane.getText()+"Attack Canceled by you.\n--------------------------------------\n");
             String ip = MyHacker.getEncryptedIP();
             int port = (new Integer((((String) fromPorts.getSelectedItem()).split(":")[0]))).intValue();
-            View MyView = MyHacker.getView();
+            GameState myGameState = MyHacker.getView();
             Object objects[] = {ip, new Integer(port)};
-            MyView.setFunction("requestcancelattack");
-            MyView.addFunctionCall(new RemoteFunctionCall(0, "requestcancelattack", objects));
+            myGameState.setFunction("requestcancelattack");
+            myGameState.addFunctionCall(new RemoteFunctionCall(0, "requestcancelattack", objects));
             //tabbedPane.setSelectedIndex(0);
         }
 		/*else if(e.getActionCommand().equals("add")){

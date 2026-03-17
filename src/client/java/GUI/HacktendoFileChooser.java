@@ -8,7 +8,7 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.*;
 
-import com.hackwars.state.View;
+import com.hackwars.state.GameState;
 import game.*;
 import assignments.*;
 
@@ -40,12 +40,12 @@ public class HacktendoFileChooser extends JInternalFrame implements ActionListen
         MyHacker.setRequestedDirectory(Hacker.HACKTENDO_FILE_CHOOSER);
         if (folder.equals("Store") || folder.equals("Public") || directory == null) {
             this.folder = "";
-            View MyView = MyHacker.getView();
+            GameState myGameState = MyHacker.getView();
             Object objects[] = {MyHacker.getEncryptedIP(), ""};
             MyHacker.setCurrentFolder("");
-            MyView.setFunction("requestdirectory");
+            myGameState.setFunction("requestdirectory");
             System.out.println("Requesting Directory");
-            MyView.addFunctionCall(new RemoteFunctionCall(Hacker.HACKTENDO_FILE_CHOOSER, "requestdirectory", objects));
+            myGameState.addFunctionCall(new RemoteFunctionCall(Hacker.HACKTENDO_FILE_CHOOSER, "requestdirectory", objects));
         }
         this.hacktendoCreator = hacktendoCreator;
         if (type == OPEN) {
@@ -240,11 +240,11 @@ public class HacktendoFileChooser extends JInternalFrame implements ActionListen
                     //System.out.println(folder);
                     MyHacker.setCurrentFolder(folder);
                     //REQUEST DIRECTORY
-                    View MyView = MyHacker.getView();
+                    GameState myGameState = MyHacker.getView();
                     String ip = MyHacker.getEncryptedIP();
                     Object objects[] = {ip, folder};
-                    MyView.setFunction("requestdirectory");
-                    MyView.addFunctionCall(new RemoteFunctionCall(Hacker.HACKTENDO_FILE_CHOOSER, "requestdirectory", objects));
+                    myGameState.setFunction("requestdirectory");
+                    myGameState.addFunctionCall(new RemoteFunctionCall(Hacker.HACKTENDO_FILE_CHOOSER, "requestdirectory", objects));
                     MyHacker.setRequestedDirectory(Hacker.HACKTENDO_FILE_CHOOSER);
                 } else {
                     String folders[] = folder.split("/");
@@ -256,12 +256,12 @@ public class HacktendoFileChooser extends JInternalFrame implements ActionListen
                     MyHacker.setCurrentFolder(folder);
                     folderField.setText("home/" + folder);
                     //System.out.println(newFolder);
-                    View MyView = MyHacker.getView();
+                    GameState myGameState = MyHacker.getView();
                     String ip = MyHacker.getEncryptedIP();
                     MyHacker.setRequestedDirectory(Hacker.HACKTENDO_FILE_CHOOSER);
                     Object objects[] = {ip, folder};
-                    MyView.setFunction("requestdirectory");
-                    MyView.addFunctionCall(new RemoteFunctionCall(Hacker.HACKTENDO_FILE_CHOOSER, "requestdirectory", objects));
+                    myGameState.setFunction("requestdirectory");
+                    myGameState.addFunctionCall(new RemoteFunctionCall(Hacker.HACKTENDO_FILE_CHOOSER, "requestdirectory", objects));
                 }
             } else {
 

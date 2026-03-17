@@ -6,7 +6,7 @@ import javax.swing.event.*;
 import java.awt.*;
 import java.awt.event.*;
 
-import com.hackwars.state.View;
+import com.hackwars.state.GameState;
 import assignments.*;
 
 
@@ -171,7 +171,7 @@ public class BountyWindow extends JDialog implements ActionListener, UndoableEdi
         if (e.getSource() == cancel)
             setVisible(false);
         if (e.getSource() == ok) {
-            View MyView = MyHacker.getView();
+            GameState myGameState = MyHacker.getView();
             String target = "*";
             if (!anyPlayer.isSelected()) {
                 target = ipField1.getText() + "." + ipField2.getText() + "." + ipField3.getText() + "." + ipField4.getText();
@@ -182,8 +182,8 @@ public class BountyWindow extends JDialog implements ActionListener, UndoableEdi
             int iterations = (int) (Integer) iterationSpinner.getValue();
             float reward = (float) ((Double) rewardSpinner.getValue()).floatValue();
             Object objects[] = {MyHacker.getEncryptedIP(), anon, target, types, file, folder, iterations, reward};
-            MyView.setFunction("makebounty");
-            MyView.addFunctionCall(new RemoteFunctionCall(0, "makebounty", objects));
+            myGameState.setFunction("makebounty");
+            myGameState.addFunctionCall(new RemoteFunctionCall(0, "makebounty", objects));
             setVisible(false);
         }
         if (e.getSource() == type) {

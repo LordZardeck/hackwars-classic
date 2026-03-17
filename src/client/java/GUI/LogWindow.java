@@ -10,7 +10,7 @@ import java.awt.*;
 import java.awt.event.*;
 
 import assignments.*;
-import com.hackwars.state.View;
+import com.hackwars.state.GameState;
 
 public class LogWindow extends Application {
     private JDesktopPane mainPanel = null;
@@ -63,9 +63,9 @@ public class LogWindow extends Application {
     public void actionPerformed(ActionEvent e) {
         //System.out.println("Deleting Log");
         Object objects[] = new Object[]{MyHacker.getEncryptedIP()};
-        View MyView = MyHacker.getView();
-        MyView.setFunction("deletelogs");
-        MyView.addFunctionCall(new RemoteFunctionCall(0, "deletelogs", objects));
+        GameState myGameState = MyHacker.getView();
+        myGameState.setFunction("deletelogs");
+        myGameState.addFunctionCall(new RemoteFunctionCall(0, "deletelogs", objects));
     }
 
 }

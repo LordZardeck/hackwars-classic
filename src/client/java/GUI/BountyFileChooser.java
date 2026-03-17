@@ -8,7 +8,7 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.*;
 
-import com.hackwars.state.View;
+import com.hackwars.state.GameState;
 import game.*;
 import assignments.*;
 
@@ -31,11 +31,11 @@ public class BountyFileChooser extends JInternalFrame implements ActionListener,
         MyHacker.setBountyFileChooser(this);
         MyHacker.setRequestedDirectory(Hacker.BOUNTY_FILE_CHOOSER);
         this.folder = "";
-        View MyView = MyHacker.getView();
+        GameState myGameState = MyHacker.getView();
         Object objects[] = {MyHacker.getEncryptedIP(), ""};
         MyHacker.setCurrentFolder("");
-        MyView.setFunction("requestdirectory");
-        MyView.addFunctionCall(new RemoteFunctionCall(Hacker.BOUNTY_FILE_CHOOSER, "requestdirectory", objects));
+        myGameState.setFunction("requestdirectory");
+        myGameState.addFunctionCall(new RemoteFunctionCall(Hacker.BOUNTY_FILE_CHOOSER, "requestdirectory", objects));
         setTitle("Choose File");
         setFrameIcon(ImageLoader.getImageIcon("images/open.png"));
         setBounds(100, 100, 360, 340);
@@ -154,12 +154,12 @@ public class BountyFileChooser extends JInternalFrame implements ActionListener,
                         folderField.setText("home/" + folder);
                         MyHacker.setCurrentFolder(folder);
                         //REQUEST DIRECTORY
-                        View MyView = MyHacker.getView();
+                        GameState myGameState = MyHacker.getView();
                         String ip = MyHacker.getEncryptedIP();
                         MyHacker.setRequestedDirectory(Hacker.BOUNTY_FILE_CHOOSER);
                         Object objects[] = {ip, folder};
-                        MyView.setFunction("requestdirectory");
-                        MyView.addFunctionCall(new RemoteFunctionCall(Hacker.BOUNTY_FILE_CHOOSER, "requestdirectory", objects));
+                        myGameState.setFunction("requestdirectory");
+                        myGameState.addFunctionCall(new RemoteFunctionCall(Hacker.BOUNTY_FILE_CHOOSER, "requestdirectory", objects));
                     } else {
                         String folders[] = folder.split("/");
                         String newFolder = "";
@@ -169,12 +169,12 @@ public class BountyFileChooser extends JInternalFrame implements ActionListener,
                         folder = newFolder;
                         MyHacker.setCurrentFolder(folder);
                         folderField.setText("home/" + folder);
-                        View MyView = MyHacker.getView();
+                        GameState myGameState = MyHacker.getView();
                         MyHacker.setRequestedDirectory(Hacker.BOUNTY_FILE_CHOOSER);
                         String ip = MyHacker.getEncryptedIP();
                         Object objects[] = {ip, folder};
-                        MyView.setFunction("requestdirectory");
-                        MyView.addFunctionCall(new RemoteFunctionCall(Hacker.BOUNTY_FILE_CHOOSER, "requestdirectory", objects));
+                        myGameState.setFunction("requestdirectory");
+                        myGameState.addFunctionCall(new RemoteFunctionCall(Hacker.BOUNTY_FILE_CHOOSER, "requestdirectory", objects));
                     }
                 }
             } catch (ArrayIndexOutOfBoundsException ex) {
@@ -216,12 +216,12 @@ public class BountyFileChooser extends JInternalFrame implements ActionListener,
                     folderField.setText("home/" + folder);
                     MyHacker.setCurrentFolder(folder);
                     //REQUEST DIRECTORY
-                    View MyView = MyHacker.getView();
+                    GameState myGameState = MyHacker.getView();
                     String ip = MyHacker.getEncryptedIP();
                     MyHacker.setRequestedDirectory(Hacker.BOUNTY_FILE_CHOOSER);
                     Object objects[] = {ip, folder};
-                    MyView.setFunction("requestdirectory");
-                    MyView.addFunctionCall(new RemoteFunctionCall(Hacker.BOUNTY_FILE_CHOOSER, "requestdirectory", objects));
+                    myGameState.setFunction("requestdirectory");
+                    myGameState.addFunctionCall(new RemoteFunctionCall(Hacker.BOUNTY_FILE_CHOOSER, "requestdirectory", objects));
                 } else {
                     String folders[] = folder.split("/");
                     String newFolder = "";
@@ -231,12 +231,12 @@ public class BountyFileChooser extends JInternalFrame implements ActionListener,
                     folder = newFolder;
                     MyHacker.setCurrentFolder(folder);
                     folderField.setText("home/" + folder);
-                    View MyView = MyHacker.getView();
+                    GameState myGameState = MyHacker.getView();
                     MyHacker.setRequestedDirectory(Hacker.BOUNTY_FILE_CHOOSER);
                     String ip = MyHacker.getEncryptedIP();
                     Object objects[] = {ip, folder};
-                    MyView.setFunction("requestdirectory");
-                    MyView.addFunctionCall(new RemoteFunctionCall(Hacker.BOUNTY_FILE_CHOOSER, "requestdirectory", objects));
+                    myGameState.setFunction("requestdirectory");
+                    myGameState.addFunctionCall(new RemoteFunctionCall(Hacker.BOUNTY_FILE_CHOOSER, "requestdirectory", objects));
                 }
 
             } else {

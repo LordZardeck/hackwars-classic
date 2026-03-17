@@ -5,7 +5,7 @@ import javax.swing.event.*;
 import java.awt.event.*;
 
 import assignments.*;
-import com.hackwars.state.View;
+import com.hackwars.state.GameState;
 
 public class ShowChoices extends Application {
     public final static int BANK = 0;
@@ -84,17 +84,17 @@ public class ShowChoices extends Application {
     public void actionPerformed(ActionEvent e) {
         if (e.getActionCommand().equals("Cancel")) {
             Object[] objects = {MyHacker.getEncryptedIP(), ip, new Integer(port)};
-            View MyView = MyHacker.getView();
-            MyView.setFunction("finalizecancelled");
-            MyView.addFunctionCall(new RemoteFunctionCall(0, "finalizecancelled", objects));
+            GameState myGameState = MyHacker.getView();
+            myGameState.setFunction("finalizecancelled");
+            myGameState.addFunctionCall(new RemoteFunctionCall(0, "finalizecancelled", objects));
             dispose();
             return;
         }
         if (((String) comboBox.getSelectedItem()).equals("Empty Petty Cash")) {
             Object[] objects = {MyHacker.getEncryptedIP(), ip, new Integer(port), windowHandle};
-            View MyView = MyHacker.getView();
-            MyView.setFunction("emptypettycash");
-            MyView.addFunctionCall(new RemoteFunctionCall(0, "emptypettycash", objects));
+            GameState myGameState = MyHacker.getView();
+            myGameState.setFunction("emptypettycash");
+            myGameState.addFunctionCall(new RemoteFunctionCall(0, "emptypettycash", objects));
         }
         if (((String) comboBox.getSelectedItem()).equals("Install New Script")) {
             ShowChoicesFileChooser SCFC = new ShowChoicesFileChooser(MyHacker, type, ip, port, windowHandle);
@@ -106,9 +106,9 @@ public class ShowChoices extends Application {
         if (((String) comboBox.getSelectedItem()).equals("Peek At Code")) {
             //System.out.println("Starting Up Peeking at Code");
             Object[] objects = {MyHacker.getEncryptedIP(), ip, new Integer(port)};
-            View MyView = MyHacker.getView();
-            MyView.setFunction("peekcode");
-            MyView.addFunctionCall(new RemoteFunctionCall(0, "peekcode", objects));
+            GameState myGameState = MyHacker.getView();
+            myGameState.setFunction("peekcode");
+            myGameState.addFunctionCall(new RemoteFunctionCall(0, "peekcode", objects));
             PeekAtCode PAC = new PeekAtCode(MyHacker, type, ip, port);
             MyHacker.getPanel().add(PAC);
             PAC.moveToFront();
@@ -117,9 +117,9 @@ public class ShowChoices extends Application {
             //System.out.println("Starting Up Peeking at Logs");
 
             Object[] objects = {MyHacker.getEncryptedIP(), ip, new Integer(port)};
-            View MyView = MyHacker.getView();
-            MyView.setFunction("peeklogs");
-            MyView.addFunctionCall(new RemoteFunctionCall(0, "peeklogs", objects));
+            GameState myGameState = MyHacker.getView();
+            myGameState.setFunction("peeklogs");
+            myGameState.addFunctionCall(new RemoteFunctionCall(0, "peeklogs", objects));
             PeekAtCode PAC = new PeekAtCode(MyHacker, LOGS, ip, port);
             MyHacker.getPanel().add(PAC);
             PAC.moveToFront();
@@ -135,9 +135,9 @@ public class ShowChoices extends Application {
                     MyHacker.getIP());
             if (answer != null) {
                 Object[] objects = {ip, new Integer(port), answer, MyHacker.getEncryptedIP(), windowHandle};
-                View MyView = MyHacker.getView();
-                MyView.setFunction("changedailypay");
-                MyView.addFunctionCall(new RemoteFunctionCall(0, "changedailypay", objects));
+                GameState myGameState = MyHacker.getView();
+                myGameState.setFunction("changedailypay");
+                myGameState.addFunctionCall(new RemoteFunctionCall(0, "changedailypay", objects));
             }
         }
         if (((String) comboBox.getSelectedItem()).equals("Open Public FTP")) {

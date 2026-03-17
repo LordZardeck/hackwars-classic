@@ -11,7 +11,7 @@ import java.awt.event.*;
 import java.io.*;
 import java.awt.image.BufferedImage;
 
-import com.hackwars.state.View;
+import com.hackwars.state.GameState;
 
 import javax.imageio.*;
 import java.net.URL;
@@ -33,7 +33,7 @@ public class Launcher extends JPanel implements ActionListener {
     private JLabel message = null;
     private JPanel LoginFrame = null;
     private JTextField usernameField, ipField;
-    private View MyView = null;
+    private GameState myGameState = null;
     private JButton button = null;
     private JProgressBar JPB = null;
     private JLabel label = null;
@@ -63,8 +63,8 @@ public class Launcher extends JPanel implements ActionListener {
     }
 
     public void stop() {
-        if (MyView != null)
-            MyView.clean();
+        if (myGameState != null)
+            myGameState.clean();
     }
 
     private void loadConfiguration() {
@@ -329,7 +329,7 @@ public class Launcher extends JPanel implements ActionListener {
         }
         if (correct) {
             System.out.println("Login Successful");
-            MyView.loginToServer(username, password, ip);
+            myGameState.loginToServer(username, password, ip);
         } else {
             button.setEnabled(true);
             setMessage(message);
@@ -352,8 +352,8 @@ public class Launcher extends JPanel implements ActionListener {
      Exit program tells me that the panel containing the Hack Wars program has been closed.
      */
     public void exitProgram() {
-        if (MyView != null)
-            MyView.clean();
+        if (myGameState != null)
+            myGameState.clean();
         reconnect();
         panel.setVisible(true);
         button.setEnabled(true);
@@ -380,7 +380,7 @@ public class Launcher extends JPanel implements ActionListener {
      Connect to the Hack Wars server.
      */
     public void reconnect() {
-        MyView = new View(ip, this);
+        myGameState = new GameState(ip, this);
     }
 
     //Testing main.

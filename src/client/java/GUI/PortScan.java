@@ -10,7 +10,7 @@ import java.awt.*;
 import java.awt.event.*;
 
 import assignments.*;
-import com.hackwars.state.View;
+import com.hackwars.state.GameState;
 
 import java.text.*;
 
@@ -155,10 +155,10 @@ public class PortScan extends Application implements UndoableEditListener, Focus
         String targetIP = ipPanel.getIP();//ipField1.getText()+"."+ipField2.getText()+"."+ipField3.getText()+"."+ipField4.getText();
         //get ip from main class.
         String ip = MyHacker.getEncryptedIP();
-        View MyView = MyHacker.getView();
+        GameState myGameState = MyHacker.getView();
         Object objects[] = {ip, targetIP};
-        MyView.setFunction("requestscan");
-        MyView.addFunctionCall(new RemoteFunctionCall(0, "requestscan", objects));
+        myGameState.setFunction("requestscan");
+        myGameState.addFunctionCall(new RemoteFunctionCall(0, "requestscan", objects));
     }
 
     public void actionPerformed(ActionEvent e) {

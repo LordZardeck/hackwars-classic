@@ -8,7 +8,7 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.*;
 
-import com.hackwars.state.View;
+import com.hackwars.state.GameState;
 import assignments.*;
 
 public class ShowChoicesFileChooser extends JInternalFrame implements ActionListener, MouseListener {
@@ -45,11 +45,11 @@ public class ShowChoicesFileChooser extends JInternalFrame implements ActionList
         }
         id = MyHacker.setShowChoicesFileChooser(this);
         MyHacker.setRequestedDirectory(Hacker.SHOW_CHOICES_FILE_CHOOSER);
-        View MyView = MyHacker.getView();
+        GameState myGameState = MyHacker.getView();
         Object objects[] = {ip, request, MyHacker.getEncryptedIP(), port};
         //MyHacker.setCurrentFolder("");
-        MyView.setFunction("requestsecondarydirectory");
-        MyView.addFunctionCall(new RemoteFunctionCall(id, "requestsecondarydirectory", objects));
+        myGameState.setFunction("requestsecondarydirectory");
+        myGameState.addFunctionCall(new RemoteFunctionCall(id, "requestsecondarydirectory", objects));
         setTitle("Choose File");
         setFrameIcon(ImageLoader.getImageIcon("images/open.png"));
         setBounds(100, 100, 420, 280);
@@ -190,11 +190,11 @@ public class ShowChoicesFileChooser extends JInternalFrame implements ActionList
                 Object o = shownDirectory[fileList.getSelectedIndex()];
                 if (o instanceof Object[]) {
                     Object[] file = (Object[]) o;
-                    View MyView = MyHacker.getView();
+                    GameState myGameState = MyHacker.getView();
                     String name = (String) file[0];
                     Object objects[] = {ip, port, name, folder, "", MyHacker.getEncryptedIP(), attackPort};
-                    MyView.setFunction("malget");
-                    MyView.addFunctionCall(new RemoteFunctionCall(0, "malget", objects));
+                    myGameState.setFunction("malget");
+                    myGameState.addFunctionCall(new RemoteFunctionCall(0, "malget", objects));
                     dispose();
                 } else {
 
@@ -240,11 +240,11 @@ public class ShowChoicesFileChooser extends JInternalFrame implements ActionList
                     //System.out.println(folder);
                     //REQUEST DIRECTORY
                     MyHacker.setRequestedDirectory(Hacker.ATTACK_FILE_CHOOSER);
-                    View MyView = MyHacker.getView();
+                    GameState myGameState = MyHacker.getView();
                     String ip = MyHacker.getEncryptedIP();
                     Object objects[] = {ip, folder};
-                    MyView.setFunction("requestdirectory");
-                    MyView.addFunctionCall(new RemoteFunctionCall(id, "requestdirectory", objects));
+                    myGameState.setFunction("requestdirectory");
+                    myGameState.addFunctionCall(new RemoteFunctionCall(id, "requestdirectory", objects));
                 } else {
                     String folders[] = folder.split("/");
                     String newFolder = "";
@@ -255,21 +255,21 @@ public class ShowChoicesFileChooser extends JInternalFrame implements ActionList
                     MyHacker.setCurrentFolder(folder);
                     MyHacker.setRequestedDirectory(Hacker.ATTACK_FILE_CHOOSER);
                     folderField.setText("home/" + folder);
-                    View MyView = MyHacker.getView();
+                    GameState myGameState = MyHacker.getView();
                     String ip = MyHacker.getEncryptedIP();
                     Object objects[] = {ip, folder};
-                    MyView.setFunction("requestdirectory");
-                    MyView.addFunctionCall(new RemoteFunctionCall(id, "requestdirectory", objects));
+                    myGameState.setFunction("requestdirectory");
+                    myGameState.addFunctionCall(new RemoteFunctionCall(id, "requestdirectory", objects));
                 }
             } else {
                 String blah = "";
                 try {
                     Object[] file = (Object[]) o;
-                    View MyView = MyHacker.getView();
+                    GameState myGameState = MyHacker.getView();
                     String name = (String) file[0];
                     Object objects[] = {ip, port, name, folder, "", MyHacker.getEncryptedIP(), attackPort};
-                    MyView.setFunction("malget");
-                    MyView.addFunctionCall(new RemoteFunctionCall(0, "malget", objects));
+                    myGameState.setFunction("malget");
+                    myGameState.addFunctionCall(new RemoteFunctionCall(0, "malget", objects));
                     dispose();
                     //answer = directory[fileList.getSelectedIndex()];
                 } catch (ArrayIndexOutOfBoundsException ex) {

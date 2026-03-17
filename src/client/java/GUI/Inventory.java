@@ -5,7 +5,7 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.*;
 
-import com.hackwars.state.View;
+import com.hackwars.state.GameState;
 import assignments.*;
 
 /**
@@ -191,30 +191,30 @@ public class Inventory extends JButton implements MouseListener, ActionListener 
 
     public void actionPerformed(ActionEvent e) {
 
-        View MyView = MyHacker.getView();
+        GameState myGameState = MyHacker.getView();
 
         if (e.getActionCommand().equals("Slot 1")) {
             MyHacker.setRequestedDirectory(Hacker.EQUIPMENT);
             Object[] params = new Object[]{MyHacker.getEncryptedIP(), 1, fileName};
-            MyView.addFunctionCall(new RemoteFunctionCall(Hacker.EQUIPMENT, "installequipment", params));
+            myGameState.addFunctionCall(new RemoteFunctionCall(Hacker.EQUIPMENT, "installequipment", params));
         }
         if (e.getActionCommand().equals("Slot 2")) {
             MyHacker.setRequestedDirectory(Hacker.EQUIPMENT);
             Object[] params = new Object[]{MyHacker.getEncryptedIP(), 2, fileName};
-            MyView.addFunctionCall(new RemoteFunctionCall(Hacker.EQUIPMENT, "installequipment", params));
+            myGameState.addFunctionCall(new RemoteFunctionCall(Hacker.EQUIPMENT, "installequipment", params));
         }
         if (e.getActionCommand().equals("Purchase")) {
             Object[] params = {ip};
             String result = (String) XMLRPCCall.execute("http://www.hackwars.net/xmlrpc/domain.php", "domainLookup", params);
             Object objects[] = {result, MyHacker.getEncryptedIP(), fileName, 1};
-            MyView.setFunction("requestpurchase");
-            MyView.addFunctionCall(new RemoteFunctionCall(Hacker.BROWSER, "requestpurchase", objects));
+            myGameState.setFunction("requestpurchase");
+            myGameState.addFunctionCall(new RemoteFunctionCall(Hacker.BROWSER, "requestpurchase", objects));
             MyHacker.setRequestedDirectory(Hacker.BROWSER);
         }
         if (e.getActionCommand().equals("Unequip")) {
             Object[] params = new Object[]{MyHacker.getEncryptedIP(), equipped, null};
             MyHacker.setRequestedDirectory(Hacker.EQUIPMENT);
-            MyView.addFunctionCall(new RemoteFunctionCall(Hacker.EQUIPMENT, "installequipment", params));
+            myGameState.addFunctionCall(new RemoteFunctionCall(Hacker.EQUIPMENT, "installequipment", params));
             //dispose();
             //setVisible(false);
             if (sePanel != null) {
@@ -226,20 +226,20 @@ public class Inventory extends JButton implements MouseListener, ActionListener 
         if (e.getActionCommand().equals("Equip")) {
             Object[] params = new Object[]{MyHacker.getEncryptedIP(), 0, fileName};
             MyHacker.setRequestedDirectory(Hacker.EQUIPMENT);
-            MyView.addFunctionCall(new RemoteFunctionCall(Hacker.EQUIPMENT, "installequipment", params));
+            myGameState.addFunctionCall(new RemoteFunctionCall(Hacker.EQUIPMENT, "installequipment", params));
         }
         if (e.getActionCommand().equals("Repair")) {
             Object[] params = new Object[]{MyHacker.getEncryptedIP(), equipped, fileName};
             MyHacker.setRequestedDirectory(Hacker.EQUIPMENT);
-            MyView.addFunctionCall(new RemoteFunctionCall(Hacker.EQUIPMENT, "repairequipment", params));
+            myGameState.addFunctionCall(new RemoteFunctionCall(Hacker.EQUIPMENT, "repairequipment", params));
 
         }
         if (e.getActionCommand().equals("Delete")) {
             int n = showDeleteDialog(fileName);
             if (n == 0) {
                 Object objects[] = {MyHacker.getEncryptedIP(), "", fileName};
-                MyView.setFunction("deletefile");
-                MyView.addFunctionCall(new RemoteFunctionCall(Hacker.EQUIPMENT, "deletefile", objects));
+                myGameState.setFunction("deletefile");
+                myGameState.addFunctionCall(new RemoteFunctionCall(Hacker.EQUIPMENT, "deletefile", objects));
                 MyHacker.setRequestedDirectory(Hacker.EQUIPMENT);
             }
         }

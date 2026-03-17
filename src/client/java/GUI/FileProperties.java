@@ -10,7 +10,7 @@ import java.awt.*;
 import java.awt.event.*;
 
 import assignments.*;
-import com.hackwars.state.View;
+import com.hackwars.state.GameState;
 
 import java.text.*;
 
@@ -42,11 +42,11 @@ public class FileProperties extends Application {
         setBounds(50, 50, 400, 325);
         hacker.setRequestedFile(Hacker.FILE_PROPERTIES);
         hacker.setFileProperties(this);
-        View view = hacker.getView();
+        GameState gameState = hacker.getView();
         String ip = hacker.getEncryptedIP();
         Object objects[] = {ip, folder, fileName};
-        view.setFunction("requestfile");
-        view.addFunctionCall(new RemoteFunctionCall(0, "requestfile", objects));
+        gameState.setFunction("requestfile");
+        gameState.addFunctionCall(new RemoteFunctionCall(0, "requestfile", objects));
         setLayout(new MigLayout("fill"));
         panel.setLayout(new MigLayout("fill,wrap 2,align leading"));
         otherPanel.setLayout(new MigLayout("fill,wrap 2,align leading"));

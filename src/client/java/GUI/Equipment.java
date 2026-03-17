@@ -11,7 +11,7 @@ import java.awt.*;
 import java.awt.event.*;
 
 import assignments.*;
-import com.hackwars.state.View;
+import com.hackwars.state.GameState;
 
 import java.lang.*;
 
@@ -118,10 +118,10 @@ public class Equipment extends Application implements KeyListener, TableModelLis
         populate();
         setVisible(true);
         moveToFront();
-        View MyView = MyHacker.getView();
+        GameState myGameState = MyHacker.getView();
         Object[] params = new Object[]{MyHacker.getEncryptedIP()};
         MyHacker.setRequestedDirectory(Hacker.EQUIPMENT);
-        MyView.addFunctionCall(new RemoteFunctionCall(Hacker.EQUIPMENT, "requestequipment", params));
+        myGameState.addFunctionCall(new RemoteFunctionCall(Hacker.EQUIPMENT, "requestequipment", params));
         this.setFrameIcon(ImageLoader.getImageIcon("images/cpu.png"));
     }
 
@@ -438,10 +438,10 @@ public class Equipment extends Application implements KeyListener, TableModelLis
     }
 
     public void changePrice(String fileName, float price) {
-        View MyView = MyHacker.getView();
+        GameState myGameState = MyHacker.getView();
         Object objects[] = {MyHacker.getEncryptedIP(), "", fileName, new Float(price)};
-        MyView.setFunction("setfileprice");
-        MyView.addFunctionCall(new RemoteFunctionCall(0, "setfileprice", objects));
+        myGameState.setFunction("setfileprice");
+        myGameState.addFunctionCall(new RemoteFunctionCall(0, "setfileprice", objects));
     }
 
     public JTable getSelectedTable() {
@@ -470,7 +470,7 @@ public class Equipment extends Application implements KeyListener, TableModelLis
         String tab = tableTabbedPane.getTitleAt(tableTabbedPane.getSelectedIndex());
         JTable table = getSelectedTable();
         SortableTableModel model = getSelectedModel();
-        View MyView = MyHacker.getView();
+        GameState myGameState = MyHacker.getView();
 
         int row = table.getSelectedRow();
         if (row != -1) {
@@ -484,7 +484,7 @@ public class Equipment extends Application implements KeyListener, TableModelLis
                         //System.out.println("Equipping "+HF.getName());
                         Object[] params = new Object[]{MyHacker.getEncryptedIP(), 0, HF.getName()};
                         MyHacker.setRequestedDirectory(Hacker.EQUIPMENT);
-                        MyView.addFunctionCall(new RemoteFunctionCall(Hacker.EQUIPMENT, "installequipment", params));
+                        myGameState.addFunctionCall(new RemoteFunctionCall(Hacker.EQUIPMENT, "installequipment", params));
                         model.removeRow(row);
                     } else if (tab.equals("PCI")) {
                         JPopupMenu menu = new JPopupMenu();
@@ -510,18 +510,18 @@ public class Equipment extends Application implements KeyListener, TableModelLis
                 } else if (ac.equals("Slot 1")) {
                     Object[] params = new Object[]{MyHacker.getEncryptedIP(), 1, HF.getName()};
                     MyHacker.setRequestedDirectory(Hacker.EQUIPMENT);
-                    MyView.addFunctionCall(new RemoteFunctionCall(Hacker.EQUIPMENT, "installequipment", params));
+                    myGameState.addFunctionCall(new RemoteFunctionCall(Hacker.EQUIPMENT, "installequipment", params));
                     model.removeRow(row);
 
                 } else if (ac.equals("Slot 2")) {
                     Object[] params = new Object[]{MyHacker.getEncryptedIP(), 2, HF.getName()};
                     MyHacker.setRequestedDirectory(Hacker.EQUIPMENT);
-                    MyView.addFunctionCall(new RemoteFunctionCall(Hacker.EQUIPMENT, "installequipment", params));
+                    myGameState.addFunctionCall(new RemoteFunctionCall(Hacker.EQUIPMENT, "installequipment", params));
                     model.removeRow(row);
                 } else if (ac.equals("Repair")) {
                     Object[] params = new Object[]{MyHacker.getEncryptedIP(), -1, HF.getName()};
                     MyHacker.setRequestedDirectory(Hacker.EQUIPMENT);
-                    MyView.addFunctionCall(new RemoteFunctionCall(Hacker.EQUIPMENT, "repairequipment", params));
+                    myGameState.addFunctionCall(new RemoteFunctionCall(Hacker.EQUIPMENT, "repairequipment", params));
                 } else if (ac.equals("Delete")) {
                     deleteFile();
                 } else if (ac.equals("Sell")) {
@@ -549,8 +549,8 @@ public class Equipment extends Application implements KeyListener, TableModelLis
                             allFiles[0] = details;
                             Object objects[] = new Object[]{MyHacker.getEncryptedIP(), allFiles};
                             MyHacker.setRequestedDirectory(Hacker.HOME);
-                            MyView.setFunction("sellfilemulti");
-                            MyView.addFunctionCall(new RemoteFunctionCall(Hacker.HOME, "sellfilemulti", objects));
+                            myGameState.setFunction("sellfilemulti");
+                            myGameState.addFunctionCall(new RemoteFunctionCall(Hacker.HOME, "sellfilemulti", objects));
                             model.removeRow(row);
                         }
                     }
@@ -627,7 +627,7 @@ public class Equipment extends Application implements KeyListener, TableModelLis
     private void deleteFile() {
         JTable table = getSelectedTable();
         SortableTableModel model = getSelectedModel();
-        View MyView = MyHacker.getView();
+        GameState myGameState = MyHacker.getView();
         int row = table.getSelectedRow();
         if (row == -1) {
             return;
@@ -638,8 +638,8 @@ public class Equipment extends Application implements KeyListener, TableModelLis
         int n = showDeleteDialog(HF.getName());
         if (n == 0) {
             Object objects[] = {MyHacker.getEncryptedIP(), "", HF.getName()};
-            MyView.setFunction("deletefile");
-            MyView.addFunctionCall(new RemoteFunctionCall(Hacker.EQUIPMENT, "deletefile", objects));
+            myGameState.setFunction("deletefile");
+            myGameState.addFunctionCall(new RemoteFunctionCall(Hacker.EQUIPMENT, "deletefile", objects));
             MyHacker.setRequestedDirectory(Hacker.EQUIPMENT);
             model.removeRow(row);
         }

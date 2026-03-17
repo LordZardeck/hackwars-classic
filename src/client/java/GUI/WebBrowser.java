@@ -9,7 +9,7 @@ import javax.swing.event.*;
 import java.awt.*;
 import java.awt.event.*;
 
-import com.hackwars.state.View;
+import com.hackwars.state.GameState;
 import game.*;
 
 import java.util.*;
@@ -31,7 +31,7 @@ public class WebBrowser extends Application implements ComponentListener {
     private JDesktopPane mainPanel = null;
     private Hacker MyHacker = null;
     private Object directory[];
-    private View MyView;
+    private GameState myGameState;
     private HtmlHandler browse;
     private JTabbedPane tabbedPane;
     private JTextField urlField = new JTextField();
@@ -74,7 +74,7 @@ public class WebBrowser extends Application implements ComponentListener {
         setDefaultCloseOperation(JInternalFrame.HIDE_ON_CLOSE);
         this.mainPanel = mainPanel;
         this.MyHacker = MyHacker;
-        MyView = MyHacker.getView();
+        myGameState = MyHacker.getView();
         addComponentListener(this);
         this.setFrameIcon(ImageLoader.getImageIcon("images/browser.png"));
     }
@@ -280,7 +280,7 @@ public class WebBrowser extends Application implements ComponentListener {
         //browse.setEditorKit(new HTMLEditorKit());
         try {
             Object[] params = new Object[]{"", ""};
-            String result = (String) XMLRPCCall.execute(LocalWebConfig.getXmlRpcUrl(MyView.getIP()), "hackerRPC.doSearch", params);
+            String result = (String) XMLRPCCall.execute(LocalWebConfig.getXmlRpcUrl(myGameState.getIP()), "hackerRPC.doSearch", params);
             browse.parseDocument(result, this);
         } catch (Exception e) {
             e.printStackTrace();
@@ -748,7 +748,7 @@ public class WebBrowser extends Application implements ComponentListener {
             //XML-RPC STUFF
             //value = value.replaceAll("%20"," ");
             Object[] params = new Object[]{value, page};
-            String result = (String) XMLRPCCall.execute(LocalWebConfig.getXmlRpcUrl(MyView.getIP()), "hackerRPC.doSearch", params);
+            String result = (String) XMLRPCCall.execute(LocalWebConfig.getXmlRpcUrl(myGameState.getIP()), "hackerRPC.doSearch", params);
             //System.out.println("Parsing new search -- "+result);
             tb.setTitleAt(tb.getSelectedIndex(), "Search");
             browse.parseDocument(result, this);
@@ -767,8 +767,8 @@ public class WebBrowser extends Application implements ComponentListener {
         Object[] params = new Object[]{urlField.getText().split("\\?")[0].trim()};
         String result = (String) XMLRPCCall.execute("http://www.hackwars.net/xmlrpc/domain.php", "domainLookup", params);
         Object objects[] = new Object[]{result, MyHacker.getEncryptedIP(), send};
-        MyView.setFunction("submit");
-        MyView.addFunctionCall(new RemoteFunctionCall(Hacker.BROWSER, "submit", objects));
+        myGameState.setFunction("submit");
+        myGameState.addFunctionCall(new RemoteFunctionCall(Hacker.BROWSER, "submit", objects));
 
     }
 
@@ -781,8 +781,8 @@ public class WebBrowser extends Application implements ComponentListener {
         if (link.equals("http://hackwars.net/clue")) {
             //System.out.println("clue "+ips[position]);
             Object[] clueobjects = new Object[]{MyHacker.getEncryptedIP(), ips[position]};
-            MyView.setFunction("cluedata");
-            MyView.addFunctionCall(new RemoteFunctionCall(0, "cluedata", clueobjects));
+            myGameState.setFunction("cluedata");
+            myGameState.addFunctionCall(new RemoteFunctionCall(0, "cluedata", clueobjects));
             return;
         }
 
@@ -792,7 +792,7 @@ public class WebBrowser extends Application implements ComponentListener {
             removeProducts();
 
 
-            if (MyView != null) {
+            if (myGameState != null) {
                 count = 0;
                 bcount = 0;
                 acount = 0;
@@ -817,8 +817,8 @@ public class WebBrowser extends Application implements ComponentListener {
                     Object[] params = new Object[]{ips[position - 1].split("\\?")[0].trim()};
                     String result = (String) XMLRPCCall.execute("http://www.hackwars.net/xmlrpc/domain.php", "domainLookup", params);
                     objects = new Object[]{result, MyHacker.getEncryptedIP()};
-                    MyView.setFunction("exit");
-                    MyView.addFunctionCall(new RemoteFunctionCall(0, "exit", objects));
+                    myGameState.setFunction("exit");
+                    myGameState.addFunctionCall(new RemoteFunctionCall(0, "exit", objects));
                 }
                 HashMap HM = new HashMap();
                 ips[position] = href.getPath().replaceAll("/", "");
@@ -836,8 +836,8 @@ public class WebBrowser extends Application implements ComponentListener {
                 String result = (String) XMLRPCCall.execute("http://www.hackwars.net/xmlrpc/domain.php", "domainLookup", params);
                 //System.out.println(HM.get("q"));
                 objects = new Object[]{result.trim(), MyHacker.getEncryptedIP(), HM};
-                MyView.setFunction("requestwebpage");
-                MyView.addFunctionCall(new RemoteFunctionCall(Hacker.BROWSER, "requestwebpage", objects));
+                myGameState.setFunction("requestwebpage");
+                myGameState.addFunctionCall(new RemoteFunctionCall(Hacker.BROWSER, "requestwebpage", objects));
             }
         } else {
             String[] vars = href.getQuery().split("\\&");
@@ -853,7 +853,7 @@ public class WebBrowser extends Application implements ComponentListener {
 
     public void setLink(String link) {
         removeProducts();
-        if (MyView != null) {
+        if (myGameState != null) {
             count = 0;
             bcount = 0;
             acount = 0;
@@ -876,8 +876,8 @@ public class WebBrowser extends Application implements ComponentListener {
                         Object[] params = new Object[]{ips[position - 1].split("\\?")[0].trim()};
                         String result = (String) XMLRPCCall.execute("http://www.hackwars.net/xmlrpc/domain.php", "domainLookup", params);
                         objects = new Object[]{result, MyHacker.getEncryptedIP()};
-                        MyView.setFunction("exit");
-                        MyView.addFunctionCall(new RemoteFunctionCall(0, "exit", objects));
+                        myGameState.setFunction("exit");
+                        myGameState.addFunctionCall(new RemoteFunctionCall(0, "exit", objects));
                     }
                 }
                 URL href = null;
@@ -904,8 +904,8 @@ public class WebBrowser extends Application implements ComponentListener {
                 Object[] params = new Object[]{href.getHost().replaceAll("/", "").trim()};
                 String result = (String) XMLRPCCall.execute("http://www.hackwars.net/xmlrpc/domain.php", "domainLookup", params);
                 objects = new Object[]{result, MyHacker.getEncryptedIP(), HM};
-                MyView.setFunction("requestwebpage");
-                MyView.addFunctionCall(new RemoteFunctionCall(Hacker.BROWSER, "requestwebpage", objects));
+                myGameState.setFunction("requestwebpage");
+                myGameState.addFunctionCall(new RemoteFunctionCall(Hacker.BROWSER, "requestwebpage", objects));
             } else {
                 newSearch("", "");
             }
@@ -947,7 +947,7 @@ public class WebBrowser extends Application implements ComponentListener {
         if (ac.equals("URL")) {
             removeProducts();
             ip = urlField.getText();
-            if (MyView != null) {
+            if (myGameState != null) {
                 count = 0;
                 bcount = 0;
                 acount = 0;
@@ -1036,8 +1036,8 @@ public class WebBrowser extends Application implements ComponentListener {
             Object[] params = new Object[]{urlField.getText().trim()};
             String result = (String) XMLRPCCall.execute("http://www.hackwars.net/xmlrpc/domain.php", "domainLookup", params);
             Object[] objects = {result, MyHacker.getEncryptedIP()};
-            MyView.setFunction("vote");
-            MyView.addFunctionCall(new RemoteFunctionCall(0, "vote", objects));
+            myGameState.setFunction("vote");
+            myGameState.addFunctionCall(new RemoteFunctionCall(0, "vote", objects));
         }
 
         if (ac.equals("Bookmark")) {

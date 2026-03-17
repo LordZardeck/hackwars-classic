@@ -6,7 +6,7 @@ import java.awt.event.*;
 
 import assignments.*;
 
-import com.hackwars.state.View;
+import com.hackwars.state.GameState;
 
 import java.text.*;
 
@@ -98,10 +98,10 @@ public class HealthLabel extends JLabel implements MouseListener {
 
     public void heal() {
         System.out.println("Healing port " + port);
-        View MyView = hacker.getView();
+        GameState myGameState = hacker.getView();
         Object objects[] = {hacker.getEncryptedIP(), port};
-        MyView.setFunction("healport");
-        MyView.addFunctionCall(new RemoteFunctionCall(0, "healport", objects));
+        myGameState.setFunction("healport");
+        myGameState.addFunctionCall(new RemoteFunctionCall(0, "healport", objects));
     }
 }
 

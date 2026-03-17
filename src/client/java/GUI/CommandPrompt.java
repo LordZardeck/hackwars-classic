@@ -7,7 +7,7 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.*;
 
-import com.hackwars.state.View;
+import com.hackwars.state.GameState;
 import game.*;
 import assignments.*;
 
@@ -36,10 +36,10 @@ public class CommandPrompt extends Application implements KeyListener {
     public CommandPrompt(Hacker hacker) {
         this.hacker = hacker;
         hacker.setCommandPromptRequestedDirectory(this);
-        View MyView = hacker.getView();
-        MyView.setFunction("requestdirectory");
+        GameState myGameState = hacker.getView();
+        myGameState.setFunction("requestdirectory");
         Object objects[] = new Object[]{hacker.getEncryptedIP(), ""};
-        MyView.addFunctionCall(new RemoteFunctionCall(Hacker.COMMAND_PROMPT, "requestdirectory", objects));
+        myGameState.addFunctionCall(new RemoteFunctionCall(Hacker.COMMAND_PROMPT, "requestdirectory", objects));
         MyHacker.setRequestedDirectory(Hacker.COMMAND_PROMPT);
         setTitle("Command Prompt");
         setIconifiable(true);
@@ -216,8 +216,8 @@ public class CommandPrompt extends Application implements KeyListener {
                 folder += directory + "/";
             }
             Object objects[] = new Object[]{hacker.getEncryptedIP(), folder};
-            View MyView = hacker.getView();
-            MyView.addFunctionCall(new RemoteFunctionCall(Hacker.COMMAND_PROMPT, "requestdirectory", objects));
+            GameState myGameState = hacker.getView();
+            myGameState.addFunctionCall(new RemoteFunctionCall(Hacker.COMMAND_PROMPT, "requestdirectory", objects));
             MyHacker.setRequestedDirectory(Hacker.COMMAND_PROMPT);
         } else if (directories.get(directory) == null) {
             showErrorMessage("Directory not found.");
@@ -236,11 +236,11 @@ public class CommandPrompt extends Application implements KeyListener {
             return;
         }
         MyHacker.setRequestedFile(Hacker.COMMAND_PROMPT);
-        View MyView = hacker.getView();
+        GameState myGameState = hacker.getView();
         String ip = hacker.getEncryptedIP();
         Object objects[] = {ip, folder, filename};
-        MyView.setFunction("requestfile");
-        MyView.addFunctionCall(new RemoteFunctionCall(Hacker.COMMAND_PROMPT, "requestfile", objects));
+        myGameState.setFunction("requestfile");
+        myGameState.addFunctionCall(new RemoteFunctionCall(Hacker.COMMAND_PROMPT, "requestfile", objects));
 
     }
 
@@ -287,19 +287,19 @@ public class CommandPrompt extends Application implements KeyListener {
         if (amount < 0.0f) {
             amount += hacker.getPettyCash();
         }
-        View MyView = hacker.getView();
+        GameState myGameState = hacker.getView();
         String ip = hacker.getEncryptedIP();
         Object objects[] = {new Float(amount), ip, new Integer(port)};
-        MyView.setFunction("deposit");
-        MyView.addFunctionCall(new RemoteFunctionCall(0, "deposit", objects));
+        myGameState.setFunction("deposit");
+        myGameState.addFunctionCall(new RemoteFunctionCall(0, "deposit", objects));
     }
 
     private void withdraw(int port, float amount) {
-        View MyView = hacker.getView();
+        GameState myGameState = hacker.getView();
         String ip = hacker.getEncryptedIP();
         Object objects[] = {new Float(amount), ip, new Integer(port)};
-        MyView.setFunction("withdraw");
-        MyView.addFunctionCall(new RemoteFunctionCall(0, "withdraw", objects));
+        myGameState.setFunction("withdraw");
+        myGameState.addFunctionCall(new RemoteFunctionCall(0, "withdraw", objects));
     }
 
     private void runShellScript(String filename) {
@@ -311,11 +311,11 @@ public class CommandPrompt extends Application implements KeyListener {
             return;
         }
         MyHacker.setRequestedFile(Hacker.COMMAND_PROMPT);
-        View MyView = hacker.getView();
+        GameState myGameState = hacker.getView();
         String ip = hacker.getEncryptedIP();
         Object objects[] = {ip, folder, filename};
-        MyView.setFunction("requestfile");
-        MyView.addFunctionCall(new RemoteFunctionCall(Hacker.COMMAND_PROMPT, "requestfile", objects));
+        myGameState.setFunction("requestfile");
+        myGameState.addFunctionCall(new RemoteFunctionCall(Hacker.COMMAND_PROMPT, "requestfile", objects));
     }
 
     private void showErrorMessage(String message) {

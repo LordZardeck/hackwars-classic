@@ -10,7 +10,7 @@ import java.awt.*;
 import java.awt.event.*;
 
 import assignments.*;
-import com.hackwars.state.View;
+import com.hackwars.state.GameState;
 
 import java.util.*;
 
@@ -34,7 +34,7 @@ public class PortManagement extends Application implements ItemListener, FocusLi
     //private JCheckBox defaultBoxes[] = new JCheckBox[32];
     private PacketPort ports[];
     private JPanel panel1 = new JPanel(), panel2 = new JPanel(), panel3 = new JPanel(), panel4 = new JPanel();
-    private View MyView;
+    private GameState myGameState;
     private int function, width;
     private boolean[] columns = {true, true, true, true, true, true, true, true, true, true};//{true,false,false,false,false,false,true,false,false};
 
@@ -48,11 +48,11 @@ public class PortManagement extends Application implements ItemListener, FocusLi
         this.addInternalFrameListener(this);
         this.mainPanel = mainPanel;
         this.MyHacker = MyHacker;
-        MyView = MyHacker.getView();
+        myGameState = MyHacker.getView();
         String ip = MyHacker.getEncryptedIP();
         Object objects[] = {ip};
-        MyView.setFunction("fetchports");
-        MyView.addFunctionCall(new RemoteFunctionCall(0, "fetchports", objects));
+        myGameState.setFunction("fetchports");
+        myGameState.addFunctionCall(new RemoteFunctionCall(0, "fetchports", objects));
         this.setFrameIcon(ImageLoader.getImageIcon("images/port.png"));
         columns = MyHacker.getPortColumns();
         createMenu();
@@ -734,16 +734,16 @@ public class PortManagement extends Application implements ItemListener, FocusLi
 
     public void setOnOff(int index, boolean set) {
         Object objects[] = {MyHacker.getEncryptedIP(), index, set};
-        MyView.setFunction("portonoff");
-        MyView.addFunctionCall(new RemoteFunctionCall(0, "portonoff", objects));
+        myGameState.setFunction("portonoff");
+        myGameState.addFunctionCall(new RemoteFunctionCall(0, "portonoff", objects));
         on[index] = set;
     }
 
     public void saveNote(String note, int index) {
         //System.out.println("SAVING THE NOTE: " + note + " at index = " + index);
         Object objects[] = {MyHacker.getEncryptedIP(), index, note};
-        MyView.setFunction("saveportnote");
-        MyView.addFunctionCall(new RemoteFunctionCall(0, "saveportnote", objects));
+        myGameState.setFunction("saveportnote");
+        myGameState.addFunctionCall(new RemoteFunctionCall(0, "saveportnote", objects));
     }
 
     public JPanel getPanel(int port) {
@@ -770,8 +770,8 @@ public class PortManagement extends Application implements ItemListener, FocusLi
         //System.out.println(folder+" "+name+" "+port+" "+type);
         Object objects[] = {MyHacker.getEncryptedIP(), port, folder, name};
         if (function == INSTALL) {
-            MyView.setFunction("installapplication");
-            MyView.addFunctionCall(new RemoteFunctionCall(0, "installapplication", objects));
+            myGameState.setFunction("installapplication");
+            myGameState.addFunctionCall(new RemoteFunctionCall(0, "installapplication", objects));
 
             // add the name of the application that was just installed to the note field
             setNote(name, port);
@@ -782,8 +782,8 @@ public class PortManagement extends Application implements ItemListener, FocusLi
             String title = "Uninstall application on port " + port;
             int n = showYesCancelDialog(title, message);
             if (n == 0) {
-                MyView.setFunction("replaceapplication");
-                MyView.addFunctionCall(new RemoteFunctionCall(0, "replaceapplication", objects));
+                myGameState.setFunction("replaceapplication");
+                myGameState.addFunctionCall(new RemoteFunctionCall(0, "replaceapplication", objects));
 
                 // if the note field is blank replace the note, otherwise ask if they really want to replace the note
                 if (noteField[port].getText().equals("")) {
@@ -829,8 +829,8 @@ public class PortManagement extends Application implements ItemListener, FocusLi
 
     public void installFireWall(int port, String folder, String name) {
         Object objects[] = {MyHacker.getEncryptedIP(), port, folder, name};
-        MyView.setFunction("installfirewall");
-        MyView.addFunctionCall(new RemoteFunctionCall(0, "installfirewall", objects));
+        myGameState.setFunction("installfirewall");
+        myGameState.addFunctionCall(new RemoteFunctionCall(0, "installfirewall", objects));
     }
 
     public void setFunction(int function) {

@@ -10,7 +10,7 @@ import javax.swing.undo.*;
 import java.awt.*;
 import java.awt.event.*;
 
-import com.hackwars.state.View;
+import com.hackwars.state.GameState;
 
 import assignments.*;
 
@@ -26,7 +26,7 @@ public class WebsiteEditor extends Application implements UndoableEditListener, 
     private HtmlHandler previewPane;
     private ScriptInternalFunctionPane tabs[] = new ScriptInternalFunctionPane[10];
     private UndoManager undoManager = new UndoManager();
-    private View MyView;
+    private GameState myGameState;
     private String title;
     private JToolBar toolBar;
     private JTabbedPane tabbedPane;
@@ -42,7 +42,7 @@ public class WebsiteEditor extends Application implements UndoableEditListener, 
         addComponentListener(this);
         this.mainPanel = mainPanel;
         this.MyHacker = MyHacker;
-        MyView = MyHacker.getView();
+        myGameState = MyHacker.getView();
 
         this.setFrameIcon(ImageLoader.getImageIcon("images/edit.png"));
     }
@@ -302,10 +302,10 @@ public class WebsiteEditor extends Application implements UndoableEditListener, 
         DefaultSyntaxKit.initKit();
         editorPane.setContentType("text/xml");
         Object objects[] = {MyHacker.getEncryptedIP()};
-        if (MyView != null) {
+        if (myGameState != null) {
             MyHacker.setSiteRequest(Hacker.WEBSITE_EDITOR);
-            MyView.setFunction("requestpage");
-            MyView.addFunctionCall(new RemoteFunctionCall(0, "requestpage", objects));
+            myGameState.setFunction("requestpage");
+            myGameState.addFunctionCall(new RemoteFunctionCall(0, "requestpage", objects));
         }
         //editorPane.setText("<b>Test</b>");
         //editorPane.addCaretListener(this);
@@ -471,8 +471,8 @@ public class WebsiteEditor extends Application implements UndoableEditListener, 
         if (ac.equals("Save")) {
             String ip = MyHacker.getEncryptedIP();
             Object objects[] = {ip, title, editorPane.getText()};
-            MyView.setFunction("savepage");
-            MyView.addFunctionCall(new RemoteFunctionCall(0, "savepage", objects));
+            myGameState.setFunction("savepage");
+            myGameState.addFunctionCall(new RemoteFunctionCall(0, "savepage", objects));
             JOptionPane.showMessageDialog(this, "Your page has been saved.");
         }
         if (ac.equals("Set Title")) {

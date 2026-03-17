@@ -5,7 +5,7 @@ import java.awt.*;
 import java.awt.event.*;
 
 import assignments.*;
-import com.hackwars.state.View;
+import com.hackwars.state.GameState;
 
 import java.awt.image.*;
 import java.awt.geom.*;
@@ -125,9 +125,9 @@ public class NetworkButton extends JButton implements ActionListener {
     public void actionPerformed(ActionEvent e) {
 
         Object[] o = new Object[]{hacker.getEncryptedIP(), name};
-        View MyView = hacker.getView();
-        MyView.setFunction("changenetwork");
-        MyView.addFunctionCall(new RemoteFunctionCall(0, "changenetwork", o));
+        GameState myGameState = hacker.getView();
+        myGameState.setFunction("changenetwork");
+        myGameState.addFunctionCall(new RemoteFunctionCall(0, "changenetwork", o));
     }
 }
 

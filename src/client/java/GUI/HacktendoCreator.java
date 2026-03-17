@@ -9,7 +9,7 @@ import java.awt.*;
 import java.awt.event.*;
 
 import assignments.*;
-import com.hackwars.state.View;
+import com.hackwars.state.GameState;
 
 import java.lang.*;
 
@@ -286,11 +286,11 @@ public class HacktendoCreator extends Application implements ComponentListener {
 
     public void openGame(String filename, String folder) {
         String encryptedIP = MyHacker.getEncryptedIP();
-        View MyView = MyHacker.getView();
+        GameState myGameState = MyHacker.getView();
         MyHacker.setRequestedFile(Hacker.HACKTENDO_CREATOR);
         Object[] objects = {encryptedIP, folder, filename};
-        MyView.setFunction("requestgame");
-        MyView.addFunctionCall(new RemoteFunctionCall(0, "requestgame", objects));
+        myGameState.setFunction("requestgame");
+        myGameState.addFunctionCall(new RemoteFunctionCall(0, "requestgame", objects));
 
     }
 
@@ -652,10 +652,10 @@ public class HacktendoCreator extends Application implements ComponentListener {
         HF.setQuantity(1);
         HF.setContent(HM);
         String encryptedIP = MyHacker.getEncryptedIP();
-        View MyView = MyHacker.getView();
+        GameState myGameState = MyHacker.getView();
         Object[] objects = {encryptedIP, folder, HF};
-        MyView.setFunction("savefile");
-        MyView.addFunctionCall(new RemoteFunctionCall(0, "savefile", objects));
+        myGameState.setFunction("savefile");
+        myGameState.addFunctionCall(new RemoteFunctionCall(0, "savefile", objects));
     }
 
     public void packGame(String filename, String folder) {
@@ -669,10 +669,10 @@ public class HacktendoCreator extends Application implements ComponentListener {
         HF.setQuantity(30);
         HF.setContent(HM);
         String encryptedIP = MyHacker.getEncryptedIP();
-        View MyView = MyHacker.getView();
+        GameState myGameState = MyHacker.getView();
         Object[] objects = {encryptedIP, folder, HF};
-        MyView.setFunction("savefile");
-        MyView.addFunctionCall(new RemoteFunctionCall(0, "savefile", objects));
+        myGameState.setFunction("savefile");
+        myGameState.addFunctionCall(new RemoteFunctionCall(0, "savefile", objects));
     }
 
 

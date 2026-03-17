@@ -8,7 +8,7 @@ import javax.swing.*;
 import javax.swing.event.*;
 
 import assignments.*;
-import com.hackwars.state.View;
+import com.hackwars.state.GameState;
 import view.*;
 
 import browser.*;
@@ -36,12 +36,12 @@ public class ImageViewer extends Application {
 
         MyHacker.setRequestedFile(Hacker.IMAGE_VIEWER);
         MyHacker.setImageViewer(this);
-        View MyView = MyHacker.getView();
+        GameState myGameState = MyHacker.getView();
         String ip = MyHacker.getEncryptedIP();
         Object objects[] = {ip, path, image[0]};
         //System.out.println(path+"|"+image[0]);
-        MyView.setFunction("requestfile");
-        MyView.addFunctionCall(new RemoteFunctionCall(0, "requestfile", objects));
+        myGameState.setFunction("requestfile");
+        myGameState.addFunctionCall(new RemoteFunctionCall(0, "requestfile", objects));
 
         //this.setFrameIcon(ImageLoader.getImageIcon("images/calc.png"));
     }

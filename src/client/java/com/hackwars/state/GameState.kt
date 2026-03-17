@@ -26,7 +26,7 @@ import javax.swing.JOptionPane
  * The main controller for Coezilla.
  */
 
-class View(private val ip: String, MyLoad: Launcher?) : DataHandler, Runnable {
+class GameState(private val ip: String, MyLoad: Launcher?) : DataHandler, Runnable {
     companion object {
         private val LOGIN_FALLBACK_START =
             !"false".equals(System.getProperty("hackwars.loginFallbackStart", "true"), ignoreCase = true)
@@ -97,7 +97,7 @@ class View(private val ip: String, MyLoad: Launcher?) : DataHandler, Runnable {
                 delay(2500)
                 if (run && hackerState == null) {
                     println("Login response timeout, starting local UI fallback.")
-                    startProgram(this@View.username, this@View.user, false, this@View.user)
+                    startProgram(this@GameState.username, this@GameState.user, false, this@GameState.user)
                 }
             }
         }

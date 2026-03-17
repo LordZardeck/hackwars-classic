@@ -5,7 +5,7 @@ Programmer: Ben Coe/Cam(2007)<br />
 Render engine takes care of most of the technical aspects of drawing a map, loading resources, etc.
 */
 
-import com.hackwars.state.View;
+import com.hackwars.state.GameState;
 
 import java.awt.event.*;
 import java.util.*;
@@ -67,18 +67,18 @@ public class ClientRenderEngine extends OpenGLRenderEngine implements KeyListene
         //Also save stuff to a player's local hard-drive.
 
         if (activationEvent) {
-            View MyView = MyHacker.getView();
+            GameState myGameState = MyHacker.getView();
             Object[] send = new Object[]{new Integer(activationID), new Integer(activationType), MyHacker.getIP()};
-            MyView.addFunctionCall(new RemoteFunctionCall(Hacker.HACKTENDO_PLAYER, "hacktendoActivate", send));
+            myGameState.addFunctionCall(new RemoteFunctionCall(Hacker.HACKTENDO_PLAYER, "hacktendoActivate", send));
         } else if (targetEvent) {
-            View MyView = MyHacker.getView();
+            GameState myGameState = MyHacker.getView();
             Object[] send = null;
             if (playerSprite != null)
                 send = new Object[]{new Integer(targetX), new Integer(targetY), MyHacker.getIP(), new Integer(playerSprite.getX()), new Integer(playerSprite.getY())};
             else
                 send = new Object[]{new Integer(targetX), new Integer(targetY), MyHacker.getIP(), new Integer(targetX), new Integer(targetY)};
 
-            MyView.addFunctionCall(new RemoteFunctionCall(Hacker.HACKTENDO_PLAYER, "hacktendoTarget", send));
+            myGameState.addFunctionCall(new RemoteFunctionCall(Hacker.HACKTENDO_PLAYER, "hacktendoTarget", send));
         }
 
         activationEvent = false;

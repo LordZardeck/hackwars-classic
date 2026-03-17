@@ -4,7 +4,7 @@ package gui;
 import java.awt.event.*;
 
 import assignments.*;
-import com.hackwars.state.View;
+import com.hackwars.state.GameState;
 
 public class PortManagementDefaultListener implements ActionListener {
 
@@ -19,7 +19,7 @@ public class PortManagementDefaultListener implements ActionListener {
     }
 
     public void actionPerformed(ActionEvent e) {
-        View MyView = MyHacker.getView();
+        GameState myGameState = MyHacker.getView();
         //System.out.println("Default Clicked");
         String type = MyPortManagement.getType(port).getText();
         int typeSend = -1;
@@ -38,8 +38,8 @@ public class PortManagementDefaultListener implements ActionListener {
         if (typeSend != -1) {
             //System.out.println("Default Changed");
             Object objects[] = {MyHacker.getEncryptedIP(), new Integer(port), new Integer(typeSend)};
-            MyView.setFunction("setdefaultport");
-            MyView.addFunctionCall(new RemoteFunctionCall(0, "setdefaultport", objects));
+            myGameState.setFunction("setdefaultport");
+            myGameState.addFunctionCall(new RemoteFunctionCall(0, "setdefaultport", objects));
         } else {
             //System.out.println("Changing for no good reason");
         }

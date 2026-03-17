@@ -12,7 +12,7 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.*;
 
-import com.hackwars.state.View;
+import com.hackwars.state.GameState;
 import com.sun.opengl.util.*;
 import assignments.*;
 
@@ -134,17 +134,17 @@ public class OpenGLViewport implements FocusListener, MouseListener, GLEventList
             String note = (String) fireWatch[0];
             HashMap HM = (HashMap) fireWatch[1];
             HM.put("username", hacker.getUsername());
-            View MyView = hacker.getView();
+            GameState myGameState = hacker.getView();
             Object[] send = new Object[]{note, HM, hacker.getUsername(), MyRenderEngine.getIP()};
-            MyView.addFunctionCall(new RemoteFunctionCall(Hacker.HACKTENDO_PLAYER, "requesttrigger", send));
+            myGameState.addFunctionCall(new RemoteFunctionCall(Hacker.HACKTENDO_PLAYER, "requesttrigger", send));
         }
 
         //Save to a file on the player's computer.
         if (MyRenderEngine.getSaveFile() != null && !fileName.equals("")) {
             //Also save stuff to a player's local hard-drive.
-            View MyView = hacker.getView();
+            GameState myGameState = hacker.getView();
             Object[] send = new Object[]{fileName, MyRenderEngine.getSaveFile(), hacker.getIP()};
-            MyView.addFunctionCall(new RemoteFunctionCall(Hacker.HACKTENDO_PLAYER, "requestsave", send));
+            myGameState.addFunctionCall(new RemoteFunctionCall(Hacker.HACKTENDO_PLAYER, "requestsave", send));
             MyRenderEngine.setSaveFile(null);
         }
 
@@ -152,9 +152,9 @@ public class OpenGLViewport implements FocusListener, MouseListener, GLEventList
         if (MyRenderEngine.getTaskName() != "") {
             if (MyRenderEngine.getBeat()) {
                 //Also save stuff to a player's local hard-drive.
-                View MyView = hacker.getView();
+                GameState myGameState = hacker.getView();
                 Object[] send = new Object[]{fileName, MyRenderEngine.getQuestID(), MyRenderEngine.getTaskName(), hacker.getIP()};
-                MyView.addFunctionCall(new RemoteFunctionCall(Hacker.HACKTENDO_PLAYER, "requesttask", send));
+                myGameState.addFunctionCall(new RemoteFunctionCall(Hacker.HACKTENDO_PLAYER, "requesttask", send));
             }
         }
 

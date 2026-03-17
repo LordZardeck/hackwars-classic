@@ -10,7 +10,7 @@ import java.awt.*;
 import java.awt.event.*;
 
 import assignments.*;
-import com.hackwars.state.View;
+import com.hackwars.state.GameState;
 
 import java.lang.*;
 
@@ -304,7 +304,7 @@ public class ZombieAttackPane extends Application implements ChangeListener, Und
                 String targetIP = ipPanel.getIP();//ipField1.getText()+"."+ipField2.getText()+"."+ipField3.getText()+"."+ipField4.getText();
                 int targetPort = (int) (Integer) portSpinner.getValue();
                 textPane.setText("Attack Commencing on " + targetIP + " at port " + targetPort + "...\n");
-                View MyView = MyHacker.getView();
+                GameState myGameState = MyHacker.getView();
                 //get ip from main class.
                 String ip = MyHacker.getEncryptedIP();
                 Integer secondaryPorts[] = new Integer[ports.getItemCount()];
@@ -324,8 +324,8 @@ public class ZombieAttackPane extends Application implements ChangeListener, Und
                 otherInfo[4] = "";
                 //System.out.println(ipValue);
                 Object objects[] = {targetIP, targetPort, ipValue, new Integer(portValue), secondaryPorts, null, otherInfo, ip};
-                MyView.setFunction("requestzombieattack");
-                MyView.addFunctionCall(new RemoteFunctionCall(0, "requestzombieattack", objects));
+                myGameState.setFunction("requestzombieattack");
+                myGameState.addFunctionCall(new RemoteFunctionCall(0, "requestzombieattack", objects));
                 //this.hide();
                 //MyHacker.setAttackOpen(false);
             }
@@ -333,10 +333,10 @@ public class ZombieAttackPane extends Application implements ChangeListener, Und
         if (e.getActionCommand().equals("Cancel")) {
             textPane.setText(textPane.getText() + "Attack Canceled by you.\n--------------------------------------\n");
             String ip = MyHacker.getEncryptedIP();
-            View MyView = MyHacker.getView();
+            GameState myGameState = MyHacker.getView();
             Object objects[] = {ipValue, new Integer(portValue), ip};
-            MyView.setFunction("requestzombiecancelattack");
-            MyView.addFunctionCall(new RemoteFunctionCall(0, "requestzombiecancelattack", objects));
+            myGameState.setFunction("requestzombiecancelattack");
+            myGameState.addFunctionCall(new RemoteFunctionCall(0, "requestzombiecancelattack", objects));
             tabbedPane.setSelectedIndex(0);
             button.setEnabled(true);
         }

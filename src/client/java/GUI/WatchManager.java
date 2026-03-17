@@ -10,7 +10,7 @@ import java.awt.*;
 import java.awt.event.*;
 
 import assignments.*;
-import com.hackwars.state.View;
+import com.hackwars.state.GameState;
 
 import java.util.*;
 import java.util.concurrent.Semaphore;
@@ -20,7 +20,7 @@ public class WatchManager extends Application implements FocusListener {
     public final String[] WATCH_TYPES = Constants.watchTypes;
     private JDesktopPane mainPanel = null;
     private Hacker MyHacker = null;
-    private View MyView = null;
+    private GameState myGameState = null;
     private JPanel panel;
     private PacketWatch[] watches, oldWatches;
     private String oldNotes[] = new String[21];
@@ -63,11 +63,11 @@ public class WatchManager extends Application implements FocusListener {
         this.mainPanel = mainPanel;
         this.MyHacker = MyHacker;
         this.setFrameIcon(ImageLoader.getImageIcon("images/watch.png"));
-        MyView = MyHacker.getView();
+        myGameState = MyHacker.getView();
         String ip = MyHacker.getEncryptedIP();
         Object objects[] = {ip};
-        MyView.setFunction("fetchwatches");
-        MyView.addFunctionCall(new RemoteFunctionCall(0, "fetchwatches", objects));
+        myGameState.setFunction("fetchwatches");
+        myGameState.addFunctionCall(new RemoteFunctionCall(0, "fetchwatches", objects));
     }
 
     public void populate() {
@@ -460,36 +460,36 @@ public class WatchManager extends Application implements FocusListener {
 
     public void setOnOff(int index) {
         boolean set = !watches[index].getOn();
-        View MyView = MyHacker.getView();
+        GameState myGameState = MyHacker.getView();
         Object objects[] = {MyHacker.getEncryptedIP(), new Integer(index), new Boolean(set)};
-        MyView.setFunction("setwatchonoff");
-        MyView.addFunctionCall(new RemoteFunctionCall(0, "setwatchonoff", objects));
+        myGameState.setFunction("setwatchonoff");
+        myGameState.addFunctionCall(new RemoteFunctionCall(0, "setwatchonoff", objects));
     }
 
     public void setQuantity(int watchID, float quantity) {
         Object objects[] = {MyHacker.getEncryptedIP(), new Integer(watchID), new Float(quantity)};
-        View MyView = MyHacker.getView();
-        MyView.setFunction("setwatchquantity");
-        MyView.addFunctionCall(new RemoteFunctionCall(0, "setwatchquantity", objects));
+        GameState myGameState = MyHacker.getView();
+        myGameState.setFunction("setwatchquantity");
+        myGameState.addFunctionCall(new RemoteFunctionCall(0, "setwatchquantity", objects));
     }
 
     public void setFireWall(int watchID, int firewall) {
         Object objects[] = {MyHacker.getEncryptedIP(), new Integer(watchID), new Integer(firewall)};
         //System.out.println(firewall);
-        View MyView = MyHacker.getView();
-        MyView.setFunction("setwatchsearchfirewall");
-        MyView.addFunctionCall(new RemoteFunctionCall(0, "setwatchsearchfirewall", objects));
+        GameState myGameState = MyHacker.getView();
+        myGameState.setFunction("setwatchsearchfirewall");
+        myGameState.addFunctionCall(new RemoteFunctionCall(0, "setwatchsearchfirewall", objects));
     }
 
     public void setObservedPorts(int watchID, Integer[] ports) {
         Object objects[] = {MyHacker.getEncryptedIP(), new Integer(watchID), ports};
-        View MyView = MyHacker.getView();
-        MyView.setFunction("setwatchobservedports");
-        MyView.addFunctionCall(new RemoteFunctionCall(0, "setwatchobservedports", objects));
+        GameState myGameState = MyHacker.getView();
+        myGameState.setFunction("setwatchobservedports");
+        myGameState.addFunctionCall(new RemoteFunctionCall(0, "setwatchobservedports", objects));
     }
 
     public void install(String folder, String fileName, String type, int port) {
-        View MyView = MyHacker.getView();
+        GameState myGameState = MyHacker.getView();
         Integer sendType = new Integer(0);
         if (type.equals("Health")) {
             sendType = new Integer(0);
@@ -501,8 +501,8 @@ public class WatchManager extends Application implements FocusListener {
             sendType = new Integer(2);
         }
         Object objects[] = {MyHacker.getEncryptedIP(), folder, fileName, sendType, new Integer(port)};
-        MyView.setFunction("installwatch");
-        MyView.addFunctionCall(new RemoteFunctionCall(0, "installwatch", objects));
+        myGameState.setFunction("installwatch");
+        myGameState.addFunctionCall(new RemoteFunctionCall(0, "installwatch", objects));
 
         //add row to components array
         addRow();
@@ -536,8 +536,8 @@ public class WatchManager extends Application implements FocusListener {
     public void saveNote(String note, int index) {
         //System.out.println("SAVING THE NOTE: " + note + " at index = " + index);
         Object objects[] = {MyHacker.getEncryptedIP(), index, note};
-        MyView.setFunction("setwatchnote");
-        MyView.addFunctionCall(new RemoteFunctionCall(0, "setwatchnote", objects));
+        myGameState.setFunction("setwatchnote");
+        myGameState.addFunctionCall(new RemoteFunctionCall(0, "setwatchnote", objects));
     }
 
     public void internalFrameClosed(InternalFrameEvent e) {
@@ -556,9 +556,9 @@ public class WatchManager extends Application implements FocusListener {
         if (MyHacker.getStatsPanel().getCPULoadIcon().getPercent() <= 100.0f) {
             deleteCount++;
             Object objects[] = {MyHacker.getEncryptedIP(), new Integer(index)};
-            View MyView = MyHacker.getView();
-            MyView.setFunction("deletewatch");
-            MyView.addFunctionCall(new RemoteFunctionCall(0, "deletewatch", objects));
+            GameState myGameState = MyHacker.getView();
+            myGameState.setFunction("deletewatch");
+            myGameState.addFunctionCall(new RemoteFunctionCall(0, "deletewatch", objects));
             for (int i = 0; i < numColumns; i++) {
                 panel.remove(components[i][index]);
             }
@@ -657,10 +657,10 @@ public class WatchManager extends Application implements FocusListener {
         // IMPLEMENTS ActionListener
         public void actionPerformed(ActionEvent e) {
             JComboBox cb = (JComboBox) e.getSource();
-            View MyView = MyHacker.getView();
+            GameState myGameState = MyHacker.getView();
             Object objects[] = {MyHacker.getEncryptedIP(), index, cb.getSelectedIndex()};
-            MyView.setFunction("changewatchport");
-            MyView.addFunctionCall(new RemoteFunctionCall(0, "changewatchport", objects));
+            myGameState.setFunction("changewatchport");
+            myGameState.addFunctionCall(new RemoteFunctionCall(0, "changewatchport", objects));
         }
     }
 
@@ -680,10 +680,10 @@ public class WatchManager extends Application implements FocusListener {
         // IMPLEMENTS ActionListener
         public void actionPerformed(ActionEvent e) {
             JComboBox cb = (JComboBox) e.getSource();
-            View MyView = MyHacker.getView();
+            GameState myGameState = MyHacker.getView();
             Object objects[] = {MyHacker.getEncryptedIP(), index, cb.getSelectedIndex()};
-            MyView.setFunction("changewatchtype");
-            MyView.addFunctionCall(new RemoteFunctionCall(0, "changewatchtype", objects));
+            myGameState.setFunction("changewatchtype");
+            myGameState.addFunctionCall(new RemoteFunctionCall(0, "changewatchtype", objects));
         }
 
     }
@@ -705,10 +705,10 @@ public class WatchManager extends Application implements FocusListener {
         // IMPLEMENTS ActionListener
         public void actionPerformed(ActionEvent e) {
             JComboBox cb = (JComboBox) e.getSource();
-            View MyView = MyHacker.getView();
+            GameState myGameState = MyHacker.getView();
             Object objects[] = {MyHacker.getEncryptedIP(), index, cb.getSelectedIndex()};
-            MyView.setFunction("setwatchsearchfirewall");
-            MyView.addFunctionCall(new RemoteFunctionCall(0, "setwatchsearchfirewall", objects));
+            myGameState.setFunction("setwatchsearchfirewall");
+            myGameState.addFunctionCall(new RemoteFunctionCall(0, "setwatchsearchfirewall", objects));
         }
 
     }
@@ -780,9 +780,9 @@ public class WatchManager extends Application implements FocusListener {
 
             if (quantity != currentValue) {
                 Object objects[] = {MyHacker.getEncryptedIP(), index, new Float(quantity)};
-                View MyView = MyHacker.getView();
-                MyView.setFunction("setwatchquantity");
-                MyView.addFunctionCall(new RemoteFunctionCall(0, "setwatchquantity", objects));
+                GameState myGameState = MyHacker.getView();
+                myGameState.setFunction("setwatchquantity");
+                myGameState.addFunctionCall(new RemoteFunctionCall(0, "setwatchquantity", objects));
             }
         }
 

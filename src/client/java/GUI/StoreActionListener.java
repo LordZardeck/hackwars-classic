@@ -4,7 +4,7 @@ package gui;
 import javax.swing.*;
 import java.awt.event.*;
 
-import com.hackwars.state.View;
+import com.hackwars.state.GameState;
 
 import assignments.*;
 
@@ -27,12 +27,12 @@ public class StoreActionListener implements ActionListener {
         if (e.getActionCommand().equals("Buy")) {
             int quantity = (int) ((Integer) spinner.getValue());
             //System.out.println("Buy "+quantity+" copies of "+name);
-            View MyView = MyHacker.getView();
+            GameState myGameState = MyHacker.getView();
             Object[] params = new Object[]{ip};
             String result = (String) XMLRPCCall.execute("http://www.hackwars.net/xmlrpc/domain.php", "domainLookup", params);
             Object objects[] = {result, MyHacker.getEncryptedIP(), name, quantity};
-            MyView.setFunction("requestpurchase");
-            MyView.addFunctionCall(new RemoteFunctionCall(Hacker.BROWSER, "requestpurchase", objects));
+            myGameState.setFunction("requestpurchase");
+            myGameState.addFunctionCall(new RemoteFunctionCall(Hacker.BROWSER, "requestpurchase", objects));
             MyHacker.setRequestedDirectory(Hacker.BROWSER);
             //MyWebBrowser.removeProducts();
         }

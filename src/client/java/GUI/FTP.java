@@ -9,7 +9,7 @@ import javax.swing.event.*;
 import java.awt.*;
 import java.awt.event.*;
 
-import com.hackwars.state.View;
+import com.hackwars.state.GameState;
 import game.*;
 import assignments.*;
 
@@ -28,7 +28,7 @@ public class FTP extends Application implements UndoableEditListener, FocusListe
     private Hacker MyHacker = null;
     private Object directory[], shownDirectory[], transferDirectory[], shownTransferDirectory[];
     private int type;
-    private View MyView;
+    private GameState myGameState;
     private FTPCellRenderer renderer, transferRenderer;
     private int requestedFolders = 0;
     private String requests[] = new String[4];
@@ -52,7 +52,7 @@ public class FTP extends Application implements UndoableEditListener, FocusListe
         this.mainPanel = mainPanel;
         this.MyHacker = MyHacker;
         this.directory = MyHacker.getCurrentDirectory();
-        MyView = MyHacker.getView();
+        myGameState = MyHacker.getView();
         //setDefaultCloseOperation(JInternalFrame.HIDE_ON_CLOSE);
         MyHacker.setFTP(this);
         this.setFrameIcon(ImageLoader.getImageIcon("images/ftp.png"));
@@ -324,8 +324,8 @@ public class FTP extends Application implements UndoableEditListener, FocusListe
         MyHacker.setRequestedDirectory(Hacker.FTP);
         MyHacker.setCurrentFolder("");
         objects = new Object[]{MyHacker.getEncryptedIP(), ""};
-        MyView.setFunction("requestdirectory");
-        MyView.addFunctionCall(new RemoteFunctionCall(Hacker.FTP, "requestdirectory", objects));
+        myGameState.setFunction("requestdirectory");
+        myGameState.addFunctionCall(new RemoteFunctionCall(Hacker.FTP, "requestdirectory", objects));
 
         String request = "";
         if (type == SHOP) {
@@ -343,8 +343,8 @@ public class FTP extends Application implements UndoableEditListener, FocusListe
         //System.out.println("Requesting Secondary Directory");
         //System.out.println("Encrypted IP: "+MyHacker.getEncryptedIP());
         objects = new Object[]{targetIP, request, MyHacker.getEncryptedIP(), port};
-        MyView.setFunction("requestsecondarydirectory");
-        MyView.addFunctionCall(new RemoteFunctionCall(Hacker.FTP, "requestsecondarydirectory", objects));
+        myGameState.setFunction("requestsecondarydirectory");
+        myGameState.addFunctionCall(new RemoteFunctionCall(Hacker.FTP, "requestsecondarydirectory", objects));
         setVisible(true);
 
         String[] ip = MyHacker.getIP().split("\\.");
@@ -370,8 +370,8 @@ public class FTP extends Application implements UndoableEditListener, FocusListe
             //System.out.println("Requesting "+newFolder+name+"/");
             Object objects[] = new Object[]{MyHacker.getEncryptedIP(), newFolder + name + "/"};
             MyHacker.setRequestedDirectory(Hacker.FTP);
-            MyView.setFunction("requestdirectory");
-            MyView.addFunctionCall(new RemoteFunctionCall(Hacker.FTP, "requestdirectory", objects));
+            myGameState.setFunction("requestdirectory");
+            myGameState.addFunctionCall(new RemoteFunctionCall(Hacker.FTP, "requestdirectory", objects));
             //requestDirectory();
         } else {
             if (!sourceDir.getText().equals("/home/")) {
@@ -388,8 +388,8 @@ public class FTP extends Application implements UndoableEditListener, FocusListe
                 Object objects[] = new Object[]{MyHacker.getEncryptedIP(), newFolder};
                 MyHacker.setCurrentFolder(newFolder);
                 MyHacker.setRequestedDirectory(Hacker.FTP);
-                MyView.setFunction("requestdirectory");
-                MyView.addFunctionCall(new RemoteFunctionCall(Hacker.FTP, "requestdirectory", objects));
+                myGameState.setFunction("requestdirectory");
+                myGameState.addFunctionCall(new RemoteFunctionCall(Hacker.FTP, "requestdirectory", objects));
             }
         }
         //list.setSelectedIndex(-1);
@@ -412,8 +412,8 @@ public class FTP extends Application implements UndoableEditListener, FocusListe
             to = MyHacker.getCurrentFolder() + "/";
         MyHacker.setRequestedDirectory(Hacker.FTP);
         Object objects[] = {targetIP, port, name, to, folder, MyHacker.getEncryptedIP(), pass, quantity};
-        MyView.setFunction("requestdirectory");
-        MyView.addFunctionCall(new RemoteFunctionCall(Hacker.FTP, "put", objects));
+        myGameState.setFunction("requestdirectory");
+        myGameState.addFunctionCall(new RemoteFunctionCall(Hacker.FTP, "put", objects));
         messageWindow.setText(messageWindow.getText() + displayMessage + "\n");
         messageWindow.setCaretPosition(messageWindow.getText().length());
     }
@@ -435,8 +435,8 @@ public class FTP extends Application implements UndoableEditListener, FocusListe
             to = MyHacker.getCurrentFolder() + "/";
         MyHacker.setRequestedDirectory(Hacker.FTP);
         Object objects[] = {targetIP, port, name, to, folder, MyHacker.getEncryptedIP(), pass, quantity};
-        MyView.setFunction("get");
-        MyView.addFunctionCall(new RemoteFunctionCall(Hacker.FTP, "get", objects));
+        myGameState.setFunction("get");
+        myGameState.addFunctionCall(new RemoteFunctionCall(Hacker.FTP, "get", objects));
         messageWindow.setText(messageWindow.getText() + displayMessage + "\n");
         messageWindow.setCaretPosition(messageWindow.getText().length());
     }
@@ -522,8 +522,8 @@ public class FTP extends Application implements UndoableEditListener, FocusListe
             //System.out.println("Requesting Secondary Directory - "+targetIP);
             Object[] objects = new Object[]{targetIP, request, MyHacker.getEncryptedIP(), port};
             MyHacker.setRequestedDirectory(Hacker.FTP);
-            MyView.setFunction("requestsecondarydirectory");
-            MyView.addFunctionCall(new RemoteFunctionCall(Hacker.FTP, "requestsecondarydirectory", objects));
+            myGameState.setFunction("requestsecondarydirectory");
+            myGameState.addFunctionCall(new RemoteFunctionCall(Hacker.FTP, "requestsecondarydirectory", objects));
 
         }
 
