@@ -208,8 +208,9 @@ class GameState(private val ip: String, MyLoad: Launcher?) : DataHandler, Runnab
         println("Connecting")
         println("ABOUT TO CREATE REPORTER")
         gameServerReporter = Reporter(ip, 200000, 10021, 10020)
-        println("ABOUT TO CREATE CHAT REPORTER")
+        gameServerReporter?.setDataHandler(this)
 
+        println("ABOUT TO CREATE CHAT REPORTER")
         chatServerReporter = Reporter(ip, 200000, 10026, 10025)
         chatServerReporter?.setDataHandler(this)
         println("CREATED REPORTER & CHAT REPORTER")
