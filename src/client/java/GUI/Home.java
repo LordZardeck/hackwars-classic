@@ -784,7 +784,7 @@ public class Home extends Application implements ComponentListener, TableModelLi
 					levels.put("Merchanting",new Integer(100));
 					levels.put("Watch",new Integer(100));
 					Object[] params = new Object[]{new Integer(type),HM,levels};
-						HashMap result = (HashMap)XMLRPCCall.execute("http://"+MyHacker.getView().getIP()+":8080/xmlrpc","hackerRPC.compileApplication",params);
+						HashMap result = (HashMap)XMLRPCCall.execute("http://"+ConfigurationState.XMLRPCServer.Address+":8080/xmlrpc","hackerRPC.compileApplication",params);
 					compilingcost = (float)(double)(Double)result.get("price");
 				} catch(Exception ex){ex.printStackTrace();}
 			}*/
@@ -1069,7 +1069,7 @@ public class Home extends Application implements ComponentListener, TableModelLi
 									levels.put("Merchanting",new Integer(100));
 									levels.put("Watch",new Integer(100));
 									Object[] params = new Object[]{new Integer(type),HM,levels};
-										HashMap result = (HashMap)XMLRPCCall.execute("http://"+MyHacker.getView().getIP()+":8080/xmlrpc","hackerRPC.compileApplication",params);
+										HashMap result = (HashMap)XMLRPCCall.execute("http://"+ConfigurationState.XMLRPCServer.Address+":8080/xmlrpc","hackerRPC.compileApplication",params);
 									compilingcost = (float)(double)(Double)result.get("price");
 								}catch(Exception ex){ex.printStackTrace();}	*/
                         //Object[] selected = (Object[])shownDirectory[table.getSelectedRow()];

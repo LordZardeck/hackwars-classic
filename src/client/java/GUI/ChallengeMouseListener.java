@@ -11,6 +11,7 @@ import java.awt.*;
 import java.awt.event.*;
 
 import assignments.*;
+import com.hackwars.client.ConfigurationState;
 import view.*;
 
 import java.text.*;
@@ -44,7 +45,7 @@ public class ChallengeMouseListener implements MouseListener {
     public void mouseClicked(MouseEvent e) {
         //System.out.println("Clicked id "+id);
 
-        String link = "http://" + MyHacker.getView().getIP() + "/help/challenges.php?id=" + id;
+        String link = "http://" + ConfigurationState.XMLRPCServer.Address + "/help/challenges.php?id=" + id;
         ChallengeDetails CD = new ChallengeDetails(MyHacker, link);
         MyHacker.getPanel().add(CD);
         CD.setVisible(true);

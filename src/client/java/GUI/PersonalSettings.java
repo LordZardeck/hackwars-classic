@@ -11,6 +11,7 @@ import java.awt.*;
 import java.awt.event.*;
 
 import assignments.*;
+import com.hackwars.client.ConfigurationState;
 import view.*;
 
 import java.text.*;
@@ -91,7 +92,7 @@ public class PersonalSettings extends Application implements ComponentListener {
         String ip = "";
         try {
             Object[] params = new Object[]{username};
-            HashMap result = (HashMap) XMLRPCCall.execute("http://" + MyHacker.getView().getIP() + "/xmlrpc/profile.php", "getProfile", params);
+            HashMap result = (HashMap) XMLRPCCall.execute("http://" + ConfigurationState.XMLRPCServer.Address + "/xmlrpc/profile.php", "getProfile", params);
             image = "http://www.team-captin.com/" + result.get("image");
             getImageIndex((String) result.get("image"));
             width = (int) (Integer) result.get("width");
@@ -284,7 +285,7 @@ public class PersonalSettings extends Application implements ComponentListener {
         int y = 10;
         try {
             Object[] params = new Object[]{MyHacker.getIP()};
-            Object[] result = (Object[]) XMLRPCCall.execute("http://" + MyHacker.getView().getIP() + "/help/apilist.php", "listChallenges", params);
+            Object[] result = (Object[]) XMLRPCCall.execute("http://" + ConfigurationState.XMLRPCServer.Address + "/help/apilist.php", "listChallenges", params);
             //for(int j=0;j<5;j++){
             for (int i = 0; i < result.length; i++) {
                 HashMap HM = (HashMap) result[i];
@@ -385,7 +386,7 @@ public class PersonalSettings extends Application implements ComponentListener {
         if (e.getActionCommand().equals("saveImage")) {
             try {
                 Object[] params = new Object[]{username, images[imageIndex]};
-                XMLRPCCall.execute("http://" + MyHacker.getView().getIP() + "/xmlrpc/profile.php", "saveImage", params);
+                XMLRPCCall.execute("http://" + ConfigurationState.XMLRPCServer.Address + "/xmlrpc/profile.php", "saveImage", params);
             } catch (Exception ex) {
                 ex.printStackTrace();
             }
@@ -393,7 +394,7 @@ public class PersonalSettings extends Application implements ComponentListener {
         if (e.getActionCommand().equals("saveDescription")) {
             try {
                 Object[] params = new Object[]{username, ta.getText()};
-                XMLRPCCall.execute("http://" + MyHacker.getView().getIP() + "/xmlrpc/profile.php", "saveDescription", params);
+                XMLRPCCall.execute("http://" + ConfigurationState.XMLRPCServer.Address + "/xmlrpc/profile.php", "saveDescription", params);
             } catch (Exception ex) {
                 ex.printStackTrace();
             }
@@ -401,7 +402,7 @@ public class PersonalSettings extends Application implements ComponentListener {
         if (e.getActionCommand().equals("saveLocation")) {
             try {
                 Object[] params = new Object[]{username, tf.getText()};
-                XMLRPCCall.execute("http://" + MyHacker.getView().getIP() + "/xmlrpc/profile.php", "saveLocation", params);
+                XMLRPCCall.execute("http://" + ConfigurationState.XMLRPCServer.Address + "/xmlrpc/profile.php", "saveLocation", params);
             } catch (Exception ex) {
                 ex.printStackTrace();
             }

@@ -13,6 +13,7 @@ import java.awt.event.*;
 import java.awt.image.*;
 
 import assignments.*;
+import com.hackwars.client.ConfigurationState;
 import view.*;
 
 import java.text.*;
@@ -93,7 +94,7 @@ public class Help extends Application implements TreeSelectionListener, Componen
         //helpPane.createView();
         //helpPane.setBounds(0,0,bounds.width-insets.left-215,700);
 		/*try{
-			helpPane.parseDocument(new URL("http://"+MyHacker.getView().getIP()+"/help/help.php?id=1"),this);
+			helpPane.parseDocument(new URL("http://"+ConfigurationState.XMLRPCServer.Address+"/help/help.php?id=1"),this);
 		}catch(Exception e){}*/
         //sp2 = new JScrollPane(helpPane.getView());
         //sp2.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_NEVER);
@@ -106,14 +107,14 @@ public class Help extends Application implements TreeSelectionListener, Componen
         Object[] result = null;
         try {
             Object[] params = new Object[0];
-            result = (Object[]) XMLRPCCall.execute("http://" + MyHacker.getView().getIP() + "/help/tutoriallist.php", "listAPI", params);
+            result = (Object[]) XMLRPCCall.execute("http://" + ConfigurationState.XMLRPCServer.Address + "/help/tutoriallist.php", "listAPI", params);
         } catch (Exception e) {
             e.printStackTrace();
         }
         if (result != null) {
             for (int i = 0; i < result.length; i++) {
                 HashMap HM = (HashMap) result[i];
-                DefaultMutableTreeNode node = new DefaultMutableTreeNode(new HelpFile((String) HM.get("name"), "http://" + MyHacker.getView().getIP() + "/help/tutorial.php?id=" + HM.get("id")));
+                DefaultMutableTreeNode node = new DefaultMutableTreeNode(new HelpFile((String) HM.get("name"), "http://" + ConfigurationState.XMLRPCServer.Address + "/help/tutorial.php?id=" + HM.get("id")));
                 //DefaultMutableTreeNode node = new DefaultMutableTreeNode(new HelpFile((String)HM.get("name"),"http://localhost/Hacker2/Hacker/help/tutorial.php?id="+HM.get("id")));
                 top.add(node);
             }
@@ -124,14 +125,14 @@ public class Help extends Application implements TreeSelectionListener, Componen
         Object[] result = null;
         try {
             Object[] params = new Object[]{};
-            result = (Object[]) XMLRPCCall.execute("http://" + MyHacker.getView().getIP() + "/help/apilist.php", "listChallenges", params);
+            result = (Object[]) XMLRPCCall.execute("http://" + ConfigurationState.XMLRPCServer.Address + "/help/apilist.php", "listChallenges", params);
         } catch (Exception e) {
             e.printStackTrace();
         }
         if (result != null) {
             for (int i = 0; i < result.length; i++) {
                 HashMap HM = (HashMap) result[i];
-                DefaultMutableTreeNode node = new DefaultMutableTreeNode(new HelpFile((String) HM.get("name"), "http://" + MyHacker.getView().getIP() + "/help/challenges.php?id=" + HM.get("id")));
+                DefaultMutableTreeNode node = new DefaultMutableTreeNode(new HelpFile((String) HM.get("name"), "http://" + ConfigurationState.XMLRPCServer.Address + "/help/challenges.php?id=" + HM.get("id")));
                 top.add(node);
             }
         }
@@ -143,14 +144,14 @@ public class Help extends Application implements TreeSelectionListener, Componen
         Object[] result = null;
         try {
             Object[] params = new Object[]{"Banking"};
-            result = (Object[]) XMLRPCCall.execute("http://" + MyHacker.getView().getIP() + "/help/apilist.php", "listAPI", params);
+            result = (Object[]) XMLRPCCall.execute("http://" + ConfigurationState.XMLRPCServer.Address + "/help/apilist.php", "listAPI", params);
         } catch (Exception e) {
             e.printStackTrace();
         }
         if (result != null) {
             for (int i = 0; i < result.length; i++) {
                 HashMap HM = (HashMap) result[i];
-                DefaultMutableTreeNode node = new DefaultMutableTreeNode(new HelpFile((String) HM.get("name"), "http://" + MyHacker.getView().getIP() + "/help/help.php?id=" + HM.get("id")));
+                DefaultMutableTreeNode node = new DefaultMutableTreeNode(new HelpFile((String) HM.get("name"), "http://" + ConfigurationState.XMLRPCServer.Address + "/help/help.php?id=" + HM.get("id")));
                 banking.add(node);
             }
         }
@@ -160,14 +161,14 @@ public class Help extends Application implements TreeSelectionListener, Componen
         result = null;
         try {
             Object[] params = new Object[]{"Attack"};
-            result = (Object[]) XMLRPCCall.execute("http://" + MyHacker.getView().getIP() + "/help/apilist.php", "listAPI", params);
+            result = (Object[]) XMLRPCCall.execute("http://" + ConfigurationState.XMLRPCServer.Address + "/help/apilist.php", "listAPI", params);
         } catch (Exception e) {
             e.printStackTrace();
         }
         if (result != null) {
             for (int i = 0; i < result.length; i++) {
                 HashMap HM = (HashMap) result[i];
-                DefaultMutableTreeNode node = new DefaultMutableTreeNode(new HelpFile((String) HM.get("name"), "http://" + MyHacker.getView().getIP() + "/help/help.php?id=" + HM.get("id")));
+                DefaultMutableTreeNode node = new DefaultMutableTreeNode(new HelpFile((String) HM.get("name"), "http://" + ConfigurationState.XMLRPCServer.Address + "/help/help.php?id=" + HM.get("id")));
                 banking.add(node);
             }
         }
@@ -177,14 +178,14 @@ public class Help extends Application implements TreeSelectionListener, Componen
         result = null;
         try {
             Object[] params = new Object[]{"FTP"};
-            result = (Object[]) XMLRPCCall.execute("http://" + MyHacker.getView().getIP() + "/help/apilist.php", "listAPI", params);
+            result = (Object[]) XMLRPCCall.execute("http://" + ConfigurationState.XMLRPCServer.Address + "/help/apilist.php", "listAPI", params);
         } catch (Exception e) {
             e.printStackTrace();
         }
         if (result != null) {
             for (int i = 0; i < result.length; i++) {
                 HashMap HM = (HashMap) result[i];
-                DefaultMutableTreeNode node = new DefaultMutableTreeNode(new HelpFile((String) HM.get("name"), "http://" + MyHacker.getView().getIP() + "/help/help.php?id=" + HM.get("id")));
+                DefaultMutableTreeNode node = new DefaultMutableTreeNode(new HelpFile((String) HM.get("name"), "http://" + ConfigurationState.XMLRPCServer.Address + "/help/help.php?id=" + HM.get("id")));
                 banking.add(node);
             }
         }
@@ -194,14 +195,14 @@ public class Help extends Application implements TreeSelectionListener, Componen
         result = null;
         try {
             Object[] params = new Object[]{"Watch"};
-            result = (Object[]) XMLRPCCall.execute("http://" + MyHacker.getView().getIP() + "/help/apilist.php", "listAPI", params);
+            result = (Object[]) XMLRPCCall.execute("http://" + ConfigurationState.XMLRPCServer.Address + "/help/apilist.php", "listAPI", params);
         } catch (Exception e) {
             e.printStackTrace();
         }
         if (result != null) {
             for (int i = 0; i < result.length; i++) {
                 HashMap HM = (HashMap) result[i];
-                DefaultMutableTreeNode node = new DefaultMutableTreeNode(new HelpFile((String) HM.get("name"), "http://" + MyHacker.getView().getIP() + "/help/help.php?id=" + HM.get("id")));
+                DefaultMutableTreeNode node = new DefaultMutableTreeNode(new HelpFile((String) HM.get("name"), "http://" + ConfigurationState.XMLRPCServer.Address + "/help/help.php?id=" + HM.get("id")));
                 banking.add(node);
             }
         }
@@ -211,14 +212,14 @@ public class Help extends Application implements TreeSelectionListener, Componen
         result = null;
         try {
             Object[] params = new Object[]{"Challenge"};
-            result = (Object[]) XMLRPCCall.execute("http://" + MyHacker.getView().getIP() + "/help/apilist.php", "listAPI", params);
+            result = (Object[]) XMLRPCCall.execute("http://" + ConfigurationState.XMLRPCServer.Address + "/help/apilist.php", "listAPI", params);
         } catch (Exception e) {
             e.printStackTrace();
         }
         if (result != null) {
             for (int i = 0; i < result.length; i++) {
                 HashMap HM = (HashMap) result[i];
-                DefaultMutableTreeNode node = new DefaultMutableTreeNode(new HelpFile((String) HM.get("name"), "http://" + MyHacker.getView().getIP() + "/help/help.php?id=" + HM.get("id")));
+                DefaultMutableTreeNode node = new DefaultMutableTreeNode(new HelpFile((String) HM.get("name"), "http://" + ConfigurationState.XMLRPCServer.Address + "/help/help.php?id=" + HM.get("id")));
                 banking.add(node);
             }
         }
@@ -228,14 +229,14 @@ public class Help extends Application implements TreeSelectionListener, Componen
         result = null;
         try {
             Object[] params = new Object[]{"Other"};
-            result = (Object[]) XMLRPCCall.execute("http://" + MyHacker.getView().getIP() + "/help/apilist.php", "listAPI", params);
+            result = (Object[]) XMLRPCCall.execute("http://" + ConfigurationState.XMLRPCServer.Address + "/help/apilist.php", "listAPI", params);
         } catch (Exception e) {
             e.printStackTrace();
         }
         if (result != null) {
             for (int i = 0; i < result.length; i++) {
                 HashMap HM = (HashMap) result[i];
-                DefaultMutableTreeNode node = new DefaultMutableTreeNode(new HelpFile((String) HM.get("name"), "http://" + MyHacker.getView().getIP() + "/help/help.php?id=" + HM.get("id")));
+                DefaultMutableTreeNode node = new DefaultMutableTreeNode(new HelpFile((String) HM.get("name"), "http://" + ConfigurationState.XMLRPCServer.Address + "/help/help.php?id=" + HM.get("id")));
                 banking.add(node);
             }
         }

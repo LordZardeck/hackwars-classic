@@ -294,8 +294,8 @@ public class WebBrowser extends Application implements ComponentListener {
         }
         urlField.setText("Search");
         ips[0] = "Search";
-        //System.out.println(MyHacker.getView().getIP());
-        //forumPanel = new ForumPanel("http://"+MyHacker.getView().getIP()+"/forum/",this.getBounds(),this,MyHacker);
+        //System.out.println(ConfigurationState.XMLRPCServer.Address);
+        //forumPanel = new ForumPanel("http://"+ConfigurationState.XMLRPCServer.Address+"/forum/",this.getBounds(),this,MyHacker);
 
         tb = new JTabbedPane();
         JScrollPane scrollPane = new JScrollPane(browse.getView());
@@ -751,7 +751,7 @@ public class WebBrowser extends Application implements ComponentListener {
         //System.out.println("Form Input Value: "+value);
         //value = HTMLFilter.getURLSafe(value);
         try {
-            //browse.parseDocument(new URL(LocalWebConfig.getBaseUrl(MyHacker.getView().getIP())+"/login.html?mode=search&query="+value));
+            //browse.parseDocument(new URL(LocalWebConfig.getBaseUrl(ConfigurationState.XMLRPCServer.Address)+"/login.html?mode=search&query="+value));
             //XML-RPC STUFF
             //value = value.replaceAll("%20"," ");
             Object[] params = new Object[]{value, page};
