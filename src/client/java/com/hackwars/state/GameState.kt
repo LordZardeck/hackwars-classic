@@ -207,11 +207,21 @@ class GameState(private val ip: String, MyLoad: Launcher?) : DataHandler, Runnab
     suspend fun reconnect() {
         println("Connecting")
         println("ABOUT TO CREATE REPORTER")
-        gameServerReporter = Reporter(ip, 200000, 10021, 10020)
+        gameServerReporter = Reporter(
+            System.getProperty("hackwars.gameServer.address", "127.0.0.1"),
+            200000,
+            System.getProperty("hackwars.gameServer.inPort", "10021").toInt(),
+            System.getProperty("hackwars.gameServer.outPort", "10020").toInt(),
+        )
         gameServerReporter?.setDataHandler(this)
 
         println("ABOUT TO CREATE CHAT REPORTER")
-        chatServerReporter = Reporter(ip, 200000, 10026, 10025)
+        chatServerReporter = Reporter(
+            System.getProperty("hackwars.chatServer.address", "127.0.0.1"),
+            200000,
+            System.getProperty("hackwars.chatServer.inPort", "10026").toInt(),
+            System.getProperty("hackwars.chatServer.outPort", "10025").toInt(),
+        )
         chatServerReporter?.setDataHandler(this)
         println("CREATED REPORTER & CHAT REPORTER")
 
