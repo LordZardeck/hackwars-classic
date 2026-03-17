@@ -64,6 +64,10 @@ public class WebBrowser extends Application implements ComponentListener {
     private String currentTitle = "";
     private JLabel votesLeftLabel;
 
+    private String xmlRpcUnavailableHtml(String title) {
+        return "<html><body><h2>" + title + "</h2><p>Could not reach the XML-RPC endpoint.</p></body></html>";
+    }
+
     public WebBrowser(String name, boolean resize, boolean max, boolean close, boolean iconify, JDesktopPane mainPanel, Hacker MyHacker) {
         setTitle(name);
         setResizable(true);
@@ -83,7 +87,7 @@ public class WebBrowser extends Application implements ComponentListener {
         currentTitle = title;
         setTitle("Web Browser - " + title);
         tb.setTitleAt(tb.getSelectedIndex(), title);
-        browse.parseDocument(page, this);
+        browse.parseDocument(page == null ? "<html><body><h2>Page unavailable</h2><p>No page data was returned.</p></body></html>" : page, this);
         tb.updateUI();
         //tb.repaint();
         //tb.revalidate();
@@ -281,6 +285,9 @@ public class WebBrowser extends Application implements ComponentListener {
         try {
             Object[] params = new Object[]{"", ""};
             String result = (String) XMLRPCCall.execute(LocalWebConfig.getXmlRpcUrl(), "hackerRPC.doSearch", params);
+            if (result == null) {
+                result = xmlRpcUnavailableHtml("Search unavailable");
+            }
             browse.parseDocument(result, this);
         } catch (Exception e) {
             e.printStackTrace();
@@ -749,6 +756,9 @@ public class WebBrowser extends Application implements ComponentListener {
             //value = value.replaceAll("%20"," ");
             Object[] params = new Object[]{value, page};
             String result = (String) XMLRPCCall.execute(LocalWebConfig.getXmlRpcUrl(), "hackerRPC.doSearch", params);
+            if (result == null) {
+                result = xmlRpcUnavailableHtml("Search unavailable");
+            }
             //System.out.println("Parsing new search -- "+result);
             tb.setTitleAt(tb.getSelectedIndex(), "Search");
             browse.parseDocument(result, this);
@@ -834,6 +844,10 @@ public class WebBrowser extends Application implements ComponentListener {
                 }
                 Object[] params = new Object[]{href.getPath().replaceAll("/", "").trim(), HM};
                 String result = (String) XMLRPCCall.execute("http://www.hackwars.net/xmlrpc/domain.php", "domainLookup", params);
+                if (result == null) {
+                    browse.parseDocument(xmlRpcUnavailableHtml("Site lookup unavailable"), this);
+                    return;
+                }
                 //System.out.println(HM.get("q"));
                 objects = new Object[]{result.trim(), MyHacker.getEncryptedIP(), HM};
                 myGameState.setFunction("requestwebpage");
@@ -903,6 +917,10 @@ public class WebBrowser extends Application implements ComponentListener {
                 //System.out.println(href);
                 Object[] params = new Object[]{href.getHost().replaceAll("/", "").trim()};
                 String result = (String) XMLRPCCall.execute("http://www.hackwars.net/xmlrpc/domain.php", "domainLookup", params);
+                if (result == null) {
+                    browse.parseDocument(xmlRpcUnavailableHtml("Site lookup unavailable"), this);
+                    return;
+                }
                 objects = new Object[]{result, MyHacker.getEncryptedIP(), HM};
                 myGameState.setFunction("requestwebpage");
                 myGameState.addFunctionCall(new RemoteFunctionCall(Hacker.BROWSER, "requestwebpage", objects));
@@ -1134,4 +1152,3 @@ public class WebBrowser extends Application implements ComponentListener {
     }
 
 }
-

@@ -58,7 +58,17 @@ public class HtmlHandler implements Runnable {
      * Parse a document given a String as input.
      */
     public synchronized void parseDocument(String data, final JInternalFrame C) {
-        Work.add(new Object[]{data, C});
+        Work.add(new Object[]{safeHtml(data), C});
+    }
+
+    private String safeHtml(String data) {
+        if (data != null) {
+            return data;
+        }
+        return "<html><body><h2>Page unavailable</h2>"
+                + "<p>The server returned no page content.</p>"
+                + "<p>Check server connectivity and try again.</p>"
+                + "</body></html>";
     }
 
     private class LocalHtmlRendererContext extends SimpleHtmlRendererContext {
@@ -240,7 +250,7 @@ public class HtmlHandler implements Runnable {
 
                     } else {
 
-                        String data = (String) O[0];
+                        String data = safeHtml((String) O[0]);
                         final JInternalFrame C = (JInternalFrame) O[1];
 
                         try {
