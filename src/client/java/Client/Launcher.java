@@ -17,9 +17,10 @@ import javax.imageio.*;
 import java.net.URL;
 
 import gui.*;
+import org.jetbrains.annotations.NotNull;
 import util.XmlRpcProxy;
 
-public class Launcher extends JPanel implements ActionListener {
+public class Launcher extends JPanel implements ActionListener, GameState.MessageEventListener, GameState.FinishLoadingEventListener, GameState.ExitProgramEventListener {
     private final String checksum = "dec 19";
     private static final String DEFAULT_SERVER_HOST = "127.0.0.1";
     private static final String DEFAULT_PLAYER_IP = "192.168.2.002";
@@ -380,7 +381,10 @@ public class Launcher extends JPanel implements ActionListener {
      Connect to the Hack Wars server.
      */
     public void reconnect() {
-        myGameState = new GameState(ip, this);
+        myGameState = new GameState();
+        myGameState.addEventListener(GameState.MessageEventListener.class, this);
+        myGameState.addEventListener(GameState.FinishLoadingEventListener.class, this);
+        myGameState.addEventListener(GameState.ExitProgramEventListener.class, this);
     }
 
     //Testing main.
@@ -407,5 +411,20 @@ public class Launcher extends JPanel implements ActionListener {
                 frame.setVisible(true);
             }
         });
+    }
+
+    @Override
+    public void onFinishLoading(GameState.@NotNull FinishLoadingEvent event) {
+        finishedLoading();
+    }
+
+    @Override
+    public void onMessage(GameState.@NotNull MessageEvent event) {
+        setMessage(event.message);
+    }
+
+    @Override
+    public void onExitProgram(GameState.@NotNull ExitProgramEvent event) {
+        exitProgram();
     }
 }

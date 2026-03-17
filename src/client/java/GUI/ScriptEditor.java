@@ -9,6 +9,7 @@ import javax.swing.event.*;
 import java.awt.*;
 import java.awt.event.*;
 
+import com.hackwars.client.ConfigurationState;
 import com.hackwars.state.GameState;
 import game.*;
 
@@ -1426,7 +1427,7 @@ public class ScriptEditor extends Application {
                     levels.put("Redirect", new Integer(MyHacker.getStatsPanel().getRedirectIcon().getLevel()));
                     try {
                         Object[] params = new Object[]{new Integer(type), HM, levels};
-                        HashMap result = (HashMap) XMLRPCCall.execute(LocalWebConfig.getXmlRpcUrl(myGameState.getIP()), "hackerRPC.compileApplication", params);
+                        HashMap result = (HashMap) XMLRPCCall.execute(LocalWebConfig.getXmlRpcUrl(ConfigurationState.XMLRPCServer.Address), "hackerRPC.compileApplication", params);
                         if (((String) (result.get("error"))).length() > 0)
                             JOptionPane.showMessageDialog(this,
                                     result.get("error"),

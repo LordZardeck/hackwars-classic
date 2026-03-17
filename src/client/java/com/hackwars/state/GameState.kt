@@ -13,27 +13,66 @@ import com.plink.dolphinnet.HashSingleton
 import com.plink.dolphinnet.Reporter
 import com.plink.dolphinnet.assignments.ZippedAssignment
 import gui.Hacker
-import gui.Tutorial
 import kotlinx.coroutines.*
 import util.Encryption
 import util.Time
-import java.awt.GraphicsEnvironment
 import java.lang.Runnable
 import java.util.*
-import javax.swing.JOptionPane
+import javax.swing.SwingUtilities
+import javax.swing.event.EventListenerList
 
 /**
  * (C) Ben Coe 2007 <br></br>
  * The main controller for Coezilla.
  */
 
-class GameState(private val ip: String, MyLoad: Launcher?) : DataHandler, Runnable {
+class GameState : DataHandler, Runnable {
     companion object {
         private val LOGIN_FALLBACK_START =
             !"false".equals(System.getProperty("hackwars.loginFallbackStart", "true"), ignoreCase = true)
         var lastPingSuccess: Long = 0
         const val PINGTIMEOUT: Int = 40000
         const val PINGTIME: Int = 15000
+    }
+
+    interface GameStateListener : EventListener
+    class MessageEvent(source: Any, @JvmField val message: String) : EventObject(source)
+    fun interface MessageEventListener : GameStateListener {
+        fun onMessage(event: MessageEvent)
+    }
+
+    class FinishLoadingEvent(source: Any) : EventObject(source)
+    fun interface FinishLoadingEventListener : GameStateListener {
+        fun onFinishLoading(event: FinishLoadingEvent)
+    }
+
+    class ExitProgramEvent(source: Any) : EventObject(source)
+    fun interface ExitProgramEventListener : GameStateListener {
+        fun onExitProgram(event: ExitProgramEvent)
+    }
+
+    val listeners: EventListenerList = EventListenerList()
+
+    fun <T : GameStateListener> addEventListener(c: Class<T>, l: T) = listeners.add(c, l)
+    fun <T : GameStateListener> removeEventListener(c: Class<T>, l: T) = listeners.remove(c, l)
+
+    private fun fireMessageEvent(message: String) {
+        val event = MessageEvent(this, message)
+        val invoke = { listeners.getListeners(MessageEventListener::class.java).forEach { it.onMessage(event) } };
+
+        if (SwingUtilities.isEventDispatchThread()) invoke() else SwingUtilities.invokeLater(invoke)
+    }
+    private fun fireFinishedLoadingEvent() {
+        val event = FinishLoadingEvent(this)
+        val invoke = { listeners.getListeners(FinishLoadingEventListener::class.java).forEach { it.onFinishLoading(event) } };
+
+        if (SwingUtilities.isEventDispatchThread()) invoke() else SwingUtilities.invokeLater(invoke)
+    }
+    private fun fireExitProgramEvent() {
+        val event = ExitProgramEvent(this)
+        val invoke = { listeners.getListeners(ExitProgramEventListener::class.java).forEach { it.onExitProgram(event) } };
+
+        if (SwingUtilities.isEventDispatchThread()) invoke() else SwingUtilities.invokeLater(invoke)
     }
 
     var reconnect: Boolean = false
@@ -55,8 +94,6 @@ class GameState(private val ip: String, MyLoad: Launcher?) : DataHandler, Runnab
     var load: Launcher? = null
         private set
     private var encryptedIP: String? = null
-    var tutorial: Tutorial? = null
-        private set
     private var function: String? = ""
     private var open = false
     private var run = false
@@ -110,9 +147,6 @@ class GameState(private val ip: String, MyLoad: Launcher?) : DataHandler, Runnab
         else hackerState!!.update(this, username, ip, npc, encryptedIP)
     }
 
-    val iP: String
-        get() = (ip)
-
     fun setFunction(function: String?) {
         this.function = function
     }
@@ -137,11 +171,6 @@ class GameState(private val ip: String, MyLoad: Launcher?) : DataHandler, Runnab
      * Called by Data handler to return assignments to front-end.
      */
     var connected: Boolean = false
-
-    init {
-        this.load = MyLoad
-        tutorial = Tutorial()
-    }
 
     @Synchronized
     override fun addData(o: Any?) {
@@ -189,7 +218,7 @@ class GameState(private val ip: String, MyLoad: Launcher?) : DataHandler, Runnab
             }
 
             is LoginFailedAssignment -> {
-                load?.setMessage("Login failed, check your username<br> and password.")
+                fireMessageEvent("Login failed, check your username<br> and password.")
             }
         }
     }
@@ -254,14 +283,7 @@ class GameState(private val ip: String, MyLoad: Launcher?) : DataHandler, Runnab
             success = false
         }
         if (!success) {
-            if (this.load != null) {
-                load!!.setMessage("Connection failed. Make sure local services are running.")
-            } else if (!GraphicsEnvironment.isHeadless()) {
-                JOptionPane.showMessageDialog(
-                    null,
-                    "Connection failed. Start Tomcat, HackerServer, and ChatServer first."
-                )
-            }
+            fireMessageEvent("Connection failed. Make sure local services are running.")
             run = false
             return
         }
@@ -285,21 +307,18 @@ class GameState(private val ip: String, MyLoad: Launcher?) : DataHandler, Runnab
     }
 
     fun exitProgram() {
-        if (this.load != null) load!!.exitProgram()
+        fireExitProgramEvent()
     }
 
     fun finishedLoading() {
         open = true
-        if (this.load != null) {
-            load!!.finishedLoading()
-        }
+        fireFinishedLoadingEvent()
     }
 
     fun clean() {
         loopJob?.cancel()
         fallbackJob?.cancel()
         hackerState = null
-        this.load = null
         MyTime.clean()
         open = false
         System.gc()

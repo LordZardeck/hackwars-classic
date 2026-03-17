@@ -14,6 +14,6 @@ object ConfigurationState {
     }
 
     object XMLRPCServer {
-        val Address: String = System.getProperty("hackwars.xmlrpcServer.address", "127.0.0.1")
+        @JvmField val Address: String = System.getProperty("hackwars.xmlrpcServer.address", "127.0.0.1")
     }
 }

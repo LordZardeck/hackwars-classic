@@ -134,7 +134,6 @@ public class TutorialWindow extends Application {
     }
 
     public void linkGo(URL link) {
-        MyHacker.getView().getLoad().linkGo(link);
     }
 
 
