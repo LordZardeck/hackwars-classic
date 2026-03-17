@@ -5,14 +5,13 @@ package client;
  * Performs the loading step necessary to bootstrap the gui.
  */
 
-import java.net.*;
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.*;
 import java.io.*;
 import java.awt.image.BufferedImage;
 
-import view.*;
+import com.hackwars.state.View;
 
 import javax.imageio.*;
 import java.net.URL;

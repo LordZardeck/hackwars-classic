@@ -17,7 +17,7 @@ import com.hackwars.gui.OSMenuBar;
 import game.HackerFile;
 import game.Port;
 import game.mmo.HacktendoPacket;
-import view.View;
+import com.hackwars.state.View;
 
 import javax.imageio.ImageIO;
 import javax.swing.*;

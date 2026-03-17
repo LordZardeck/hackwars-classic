@@ -5,33 +5,21 @@ package gui;
  */
 
 import javax.swing.*;
-import javax.swing.border.*;
 import javax.swing.event.*;
-import javax.swing.undo.*;
-import javax.swing.text.BadLocationException;
 import java.awt.*;
 import java.awt.event.*;
 
-import view.*;
+import com.hackwars.state.View;
 import game.*;
 
 import java.util.*;
 
 import assignments.*;
 
-import java.lang.Math.*;
-import javax.swing.text.html.HTMLEditorKit;
-import javax.swing.text.StyledDocument;
-import javax.swing.text.StyledEditorKit;
-import javax.swing.text.Style;
-import java.io.*;
 import java.net.*;
 
-import org.w3c.dom.Node;
-import org.w3c.dom.NamedNodeMap;
 import util.*;
 
-import java.util.concurrent.Semaphore;
 import java.text.*;
 
 import browser.*;

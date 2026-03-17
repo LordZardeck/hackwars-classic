@@ -13,6 +13,9 @@ version = '0.1.0'
 ext {
     javaToolchainVersion = 25
     kotlinJvmTargetVersion = Math.min(javaToolchainVersion as Integer, 23)
+    enableKotlinWhenGuards = providers.gradleProperty('enableKotlinWhenGuards')
+            .map { it.toBoolean() }
+            .orElse(true)
     resourcesRootDir = file("${rootDir}/src/main/resources")
 }
 
@@ -25,6 +28,10 @@ allprojects {
 subprojects {
     apply plugin: 'java'
     apply plugin: 'org.jetbrains.kotlin.jvm'
+
+    dependencies {
+        implementation 'ch.qos.logback:logback-classic:1.5.18'
+    }
 
     java {
         toolchain {
@@ -57,6 +64,9 @@ subprojects {
                             (rootProject.ext.kotlinJvmTargetVersion as Integer).toString()
                     )
             )
+            if (rootProject.ext.enableKotlinWhenGuards.get()) {
+                freeCompilerArgs.add('-Xwhen-guards')
+            }
         }
         jvmTargetValidationMode.set(JvmTargetValidationMode.WARNING)
     }

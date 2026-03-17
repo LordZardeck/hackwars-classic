@@ -1,0 +1,8 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="Start Servers" type="CompoundRunConfigurationType">
+    <toRun name="hackwars-classic-original [runChatServer]" type="GradleRunConfiguration" />
+    <toRun name="hackwars-classic-original [runHackerServer]" type="GradleRunConfiguration" />
+    <toRun name="hackwars-classic-original [runTomcat]" type="GradleRunConfiguration" />
+    <method v="2" />
+  </configuration>
+</component>

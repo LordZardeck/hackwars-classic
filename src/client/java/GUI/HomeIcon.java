@@ -2,19 +2,14 @@ package gui;
 
 
 import javax.swing.*;
-import javax.swing.border.*;
-import javax.swing.event.*;
 import java.awt.*;
 import java.awt.event.*;
 
-import view.*;
+import com.hackwars.state.View;
 import assignments.*;
 import game.*;
 
 import java.util.*;
-import javax.imageio.*;
-import java.net.URL;
-import java.awt.image.*;
 
 public class HomeIcon extends JPanel implements MouseListener, ActionListener {
     public static final Color VALUE = Color.red;

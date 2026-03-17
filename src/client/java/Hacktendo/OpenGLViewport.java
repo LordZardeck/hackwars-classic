@@ -6,55 +6,24 @@ This is the new OpenGL Hacktendo Player.
 
 package hacktendo;
 
-import java.awt.Frame;
-import java.awt.event.WindowAdapter;
-import java.awt.event.WindowEvent;
 import javax.media.opengl.glu.*;
 import javax.media.opengl.*;
 import javax.swing.*;
-import javax.swing.border.*;
-import javax.swing.event.*;
 import java.awt.*;
 import java.awt.event.*;
 
+import com.hackwars.state.View;
 import com.sun.opengl.util.*;
 import assignments.*;
-import view.*;
-
-import java.text.*;
-import java.math.*;
-
-import browser.*;
-import game.*;
 
 //Stuff borrowed from hacktendo.
-import javax.swing.*;
-import java.awt.*;
 import java.awt.image.*;
 
-import util.*;
-
 import java.io.*;
-import java.awt.geom.*;
-import java.awt.event.*;
-import java.util.concurrent.Semaphore;
 
-import gui.Sound;
-
-import javax.imageio.*;
-
-import gui.ImageLoader;
 import gui.Hacker;
-import view.*;
-import assignments.*;
 
 import java.util.*;
-
-import hacktendo.*;
-
-import com.sun.opengl.util.*;
-import com.sun.opengl.util.texture.*;
-import com.plink.hack3d.*;
 
 public class OpenGLViewport implements FocusListener, MouseListener, GLEventListener, KeyListener {
     /// //////////////////

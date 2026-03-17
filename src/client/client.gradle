@@ -1,6 +1,9 @@
 import java.util.Locale
 
 def legacyOrgClassesDir = file("${projectDir}/java")
+def enableExperimentalClientKotlin = providers.gradleProperty('enableExperimentalClientKotlin')
+        .map { it.toBoolean() }
+        .orElse(false)
 def joglNativeCoordinates = [
         'net.java.dev.jogl:jogl-linux-i586:1.1.1-rc6',
         'net.java.dev.jogl:jogl-macosx-universal:1.1.1-rc6',
@@ -20,6 +23,7 @@ dependencies {
     implementation 'net.java.dev.jogl:jogl:1.1.1-rc6'
     implementation 'net.java.dev.gluegen:gluegen-rt:1.0b05'
     testImplementation 'junit:junit:4.13.2'
+    implementation "org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2"
     joglNativeCoordinates.each { runtimeOnly it }
 }
 
@@ -46,6 +50,10 @@ sourceSets {
             include 'chat/client/**/*.kt'
             include 'com/plink/hack3d/**/*.kt'
             include 'com/hackwars/**/*.kt'
+            if (!enableExperimentalClientKotlin.get()) {
+                exclude 'com/hackwars/assignments/**/*.kt'
+                exclude 'com/hackwars/net/ConnectionManager.kt'
+            }
         }
         resources {
             setSrcDirs(['resources'])
@@ -55,6 +63,17 @@ sourceSets {
         java.setSrcDirs(['test'])
         kotlin.setSrcDirs(['test'])
         resources.setSrcDirs([])
+    }
+}
+
+tasks.named('compileKotlin') {
+    compilerOptions {
+        def javaRoots = sourceSets.main.java.srcDirs
+                .findAll { it.exists() }
+                .collect { it.absolutePath }
+        if (!javaRoots.isEmpty()) {
+            freeCompilerArgs.add("-Xjava-source-roots=${javaRoots.join(',')}")
+        }
     }
 }
 

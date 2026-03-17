@@ -1,18 +1,14 @@
 package gui;
 
 import javax.swing.*;
-import javax.swing.border.*;
 import java.awt.*;
 import java.awt.event.*;
-import javax.swing.event.*;
 
 import assignments.*;
-import view.*;
+import com.hackwars.state.View;
 
 import java.awt.image.*;
 import java.awt.geom.*;
-import java.awt.event.*;
-import javax.swing.event.*;
 
 public class NetworkButton extends JButton implements ActionListener {
 

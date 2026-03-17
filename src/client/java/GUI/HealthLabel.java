@@ -1,16 +1,12 @@
 package gui;
 
 import javax.swing.*;
-import javax.swing.border.*;
 import java.awt.*;
 import java.awt.event.*;
-import javax.swing.event.*;
 
 import assignments.*;
 
-import java.util.*;
-
-import view.*;
+import com.hackwars.state.View;
 
 import java.text.*;
 

@@ -10,6 +10,7 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.image.*;
 
+import com.hackwars.state.View;
 import util.*;
 
 import java.io.*;
@@ -17,18 +18,13 @@ import java.awt.geom.*;
 import java.awt.event.*;
 import java.util.concurrent.Semaphore;
 
-import gui.Sound;
-
 import javax.imageio.*;
 
 import gui.ImageLoader;
 import gui.Hacker;
-import view.*;
 import assignments.*;
 
 import java.util.*;
-
-import gui.*;
 
 public class Viewport extends JComponent implements Runnable, FocusListener, MouseListener {
     /// //////////////////

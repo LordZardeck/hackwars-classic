@@ -14,6 +14,7 @@ it now runs within a dedicated desktop app.
 
 ## Project Layout
 
+- `docs`: architecture and protocol notes.
 - `src/ChatServer/java`: dedicated chat server module sources.
 - `src/GameServer/java`: game server module sources.
 - `src/Client/java`: desktop client module sources.
@@ -22,6 +23,10 @@ it now runs within a dedicated desktop app.
 - `src/HackWars/java`: shared HackWars code used by multiple modules.
 - `src/main/resources`: runtime data files (images, DB zips, config, etc.).
 - `src/main/webapp`: web application assets and `WEB-INF/web.xml`.
+
+## Auth Documentation
+
+- [Client authentication with game server](docs/client-game-server-auth.md)
 
 ## Networking Module
 

@@ -5,13 +5,11 @@ package gui;
  */
 
 import javax.swing.*;
-import javax.swing.border.*;
-import javax.swing.event.*;
 import java.awt.*;
 import java.awt.event.*;
 
+import com.hackwars.state.View;
 import game.*;
-import view.*;
 import assignments.*;
 
 public class HackerFileChooser extends JInternalFrame implements ActionListener, MouseListener {

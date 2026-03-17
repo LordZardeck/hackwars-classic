@@ -5,19 +5,16 @@ package gui;
  */
 
 import javax.swing.*;
-import javax.swing.border.*;
-import javax.swing.event.*;
 import java.awt.*;
 import java.awt.event.*;
 
 import assignments.*;
-import view.*;
+import com.hackwars.state.View;
 
 import java.lang.*;
 
 import game.*;
 
-import java.text.*;
 import java.util.*;
 import java.awt.image.*;
 import java.util.zip.*;
@@ -27,7 +24,6 @@ import org.apache.axis.encoding.Base64;
 import java.io.*;
 
 import org.w3c.dom.Node;
-import org.w3c.dom.NamedNodeMap;
 import util.*;
 
 public class HacktendoCreator extends Application implements ComponentListener {

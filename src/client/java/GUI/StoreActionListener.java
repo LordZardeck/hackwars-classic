@@ -2,17 +2,9 @@ package gui;
 
 
 import javax.swing.*;
-import javax.swing.border.*;
-import javax.swing.event.*;
-import javax.swing.undo.*;
-import javax.swing.text.BadLocationException;
-import java.awt.*;
 import java.awt.event.*;
 
-import view.*;
-import game.*;
-
-import java.util.*;
+import com.hackwars.state.View;
 
 import assignments.*;
 

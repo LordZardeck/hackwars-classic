@@ -5,29 +5,19 @@ package gui;
  */
 
 import javax.swing.*;
-import javax.swing.border.*;
 import javax.swing.event.*;
 import javax.swing.undo.*;
-import javax.swing.text.BadLocationException;
 import java.awt.*;
 import java.awt.event.*;
 
-import view.*;
-import game.*;
-
-import java.util.*;
+import com.hackwars.state.View;
 
 import assignments.*;
 
-import java.lang.Math.*;
-import javax.swing.text.html.HTMLEditorKit;
-import javax.swing.text.StyledDocument;
-import javax.swing.text.Style;
 import javax.swing.text.SimpleAttributeSet;
 
 import browser.*;
 import jsyntaxpane.*;
-import jsyntaxpane.syntaxkits.*;
 
 public class WebsiteEditor extends Application implements UndoableEditListener, ComponentListener, ChangeListener {
     private JDesktopPane mainPanel = null;

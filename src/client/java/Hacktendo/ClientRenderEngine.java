@@ -5,39 +5,15 @@ Programmer: Ben Coe/Cam(2007)<br />
 Render engine takes care of most of the technical aspects of drawing a map, loading resources, etc.
 */
 
-import javax.swing.*;
-import java.awt.*;
-import java.awt.image.*;
+import com.hackwars.state.View;
 
-import util.*;
-
-import java.io.*;
-import java.awt.geom.*;
 import java.awt.event.*;
 import java.util.*;
-import java.util.zip.*;
-
-import org.apache.axis.encoding.Base64;
-import org.w3c.dom.Node;
-import org.w3c.dom.NamedNodeMap;
-
-import java.util.concurrent.Semaphore;
 
 import hackscript.model.*;
-import view.*;
 import gui.*;
 
-import javax.media.opengl.glu.*;
-import javax.media.opengl.GL;
-import javax.media.opengl.GLAutoDrawable;
 import javax.media.opengl.GLCanvas;
-import javax.media.opengl.GLEventListener;
-
-import com.sun.opengl.util.*;
-import com.sun.opengl.util.texture.*;
-import com.plink.hack3d.*;
-
-import java.nio.*;
 
 import game.mmo.*;
 import assignments.*;

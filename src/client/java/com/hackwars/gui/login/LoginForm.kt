@@ -204,7 +204,7 @@ class LoginForm : JPanel(GridBagLayout()) {
                 addMouseListener(object : MouseAdapter() {
                     override fun mouseClicked(e: MouseEvent?) {
                         isAuthenticating = true
-                        Timer().schedule(1000) {
+                        Timer().schedule(5000) {
                             isAuthenticating = false
                             fireAuthenticationEvent(AuthenticationEvent(AuthenticationEvent.EventType.FAILURE))
                         }
