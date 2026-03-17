@@ -59,7 +59,6 @@ class GameState(private val ip: String, MyLoad: Launcher?) : DataHandler, Runnab
     private var function: String? = ""
     private var open = false
     private var run = false
-    private var offline = false
 
     private val hackerPacketListener = HackerPacketListener(::addFunctionCall)
     private val hackerDamageListener = HackerDamageListener()
@@ -106,7 +105,7 @@ class GameState(private val ip: String, MyLoad: Launcher?) : DataHandler, Runnab
     fun startProgram(username: String?, ip: String?, npc: Boolean, encryptedIP: String?) {
         reconnect = false
         this.encryptedIP = encryptedIP
-        if (hackerState == null) hackerState = Hacker(this, username, ip, npc, encryptedIP, offline)
+        if (hackerState == null) hackerState = Hacker(this, username, ip, npc, encryptedIP, false)
         else hackerState!!.update(this, username, ip, npc, encryptedIP)
     }
 
@@ -123,9 +122,7 @@ class GameState(private val ip: String, MyLoad: Launcher?) : DataHandler, Runnab
     }
 
     fun addFinishedAssignment(assignment: MessageInPacket?) {
-        if (!offline) {
-            chatServerReporter!!.addFinishedAssignment(ZippedAssignment(0, assignment))
-        }
+        chatServerReporter?.addFinishedAssignment(ZippedAssignment(0, assignment))
     }
 
     override fun getData(i: Int): Any? {
@@ -212,13 +209,9 @@ class GameState(private val ip: String, MyLoad: Launcher?) : DataHandler, Runnab
         println("ABOUT TO CREATE REPORTER")
         gameServerReporter = Reporter(ip, 200000, 10021, 10020)
         println("ABOUT TO CREATE CHAT REPORTER")
-        chatServerReporter = Reporter("localhost", 200000, 10026, 10025)
 
-        gameServerReporter!!.setDataHandler(this)
-        if (!offline) {
-            chatServerReporter = Reporter(ip, 200000, 10026, 10025)
-            chatServerReporter!!.setDataHandler(this)
-        }
+        chatServerReporter = Reporter(ip, 200000, 10026, 10025)
+        chatServerReporter?.setDataHandler(this)
         println("CREATED REPORTER & CHAT REPORTER")
 
         //Wait for handshake from server.
@@ -236,20 +229,18 @@ class GameState(private val ip: String, MyLoad: Launcher?) : DataHandler, Runnab
             startTime = MyTime.currentTime
             println("Connection ID: " + gameServerReporter!!.id)
             println("Connecting to Chat")
-            if (!offline) {
-                while (chatServerReporter!!.id == -1) {
-                    if (MyTime.currentTime - startTime > CHAT_TIME_OUT) {
-                        success = false
-                        break
-                    }
-                    delay(10)
+            while (chatServerReporter!!.id == -1) {
+                if (MyTime.currentTime - startTime > CHAT_TIME_OUT) {
+                    success = false
+                    break
                 }
+                delay(10)
             }
         }
-        if (success && gameServerReporter!!.id == -1) {
+        if (success && gameServerReporter?.id == -1) {
             success = false
         }
-        if (success && !offline && chatServerReporter!!.id == -1) {
+        if (success && chatServerReporter?.id == -1) {
             success = false
         }
         if (!success) {
@@ -272,11 +263,9 @@ class GameState(private val ip: String, MyLoad: Launcher?) : DataHandler, Runnab
         val MyLoginAssignment = LoginAssignment(0, username, crypt(pass!!.toByteArray(), key), user)
         MyLoginAssignment.publicKey = Encryption.getInstance().encodedKey
         gameServerReporter!!.addFinishedAssignment(MyLoginAssignment)
-        if (!offline) {
-            val MyChatLoginAssignment = LoginAssignment(0, username, crypt(pass!!.toByteArray(), key), user)
-            MyChatLoginAssignment.publicKey = Encryption.getInstance().encodedKey
-            chatServerReporter!!.addFinishedAssignment(MyChatLoginAssignment)
-        }
+        val MyChatLoginAssignment = LoginAssignment(0, username, crypt(pass!!.toByteArray(), key), user)
+        MyChatLoginAssignment.publicKey = Encryption.getInstance().encodedKey
+        chatServerReporter!!.addFinishedAssignment(MyChatLoginAssignment)
     }
 
     fun addFunctionCall(remoteFunctionCall: RemoteFunctionCall?) {
@@ -307,9 +296,7 @@ class GameState(private val ip: String, MyLoad: Launcher?) : DataHandler, Runnab
         run = false
         lastPingSuccess = 0
         gameServerReporter?.clean()
-        if (!offline) {
-            chatServerReporter?.clean()
-        }
+        chatServerReporter?.clean()
     }
 
     override fun run() {
@@ -355,29 +342,22 @@ class GameState(private val ip: String, MyLoad: Launcher?) : DataHandler, Runnab
                 packets.iterator().run { while (hasNext()) next() ?: remove() }
             }
             if (hackerState != null) {
-                try {
-                    val AMI = hackerState!!.chatController.popMessages()
-                    if (AMI != null) {
-                        if (!offline) {
-                            chatServerReporter!!.addFinishedAssignment(MessageInPacket(AMI))
-                        }
+                runCatching {
+                    hackerState?.chatController?.popMessages()?.let {
+                        chatServerReporter?.addFinishedAssignment(MessageInPacket(it))
                     }
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                }
+                }.onFailure { it.printStackTrace() }
 
                 if (MyTime.currentTime - lastPing > PINGTIME) {
                     lastPing = MyTime.currentTime
                     if (user != null) {
-                        gameServerReporter!!.addFinishedAssignment(PingAssignment(0, user))
-                        if (!offline) {
-                            chatServerReporter!!.addFinishedAssignment(
-                                PingAssignment(
-                                    0,
-                                    username!!.lowercase(Locale.getDefault())
-                                )
+                        gameServerReporter?.addFinishedAssignment(PingAssignment(0, user))
+                        chatServerReporter?.addFinishedAssignment(
+                            PingAssignment(
+                                0,
+                                username!!.lowercase(Locale.getDefault())
                             )
-                        }
+                        )
                     }
                 }
             }
