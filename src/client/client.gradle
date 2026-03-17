@@ -51,7 +51,6 @@ sourceSets {
             include 'com/plink/hack3d/**/*.kt'
             include 'com/hackwars/**/*.kt'
             if (!enableExperimentalClientKotlin.get()) {
-                exclude 'com/hackwars/assignments/**/*.kt'
                 exclude 'com/hackwars/net/ConnectionManager.kt'
             }
         }

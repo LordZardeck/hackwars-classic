@@ -78,8 +78,7 @@ class HackerPacketListener(private val onFunctionCall: (RemoteFunctionCall) -> U
                 }
                 if (assignment.requestPrimary()) {
                     val reqDir: Int = receiver.requestedDirectory
-                    val objects: Array<Any?>? =
-                        arrayOf<Any?>(receiver.encryptedIP, receiver.currentFolder)
+                    val objects: Array<Any?> = arrayOf(receiver.encryptedIP, receiver.currentFolder)
                     if (reqDir != Hacker.BROWSER && reqDir != Hacker.EQUIPMENT) {
                         onFunctionCall(
                             RemoteFunctionCall(

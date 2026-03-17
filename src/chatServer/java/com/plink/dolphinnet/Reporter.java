@@ -148,7 +148,7 @@ public class Reporter implements Runnable {
         //Set up the server.
         try {
             //Create the inboud socket.
-            Socket s = new Socket(address, inPort, true);
+            Socket s = new Socket(address, inPort);
             in = new ReporterInServe(this, s);
             in.setID(id);
             in.setTimeOut(timeOut);
@@ -156,7 +156,7 @@ public class Reporter implements Runnable {
             in.execute();
 
             //Create the outbound socket.
-            Socket s2 = new Socket(address, outPort, true);
+            Socket s2 = new Socket(address, outPort);
             out = new ReporterOutServe(this, s2);
             out.setID(id);
             out.setTimeOut(timeOut);
