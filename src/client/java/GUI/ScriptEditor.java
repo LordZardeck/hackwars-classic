@@ -1249,7 +1249,7 @@ public class ScriptEditor extends Application {
 
                     try {
                         Object[] params = new Object[]{new Integer(type), HM, levels};
-                        HashMap result = (HashMap) XMLRPCCall.execute(LocalWebConfig.getXmlRpcUrl(myGameState.getIP()), "hackerRPC.compileApplication", params);
+                        HashMap result = (HashMap) XMLRPCCall.execute(LocalWebConfig.getXmlRpcUrl(), "hackerRPC.compileApplication", params);
                         if (((String) (result.get("error"))).length() > 0)
                             //System.out.println(result.get("error"));
                             JOptionPane.showMessageDialog(this,

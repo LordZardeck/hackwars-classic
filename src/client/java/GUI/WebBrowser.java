@@ -280,7 +280,7 @@ public class WebBrowser extends Application implements ComponentListener {
         //browse.setEditorKit(new HTMLEditorKit());
         try {
             Object[] params = new Object[]{"", ""};
-            String result = (String) XMLRPCCall.execute(LocalWebConfig.getXmlRpcUrl(myGameState.getIP()), "hackerRPC.doSearch", params);
+            String result = (String) XMLRPCCall.execute(LocalWebConfig.getXmlRpcUrl(), "hackerRPC.doSearch", params);
             browse.parseDocument(result, this);
         } catch (Exception e) {
             e.printStackTrace();
@@ -748,7 +748,7 @@ public class WebBrowser extends Application implements ComponentListener {
             //XML-RPC STUFF
             //value = value.replaceAll("%20"," ");
             Object[] params = new Object[]{value, page};
-            String result = (String) XMLRPCCall.execute(LocalWebConfig.getXmlRpcUrl(myGameState.getIP()), "hackerRPC.doSearch", params);
+            String result = (String) XMLRPCCall.execute(LocalWebConfig.getXmlRpcUrl(), "hackerRPC.doSearch", params);
             //System.out.println("Parsing new search -- "+result);
             tb.setTitleAt(tb.getSelectedIndex(), "Search");
             browse.parseDocument(result, this);

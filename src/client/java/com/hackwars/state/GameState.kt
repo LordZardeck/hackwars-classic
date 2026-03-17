@@ -6,6 +6,7 @@ import client.Launcher
 import com.hackwars.assignments.AssignmentEvent
 import com.hackwars.assignments.HackerDamageListener
 import com.hackwars.assignments.HackerPacketListener
+import com.hackwars.client.ConfigurationState
 import com.plink.dolphinnet.Assignment
 import com.plink.dolphinnet.DataHandler
 import com.plink.dolphinnet.HashSingleton
@@ -208,19 +209,19 @@ class GameState(private val ip: String, MyLoad: Launcher?) : DataHandler, Runnab
         println("Connecting")
         println("ABOUT TO CREATE REPORTER")
         gameServerReporter = Reporter(
-            System.getProperty("hackwars.gameServer.address", "127.0.0.1"),
+            ConfigurationState.GameServer.Address,
             200000,
-            System.getProperty("hackwars.gameServer.inPort", "10021").toInt(),
-            System.getProperty("hackwars.gameServer.outPort", "10020").toInt(),
+            ConfigurationState.GameServer.InPort,
+            ConfigurationState.GameServer.OutPort,
         )
         gameServerReporter?.setDataHandler(this)
 
         println("ABOUT TO CREATE CHAT REPORTER")
         chatServerReporter = Reporter(
-            System.getProperty("hackwars.chatServer.address", "127.0.0.1"),
+            ConfigurationState.ChatServer.Address,
             200000,
-            System.getProperty("hackwars.chatServer.inPort", "10026").toInt(),
-            System.getProperty("hackwars.chatServer.outPort", "10025").toInt(),
+            ConfigurationState.ChatServer.InPort,
+            ConfigurationState.ChatServer.OutPort,
         )
         chatServerReporter?.setDataHandler(this)
         println("CREATED REPORTER & CHAT REPORTER")
@@ -229,24 +230,22 @@ class GameState(private val ip: String, MyLoad: Launcher?) : DataHandler, Runnab
         var success = true
         var startTime = MyTime.currentTime
         println("Attempting to Connect to Server")
-        if (ip != "none") {
-            while (gameServerReporter!!.id == -1) {
-                if (MyTime.currentTime - startTime > TIME_OUT) {
-                    success = false
-                    break
-                }
-                delay(10)
+        while (gameServerReporter!!.id == -1) {
+            if (MyTime.currentTime - startTime > TIME_OUT) {
+                success = false
+                break
             }
-            startTime = MyTime.currentTime
-            println("Connection ID: " + gameServerReporter!!.id)
-            println("Connecting to Chat")
-            while (chatServerReporter!!.id == -1) {
-                if (MyTime.currentTime - startTime > CHAT_TIME_OUT) {
-                    success = false
-                    break
-                }
-                delay(10)
+            delay(10)
+        }
+        startTime = MyTime.currentTime
+        println("Connection ID: " + gameServerReporter!!.id)
+        println("Connecting to Chat")
+        while (chatServerReporter!!.id == -1) {
+            if (MyTime.currentTime - startTime > CHAT_TIME_OUT) {
+                success = false
+                break
             }
+            delay(10)
         }
         if (success && gameServerReporter?.id == -1) {
             success = false

@@ -14,10 +14,10 @@ import chat.client.viewMain;
 import chat.client.viewRelationList;
 import chat.messages.MsgOutChannelText;
 import com.hackwars.gui.OSMenuBar;
+import com.hackwars.state.GameState;
 import game.HackerFile;
 import game.Port;
 import game.mmo.HacktendoPacket;
-import com.hackwars.state.GameState;
 
 import javax.imageio.ImageIO;
 import javax.swing.*;
@@ -237,7 +237,9 @@ public class Hacker implements ActionListener, WindowListener, ComponentListener
         //LS.repaint();
         //get Function Packs here
         if (!offline) {
-            Object[] functions = (Object[]) XMLRPCCall.execute("http://www.hackwars.net/xmlrpc/functions.php", "getFunctionPacks", new Object[]{ip});
+            // TODO: @lordzardeck reverse engineer what this endpoint used to do and re-implement
+            // Object[] functions = (Object[]) XMLRPCCall.execute("http://www.hackwars.net/xmlrpc/functions.php", "getFunctionPacks", new Object[]{ip});
+            Object[] functions = null;
             if (functions != null && functions.length > 2 && functions[2] instanceof Boolean) {
                 //paidHacktendo=(Boolean)functions[1];
                 proPack = (Boolean) functions[2];
@@ -302,7 +304,9 @@ public class Hacker implements ActionListener, WindowListener, ComponentListener
         statList = new StatsList(this);
 
         if (!offline) {
-            Object[] settings = (Object[]) XMLRPCCall.execute("http://www.hackwars.net/xmlrpc/settings.php", "getSettings", new Object[]{ip});
+            // TODO: @lordzardeck reverse engineer what this endpoint used to do and re-implement
+            // Object[] settings = (Object[]) XMLRPCCall.execute("http://www.hackwars.net/xmlrpc/settings.php", "getSettings", new Object[]{ip});
+            Object[] settings = null;
             if (settings != null) {
                 Object[] portC = (Object[]) settings[4];//new Object[]{true,true,true,true,true,true,true,true,true,true};
                 portColumns = new boolean[10];

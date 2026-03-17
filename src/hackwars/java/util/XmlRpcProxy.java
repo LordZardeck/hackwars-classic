@@ -37,10 +37,7 @@ public class XmlRpcProxy {
             String path = parsed.getPath();
             if (path != null && path.startsWith("/xmlrpc/") && path.endsWith(".php")) {
                 String endpointName = path.substring("/xmlrpc/".length(), path.length() - ".php".length());
-                String host = parsed.getHost();
-                if (host == null || host.equals("") || host.equalsIgnoreCase("hackwars.net") || host.equalsIgnoreCase("www.hackwars.net")) {
-                    host = getPropertySafe("hackwars.server.host", "127.0.0.1");
-                }
+                String host = getPropertySafe("hackwars.server.host", "127.0.0.1");
                 int port = parsed.getPort();
                 if (port <= 0) {
                     try {
