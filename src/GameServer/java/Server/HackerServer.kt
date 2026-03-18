@@ -31,26 +31,6 @@ class HackerServer(e: Editor, serverID: String) : IParty(e), Runnable, HackerSer
     companion object {
         private val Logger: Logger = LoggerFactory.getLogger(HackerServer::class.java)
 
-        //Singleton instance of the Hacker server.
-        private var MyHackerServer: HackerServer? = null
-        private var E: Editor? = null
-
-        val instance: HackerServer?
-            get() {
-                if (MyHackerServer == null) {
-                    try {
-                        E = Editor(2048, 1000, 10020, 10021) //Creates a new server for distributing tasks.
-                        E!!.setClientJobSize(4)
-                        MyHackerServer = HackerServer(E!!, "1")
-                    } catch (e: Exception) {
-                        e.printStackTrace()
-                    }
-                    return (MyHackerServer)
-                } else {
-                    return (MyHackerServer)
-                }
-            }
-
         var MyTime: Time? = null
         var on: Boolean = true
         var SHUTDOWN_AT: Long = 0
@@ -122,7 +102,7 @@ class HackerServer(e: Editor, serverID: String) : IParty(e), Runnable, HackerSer
                 var o: Any? = null
                 try {
                     available.acquire()
-                    if (Tasks.size > 0) o = Tasks.removeAt(0)
+                    if (Tasks.isNotEmpty()) o = Tasks.removeAt(0)
                 } catch (e: Exception) {
                     e.printStackTrace()
                 } finally {
@@ -197,7 +177,8 @@ class HackerServer(e: Editor, serverID: String) : IParty(e), Runnable, HackerSer
                             ServerRuntimeState.setRunning(on)
                             MyComputerHandler!!.startCountDown()
                         }
-                    } else if (MyAssignment is RemoteFunctionCall) {
+                    }
+                    else if (MyAssignment is RemoteFunctionCall) {
                         val RFC = MyAssignment
 
                         try {
