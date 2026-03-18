@@ -44,7 +44,7 @@
     </content>
     <orderEntry type="jdk" jdkName="openjdk-25" jdkType="JavaSDK" />
     <orderEntry type="sourceFolder" forTests="false" />
-    <orderEntry type="module" module-name="src.HackwarsClassic.Client.main" />
+    <orderEntry type="module" module-name="src.HackwarsClassic.Client.main~1" />
     <orderEntry type="module-library">
       <library name="Gradle: client-legacy-org-shims.jar">
         <CLASSES>
@@ -54,19 +54,12 @@
         <SOURCES />
       </library>
     </orderEntry>
-    <orderEntry type="module" module-name="src.HackwarsClassic.HackWars.main" />
-    <orderEntry type="module" module-name="src.HackwarsClassic.Networking.main" />
+    <orderEntry type="module" module-name="src.HackwarsClassic.HackWars.main~1" />
+    <orderEntry type="module" module-name="src.HackwarsClassic.Networking.main~1" />
     <orderEntry type="library" scope="PROVIDED" name="Gradle: org.jetbrains.kotlin:kotlin-stdlib:2.1.20" level="project" />
     <orderEntry type="library" name="Gradle: ch.qos.logback:logback-classic:1.5.18" level="project" />
-    <orderEntry type="module-library">
-      <library name="Gradle: com.playfab:client-sdk:0.256.260313">
-        <CLASSES>
-          <root url="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/com.playfab/client-sdk/0.256.260313/30c1f3cd05534a9ceec671b40d9d476a5f9fbcdd/client-sdk-0.256.260313.jar!/" />
-        </CLASSES>
-        <JAVADOC />
-        <SOURCES />
-      </library>
-    </orderEntry>
+    <orderEntry type="library" name="Gradle: com.playfab:client-sdk:0.256.260313" level="project" />
+    <orderEntry type="library" name="Gradle: com.google.code.gson:gson:2.10.1" level="project" />
     <orderEntry type="library" name="Gradle: org.apache.axis:axis:1.4" level="project" />
     <orderEntry type="library" name="Gradle: com.github.weisj:jsvg:1.7.0" level="project" />
     <orderEntry type="library" name="Gradle: de.sciss:jsyntaxpane:1.0.0" level="project" />

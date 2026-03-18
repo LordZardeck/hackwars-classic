@@ -1,6 +1,7 @@
 dependencies {
     implementation project(':HackWars')
     implementation project(':Networking')
+    implementation "org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2"
     implementation 'com.miglayout:miglayout-swing:11.4.2'
 }
 

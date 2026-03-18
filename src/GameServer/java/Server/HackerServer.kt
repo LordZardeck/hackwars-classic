@@ -10,6 +10,9 @@ import com.plink.dolphinnet.Editor
 import com.plink.dolphinnet.IParty
 import com.plink.dolphinnet.assignments.ZippedAssignment
 import game.*
+import kotlinx.coroutines.*
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.channels.onFailure
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import util.Encryption
@@ -17,7 +20,6 @@ import util.PlayFabTokenVerifier
 import util.PlayFabTokenVerifier.AuthResult
 import util.Time
 import java.util.*
-import java.util.concurrent.Semaphore
 
 /**
  * (c) Hack Wars 2008
@@ -27,7 +29,7 @@ import java.util.concurrent.Semaphore
  * to actual players of the game.
  */
 
-class HackerServer(e: Editor, serverID: String) : IParty(e), Runnable, HackerServerBridge {
+class HackerServer(e: Editor, serverID: String) : IParty(e), HackerServerBridge {
     companion object {
         private val Logger: Logger = LoggerFactory.getLogger(HackerServer::class.java)
 
@@ -40,9 +42,9 @@ class HackerServer(e: Editor, serverID: String) : IParty(e), Runnable, HackerSer
     private val Keys = HashMap<Any?, Any?>()
     private val IPs = HashMap<Any?, Any?>()
     private var MyComputerHandler: ComputerHandler? = null
-    private val available = Semaphore(1, true)
-    private var MyThread: Thread? = null
-    private val Tasks: ArrayList<Any?> = ArrayList<Any?>()
+    private val taskQueue = Channel<Any?>(Channel.UNLIMITED)
+    private val serverScope = CoroutineScope(SupervisorJob() + Dispatchers.Default.limitedParallelism(1))
+    private var serverJob: Job? = null
     private var serverID = ""
     private val MyEncryption = Encryption()
 
@@ -58,13 +60,8 @@ class HackerServer(e: Editor, serverID: String) : IParty(e), Runnable, HackerSer
     }
 
     override fun addData(o: Any?) {
-        try {
-            available.acquire()
-            Tasks.add(o)
-        } catch (e: Exception) {
-            e.printStackTrace()
-        } finally {
-            available.release()
+        taskQueue.trySend(o).onFailure {
+            Logger.error("Failed to enqueue task in addData", it)
         }
     }
 
@@ -78,13 +75,8 @@ class HackerServer(e: Editor, serverID: String) : IParty(e), Runnable, HackerSer
     /** Receive a completed assignment. */
     @Synchronized
     override fun returnAssignment(assignment: Assignment?) {
-        try {
-            available.acquire()
-            Tasks.add(assignment)
-        } catch (e: Exception) {
-            e.printStackTrace()
-        } finally {
-            available.release()
+        taskQueue.trySend(assignment).onFailure {
+            Logger.error("Failed to enqueue task in returnAssignment", it)
         }
     }
 
@@ -93,22 +85,13 @@ class HackerServer(e: Editor, serverID: String) : IParty(e), Runnable, HackerSer
      * Grabs work from the server and dispatches it via the computer handler to
      * individual 'PCs' playing the game.
      */
-    override fun run() {
+    private fun processTasks() {
         Logger.info("Game Server Started")
 
         var clientKey: String?
         while (true) {
+            val o = runBlocking { taskQueue.receive() }
             try {
-                var o: Any? = null
-                try {
-                    available.acquire()
-                    if (Tasks.isNotEmpty()) o = Tasks.removeAt(0)
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                } finally {
-                    available.release()
-                }
-
                 if (o != null) {
                     val MyAssignment: Any? = o
                     clientKey = ""
@@ -177,8 +160,7 @@ class HackerServer(e: Editor, serverID: String) : IParty(e), Runnable, HackerSer
                             ServerRuntimeState.setRunning(on)
                             MyComputerHandler!!.startCountDown()
                         }
-                    }
-                    else if (MyAssignment is RemoteFunctionCall) {
+                    } else if (MyAssignment is RemoteFunctionCall) {
                         val RFC = MyAssignment
 
                         try {
@@ -1667,7 +1649,6 @@ class HackerServer(e: Editor, serverID: String) : IParty(e), Runnable, HackerSer
                     }
                 }
 
-                Thread.sleep(1)
             } catch (e: Exception) {
                 e.printStackTrace()
             }
@@ -1681,8 +1662,7 @@ class HackerServer(e: Editor, serverID: String) : IParty(e), Runnable, HackerSer
         ServerRuntimeState.setRunning(on)
         ServerRuntimeState.setShutdownAt(SHUTDOWN_AT)
         MyComputerHandler = ComputerHandler(MyTime, this)
-        MyThread = Thread(this, "HackerServer")
-        MyThread!!.start()
+        serverJob = serverScope.launch(CoroutineName("HackerServer")) { processTasks() }
     }
 
     /**
