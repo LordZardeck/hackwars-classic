@@ -48,6 +48,15 @@
     <orderEntry type="library" scope="PROVIDED" name="Gradle: org.jetbrains.kotlin:kotlin-stdlib:2.1.20" level="project" />
     <orderEntry type="library" name="Gradle: ch.qos.logback:logback-classic:1.5.18" level="project" />
     <orderEntry type="library" name="Gradle: mysql:mysql-connector-java:5.1.49" level="project" />
+    <orderEntry type="module-library">
+      <library name="Gradle: com.playfab:server-sdk:0.256.260313">
+        <CLASSES>
+          <root url="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/com.playfab/server-sdk/0.256.260313/cd754f14bd8048d7e7e48ee55e9d30cd61b2b5d9/server-sdk-0.256.260313.jar!/" />
+        </CLASSES>
+        <JAVADOC />
+        <SOURCES />
+      </library>
+    </orderEntry>
     <orderEntry type="library" name="Gradle: com.google.protobuf:protobuf-java:3.25.5" level="project" />
     <orderEntry type="library" scope="PROVIDED" name="Gradle: org.jetbrains:annotations:13.0" level="project" />
     <orderEntry type="library" name="Gradle: ch.qos.logback:logback-core:1.5.18" level="project" />

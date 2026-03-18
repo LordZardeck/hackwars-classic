@@ -9,6 +9,8 @@ package server;
 
 import com.plink.dolphinnet.*;
 import com.plink.dolphinnet.util.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import util.*;
 
 import java.io.*;
@@ -25,6 +27,8 @@ import game.*;
 import java.util.concurrent.Semaphore;
 
 public class HackerServer extends IParty implements Runnable, HackerServerBridge {
+    private static final Logger Logger = LoggerFactory.getLogger(HackerServer.class);
+
     //Singleton instance of the Hacker server.
     private static HackerServer MyHackerServer = null;
     private static Editor E = null;
@@ -150,30 +154,34 @@ public class HackerServer extends IParty implements Runnable, HackerServerBridge
                     if (MyAssignment instanceof LoginAssignment) {
                         if (on) {
                             LoginAssignment MyLoginAssignment = (LoginAssignment) MyAssignment;
-                            String User = MyLoginAssignment.getUser();
-                            String Pass = MyLoginAssignment.getPass();
-                            String RawPass = Computer.crypt(Pass.getBytes(), clientKey);
-                            String ip = MyLoginAssignment.getIP();
+                            String accessToken = MyLoginAssignment.getAccessToken();
+                            PlayFabTokenVerifier.AuthResult authResult = null;
+                            try {
+                                authResult = PlayFabTokenVerifier.verify(accessToken);
+                            } catch (Exception authError) {
+                                Logger.error("HackerServer: PlayFab authentication failed", authError);
+                            }
 
-                         /*   sql sql = new sql("","hackerforum","root","");
-                            if ( TESTING==false && sql.checkLogin(User, ip, RawPass) == false)
-                            {
-                                System.out.println("HackerServer: suspected hack attempt: User: "+User+" HW-IP: "+ip+" Pass: "+RawPass);
+                            if (authResult == null) {
                                 dispatchPacket(new LoginFailedAssignment(0), ((Assignment) MyAssignment).getReporterID());
-                            }*/
-//                            else
+                                continue;
+                            }
+
+                            String user = authResult.getPlayFabId();
+                            String ip = authResult.getPlayerIp();
 
                             if (MyComputerHandler.getComputer(ip) != null) {
                                 Computer C = MyComputerHandler.getComputer(ip);
                                 C.setClientHash(clientKey);
                                 C.setPublicKey(MyLoginAssignment.getPublicKey());
-                                C.setConnectionID(MyLoginAssignment.getReporterID(), Pass);
+                                C.setPlayFabAuthenticated(user);
+                                C.setConnectionID(MyLoginAssignment.getReporterID());
                             } else {
-                                Computer C = new Computer(User, ip, MyComputerHandler, MyTime, MyLoginAssignment.getReporterID(), this, true);
+                                Computer C = new Computer(user, ip, MyComputerHandler, MyTime, MyLoginAssignment.getReporterID(), this, true);
                                 C.setClientHash(clientKey);
                                 C.setPublicKey(MyLoginAssignment.getPublicKey());
+                                C.setPlayFabAuthenticated(user);
                                 MyComputerHandler.addComputer(C);
-                                C.setLoginPassword(Pass);
                                 C.loadSave();
                             }
                         } else {
@@ -957,19 +965,14 @@ public class HackerServer extends IParty implements Runnable, HackerServerBridge
     /**
      Create an instance of the server.
      */
-    public static void main(String args[]) {
-		/*try{
-			File f = new File("error.log");
-			PrintStream ps = new PrintStream(f);
-			System.setErr(ps);
-		}catch(Exception e){}*/
+    static void main(String args[]) {
         try {
             Editor E = new Editor(2048, 1000, 10020, 10021);//Creates a new server for distributing tasks.
             E.setClientJobSize(4);
             if (args.length == 2 && args[1].equals("test"))
                 TESTING = true;
             ServerRuntimeState.setTesting(TESTING);
-            HackerServer HS = new HackerServer(E, args[0]);
+            new HackerServer(E, args[0]);
         } catch (Exception e) {
             e.printStackTrace();
         }

@@ -1589,6 +1589,21 @@ public class Computer implements Runnable{//Runnable is an interface that allows
 			e.printStackTrace();	
 		}
 	}
+
+	public void setConnectionID(int connectionID){
+		try{
+			available.acquire();
+			RESEND_CAPTCHA=true;
+			this.lastAccessed=MyTime.getCurrentTime();
+			loadRequester="";
+			Tasks.add(0,new setConnectionIDTask(this,connectionID,null));
+			available.release();
+			FileIO=true;
+		}catch(Exception e){
+			available.release();
+			e.printStackTrace();
+		}
+	}
 	
 	/**
 	Used to encrypt and decrypt XOR encrypted data.
@@ -1616,7 +1631,9 @@ public class Computer implements Runnable{//Runnable is an interface that allows
 		}
 		
 		public void execute(){
-			MyComputer.loginPassword=loginPassword;
+			if(loginPassword!=null){
+				MyComputer.loginPassword=loginPassword;
+			}
 			if(checkLogin()){
 				MyComputer.connectionID=connectionID;//The ID used to relay data back to the client-side.
 				
@@ -1717,6 +1734,13 @@ public class Computer implements Runnable{//Runnable is an interface that allows
 	Set the password associated with a player.
 	*/
 	String loginPassword="";
+	boolean playFabAuthenticated=false;
+	public void setPlayFabAuthenticated(String userName){
+		playFabAuthenticated=true;
+		if(userName!=null&&userName.trim().length()>0){
+			this.userName=userName;
+		}
+	}
 	public void setLoginPassword(String loginPassword){
 		this.loginPassword=crypt(loginPassword.getBytes(),clientHash);
 	}
@@ -1733,6 +1757,10 @@ public class Computer implements Runnable{//Runnable is an interface that allows
 	*/
 	public boolean checkLogin(){
 		boolean correct=false;
+		if(playFabAuthenticated){
+			sendPreferences=true;
+			return(true);
+		}
 		if(LOCAL_AUTH_FALLBACK){
 			if(userName!=null&&userName.trim().length()>0&&ip!=null&&ip.trim().length()>0){
 				sendPreferences=true;

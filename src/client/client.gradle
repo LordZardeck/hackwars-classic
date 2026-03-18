@@ -131,7 +131,7 @@ def resolveJpackageExecutable = {
 
 tasks.register('runClientDesktop', JavaExec) {
     group = 'application'
-    description = 'Starts the desktop client using client.Launcher as a regular Swing application.'
+    description = 'Starts the desktop client using com.hackwars.client.ApplicationKt as a regular Swing application.'
     dependsOn tasks.named('classes'), project(':HackWars').tasks.named('classes')
     javaLauncher = javaToolchains.launcherFor {
         languageVersion = JavaLanguageVersion.of(rootProject.ext.javaToolchainVersion as Integer)
@@ -142,7 +142,7 @@ tasks.register('runClientDesktop', JavaExec) {
             sourceSets.main.runtimeClasspath,
             rootProject.ext.resourcesRootDir
     )
-    mainClass = 'client.Launcher'
+    mainClass = 'com.hackwars.client.ApplicationKt'
     workingDir = rootProject.ext.resourcesRootDir
 }
 
@@ -164,7 +164,7 @@ tasks.register('clientLauncherJar', Jar) {
         exclude 'chatServer/**'
     }
     manifest {
-        attributes('Main-Class': 'client.Launcher')
+        attributes('Main-Class': 'com.hackwars.client.ApplicationKt')
     }
 }
 
@@ -193,7 +193,7 @@ tasks.register('packageClientNative', Exec) {
                 '--dest', outputDir.absolutePath,
                 '--name', 'HackWars',
                 '--main-jar', 'hackwars-client.jar',
-                '--main-class', 'client.Launcher'
+                '--main-class', 'com.hackwars.client.ApplicationKt'
         ]
         if (isMac) {
             args += ['--mac-package-name', 'HackWars']

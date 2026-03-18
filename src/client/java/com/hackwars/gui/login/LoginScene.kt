@@ -1,5 +1,6 @@
 package com.hackwars.gui.login
 
+import com.playfab.PlayFabClientModels
 import org.slf4j.LoggerFactory
 import java.io.ByteArrayOutputStream
 import java.net.URI
@@ -25,6 +26,7 @@ class LoginScene : LoginSceneView() {
     @Volatile
     private var userToken: String? = null
     private val httpClient: HttpClient = HttpClient.newHttpClient()
+    var onPlayFabAuthenticated: ((playFabId: String, sessionTicket: String) -> Unit)? = null
 
     override fun onUsernamePasswordAuthenticate(email: String, password: CharArray) {
         super.onUsernamePasswordAuthenticate(email, password)
@@ -42,9 +44,10 @@ class LoginScene : LoginSceneView() {
             try {
                 val authResult = authenticateWithPlayFab(trimmedEmail, escapedPasswordBytes)
                 SwingUtilities.invokeLater {
-                    if (authResult.token != null) {
+                    if (authResult.token != null && authResult.playFabId != null) {
                         userToken = authResult.token
-                        Logger.info("PlayFab authentication successful for '{}': {}", trimmedEmail, authResult.token)
+                        Logger.info("PlayFab authentication successful for '{}'.", trimmedEmail)
+                        onPlayFabAuthenticated?.invoke(authResult.playFabId, authResult.token)
                     } else {
                         onAuthenticationFailure(authResult.error ?: "PlayFab authentication failed.")
                     }
@@ -60,17 +63,26 @@ class LoginScene : LoginSceneView() {
         super.onAuthenticationFailure(reason)
     }
 
-    private data class AuthenticationResult(val token: String? = null, val error: String? = null)
+    fun onServerAuthenticationFailure(reason: String) {
+        onAuthenticationFailure(reason)
+    }
+
+    private data class AuthenticationResult(
+        val token: String? = null,
+        val playFabId: String? = null,
+        val error: String? = null,
+    )
 
     private fun authenticateWithPlayFab(email: String, escapedPasswordBytes: ByteArray): AuthenticationResult {
         return try {
             val responseBody = sendPlayFabLoginRequest(email, escapedPasswordBytes)
             val token = extractJsonString(responseBody, "SessionTicket")
-            if (!token.isNullOrBlank()) {
-                AuthenticationResult(token = token)
+            val playFabId = extractJsonString(responseBody, "PlayFabId")
+            if (!token.isNullOrBlank() && !playFabId.isNullOrBlank()) {
+                AuthenticationResult(token = token, playFabId = playFabId)
             } else {
                 val errorMessage = extractJsonString(responseBody, "errorMessage")
-                    ?: "PlayFab login failed: no session ticket was returned."
+                    ?: "PlayFab login failed: required auth values were not returned."
                 AuthenticationResult(error = errorMessage)
             }
         } catch (t: Throwable) {

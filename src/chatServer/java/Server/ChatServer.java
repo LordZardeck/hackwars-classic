@@ -17,10 +17,14 @@ import com.plink.dolphinnet.IParty;
 import java.util.*;
 import java.util.concurrent.Semaphore;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import util.Time;
 import util.UserHandler;
+import util.PlayFabTokenVerifier;
 
 public class ChatServer extends IParty implements Runnable {
+    private static final Logger Logger = LoggerFactory.getLogger(ChatServer.class);
 
     //Data.
     private UserHandler MyUserHandler = null;
@@ -84,11 +88,11 @@ public class ChatServer extends IParty implements Runnable {
         }
     }
 
-    public static void main(String args[]) {
+    static void main() {
         try {
             Editor E = new Editor(2048, 1000, 10025, 10026);//Creates a new server for distributing tasks.
             E.setClientJobSize(4);
-            ChatServer GS = new ChatServer(E);
+            new ChatServer(E);
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -134,20 +138,19 @@ public class ChatServer extends IParty implements Runnable {
             } else if (o instanceof LoginAssignment) {
                 Assignment MyAssignment = (Assignment) o;
                 LoginAssignment MyLoginAssignment = (LoginAssignment) MyAssignment;
-                String User = MyLoginAssignment.getUser().toLowerCase();
-                String Pass = MyLoginAssignment.getPass();
-                String clientKey = ((Assignment) o).getHash();
-                String RawPass = ChatServer.crypt(Pass.getBytes(), clientKey);
-                String ip = MyLoginAssignment.getIP();
-                System.out.println(">>> STARTING TO LOAD PLAYER.");
+                String accessToken = MyLoginAssignment.getAccessToken();
+                PlayFabTokenVerifier.AuthResult authResult = null;
+                try {
+                    authResult = PlayFabTokenVerifier.verify(accessToken);
+                } catch (Exception authError) {
+                    Logger.error("ChatServer: PlayFab authentication failed", authError);
+                }
 
-                if (false) // sql.checkLogin(User, ip, RawPass) == false)
-                {
-                    System.out.println("ChatServer: suspected hack attempt: User: " + User + " HW_IP: " + ip + " Pass: " + RawPass);
+                if (authResult == null) {
+                    logout(MyLoginAssignment.getReporterID());
                 } else {
-                    MyUserHandler.loadPlayer(MyLoginAssignment.getReporterID(), User, Pass);
-                    System.out.println(">>> FINISHED.");
-                    //System.out.println("What up bra?");
+                    String user = authResult.getPlayFabId().toLowerCase();
+                    MyUserHandler.loadPlayer(MyLoginAssignment.getReporterID(), user, "");
                 }
             } else if (o instanceof MessageInPacket) {
                 Assignment MyAssignment = (Assignment) o;

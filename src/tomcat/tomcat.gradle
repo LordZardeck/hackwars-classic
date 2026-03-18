@@ -6,7 +6,6 @@ dependencies {
     compileOnly 'org.apache.tomcat:servlet-api:6.0.53'
     implementation project(':HackWars')
     implementation project(':GameServer')
-    implementation project(':Client')
     implementation project(':Networking')
 }
 

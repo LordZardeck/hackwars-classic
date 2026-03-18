@@ -87,6 +87,7 @@
     <orderEntry type="library" scope="RUNTIME" name="Gradle: org.apache.ws.commons.util:ws-commons-util:1.0.2" level="project" />
     <orderEntry type="library" scope="RUNTIME" name="Gradle: junit:junit:3.8.1" level="project" />
     <orderEntry type="library" scope="RUNTIME" name="Gradle: xml-apis:xml-apis:1.0.b2" level="project" />
+    <orderEntry type="library" scope="RUNTIME" name="Gradle: com.playfab:server-sdk:0.256.260313" level="project" />
     <orderEntry type="library" scope="RUNTIME" name="Gradle: com.playfab:client-sdk:0.256.260313" level="project" />
   </component>
   <component name="TestModuleProperties" production-module="HackwarsClassic.Tomcat.main" />

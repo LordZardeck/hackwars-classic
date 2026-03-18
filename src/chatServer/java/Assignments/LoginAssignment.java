@@ -17,6 +17,7 @@ public class LoginAssignment extends Assignment implements Serializable {
     private String user;
     private String pass;
     private String ip;
+    private String accessToken;
     private byte[] publicKey = null;
 
     /// //////////////////////
@@ -26,6 +27,15 @@ public class LoginAssignment extends Assignment implements Serializable {
         this.user = user.toLowerCase();
         this.pass = pass;
         this.ip = ip;
+        this.accessToken = null;
+    }
+
+    public LoginAssignment(int id, String accessToken) {
+        super(id);
+        this.user = "";
+        this.pass = "";
+        this.ip = "";
+        this.accessToken = accessToken;
     }
 
     /// //////////////////////
@@ -40,6 +50,10 @@ public class LoginAssignment extends Assignment implements Serializable {
 
     public String getIP() {
         return (ip);
+    }
+
+    public String getAccessToken() {
+        return (accessToken);
     }
 
     public void setPublicKey(byte publicKey[]) {

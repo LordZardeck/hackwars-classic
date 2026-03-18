@@ -2,14 +2,12 @@ package com.hackwars.state
 
 import assignments.*
 import chat.messages.ArrayMessageOut
-import client.Launcher
 import com.hackwars.assignments.AssignmentEvent
 import com.hackwars.assignments.HackerDamageListener
 import com.hackwars.assignments.HackerPacketListener
 import com.hackwars.client.ConfigurationState
 import com.plink.dolphinnet.Assignment
 import com.plink.dolphinnet.DataHandler
-import com.plink.dolphinnet.HashSingleton
 import com.plink.dolphinnet.Reporter
 import com.plink.dolphinnet.assignments.ZippedAssignment
 import gui.Hacker
@@ -82,7 +80,7 @@ class GameState : DataHandler, Runnable {
     private var gameServerReporter: Reporter? = null
     private var chatServerReporter: Reporter? = null
     private var user: String? = null
-    private var pass: String? = null
+    private var accessToken: String? = null
     private var lastAccessed: Long = 0
     private var lastPing: Long = 0
     private val MyTime = Time()
@@ -91,8 +89,6 @@ class GameState : DataHandler, Runnable {
     private val Tasks = ArrayList<Any?>()
     private var username: String? = null
     private val packets = ArrayList<Any?>()
-    var load: Launcher? = null
-        private set
     private var encryptedIP: String? = null
     private var function: String? = ""
     private var open = false
@@ -111,15 +107,19 @@ class GameState : DataHandler, Runnable {
      * This is run from the main(), when the View is first loaded. Also called from Launcher.java.
      */
     fun loginToServer(username: String?, password: String?, ip: String?) {
+        loginToServer(username, password)
+    }
+
+    fun loginToServer(playFabId: String?, sessionTicket: String?) {
         // A login from the launcher login form should always start a fresh UI session.
         hackerState = hackerState?.apply { frame?.dispose() }.let { null }
         packets.clear()
         open = false
         reconnect = false
-        this.username = username
-        this.pass = password
-        this.user = ip
-        println("Trying to login $username with password $password")
+        this.username = playFabId
+        this.accessToken = sessionTicket
+        this.user = null
+        println("Trying to login $playFabId with PlayFab access token")
         run = true
         loopJob?.cancel()
         fallbackJob?.cancel()
@@ -134,7 +134,7 @@ class GameState : DataHandler, Runnable {
                 delay(2500)
                 if (run && hackerState == null) {
                     println("Login response timeout, starting local UI fallback.")
-                    startProgram(this@GameState.username, this@GameState.user, false, this@GameState.user)
+                    fireMessageEvent("Login timed out. Please try again.")
                 }
             }
         }
@@ -189,6 +189,7 @@ class GameState : DataHandler, Runnable {
                     o.publicKey?.let {
                         Encryption.getInstance().finalize(it)
                     }
+                    user = o.ip
                     startProgram(username, o.ip, o.isNPC, o.encryptedIP)
                 }
             }
@@ -214,11 +215,12 @@ class GameState : DataHandler, Runnable {
                 o.publicKey?.let {
                     Encryption.getInstance().finalize(it)
                 }
+                user = o.ip
                 startProgram(username, o.ip, o.isNPC, o.encryptedIP)
             }
 
             is LoginFailedAssignment -> {
-                fireMessageEvent("Login failed, check your username<br> and password.")
+                fireMessageEvent("Login failed. Please authenticate again with PlayFab.")
             }
         }
     }
@@ -287,15 +289,19 @@ class GameState : DataHandler, Runnable {
             run = false
             return
         }
+        if (accessToken.isNullOrBlank()) {
+            fireMessageEvent("Missing PlayFab access token.")
+            run = false
+            return
+        }
         println("ZING")
-        println("Connected --- " + username + "   " + pass + "   " + user)
+        println("Connected --- " + username)
 
         Encryption.getInstance().init()
-        val key = HashSingleton.getHash()
-        val MyLoginAssignment = LoginAssignment(0, username, crypt(pass!!.toByteArray(), key), user)
+        val MyLoginAssignment = LoginAssignment(0, accessToken)
         MyLoginAssignment.publicKey = Encryption.getInstance().encodedKey
         gameServerReporter!!.addFinishedAssignment(MyLoginAssignment)
-        val MyChatLoginAssignment = LoginAssignment(0, username, crypt(pass!!.toByteArray(), key), user)
+        val MyChatLoginAssignment = LoginAssignment(0, accessToken)
         MyChatLoginAssignment.publicKey = Encryption.getInstance().encodedKey
         chatServerReporter!!.addFinishedAssignment(MyChatLoginAssignment)
     }

@@ -1,7 +1,7 @@
 package com.hackwars.client
 
 import com.hackwars.gui.login.LoginScene
-import com.hackwars.gui.login.LoginSceneView
+import com.hackwars.state.GameState
 import java.awt.BorderLayout
 import java.awt.event.WindowAdapter
 import java.awt.event.WindowEvent
@@ -13,6 +13,7 @@ import javax.swing.border.EmptyBorder
 
 class ApplicationWindow : JFrame() {
     private val activePanel = LoginScene()
+    private var gameState: GameState? = null
 
     init {
         defaultCloseOperation = EXIT_ON_CLOSE
@@ -26,15 +27,52 @@ class ApplicationWindow : JFrame() {
             isOpaque = true
             add(activePanel, BorderLayout.CENTER)
         }
+        activePanel.onPlayFabAuthenticated = { playFabId, sessionTicket ->
+            connectToServers(playFabId, sessionTicket)
+        }
         addWindowListener(object : WindowAdapter() {
             override fun windowClosing(e: WindowEvent?) {
-                // TODO("Handle closing down any running panels")
+                gameState?.clean()
             }
         })
         pack()
         minimumSize = activePanel.preferredSize
         setLocationRelativeTo(null)
         isVisible = true
+    }
+
+    private fun connectToServers(playFabId: String, sessionTicket: String) {
+        gameState?.clean()
+        val nextState = GameState()
+        nextState.addEventListener(
+            GameState.MessageEventListener::class.java,
+            GameState.MessageEventListener { event ->
+                activePanel.onServerAuthenticationFailure(stripHtml(event.message))
+            }
+        )
+        nextState.addEventListener(
+            GameState.FinishLoadingEventListener::class.java,
+            GameState.FinishLoadingEventListener {
+                isVisible = false
+                dispose()
+            }
+        )
+        nextState.addEventListener(
+            GameState.ExitProgramEventListener::class.java,
+            GameState.ExitProgramEventListener {
+                nextState.clean()
+                gameState = null
+            }
+        )
+        gameState = nextState
+        nextState.loginToServer(playFabId, sessionTicket)
+    }
+
+    private fun stripHtml(text: String): String {
+        return text
+            .replace("<br>", "\n", ignoreCase = true)
+            .replace(Regex("<[^>]+>"), "")
+            .trim()
     }
 }
 
