@@ -8,7 +8,7 @@ import server.remote.RemoteCallHandler
 import server.remote.RpcHandler
 import java.util.*
 
-@RpcHandler("setwatchonoff")
+@RpcHandler(SetWatchOnOff.FUNCTION)
 object SetwatchonoffHandler : RemoteCallHandler {
     override fun handle(rfc: RemoteFunctionCall, context: RemoteCallContext) {
         val parsedCall =
@@ -30,7 +30,7 @@ object SetwatchonoffHandler : RemoteCallHandler {
             )
         context.computerHandler.addData(
             ApplicationData(
-                "setwatchonoff",
+                SetWatchOnOff.FUNCTION,
                 O,
                 0,
                 ip

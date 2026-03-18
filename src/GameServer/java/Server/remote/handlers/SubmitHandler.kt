@@ -8,7 +8,7 @@ import server.remote.RemoteCallHandler
 import server.remote.RpcHandler
 import java.util.*
 
-@RpcHandler("submit")
+@RpcHandler(Submit.FUNCTION)
 object SubmitHandler : RemoteCallHandler {
     override fun handle(rfc: RemoteFunctionCall, context: RemoteCallContext) {
         val submitCall =
@@ -29,7 +29,7 @@ object SubmitHandler : RemoteCallHandler {
 
         context.computerHandler.addData(
             ApplicationData(
-                "submit",
+                Submit.FUNCTION,
                 parameters,
                 0,
                 source_ip

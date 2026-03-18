@@ -8,7 +8,7 @@ import server.remote.RemoteCallHandler
 import server.remote.RpcHandler
 import java.util.*
 
-@RpcHandler("requestzombiecancelattack")
+@RpcHandler(RequestZombieCancelAttack.FUNCTION)
 object RequestzombiecancelattackHandler : RemoteCallHandler {
     override fun handle(rfc: RemoteFunctionCall, context: RemoteCallContext) {
         val parsedCall =
@@ -26,7 +26,7 @@ object RequestzombiecancelattackHandler : RemoteCallHandler {
                 targetIP)
         context.computerHandler.addData(
             ApplicationData(
-                "requestcancelattack",
+                RequestZombieCancelAttack.FUNCTION,
                 null,
                 port,
                 targetIP

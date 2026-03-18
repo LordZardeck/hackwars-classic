@@ -8,7 +8,7 @@ import server.remote.RemoteCallHandler
 import server.remote.RpcHandler
 import java.util.*
 
-@RpcHandler("malget")
+@RpcHandler(MalGet.FUNCTION)
 object MalGetHandler : RemoteCallHandler {
     override fun handle(rfc: RemoteFunctionCall, context: RemoteCallContext) {
         val parsedCall = MalGet.fromRpc(rfc)
@@ -23,7 +23,7 @@ object MalGetHandler : RemoteCallHandler {
         val Parameter: Array<Any?>? =
             arrayOf<Any?>(targetIP, name, fetch_path, put_path, "", port, attackPort)
         context.computerHandler.addData(
-            ApplicationData("malget", Parameter, port, targetIP),
+            ApplicationData(MalGet.FUNCTION, Parameter, port, targetIP),
             ip,
             ApplicationData.OUTSIDE
         )

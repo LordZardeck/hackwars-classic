@@ -8,7 +8,7 @@ import server.remote.RemoteCallHandler
 import server.remote.RpcHandler
 import java.util.*
 
-@RpcHandler("deletefirewall")
+@RpcHandler(DeleteFirewall.FUNCTION)
 object DeletefirewallHandler : RemoteCallHandler {
     override fun handle(rfc: RemoteFunctionCall, context: RemoteCallContext) {
         val parsedCall =
@@ -23,7 +23,7 @@ object DeletefirewallHandler : RemoteCallHandler {
             parsedCall.portID
         context.computerHandler.addData(
             ApplicationData(
-                "deletefirewall",
+                DeleteFirewall.FUNCTION,
                 portID,
                 0,
                 ip

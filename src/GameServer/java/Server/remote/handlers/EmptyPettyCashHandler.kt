@@ -8,7 +8,7 @@ import server.remote.RemoteCallHandler
 import server.remote.RpcHandler
 import java.util.*
 
-@RpcHandler("emptypettycash")
+@RpcHandler(EmptyPettyCash.FUNCTION)
 object EmptyPettyCashHandler : RemoteCallHandler {
     override fun handle(rfc: RemoteFunctionCall, context: RemoteCallContext) {
         val parsedCall = EmptyPettyCash.fromRpc(rfc)
@@ -18,7 +18,7 @@ object EmptyPettyCashHandler : RemoteCallHandler {
         val targetPort = parsedCall.targetPort
         val windowHandle = parsedCall.windowHandle
         context.computerHandler.addData(
-            ApplicationData("emptyPettyCash", windowHandle, targetPort, ip),
+            ApplicationData(EmptyPettyCash.FUNCTION, windowHandle, targetPort, ip),
             targetIP,
             ApplicationData.OUTSIDE
         )

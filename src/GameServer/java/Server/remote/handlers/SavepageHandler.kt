@@ -8,7 +8,7 @@ import server.remote.RemoteCallHandler
 import server.remote.RpcHandler
 import java.util.*
 
-@RpcHandler("savepage")
+@RpcHandler(SavePage.FUNCTION)
 object SavepageHandler : RemoteCallHandler {
     override fun handle(rfc: RemoteFunctionCall, context: RemoteCallContext) {
         val parsedCall =
@@ -30,7 +30,7 @@ object SavepageHandler : RemoteCallHandler {
             )
         context.computerHandler.addData(
             ApplicationData(
-                "savepage",
+                SavePage.FUNCTION,
                 O,
                 0,
                 ip

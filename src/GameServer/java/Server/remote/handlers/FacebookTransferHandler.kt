@@ -8,7 +8,7 @@ import server.remote.RemoteCallHandler
 import server.remote.RpcHandler
 import java.util.*
 
-@RpcHandler("facebooktransfer")
+@RpcHandler(FacebookTransfer.FUNCTION)
 object FacebookTransferHandler : RemoteCallHandler {
     override fun handle(rfc: RemoteFunctionCall, context: RemoteCallContext) {
         val parsedCall = FacebookTransfer.fromRpc(rfc)
@@ -21,7 +21,7 @@ object FacebookTransferHandler : RemoteCallHandler {
         val tO: Array<Any?>? = arrayOf<Any?>(ip2, amount)
         context.computerHandler.addData(
             ApplicationData(
-                "transfer",
+                FacebookTransfer.FUNCTION,
                 tO,
                 defaultPort,
                 ip

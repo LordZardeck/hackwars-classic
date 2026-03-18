@@ -8,7 +8,7 @@ import server.remote.RemoteCallHandler
 import server.remote.RpcHandler
 import java.util.*
 
-@RpcHandler("installfirewall")
+@RpcHandler(InstallFirewall.FUNCTION)
 object InstallfirewallHandler : RemoteCallHandler {
     override fun handle(rfc: RemoteFunctionCall, context: RemoteCallContext) {
         val parsedCall =
@@ -32,7 +32,7 @@ object InstallfirewallHandler : RemoteCallHandler {
             )
         context.computerHandler.addData(
             ApplicationData(
-                "installfirewall",
+                InstallFirewall.FUNCTION,
                 Parameter,
                 port,
                 ip

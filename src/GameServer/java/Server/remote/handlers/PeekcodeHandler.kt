@@ -8,7 +8,7 @@ import server.remote.RemoteCallHandler
 import server.remote.RpcHandler
 import java.util.*
 
-@RpcHandler("peekcode")
+@RpcHandler(PeekCode.FUNCTION)
 object PeekcodeHandler : RemoteCallHandler {
     override fun handle(rfc: RemoteFunctionCall, context: RemoteCallContext) {
         val parsedCall =
@@ -25,7 +25,7 @@ object PeekcodeHandler : RemoteCallHandler {
             parsedCall.port
         context.computerHandler.addData(
             ApplicationData(
-                "peekcode",
+                PeekCode.FUNCTION,
                 null,
                 port,
                 ip

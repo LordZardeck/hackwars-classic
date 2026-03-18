@@ -8,7 +8,7 @@ import server.remote.RemoteCallHandler
 import server.remote.RpcHandler
 import java.util.*
 
-@RpcHandler("vote")
+@RpcHandler(Vote.FUNCTION)
 object VoteHandler : RemoteCallHandler {
     override fun handle(rfc: RemoteFunctionCall, context: RemoteCallContext) {
         val parsedCall =
@@ -24,7 +24,7 @@ object VoteHandler : RemoteCallHandler {
 
         context.computerHandler.addData(
             ApplicationData(
-                "vote",
+                Vote.FUNCTION,
                 null,
                 0,
                 target_ip

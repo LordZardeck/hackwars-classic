@@ -8,14 +8,14 @@ import server.remote.RemoteCallHandler
 import server.remote.RpcHandler
 import java.util.*
 
-@RpcHandler("deletelogs")
+@RpcHandler(DeleteLogs.FUNCTION)
 object DeleteLogsHandler : RemoteCallHandler {
     override fun handle(rfc: RemoteFunctionCall, context: RemoteCallContext) {
         val parsedCall = DeleteLogs.fromRpc(rfc)
         var ip = parsedCall.ip
         ip = context.crypt(ip)
         context.computerHandler.addData(
-            ApplicationData("deletelogs", null, 0, ip),
+            ApplicationData(DeleteLogs.FUNCTION, null, 0, ip),
             ip,
             ApplicationData.OUTSIDE
         )

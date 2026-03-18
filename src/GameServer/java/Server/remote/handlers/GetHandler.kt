@@ -8,7 +8,7 @@ import server.remote.RemoteCallHandler
 import server.remote.RpcHandler
 import java.util.*
 
-@RpcHandler("get")
+@RpcHandler(Get.FUNCTION)
 object GetHandler : RemoteCallHandler {
     override fun handle(rfc: RemoteFunctionCall, context: RemoteCallContext) {
         val parsedCall = Get.fromRpc(rfc)
@@ -24,7 +24,7 @@ object GetHandler : RemoteCallHandler {
         val Parameter: Array<Any?>? =
             arrayOf<Any?>(targetIP, name, fetch_path, put_path, password, quantity)
         context.computerHandler.addData(
-            ApplicationData("get", Parameter, port, ip),
+            ApplicationData(Get.FUNCTION, Parameter, port, ip),
             ip,
             ApplicationData.OUTSIDE
         )

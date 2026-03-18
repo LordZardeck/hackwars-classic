@@ -8,7 +8,7 @@ import server.remote.RemoteCallHandler
 import server.remote.RpcHandler
 import java.util.*
 
-@RpcHandler("compilefile")
+@RpcHandler(CompileFile.FUNCTION)
 object CompileFileHandler : RemoteCallHandler {
     override fun handle(rfc: RemoteFunctionCall, context: RemoteCallContext) {
         val parsedCall = CompileFile.fromRpc(rfc)
@@ -19,7 +19,7 @@ object CompileFileHandler : RemoteCallHandler {
         val price = parsedCall.price
         val Parameter: Array<Any?>? = arrayOf<Any?>(path, name, price)
         context.computerHandler.addData(
-            ApplicationData("compilefile", Parameter, 0, ip),
+            ApplicationData(CompileFile.FUNCTION, Parameter, 0, ip),
             ip,
             ApplicationData.OUTSIDE
         )

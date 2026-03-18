@@ -8,7 +8,7 @@ import server.remote.RemoteCallHandler
 import server.remote.RpcHandler
 import java.util.*
 
-@RpcHandler("setftppassword")
+@RpcHandler(SetFtpPassword.FUNCTION)
 object SetftppasswordHandler : RemoteCallHandler {
     override fun handle(rfc: RemoteFunctionCall, context: RemoteCallContext) {
         val parsedCall =
@@ -23,7 +23,7 @@ object SetftppasswordHandler : RemoteCallHandler {
             parsedCall.password
         context.computerHandler.addData(
             ApplicationData(
-                "setftppassword",
+                SetFtpPassword.FUNCTION,
                 password,
                 0,
                 ip

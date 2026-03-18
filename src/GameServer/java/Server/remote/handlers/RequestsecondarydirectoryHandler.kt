@@ -8,7 +8,7 @@ import server.remote.RemoteCallHandler
 import server.remote.RpcHandler
 import java.util.*
 
-@RpcHandler("requestsecondarydirectory")
+@RpcHandler(RequestSecondaryDirectory.FUNCTION)
 object RequestsecondarydirectoryHandler : RemoteCallHandler {
     override fun handle(rfc: RemoteFunctionCall, context: RemoteCallContext) {
         val parsedCall =
@@ -36,7 +36,7 @@ object RequestsecondarydirectoryHandler : RemoteCallHandler {
             )
         context.computerHandler.addData(
             ApplicationData(
-                "requestsecondarydirectory",
+                RequestSecondaryDirectory.FUNCTION,
                 Parameter,
                 port,
                 targetIP

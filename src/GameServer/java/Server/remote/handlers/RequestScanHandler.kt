@@ -8,7 +8,7 @@ import server.remote.RemoteCallHandler
 import server.remote.RpcHandler
 import java.util.*
 
-@RpcHandler("requestscan")
+@RpcHandler(RequestScan.FUNCTION)
 object RequestScanHandler : RemoteCallHandler {
     override fun handle(rfc: RemoteFunctionCall, context: RemoteCallContext) {
         val parsedCall = RequestScan.fromRpc(rfc)
@@ -16,7 +16,7 @@ object RequestScanHandler : RemoteCallHandler {
         ip = context.crypt(ip)
         val targetIP = parsedCall.targetIP
         if (ip != targetIP) context.computerHandler.addData(
-            ApplicationData("requestscan", ip, 0, ip),
+            ApplicationData(RequestScan.FUNCTION, ip, 0, ip),
             targetIP,
             ApplicationData.OUTSIDE
         )

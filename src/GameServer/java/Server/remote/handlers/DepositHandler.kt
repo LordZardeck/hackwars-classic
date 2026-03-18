@@ -8,7 +8,7 @@ import server.remote.RemoteCallHandler
 import server.remote.RpcHandler
 import java.util.*
 
-@RpcHandler("deposit")
+@RpcHandler(Deposit.FUNCTION)
 object DepositHandler : RemoteCallHandler {
     override fun handle(rfc: RemoteFunctionCall, context: RemoteCallContext) {
         val parsedCall = Deposit.fromRpc(rfc)
@@ -17,7 +17,7 @@ object DepositHandler : RemoteCallHandler {
         ip = context.crypt(ip)
         val port = parsedCall.port
         context.computerHandler.addData(
-            ApplicationData("deposit", amount, port, ip),
+            ApplicationData(Deposit.FUNCTION, amount, port, ip),
             ip,
             ApplicationData.OUTSIDE
         )

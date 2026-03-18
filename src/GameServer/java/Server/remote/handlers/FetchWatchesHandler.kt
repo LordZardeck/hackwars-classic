@@ -8,7 +8,7 @@ import server.remote.RemoteCallHandler
 import server.remote.RpcHandler
 import java.util.*
 
-@RpcHandler("fetchwatches")
+@RpcHandler(FetchWatches.FUNCTION)
 object FetchWatchesHandler : RemoteCallHandler {
     override fun handle(rfc: RemoteFunctionCall, context: RemoteCallContext) {
         val parsedCall = FetchWatches.fromRpc(rfc)
@@ -16,7 +16,7 @@ object FetchWatchesHandler : RemoteCallHandler {
         ip = context.crypt(ip)
         context.computerHandler.addData(
             ApplicationData(
-                "fetchwatches",
+                FetchWatches.FUNCTION,
                 null,
                 0,
                 ip

@@ -8,7 +8,7 @@ import server.remote.RemoteCallHandler
 import server.remote.RpcHandler
 import java.util.*
 
-@RpcHandler("hacktendoActivate")
+@RpcHandler(HacktendoActivate.FUNCTION)
 object HacktendoActivateHandler : RemoteCallHandler {
     override fun handle(rfc: RemoteFunctionCall, context: RemoteCallContext) {
         val parsedCall = HacktendoActivate.fromRpc(rfc)
@@ -18,7 +18,7 @@ object HacktendoActivateHandler : RemoteCallHandler {
 
         val O = arrayOf<Any>(activateID, activateType)
         context.computerHandler.addData(
-            ApplicationData("hacktendoActivate", O, 0, ip),
+            ApplicationData(HacktendoActivate.FUNCTION, O, 0, ip),
             ip,
             ApplicationData.INSIDE
         )

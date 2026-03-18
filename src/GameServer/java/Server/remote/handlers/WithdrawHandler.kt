@@ -8,7 +8,7 @@ import server.remote.RemoteCallHandler
 import server.remote.RpcHandler
 import java.util.*
 
-@RpcHandler("withdraw")
+@RpcHandler(Withdraw.FUNCTION)
 object WithdrawHandler : RemoteCallHandler {
     override fun handle(rfc: RemoteFunctionCall, context: RemoteCallContext) {
         val parsedCall =
@@ -25,7 +25,7 @@ object WithdrawHandler : RemoteCallHandler {
             parsedCall.port
         context.computerHandler.addData(
             ApplicationData(
-                "withdraw",
+                Withdraw.FUNCTION,
                 amount,
                 port,
                 ip

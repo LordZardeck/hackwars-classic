@@ -8,7 +8,7 @@ import server.remote.RemoteCallHandler
 import server.remote.RpcHandler
 import java.util.*
 
-@RpcHandler("createfolder")
+@RpcHandler(CreateFolder.FUNCTION)
 object CreateFolderHandler : RemoteCallHandler {
     override fun handle(rfc: RemoteFunctionCall, context: RemoteCallContext) {
         val parsedCall = CreateFolder.fromRpc(rfc)
@@ -16,7 +16,7 @@ object CreateFolderHandler : RemoteCallHandler {
         ip = context.crypt(ip)
         val directory = parsedCall.directory
         context.computerHandler.addData(
-            ApplicationData("createfolder", directory, 0, ip),
+            ApplicationData(CreateFolder.FUNCTION, directory, 0, ip),
             ip,
             ApplicationData.OUTSIDE
         )

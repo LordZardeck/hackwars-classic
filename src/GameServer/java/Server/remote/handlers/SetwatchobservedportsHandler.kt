@@ -8,7 +8,7 @@ import server.remote.RemoteCallHandler
 import server.remote.RpcHandler
 import java.util.*
 
-@RpcHandler("setwatchobservedports")
+@RpcHandler(SetWatchObservedPorts.FUNCTION)
 object SetwatchobservedportsHandler : RemoteCallHandler {
     override fun handle(rfc: RemoteFunctionCall, context: RemoteCallContext) {
         val parsedCall =
@@ -30,7 +30,7 @@ object SetwatchobservedportsHandler : RemoteCallHandler {
             )
         context.computerHandler.addData(
             ApplicationData(
-                "setwatchobservedports",
+                SetWatchObservedPorts.FUNCTION,
                 Parameter,
                 0,
                 ip

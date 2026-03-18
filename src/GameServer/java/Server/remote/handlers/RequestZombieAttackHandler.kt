@@ -8,7 +8,7 @@ import server.remote.RemoteCallHandler
 import server.remote.RpcHandler
 import java.util.*
 
-@RpcHandler("requestzombieattack")
+@RpcHandler(RequestZombieAttack.FUNCTION)
 object RequestZombieAttackHandler : RemoteCallHandler {
     override fun handle(rfc: RemoteFunctionCall, context: RemoteCallContext) {
         val parsedCall = RequestZombieAttack.fromRpc(rfc)
@@ -24,9 +24,9 @@ object RequestZombieAttackHandler : RemoteCallHandler {
         parentIP = context.crypt(parentIP)
 
         val Parameters: Array<Any?>? = arrayOf<Any?>(targetIP, targetPort, I, S, O, sourceIP)
-        val AD = ApplicationData("requestzombieattack", Parameters, sourcePort, parentIP)
+        val AD = ApplicationData(RequestZombieAttack.FUNCTION, Parameters, sourcePort, parentIP)
 
-        if (targetIP != sourceIP && targetIP.indexOf("store") == -1) context.computerHandler.addData(
+        if (targetIP != sourceIP && targetIP.indexOf(RequestZombieAttack.FUNCTION) == -1) context.computerHandler.addData(
             AD,
             parentIP,
             ApplicationData.OUTSIDE

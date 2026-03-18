@@ -8,7 +8,7 @@ import server.remote.RemoteCallHandler
 import server.remote.RpcHandler
 import java.util.*
 
-@RpcHandler("replaceapplication")
+@RpcHandler(ReplaceApplication.FUNCTION)
 object ReplaceapplicationHandler : RemoteCallHandler {
     override fun handle(rfc: RemoteFunctionCall, context: RemoteCallContext) {
         val parsedCall =
@@ -32,7 +32,7 @@ object ReplaceapplicationHandler : RemoteCallHandler {
             )
         context.computerHandler.addData(
             ApplicationData(
-                "replaceapplication",
+                ReplaceApplication.FUNCTION,
                 Parameter,
                 port,
                 ip

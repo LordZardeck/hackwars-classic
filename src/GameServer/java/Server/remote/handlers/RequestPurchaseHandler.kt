@@ -8,7 +8,7 @@ import server.remote.RemoteCallHandler
 import server.remote.RpcHandler
 import java.util.*
 
-@RpcHandler("requestpurchase")
+@RpcHandler(RequestPurchase.FUNCTION)
 object RequestPurchaseHandler : RemoteCallHandler {
     override fun handle(rfc: RemoteFunctionCall, context: RemoteCallContext) {
         val parsedCall = RequestPurchase.fromRpc(rfc)
@@ -32,7 +32,7 @@ object RequestPurchaseHandler : RemoteCallHandler {
 
         context.computerHandler.addData(
             ApplicationData(
-                "requestpurchase",
+                RequestPurchase.FUNCTION,
                 O,
                 0,
                 source_ip

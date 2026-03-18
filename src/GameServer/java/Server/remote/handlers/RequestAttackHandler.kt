@@ -8,7 +8,7 @@ import server.remote.RemoteCallHandler
 import server.remote.RpcHandler
 import java.util.*
 
-@RpcHandler("requestattack")
+@RpcHandler(RequestAttack.FUNCTION)
 object RequestAttackHandler : RemoteCallHandler {
     override fun handle(rfc: RemoteFunctionCall, context: RemoteCallContext) {
         val parsedCall = RequestAttack.fromRpc(rfc)
@@ -26,9 +26,9 @@ object RequestAttackHandler : RemoteCallHandler {
 
         val Parameters: Array<Any?>? =
             arrayOf<Any?>(targetIP, targetPort, secondaryPorts, scripts, extraInfo, windowHandle)
-        val AD = ApplicationData("requestattack", Parameters, sourcePort, sourceIP)
+        val AD = ApplicationData(RequestAttack.FUNCTION, Parameters, sourcePort, sourceIP)
 
-        if (targetIP != sourceIP && targetIP.indexOf("store") == -1) context.computerHandler.addData(
+        if (targetIP != sourceIP && targetIP.indexOf(RequestAttack.FUNCTION) == -1) context.computerHandler.addData(
             AD,
             sourceIP,
             ApplicationData.OUTSIDE

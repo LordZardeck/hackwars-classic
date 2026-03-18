@@ -8,7 +8,7 @@ import server.remote.RemoteCallHandler
 import server.remote.RpcHandler
 import java.util.*
 
-@RpcHandler("requestsave")
+@RpcHandler(RequestSave.FUNCTION)
 object RequestSaveHandler : RemoteCallHandler {
     override fun handle(rfc: RemoteFunctionCall, context: RemoteCallContext) {
         val parsedCall = RequestSave.fromRpc(rfc)
@@ -24,7 +24,7 @@ object RequestSaveHandler : RemoteCallHandler {
 
         context.computerHandler.addData(
             ApplicationData(
-                "requestsave",
+                RequestSave.FUNCTION,
                 O,
                 0,
                 targetIP

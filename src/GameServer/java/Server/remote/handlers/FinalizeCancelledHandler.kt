@@ -8,7 +8,7 @@ import server.remote.RemoteCallHandler
 import server.remote.RpcHandler
 import java.util.*
 
-@RpcHandler("finalizecancelled")
+@RpcHandler(FinalizeCancelled.FUNCTION)
 object FinalizeCancelledHandler : RemoteCallHandler {
     override fun handle(rfc: RemoteFunctionCall, context: RemoteCallContext) {
         val parsedCall = FinalizeCancelled.fromRpc(rfc)
@@ -17,7 +17,7 @@ object FinalizeCancelledHandler : RemoteCallHandler {
         val targetIP = parsedCall.targetIP
         val targetPort = parsedCall.targetPort
         context.computerHandler.addData(
-            ApplicationData("finalizecancelled", null, targetPort, ip),
+            ApplicationData(FinalizeCancelled.FUNCTION, null, targetPort, ip),
             targetIP,
             ApplicationData.OUTSIDE
         )

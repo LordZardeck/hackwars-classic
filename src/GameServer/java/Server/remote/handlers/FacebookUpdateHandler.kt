@@ -8,14 +8,14 @@ import server.remote.RemoteCallHandler
 import server.remote.RpcHandler
 import java.util.*
 
-@RpcHandler("facebookupdate")
+@RpcHandler(FacebookUpdate.FUNCTION)
 object FacebookUpdateHandler : RemoteCallHandler {
     override fun handle(rfc: RemoteFunctionCall, context: RemoteCallContext) {
         val parsedCall = FacebookUpdate.fromRpc(rfc)
         val ip = parsedCall.ip
         context.computerHandler.addData(
             ApplicationData(
-                "facebookupdate",
+                FacebookUpdate.FUNCTION,
                 null,
                 0,
                 ip

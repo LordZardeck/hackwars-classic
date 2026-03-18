@@ -8,7 +8,7 @@ import server.remote.RemoteCallHandler
 import server.remote.RpcHandler
 import java.util.*
 
-@RpcHandler("makebounty")
+@RpcHandler(MakeBounty.FUNCTION)
 object MakeBountyHandler : RemoteCallHandler {
     override fun handle(rfc: RemoteFunctionCall, context: RemoteCallContext) {
         val parsedCall =
@@ -43,7 +43,7 @@ object MakeBountyHandler : RemoteCallHandler {
             )
         context.computerHandler.addData(
             ApplicationData(
-                "makebounty",
+                MakeBounty.FUNCTION,
                 O,
                 0,
                 source_ip

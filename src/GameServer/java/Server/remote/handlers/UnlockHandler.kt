@@ -8,7 +8,7 @@ import server.remote.RemoteCallHandler
 import server.remote.RpcHandler
 import java.util.*
 
-@RpcHandler("unlock")
+@RpcHandler(Unlock.FUNCTION)
 object UnlockHandler : RemoteCallHandler {
     override fun handle(rfc: RemoteFunctionCall, context: RemoteCallContext) {
         val parsedCall =
@@ -23,7 +23,7 @@ object UnlockHandler : RemoteCallHandler {
             parsedCall.code
         context.computerHandler.addData(
             ApplicationData(
-                "unlock",
+                Unlock.FUNCTION,
                 code,
                 0,
                 ""

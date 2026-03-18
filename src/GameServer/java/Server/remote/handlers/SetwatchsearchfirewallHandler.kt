@@ -8,7 +8,7 @@ import server.remote.RemoteCallHandler
 import server.remote.RpcHandler
 import java.util.*
 
-@RpcHandler("setwatchsearchfirewall")
+@RpcHandler(SetWatchSearchFirewall.FUNCTION)
 object SetwatchsearchfirewallHandler : RemoteCallHandler {
     override fun handle(rfc: RemoteFunctionCall, context: RemoteCallContext) {
         val parsedCall =
@@ -30,7 +30,7 @@ object SetwatchsearchfirewallHandler : RemoteCallHandler {
             )
         context.computerHandler.addData(
             ApplicationData(
-                "setwatchsearchfirewall",
+                SetWatchSearchFirewall.FUNCTION,
                 O,
                 0,
                 ip

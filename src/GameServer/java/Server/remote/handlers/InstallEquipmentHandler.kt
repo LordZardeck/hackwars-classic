@@ -8,7 +8,7 @@ import server.remote.RemoteCallHandler
 import server.remote.RpcHandler
 import java.util.*
 
-@RpcHandler("installequipment")
+@RpcHandler(InstallEquipment.FUNCTION)
 object InstallEquipmentHandler : RemoteCallHandler {
     override fun handle(rfc: RemoteFunctionCall, context: RemoteCallContext) {
         val parsedCall = InstallEquipment.fromRpc(rfc)
@@ -20,7 +20,7 @@ object InstallEquipmentHandler : RemoteCallHandler {
         val O: Array<Any?>? = arrayOf<Any?>(position, name, rfc.getID())
         context.computerHandler.addData(
             ApplicationData(
-                "installequipment",
+                InstallEquipment.FUNCTION,
                 O,
                 0,
                 ip

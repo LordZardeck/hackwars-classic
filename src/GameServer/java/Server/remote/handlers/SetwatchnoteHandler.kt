@@ -8,7 +8,7 @@ import server.remote.RemoteCallHandler
 import server.remote.RpcHandler
 import java.util.*
 
-@RpcHandler("setwatchnote")
+@RpcHandler(SetWatchNote.FUNCTION)
 object SetwatchnoteHandler : RemoteCallHandler {
     override fun handle(rfc: RemoteFunctionCall, context: RemoteCallContext) {
         val parsedCall =
@@ -30,7 +30,7 @@ object SetwatchnoteHandler : RemoteCallHandler {
             )
         context.computerHandler.addData(
             ApplicationData(
-                "setwatchnote",
+                SetWatchNote.FUNCTION,
                 O,
                 0,
                 ip

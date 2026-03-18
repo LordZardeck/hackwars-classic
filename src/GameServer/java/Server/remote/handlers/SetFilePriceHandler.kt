@@ -8,7 +8,7 @@ import server.remote.RemoteCallHandler
 import server.remote.RpcHandler
 import java.util.*
 
-@RpcHandler("setfileprice")
+@RpcHandler(SetFilePrice.FUNCTION)
 object SetFilePriceHandler : RemoteCallHandler {
     override fun handle(rfc: RemoteFunctionCall, context: RemoteCallContext) {
         val parsedCall = SetFilePrice.fromRpc(rfc)
@@ -19,7 +19,7 @@ object SetFilePriceHandler : RemoteCallHandler {
         val price = parsedCall.price
         val Parameter: Array<Any?>? = arrayOf<Any?>(path, name, price)
         context.computerHandler.addData(
-            ApplicationData("setfileprice", Parameter, 0, ip),
+            ApplicationData(SetFilePrice.FUNCTION, Parameter, 0, ip),
             ip,
             ApplicationData.OUTSIDE
         )

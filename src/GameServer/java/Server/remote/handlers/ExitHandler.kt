@@ -8,7 +8,7 @@ import server.remote.RemoteCallHandler
 import server.remote.RpcHandler
 import java.util.*
 
-@RpcHandler("exit")
+@RpcHandler(Exit.FUNCTION)
 object ExitHandler : RemoteCallHandler {
     override fun handle(rfc: RemoteFunctionCall, context: RemoteCallContext) {
         val parsedCall =
@@ -23,7 +23,7 @@ object ExitHandler : RemoteCallHandler {
 
         context.computerHandler.addData(
             ApplicationData(
-                "exit",
+                Exit.FUNCTION,
                 null,
                 0,
                 source_ip

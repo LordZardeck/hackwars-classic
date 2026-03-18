@@ -8,7 +8,7 @@ import server.remote.RemoteCallHandler
 import server.remote.RpcHandler
 import java.util.*
 
-@RpcHandler("requestfile")
+@RpcHandler(RequestFile.FUNCTION)
 object RequestFileHandler : RemoteCallHandler {
     override fun handle(rfc: RemoteFunctionCall, context: RemoteCallContext) {
         val parsedCall = RequestFile.fromRpc(rfc)
@@ -18,7 +18,7 @@ object RequestFileHandler : RemoteCallHandler {
         val name = parsedCall.name
         val Parameter: Array<String?>? = arrayOf<String?>(path, name)
         context.computerHandler.addData(
-            ApplicationData("requestfile", Parameter, 0, ip),
+            ApplicationData(RequestFile.FUNCTION, Parameter, 0, ip),
             ip,
             ApplicationData.OUTSIDE
         )

@@ -8,7 +8,7 @@ import server.remote.RemoteCallHandler
 import server.remote.RpcHandler
 import java.util.*
 
-@RpcHandler("requesttrigger")
+@RpcHandler(RequestTrigger.FUNCTION)
 object RequestTriggerHandler : RemoteCallHandler {
     override fun handle(rfc: RemoteFunctionCall, context: RemoteCallContext) {
         val parsedCall = RequestTrigger.fromRpc(rfc)
@@ -26,7 +26,7 @@ object RequestTriggerHandler : RemoteCallHandler {
         )
         context.computerHandler.addData(
             ApplicationData(
-                "requesttriggernote",
+                RequestTrigger.FUNCTION,
                 O,
                 0,
                 sourceIP

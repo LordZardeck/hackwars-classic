@@ -8,7 +8,7 @@ import server.remote.RemoteCallHandler
 import server.remote.RpcHandler
 import java.util.*
 
-@RpcHandler("facebookdeposit")
+@RpcHandler(FacebookDeposit.FUNCTION)
 object FacebookDepositHandler : RemoteCallHandler {
     override fun handle(rfc: RemoteFunctionCall, context: RemoteCallContext) {
         val parsedCall = FacebookDeposit.fromRpc(rfc)
@@ -18,7 +18,7 @@ object FacebookDepositHandler : RemoteCallHandler {
 
         context.computerHandler.addData(
             ApplicationData(
-                "deposit",
+                FacebookDeposit.FUNCTION,
                 amount,
                 defaultPort,
                 ip

@@ -8,7 +8,7 @@ import server.remote.RemoteCallHandler
 import server.remote.RpcHandler
 import java.util.*
 
-@RpcHandler("deletefolder")
+@RpcHandler(DeleteFolder.FUNCTION)
 object DeleteFolderHandler : RemoteCallHandler {
     override fun handle(rfc: RemoteFunctionCall, context: RemoteCallContext) {
         val parsedCall = DeleteFolder.fromRpc(rfc)
@@ -16,7 +16,7 @@ object DeleteFolderHandler : RemoteCallHandler {
         ip = context.crypt(ip)
         val directory = parsedCall.directory
         context.computerHandler.addData(
-            ApplicationData("deletefolder", directory, 0, ip),
+            ApplicationData(DeleteFolder.FUNCTION, directory, 0, ip),
             ip,
             ApplicationData.OUTSIDE
         )

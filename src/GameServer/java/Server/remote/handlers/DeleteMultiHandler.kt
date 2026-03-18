@@ -8,7 +8,7 @@ import server.remote.RemoteCallHandler
 import server.remote.RpcHandler
 import java.util.*
 
-@RpcHandler("deletemulti")
+@RpcHandler(DeleteMulti.FUNCTION)
 object DeleteMultiHandler : RemoteCallHandler {
     override fun handle(rfc: RemoteFunctionCall, context: RemoteCallContext) {
         val parsedCall = DeleteMulti.fromRpc(rfc)
@@ -18,7 +18,7 @@ object DeleteMultiHandler : RemoteCallHandler {
         val allFiles = parsedCall.allFiles
         val parameters: Array<Any?>? = arrayOf<Any?>(allFiles)
         context.computerHandler.addData(
-            ApplicationData("deletemulti", parameters, 0, ip),
+            ApplicationData(DeleteMulti.FUNCTION, parameters, 0, ip),
             ip,
             ApplicationData.OUTSIDE
         )

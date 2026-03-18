@@ -8,7 +8,7 @@ import server.remote.RemoteCallHandler
 import server.remote.RpcHandler
 import java.util.*
 
-@RpcHandler("transfer")
+@RpcHandler(Transfer.FUNCTION)
 object TransferHandler : RemoteCallHandler {
     override fun handle(rfc: RemoteFunctionCall, context: RemoteCallContext) {
         val parsedCall = Transfer.fromRpc(rfc)
@@ -19,7 +19,7 @@ object TransferHandler : RemoteCallHandler {
         val port = parsedCall.port
         val tO: Array<Any?>? = arrayOf<Any?>(target_ip, amount)
         context.computerHandler.addData(
-            ApplicationData("transfer", tO, port, ip),
+            ApplicationData(Transfer.FUNCTION, tO, port, ip),
             ip,
             ApplicationData.OUTSIDE
         )

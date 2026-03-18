@@ -8,7 +8,7 @@ import server.remote.RemoteCallHandler
 import server.remote.RpcHandler
 import java.util.*
 
-@RpcHandler("deletewatch")
+@RpcHandler(DeleteWatch.FUNCTION)
 object DeletewatchHandler : RemoteCallHandler {
     override fun handle(rfc: RemoteFunctionCall, context: RemoteCallContext) {
         val parsedCall =
@@ -27,7 +27,7 @@ object DeletewatchHandler : RemoteCallHandler {
             )
         context.computerHandler.addData(
             ApplicationData(
-                "deletewatch",
+                DeleteWatch.FUNCTION,
                 O,
                 0,
                 ip

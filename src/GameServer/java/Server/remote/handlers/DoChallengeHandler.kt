@@ -8,7 +8,7 @@ import server.remote.RemoteCallHandler
 import server.remote.RpcHandler
 import java.util.*
 
-@RpcHandler("dochallenge")
+@RpcHandler(DoChallenge.FUNCTION)
 object DoChallengeHandler : RemoteCallHandler {
     override fun handle(rfc: RemoteFunctionCall, context: RemoteCallContext) {
         val parsedCall = DoChallenge.fromRpc(rfc)
@@ -19,7 +19,7 @@ object DoChallengeHandler : RemoteCallHandler {
 
         val O: Array<Any?>? = arrayOf<Any?>(code, challengeID)
         context.computerHandler.addData(
-            ApplicationData("dochallenge", O, 0, ip),
+            ApplicationData(DoChallenge.FUNCTION, O, 0, ip),
             ip,
             ApplicationData.OUTSIDE
         )

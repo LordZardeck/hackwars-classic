@@ -8,7 +8,7 @@ import server.remote.RemoteCallHandler
 import server.remote.RpcHandler
 import java.util.*
 
-@RpcHandler("requestgame")
+@RpcHandler(RequestGame.FUNCTION)
 object RequestGameHandler : RemoteCallHandler {
     override fun handle(rfc: RemoteFunctionCall, context: RemoteCallContext) {
         val parsedCall = RequestGame.fromRpc(rfc)
@@ -18,7 +18,7 @@ object RequestGameHandler : RemoteCallHandler {
         val name = parsedCall.name
         val Parameter: Array<String?>? = arrayOf<String?>(path, name)
         context.computerHandler.addData(
-            ApplicationData("requestgame", Parameter, 0, ip),
+            ApplicationData(RequestGame.FUNCTION, Parameter, 0, ip),
             ip,
             ApplicationData.OUTSIDE
         )

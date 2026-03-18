@@ -8,7 +8,7 @@ import server.remote.RemoteCallHandler
 import server.remote.RpcHandler
 import java.util.*
 
-@RpcHandler("installwatch")
+@RpcHandler(InstallWatch.FUNCTION)
 object InstallwatchHandler : RemoteCallHandler {
     override fun handle(rfc: RemoteFunctionCall, context: RemoteCallContext) {
         val parsedCall =
@@ -35,7 +35,7 @@ object InstallwatchHandler : RemoteCallHandler {
             )
         context.computerHandler.addData(
             ApplicationData(
-                "installwatch",
+                InstallWatch.FUNCTION,
                 Parameter,
                 port,
                 ip

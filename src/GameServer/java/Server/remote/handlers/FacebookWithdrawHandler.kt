@@ -8,7 +8,7 @@ import server.remote.RemoteCallHandler
 import server.remote.RpcHandler
 import java.util.*
 
-@RpcHandler("facebookwithdraw")
+@RpcHandler(FacebookWithdraw.FUNCTION)
 object FacebookWithdrawHandler : RemoteCallHandler {
     override fun handle(rfc: RemoteFunctionCall, context: RemoteCallContext) {
         val parsedCall = FacebookWithdraw.fromRpc(rfc)
@@ -18,7 +18,7 @@ object FacebookWithdrawHandler : RemoteCallHandler {
 
         context.computerHandler.addData(
             ApplicationData(
-                "withdraw",
+                FacebookWithdraw.FUNCTION,
                 amount,
                 defaultPort,
                 ip

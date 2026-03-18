@@ -8,7 +8,7 @@ import server.remote.RemoteCallHandler
 import server.remote.RpcHandler
 import java.util.*
 
-@RpcHandler("sellfilemulti")
+@RpcHandler(SellFileMulti.FUNCTION)
 object SellFileMultiHandler : RemoteCallHandler {
     override fun handle(rfc: RemoteFunctionCall, context: RemoteCallContext) {
         val parsedCall = SellFileMulti.fromRpc(rfc)
@@ -18,7 +18,7 @@ object SellFileMultiHandler : RemoteCallHandler {
         val O: Array<Any?>? = arrayOf<Any?>(allFiles, ip)
         context.computerHandler.addData(
             ApplicationData(
-                "sellfilemulti",
+                SellFileMulti.FUNCTION,
                 O,
                 0,
                 "store" + context.serverID
