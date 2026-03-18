@@ -208,9 +208,10 @@ class HackerServer(e: Editor, serverID: String) : IParty(e), HackerServerBridge 
                                     )
                                 } else  //Allow hacktendo to activate a sprite.
                                     if (RFC.getFunction() == "hacktendoActivate") {
-                                        val activateID = (RFC.getParameters() as Array<Any?>?)!![0] as Int
-                                        val activateType = (RFC.getParameters() as Array<Any?>?)!![1] as Int
-                                        val ip = (RFC.getParameters() as Array<Any?>?)!![2] as String?
+                                        val parsedCall = HacktendoActivate.fromRpc(RFC)
+                                        val activateID = parsedCall.activateID
+                                        val activateType = parsedCall.activateType
+                                        val ip = parsedCall.ip
 
                                         val O = arrayOf<Any>(activateID, activateType)
                                         MyComputerHandler!!.addData(
@@ -220,11 +221,12 @@ class HackerServer(e: Editor, serverID: String) : IParty(e), HackerServerBridge 
                                         )
                                     } else  //Allow Hacktendo to move objects through space.
                                         if (RFC.getFunction() == "hacktendoTarget") {
-                                            val targetX = (RFC.getParameters() as Array<Any?>?)!![0] as Int
-                                            val targetY = (RFC.getParameters() as Array<Any?>?)!![1] as Int
-                                            val ip = (RFC.getParameters() as Array<Any?>?)!![2] as String?
-                                            val currentX = (RFC.getParameters() as Array<Any?>?)!![3] as Int
-                                            val currentY = (RFC.getParameters() as Array<Any?>?)!![4] as Int
+                                            val parsedCall = HacktendoTarget.fromRpc(RFC)
+                                            val targetX = parsedCall.targetX
+                                            val targetY = parsedCall.targetY
+                                            val ip = parsedCall.ip
+                                            val currentX = parsedCall.currentX
+                                            val currentY = parsedCall.currentY
 
                                             val O = arrayOf<Any>(targetX, targetY, currentX, currentY)
                                             MyComputerHandler!!.addData(
@@ -237,7 +239,8 @@ class HackerServer(e: Editor, serverID: String) : IParty(e), HackerServerBridge 
                                             )
                                         } else  //Request a listing of equipment from a player.
                                             if (RFC.getFunction() == "requestequipment") {
-                                                var ip = (RFC.getParameters() as Array<Any?>?)!![0] as String
+                                                val parsedCall = RequestEquipment.fromRpc(RFC)
+                                                var ip = parsedCall.ip
                                                 ip = crypt(ip, clientKey)
                                                 MyComputerHandler!!.addData(
                                                     ApplicationData(
@@ -249,10 +252,11 @@ class HackerServer(e: Editor, serverID: String) : IParty(e), HackerServerBridge 
                                                 )
                                             } else  //Install equipment for a player.
                                                 if (RFC.getFunction() == "installequipment") {
-                                                    var ip = (RFC.getParameters() as Array<Any?>?)!![0] as String
+                                                    val parsedCall = InstallEquipment.fromRpc(RFC)
+                                                    var ip = parsedCall.ip
                                                     val position =
-                                                        (RFC.getParameters() as Array<Any?>?)!![1] as Int?
-                                                    val name = (RFC.getParameters() as Array<Any?>?)!![2] as String?
+                                                        parsedCall.position
+                                                    val name = parsedCall.name
                                                     ip = crypt(ip, clientKey)
                                                     val O: Array<Any?>? = arrayOf<Any?>(position, name, RFC.getID())
                                                     MyComputerHandler!!.addData(
@@ -265,12 +269,12 @@ class HackerServer(e: Editor, serverID: String) : IParty(e), HackerServerBridge 
                                                     )
                                                 } else  //Repair equipment that's currently installed.
                                                     if (RFC.getFunction() == "repairequipment") {
-                                                        var ip =
-                                                            (RFC.getParameters() as Array<Any?>?)!![0] as String
+                                                            val parsedCall = RepairEquipment.fromRpc(RFC)
+                                                        var ip = parsedCall.ip
                                                         val position =
-                                                            (RFC.getParameters() as Array<Any?>?)!![1] as Int?
+                                                            parsedCall.position
                                                         val name =
-                                                            (RFC.getParameters() as Array<Any?>?)!![2] as String?
+                                                            parsedCall.name
                                                         ip = crypt(ip, clientKey)
                                                         val O: Array<Any?>? =
                                                             arrayOf<Any?>(position, name, RFC.getID())
@@ -284,8 +288,8 @@ class HackerServer(e: Editor, serverID: String) : IParty(e), HackerServerBridge 
                                                         )
                                                     } else  //Fetch the watches and return them to the client.
                                                         if (RFC.getFunction() == "fetchwatches") {
-                                                            var ip =
-                                                                (RFC.getParameters() as Array<Any?>?)!![0] as String
+                                                                val parsedCall = FetchWatches.fromRpc(RFC)
+                                                            var ip = parsedCall.ip
                                                             ip = crypt(ip, clientKey)
                                                             MyComputerHandler!!.addData(
                                                                 ApplicationData(
@@ -297,8 +301,8 @@ class HackerServer(e: Editor, serverID: String) : IParty(e), HackerServerBridge 
                                                             )
                                                         } else  //Request your own webpage.
                                                             if (RFC.getFunction() == "requestpage") {
-                                                                var ip =
-                                                                    (RFC.getParameters() as Array<Any?>?)!![0] as String
+                                                                    val parsedCall = RequestPage.fromRpc(RFC)
+                                                                var ip = parsedCall.ip
                                                                 ip = crypt(ip, clientKey)
                                                                 MyComputerHandler!!.addData(
                                                                     ApplicationData(
@@ -310,16 +314,16 @@ class HackerServer(e: Editor, serverID: String) : IParty(e), HackerServerBridge 
                                                                 )
                                                             } else  //Used whn a player wishes to peform a purchase with another player.
                                                                 if (RFC.getFunction() == "requestpurchase") {
-                                                                    var target_ip =
-                                                                        (RFC.getParameters() as Array<Any?>?)!![0] as String
+                                                                        val parsedCall = RequestPurchase.fromRpc(RFC)
+                                                                    var target_ip = parsedCall.targetIp
                                                                     var source_ip =
-                                                                        (RFC.getParameters() as Array<Any?>?)!![1] as String
+                                                                        parsedCall.sourceIp
                                                                     source_ip = crypt(source_ip, clientKey)
 
                                                                     val file_name =
-                                                                        (RFC.getParameters() as Array<Any?>?)!![2] as String?
+                                                                        parsedCall.fileName
                                                                     val quantity =
-                                                                        (RFC.getParameters() as Array<Any?>?)!![3] as Int?
+                                                                        parsedCall.quantity
                                                                     val O: Array<Any?>? =
                                                                         arrayOf<Any?>(file_name, quantity)
 
@@ -339,14 +343,14 @@ class HackerServer(e: Editor, serverID: String) : IParty(e), HackerServerBridge 
                                                                     )
                                                                 } else  //POST INFORMATION FROM A GAME.
                                                                     if (RFC.getFunction() == "requesttrigger") {
-                                                                        val watchNote =
-                                                                            (RFC.getParameters() as Array<Any?>?)!![0] as String?
+                                                                            val parsedCall = RequestTrigger.fromRpc(RFC)
+                                                                        val watchNote = parsedCall.watchNote
                                                                         val TriggerParam =
-                                                                            (RFC.getParameters() as Array<Any?>?)!![1] as HashMap<*, *>?
+                                                                            parsedCall.triggerParam
                                                                         val sourceIP =
-                                                                            (RFC.getParameters() as Array<Any?>?)!![2] as String?
+                                                                            parsedCall.sourceIP
                                                                         val targetIP =
-                                                                            (RFC.getParameters() as Array<Any?>?)!![3] as String?
+                                                                            parsedCall.targetIP
                                                                         val O: Any = arrayOf<Any?>(
                                                                             watchNote,
                                                                             TriggerParam,
@@ -362,12 +366,12 @@ class HackerServer(e: Editor, serverID: String) : IParty(e), HackerServerBridge 
                                                                         )
                                                                     } else  //SAVE INFORMATION FROM A GAME.
                                                                         if (RFC.getFunction() == "requestsave") {
-                                                                            val fileName =
-                                                                                (RFC.getParameters() as Array<Any?>?)!![0] as String?
+                                                                                val parsedCall = RequestSave.fromRpc(RFC)
+                                                                            val fileName = parsedCall.fileName
                                                                             val TriggerParam =
-                                                                                (RFC.getParameters() as Array<Any?>?)!![1] as HashMap<*, *>?
+                                                                                parsedCall.triggerParam
                                                                             val targetIP =
-                                                                                (RFC.getParameters() as Array<Any?>?)!![2] as String?
+                                                                                parsedCall.targetIP
                                                                             val O: Any = arrayOf<Any?>(
                                                                                 fileName,
                                                                                 TriggerParam
@@ -385,14 +389,14 @@ class HackerServer(e: Editor, serverID: String) : IParty(e), HackerServerBridge 
                                                                             )
                                                                         } else  //LET A GAME FINISH A TASK IN A QUEST.
                                                                             if (RFC.getFunction() == "requesttask") {
-                                                                                val fileName =
-                                                                                    (RFC.getParameters() as Array<Any?>?)!![0] as String?
+                                                                                    val parsedCall = RequestTask.fromRpc(RFC)
+                                                                                val fileName = parsedCall.fileName
                                                                                 val questID =
-                                                                                    (RFC.getParameters() as Array<Any?>?)!![1] as String?
+                                                                                    parsedCall.questID
                                                                                 val taskName =
-                                                                                    (RFC.getParameters() as Array<Any?>?)!![2] as String?
+                                                                                    parsedCall.taskName
                                                                                 val targetIP =
-                                                                                    (RFC.getParameters() as Array<Any?>?)!![3] as String?
+                                                                                    parsedCall.targetIP
                                                                                 val O: Any = arrayOf<Any?>(
                                                                                     fileName,
                                                                                     questID,
@@ -469,26 +473,26 @@ class HackerServer(e: Editor, serverID: String) : IParty(e), HackerServerBridge 
                                                                                         )
                                                                                     } else  //Create a bounty.
                                                                                         if (RFC.getFunction() == "makebounty") {
-                                                                                            var source_ip =
-                                                                                                (RFC.getParameters() as Array<Any?>?)!![0] as String
+                                                                                                val parsedCall = MakeBounty.fromRpc(RFC)
+                                                                                            var source_ip = parsedCall.sourceIp
                                                                                             source_ip = crypt(
                                                                                                 source_ip,
                                                                                                 clientKey
                                                                                             )
                                                                                             val anonymous =
-                                                                                                (RFC.getParameters() as Array<Any?>?)!![1] as Boolean?
+                                                                                                parsedCall.anonymous
                                                                                             val target =
-                                                                                                (RFC.getParameters() as Array<Any?>?)!![2] as String?
+                                                                                                parsedCall.target
                                                                                             val type =
-                                                                                                (RFC.getParameters() as Array<Any?>?)!![3] as Int?
+                                                                                                parsedCall.type
                                                                                             val fname =
-                                                                                                (RFC.getParameters() as Array<Any?>?)!![4] as String?
+                                                                                                parsedCall.fname
                                                                                             val folder =
-                                                                                                (RFC.getParameters() as Array<Any?>?)!![5] as String?
+                                                                                                parsedCall.folder
                                                                                             val iterations =
-                                                                                                (RFC.getParameters() as Array<Any?>?)!![6] as Int?
+                                                                                                parsedCall.iterations
                                                                                             val reward =
-                                                                                                (RFC.getParameters() as Array<Any?>?)!![7] as Float?
+                                                                                                parsedCall.reward
                                                                                             val O: Array<Any?>? =
                                                                                                 arrayOf<Any?>(
                                                                                                     anonymous,
@@ -511,10 +515,10 @@ class HackerServer(e: Editor, serverID: String) : IParty(e), HackerServerBridge 
                                                                                             )
                                                                                         } else  //Exit a player's webpage.
                                                                                             if (RFC.getFunction() == "exit") {
-                                                                                                val target_ip =
-                                                                                                    (RFC.getParameters() as Array<Any?>?)!![0] as String?
+                                                                                                    val parsedCall = Exit.fromRpc(RFC)
+                                                                                                val target_ip = parsedCall.targetIp
                                                                                                 var source_ip =
-                                                                                                    (RFC.getParameters() as Array<Any?>?)!![1] as String
+                                                                                                    parsedCall.sourceIp
 
                                                                                                 source_ip = crypt(
                                                                                                     source_ip,
@@ -533,10 +537,10 @@ class HackerServer(e: Editor, serverID: String) : IParty(e), HackerServerBridge 
                                                                                                 )
                                                                                             } else  //Vote for a player's webpage.
                                                                                                 if (RFC.getFunction() == "vote") {
-                                                                                                    val target_ip =
-                                                                                                        (RFC.getParameters() as Array<Any?>?)!![0] as String?
+                                                                                                        val parsedCall = Vote.fromRpc(RFC)
+                                                                                                    val target_ip = parsedCall.targetIp
                                                                                                     var source_ip =
-                                                                                                        (RFC.getParameters() as Array<Any?>?)!![1] as String
+                                                                                                        parsedCall.sourceIp
 
                                                                                                     source_ip =
                                                                                                         crypt(
@@ -555,16 +559,16 @@ class HackerServer(e: Editor, serverID: String) : IParty(e), HackerServerBridge 
                                                                                                         ApplicationData.OUTSIDE
                                                                                                     )
                                                                                                 } else if (RFC.getFunction() == "savepage") {
-                                                                                                    var ip =
-                                                                                                        (RFC.getParameters() as Array<Any?>?)!![0] as String
+                                                                                                        val parsedCall = SavePage.fromRpc(RFC)
+                                                                                                    var ip = parsedCall.ip
                                                                                                     ip = crypt(
                                                                                                         ip,
                                                                                                         clientKey
                                                                                                     )
                                                                                                     val title =
-                                                                                                        (RFC.getParameters() as Array<Any?>?)!![1] as String?
+                                                                                                        parsedCall.title
                                                                                                     val body =
-                                                                                                        (RFC.getParameters() as Array<Any?>?)!![2] as String?
+                                                                                                        parsedCall.body
                                                                                                     val O: Array<Any?>? =
                                                                                                         arrayOf<Any?>(
                                                                                                             title,
@@ -581,16 +585,16 @@ class HackerServer(e: Editor, serverID: String) : IParty(e), HackerServerBridge 
                                                                                                         ApplicationData.OUTSIDE
                                                                                                     )
                                                                                                 } else if (RFC.getFunction() == "withdraw") {
-                                                                                                    val amount =
-                                                                                                        (RFC.getParameters() as Array<Any?>?)!![0] as Float
+                                                                                                        val parsedCall = Withdraw.fromRpc(RFC)
+                                                                                                    val amount = parsedCall.amount
                                                                                                     var ip =
-                                                                                                        (RFC.getParameters() as Array<Any?>?)!![1] as String
+                                                                                                        parsedCall.ip
                                                                                                     ip = crypt(
                                                                                                         ip,
                                                                                                         clientKey
                                                                                                     )
                                                                                                     val port =
-                                                                                                        (RFC.getParameters() as Array<Any?>?)!![2] as Int
+                                                                                                        parsedCall.port
                                                                                                     MyComputerHandler!!.addData(
                                                                                                         ApplicationData(
                                                                                                             "withdraw",
@@ -602,14 +606,14 @@ class HackerServer(e: Editor, serverID: String) : IParty(e), HackerServerBridge 
                                                                                                         ApplicationData.OUTSIDE
                                                                                                     )
                                                                                                 } else if (RFC.getFunction() == "requestdirectory") {
-                                                                                                    var ip =
-                                                                                                        (RFC.getParameters() as Array<Any?>?)!![0] as String
+                                                                                                        val parsedCall = RequestDirectory.fromRpc(RFC)
+                                                                                                    var ip = parsedCall.ip
                                                                                                     ip = crypt(
                                                                                                         ip,
                                                                                                         clientKey
                                                                                                     )
                                                                                                     val path =
-                                                                                                        (RFC.getParameters() as Array<Any?>?)!![1] as String?
+                                                                                                        parsedCall.path
                                                                                                     val O: Array<Any?>? =
                                                                                                         arrayOf<Any?>(
                                                                                                             path,
@@ -626,14 +630,14 @@ class HackerServer(e: Editor, serverID: String) : IParty(e), HackerServerBridge 
                                                                                                         ApplicationData.OUTSIDE
                                                                                                     )
                                                                                                 } else if (RFC.getFunction() == "unlock") {
-                                                                                                    var ip =
-                                                                                                        (RFC.getParameters() as Array<Any?>?)!![0] as String
+                                                                                                        val parsedCall = Unlock.fromRpc(RFC)
+                                                                                                    var ip = parsedCall.ip
                                                                                                     ip = crypt(
                                                                                                         ip,
                                                                                                         clientKey
                                                                                                     )
                                                                                                     val code =
-                                                                                                        (RFC.getParameters() as Array<Any?>?)!![1] as String?
+                                                                                                        parsedCall.code
                                                                                                     MyComputerHandler!!.addData(
                                                                                                         ApplicationData(
                                                                                                             "unlock",
@@ -645,14 +649,14 @@ class HackerServer(e: Editor, serverID: String) : IParty(e), HackerServerBridge 
                                                                                                         ApplicationData.OUTSIDE
                                                                                                     )
                                                                                                 } else if (RFC.getFunction() == "setftppassword") {
-                                                                                                    var ip =
-                                                                                                        (RFC.getParameters() as Array<Any?>?)!![0] as String
+                                                                                                        val parsedCall = SetFtpPassword.fromRpc(RFC)
+                                                                                                    var ip = parsedCall.ip
                                                                                                     ip = crypt(
                                                                                                         ip,
                                                                                                         clientKey
                                                                                                     )
                                                                                                     val password =
-                                                                                                        (RFC.getParameters() as Array<Any?>?)!![1] as String?
+                                                                                                        parsedCall.password
                                                                                                     MyComputerHandler!!.addData(
                                                                                                         ApplicationData(
                                                                                                             "setftppassword",
@@ -664,12 +668,12 @@ class HackerServer(e: Editor, serverID: String) : IParty(e), HackerServerBridge 
                                                                                                         ApplicationData.OUTSIDE
                                                                                                     )
                                                                                                 } else if (RFC.getFunction() == "requestsecondarydirectory") {
-                                                                                                    val ip =
-                                                                                                        (RFC.getParameters() as Array<Any?>?)!![0] as String?
+                                                                                                        val parsedCall = RequestSecondaryDirectory.fromRpc(RFC)
+                                                                                                    val ip = parsedCall.ip
                                                                                                     val path =
-                                                                                                        (RFC.getParameters() as Array<Any?>?)!![1] as String?
+                                                                                                        parsedCall.path
                                                                                                     var targetIP =
-                                                                                                        (RFC.getParameters() as Array<Any?>?)!![2] as String
+                                                                                                        parsedCall.targetIP
 
                                                                                                     targetIP =
                                                                                                         crypt(
@@ -678,7 +682,7 @@ class HackerServer(e: Editor, serverID: String) : IParty(e), HackerServerBridge 
                                                                                                         )
 
                                                                                                     val port =
-                                                                                                        (RFC.getParameters() as Array<Any?>?)!![3] as Int
+                                                                                                        parsedCall.port
                                                                                                     val Parameter: Array<Any?>? =
                                                                                                         arrayOf<Any?>(
                                                                                                             targetIP,
@@ -696,14 +700,14 @@ class HackerServer(e: Editor, serverID: String) : IParty(e), HackerServerBridge 
                                                                                                         ApplicationData.OUTSIDE
                                                                                                     )
                                                                                                 } else if (RFC.getFunction() == "requestcancelattack") {
-                                                                                                    var ip =
-                                                                                                        (RFC.getParameters() as Array<Any?>?)!![0] as String
+                                                                                                        val parsedCall = RequestCancelAttack.fromRpc(RFC)
+                                                                                                    var ip = parsedCall.ip
                                                                                                     ip = crypt(
                                                                                                         ip,
                                                                                                         clientKey
                                                                                                     )
                                                                                                     val port =
-                                                                                                        (RFC.getParameters() as Array<Any?>?)!![1] as Int
+                                                                                                        parsedCall.port
                                                                                                     MyComputerHandler!!.addData(
                                                                                                         ApplicationData(
                                                                                                             "requestcancelattack",
@@ -715,14 +719,14 @@ class HackerServer(e: Editor, serverID: String) : IParty(e), HackerServerBridge 
                                                                                                         ApplicationData.OUTSIDE
                                                                                                     )
                                                                                                 } else if (RFC.getFunction() == "cluedata") {
-                                                                                                    var ip =
-                                                                                                        (RFC.getParameters() as Array<Any?>?)!![0] as String
+                                                                                                        val parsedCall = ClueData.fromRpc(RFC)
+                                                                                                    var ip = parsedCall.ip
                                                                                                     ip = crypt(
                                                                                                         ip,
                                                                                                         clientKey
                                                                                                     )
                                                                                                     val data =
-                                                                                                        (RFC.getParameters() as Array<Any?>?)!![1] as String?
+                                                                                                        parsedCall.data
                                                                                                     MyComputerHandler!!.addData(
                                                                                                         ApplicationData(
                                                                                                             "cluedata",
@@ -734,12 +738,12 @@ class HackerServer(e: Editor, serverID: String) : IParty(e), HackerServerBridge 
                                                                                                         ApplicationData.OUTSIDE
                                                                                                     )
                                                                                                 } else if (RFC.getFunction() == "requestzombiecancelattack") {
-                                                                                                    val ip =
-                                                                                                        (RFC.getParameters() as Array<Any?>?)!![0] as String?
+                                                                                                        val parsedCall = RequestZombieCancelAttack.fromRpc(RFC)
+                                                                                                    val ip = parsedCall.ip
                                                                                                     val port =
-                                                                                                        (RFC.getParameters() as Array<Any?>?)!![1] as Int
+                                                                                                        parsedCall.port
                                                                                                     var targetIP =
-                                                                                                        (RFC.getParameters() as Array<Any?>?)!![2] as String
+                                                                                                        parsedCall.targetIP
                                                                                                     targetIP =
                                                                                                         crypt(
                                                                                                             targetIP,
@@ -756,18 +760,18 @@ class HackerServer(e: Editor, serverID: String) : IParty(e), HackerServerBridge 
                                                                                                         ApplicationData.OUTSIDE
                                                                                                     )
                                                                                                 } else if (RFC.getFunction() == "installapplication") {
-                                                                                                    var ip =
-                                                                                                        (RFC.getParameters() as Array<Any?>?)!![0] as String
+                                                                                                        val parsedCall = InstallApplication.fromRpc(RFC)
+                                                                                                    var ip = parsedCall.ip
                                                                                                     ip = crypt(
                                                                                                         ip,
                                                                                                         clientKey
                                                                                                     )
                                                                                                     val port =
-                                                                                                        (RFC.getParameters() as Array<Any?>?)!![1] as Int
+                                                                                                        parsedCall.port
                                                                                                     val path =
-                                                                                                        (RFC.getParameters() as Array<Any?>?)!![2] as String?
+                                                                                                        parsedCall.path
                                                                                                     val name =
-                                                                                                        (RFC.getParameters() as Array<Any?>?)!![3] as String?
+                                                                                                        parsedCall.name
                                                                                                     val Parameter: Array<String?>? =
                                                                                                         arrayOf<String?>(
                                                                                                             path,
@@ -784,20 +788,20 @@ class HackerServer(e: Editor, serverID: String) : IParty(e), HackerServerBridge 
                                                                                                         ApplicationData.OUTSIDE
                                                                                                     )
                                                                                                 } else if (RFC.getFunction() == "installwatch") {
-                                                                                                    var ip =
-                                                                                                        (RFC.getParameters() as Array<Any?>?)!![0] as String
+                                                                                                        val parsedCall = InstallWatch.fromRpc(RFC)
+                                                                                                    var ip = parsedCall.ip
                                                                                                     ip = crypt(
                                                                                                         ip,
                                                                                                         clientKey
                                                                                                     )
                                                                                                     val path =
-                                                                                                        (RFC.getParameters() as Array<Any?>?)!![1] as String?
+                                                                                                        parsedCall.path
                                                                                                     val name =
-                                                                                                        (RFC.getParameters() as Array<Any?>?)!![2] as String?
+                                                                                                        parsedCall.name
                                                                                                     val type =
-                                                                                                        (RFC.getParameters() as Array<Any?>?)!![3] as Int
+                                                                                                        parsedCall.type
                                                                                                     val port =
-                                                                                                        (RFC.getParameters() as Array<Any?>?)!![4] as Int
+                                                                                                        parsedCall.port
                                                                                                     val Parameter: Array<Any?>? =
                                                                                                         arrayOf<Any?>(
                                                                                                             path,
@@ -815,16 +819,16 @@ class HackerServer(e: Editor, serverID: String) : IParty(e), HackerServerBridge 
                                                                                                         ApplicationData.OUTSIDE
                                                                                                     )
                                                                                                 } else if (RFC.getFunction() == "setwatchobservedports") {
-                                                                                                    var ip =
-                                                                                                        (RFC.getParameters() as Array<Any?>?)!![0] as String
+                                                                                                        val parsedCall = SetWatchObservedPorts.fromRpc(RFC)
+                                                                                                    var ip = parsedCall.ip
                                                                                                     ip = crypt(
                                                                                                         ip,
                                                                                                         clientKey
                                                                                                     )
                                                                                                     val watchID =
-                                                                                                        (RFC.getParameters() as Array<Any?>?)!![1] as Int?
+                                                                                                        parsedCall.watchID
                                                                                                     val ObservedPorts =
-                                                                                                        (RFC.getParameters() as Array<Any?>?)!![2] as Array<Int?>?
+                                                                                                        parsedCall.observedPorts
                                                                                                     val Parameter: Array<Any?>? =
                                                                                                         arrayOf<Any?>(
                                                                                                             watchID,
@@ -841,18 +845,18 @@ class HackerServer(e: Editor, serverID: String) : IParty(e), HackerServerBridge 
                                                                                                         ApplicationData.OUTSIDE
                                                                                                     )
                                                                                                 } else if (RFC.getFunction() == "installfirewall") {
-                                                                                                    var ip =
-                                                                                                        (RFC.getParameters() as Array<Any?>?)!![0] as String
+                                                                                                        val parsedCall = InstallFirewall.fromRpc(RFC)
+                                                                                                    var ip = parsedCall.ip
                                                                                                     ip = crypt(
                                                                                                         ip,
                                                                                                         clientKey
                                                                                                     )
                                                                                                     val port =
-                                                                                                        (RFC.getParameters() as Array<Any?>?)!![1] as Int
+                                                                                                        parsedCall.port
                                                                                                     val path =
-                                                                                                        (RFC.getParameters() as Array<Any?>?)!![2] as String?
+                                                                                                        parsedCall.path
                                                                                                     val name =
-                                                                                                        (RFC.getParameters() as Array<Any?>?)!![3] as String?
+                                                                                                        parsedCall.name
                                                                                                     val Parameter: Array<String?>? =
                                                                                                         arrayOf<String?>(
                                                                                                             path,
@@ -869,18 +873,18 @@ class HackerServer(e: Editor, serverID: String) : IParty(e), HackerServerBridge 
                                                                                                         ApplicationData.OUTSIDE
                                                                                                     )
                                                                                                 } else if (RFC.getFunction() == "replaceapplication") {
-                                                                                                    var ip =
-                                                                                                        (RFC.getParameters() as Array<Any?>?)!![0] as String
+                                                                                                        val parsedCall = ReplaceApplication.fromRpc(RFC)
+                                                                                                    var ip = parsedCall.ip
                                                                                                     ip = crypt(
                                                                                                         ip,
                                                                                                         clientKey
                                                                                                     )
                                                                                                     val port =
-                                                                                                        (RFC.getParameters() as Array<Any?>?)!![1] as Int
+                                                                                                        parsedCall.port
                                                                                                     val path =
-                                                                                                        (RFC.getParameters() as Array<Any?>?)!![2] as String?
+                                                                                                        parsedCall.path
                                                                                                     val name =
-                                                                                                        (RFC.getParameters() as Array<Any?>?)!![3] as String?
+                                                                                                        parsedCall.name
                                                                                                     val Parameter: Array<String?>? =
                                                                                                         arrayOf<String?>(
                                                                                                             path,
@@ -897,14 +901,14 @@ class HackerServer(e: Editor, serverID: String) : IParty(e), HackerServerBridge 
                                                                                                         ApplicationData.OUTSIDE
                                                                                                     )
                                                                                                 } else if (RFC.getFunction() == "uninstallport") {
-                                                                                                    var ip =
-                                                                                                        (RFC.getParameters() as Array<Any?>?)!![0] as String
+                                                                                                        val parsedCall = UninstallPort.fromRpc(RFC)
+                                                                                                    var ip = parsedCall.ip
                                                                                                     ip = crypt(
                                                                                                         ip,
                                                                                                         clientKey
                                                                                                     )
                                                                                                     val port =
-                                                                                                        (RFC.getParameters() as Array<Any?>?)!![1] as Int
+                                                                                                        parsedCall.port
                                                                                                     MyComputerHandler!!.addData(
                                                                                                         ApplicationData(
                                                                                                             "uninstallport",
@@ -916,16 +920,16 @@ class HackerServer(e: Editor, serverID: String) : IParty(e), HackerServerBridge 
                                                                                                         ApplicationData.OUTSIDE
                                                                                                     )
                                                                                                 } else if (RFC.getFunction() == "portonoff") {
-                                                                                                    var ip =
-                                                                                                        (RFC.getParameters() as Array<Any?>?)!![0] as String
+                                                                                                        val parsedCall = PortOnOff.fromRpc(RFC)
+                                                                                                    var ip = parsedCall.ip
                                                                                                     ip = crypt(
                                                                                                         ip,
                                                                                                         clientKey
                                                                                                     )
                                                                                                     val port =
-                                                                                                        (RFC.getParameters() as Array<Any?>?)!![1] as Int
+                                                                                                        parsedCall.port
                                                                                                     val on =
-                                                                                                        (RFC.getParameters() as Array<Any?>?)!![2] as Boolean?
+                                                                                                        parsedCall.on
                                                                                                     MyComputerHandler!!.addData(
                                                                                                         ApplicationData(
                                                                                                             "portonoff",
@@ -937,16 +941,16 @@ class HackerServer(e: Editor, serverID: String) : IParty(e), HackerServerBridge 
                                                                                                         ApplicationData.OUTSIDE
                                                                                                     )
                                                                                                 } else if (RFC.getFunction() == "peekcode") {
-                                                                                                    var ip =
-                                                                                                        (RFC.getParameters() as Array<Any?>?)!![0] as String
+                                                                                                        val parsedCall = PeekCode.fromRpc(RFC)
+                                                                                                    var ip = parsedCall.ip
                                                                                                     ip = crypt(
                                                                                                         ip,
                                                                                                         clientKey
                                                                                                     )
                                                                                                     val targetIP =
-                                                                                                        (RFC.getParameters() as Array<Any?>?)!![1] as String?
+                                                                                                        parsedCall.targetIP
                                                                                                     val port =
-                                                                                                        (RFC.getParameters() as Array<Any?>?)!![2] as Int
+                                                                                                        parsedCall.port
                                                                                                     MyComputerHandler!!.addData(
                                                                                                         ApplicationData(
                                                                                                             "peekcode",
@@ -958,16 +962,16 @@ class HackerServer(e: Editor, serverID: String) : IParty(e), HackerServerBridge 
                                                                                                         ApplicationData.OUTSIDE
                                                                                                     )
                                                                                                 } else if (RFC.getFunction() == "peeklogs") {
-                                                                                                    var ip =
-                                                                                                        (RFC.getParameters() as Array<Any?>?)!![0] as String
+                                                                                                        val parsedCall = PeekLogs.fromRpc(RFC)
+                                                                                                    var ip = parsedCall.ip
                                                                                                     ip = crypt(
                                                                                                         ip,
                                                                                                         clientKey
                                                                                                     )
                                                                                                     val targetIP =
-                                                                                                        (RFC.getParameters() as Array<Any?>?)!![1] as String?
+                                                                                                        parsedCall.targetIP
                                                                                                     val port =
-                                                                                                        (RFC.getParameters() as Array<Any?>?)!![2] as Int
+                                                                                                        parsedCall.port
                                                                                                     MyComputerHandler!!.addData(
                                                                                                         ApplicationData(
                                                                                                             "peeklogs",
@@ -979,16 +983,16 @@ class HackerServer(e: Editor, serverID: String) : IParty(e), HackerServerBridge 
                                                                                                         ApplicationData.OUTSIDE
                                                                                                     )
                                                                                                 } else if (RFC.getFunction() == "saveportnote") {
-                                                                                                    var ip =
-                                                                                                        (RFC.getParameters() as Array<Any?>?)!![0] as String
+                                                                                                        val parsedCall = SavePortNote.fromRpc(RFC)
+                                                                                                    var ip = parsedCall.ip
                                                                                                     ip = crypt(
                                                                                                         ip,
                                                                                                         clientKey
                                                                                                     )
                                                                                                     val port =
-                                                                                                        (RFC.getParameters() as Array<Any?>?)!![1] as Int
+                                                                                                        parsedCall.port
                                                                                                     val note =
-                                                                                                        (RFC.getParameters() as Array<Any?>?)!![2] as String?
+                                                                                                        parsedCall.note
                                                                                                     MyComputerHandler!!.addData(
                                                                                                         ApplicationData(
                                                                                                             "saveportnote",
@@ -1000,16 +1004,16 @@ class HackerServer(e: Editor, serverID: String) : IParty(e), HackerServerBridge 
                                                                                                         ApplicationData.OUTSIDE
                                                                                                     )
                                                                                                 } else if (RFC.getFunction() == "setwatchquantity") {
-                                                                                                    var ip =
-                                                                                                        (RFC.getParameters() as Array<Any?>?)!![0] as String
+                                                                                                        val parsedCall = SetWatchQuantity.fromRpc(RFC)
+                                                                                                    var ip = parsedCall.ip
                                                                                                     ip = crypt(
                                                                                                         ip,
                                                                                                         clientKey
                                                                                                     )
                                                                                                     val watchID =
-                                                                                                        (RFC.getParameters() as Array<Any?>?)!![1] as Int?
+                                                                                                        parsedCall.watchID
                                                                                                     val quantity =
-                                                                                                        (RFC.getParameters() as Array<Any?>?)!![2] as Float?
+                                                                                                        parsedCall.quantity
                                                                                                     val O: Any =
                                                                                                         arrayOf<Any?>(
                                                                                                             watchID,
@@ -1026,16 +1030,16 @@ class HackerServer(e: Editor, serverID: String) : IParty(e), HackerServerBridge 
                                                                                                         ApplicationData.OUTSIDE
                                                                                                     )
                                                                                                 } else if (RFC.getFunction() == "setwatchonoff") {
-                                                                                                    var ip =
-                                                                                                        (RFC.getParameters() as Array<Any?>?)!![0] as String
+                                                                                                        val parsedCall = SetWatchOnOff.fromRpc(RFC)
+                                                                                                    var ip = parsedCall.ip
                                                                                                     ip = crypt(
                                                                                                         ip,
                                                                                                         clientKey
                                                                                                     )
                                                                                                     val watchID =
-                                                                                                        (RFC.getParameters() as Array<Any?>?)!![1] as Int?
+                                                                                                        parsedCall.watchID
                                                                                                     val state =
-                                                                                                        (RFC.getParameters() as Array<Any?>?)!![2] as Boolean?
+                                                                                                        parsedCall.state
                                                                                                     val O: Any =
                                                                                                         arrayOf<Any?>(
                                                                                                             watchID,
@@ -1052,16 +1056,16 @@ class HackerServer(e: Editor, serverID: String) : IParty(e), HackerServerBridge 
                                                                                                         ApplicationData.OUTSIDE
                                                                                                     )
                                                                                                 } else if (RFC.getFunction() == "setwatchnote") {
-                                                                                                    var ip =
-                                                                                                        (RFC.getParameters() as Array<Any?>?)!![0] as String
+                                                                                                        val parsedCall = SetWatchNote.fromRpc(RFC)
+                                                                                                    var ip = parsedCall.ip
                                                                                                     ip = crypt(
                                                                                                         ip,
                                                                                                         clientKey
                                                                                                     )
                                                                                                     val watchID =
-                                                                                                        (RFC.getParameters() as Array<Any?>?)!![1] as Int?
+                                                                                                        parsedCall.watchID
                                                                                                     val note =
-                                                                                                        (RFC.getParameters() as Array<Any?>?)!![2] as String?
+                                                                                                        parsedCall.note
                                                                                                     val O: Any =
                                                                                                         arrayOf<Any?>(
                                                                                                             watchID,
@@ -1078,16 +1082,16 @@ class HackerServer(e: Editor, serverID: String) : IParty(e), HackerServerBridge 
                                                                                                         ApplicationData.OUTSIDE
                                                                                                     )
                                                                                                 } else if (RFC.getFunction() == "setwatchsearchfirewall") {
-                                                                                                    var ip =
-                                                                                                        (RFC.getParameters() as Array<Any?>?)!![0] as String
+                                                                                                        val parsedCall = SetWatchSearchFirewall.fromRpc(RFC)
+                                                                                                    var ip = parsedCall.ip
                                                                                                     ip = crypt(
                                                                                                         ip,
                                                                                                         clientKey
                                                                                                     )
                                                                                                     val watchID =
-                                                                                                        (RFC.getParameters() as Array<Any?>?)!![1] as Int?
+                                                                                                        parsedCall.watchID
                                                                                                     val searchFireWall =
-                                                                                                        (RFC.getParameters() as Array<Any?>?)!![2] as Int?
+                                                                                                        parsedCall.searchFireWall
                                                                                                     val O: Any =
                                                                                                         arrayOf<Any?>(
                                                                                                             watchID,
@@ -1104,14 +1108,14 @@ class HackerServer(e: Editor, serverID: String) : IParty(e), HackerServerBridge 
                                                                                                         ApplicationData.OUTSIDE
                                                                                                     )
                                                                                                 } else if (RFC.getFunction() == "deletewatch") {
-                                                                                                    var ip =
-                                                                                                        (RFC.getParameters() as Array<Any?>?)!![0] as String
+                                                                                                        val parsedCall = DeleteWatch.fromRpc(RFC)
+                                                                                                    var ip = parsedCall.ip
                                                                                                     ip = crypt(
                                                                                                         ip,
                                                                                                         clientKey
                                                                                                     )
                                                                                                     val watchID =
-                                                                                                        (RFC.getParameters() as Array<Any?>?)!![1] as Int?
+                                                                                                        parsedCall.watchID
                                                                                                     val O: Any =
                                                                                                         arrayOf<Any?>(
                                                                                                             watchID
@@ -1127,14 +1131,14 @@ class HackerServer(e: Editor, serverID: String) : IParty(e), HackerServerBridge 
                                                                                                         ApplicationData.OUTSIDE
                                                                                                     )
                                                                                                 } else if (RFC.getFunction() == "deletefirewall") {
-                                                                                                    var ip =
-                                                                                                        (RFC.getParameters() as Array<Any?>?)!![0] as String
+                                                                                                        val parsedCall = DeleteFirewall.fromRpc(RFC)
+                                                                                                    var ip = parsedCall.ip
                                                                                                     ip = crypt(
                                                                                                         ip,
                                                                                                         clientKey
                                                                                                     )
                                                                                                     val portID =
-                                                                                                        (RFC.getParameters() as Array<Any?>?)!![1] as Int?
+                                                                                                        parsedCall.portID
                                                                                                     MyComputerHandler!!.addData(
                                                                                                         ApplicationData(
                                                                                                             "deletefirewall",
@@ -1146,16 +1150,16 @@ class HackerServer(e: Editor, serverID: String) : IParty(e), HackerServerBridge 
                                                                                                         ApplicationData.OUTSIDE
                                                                                                     )
                                                                                                 } else if (RFC.getFunction() == "changewatchport") {
-                                                                                                    var ip =
-                                                                                                        (RFC.getParameters() as Array<Any?>?)!![0] as String
+                                                                                                        val parsedCall = ChangeWatchPort.fromRpc(RFC)
+                                                                                                    var ip = parsedCall.ip
                                                                                                     ip = crypt(
                                                                                                         ip,
                                                                                                         clientKey
                                                                                                     )
                                                                                                     val WatchID =
-                                                                                                        (RFC.getParameters() as Array<Any?>?)!![1] as Int?
+                                                                                                        parsedCall.watchId
                                                                                                     val PortID =
-                                                                                                        (RFC.getParameters() as Array<Any?>?)!![2] as Int?
+                                                                                                        parsedCall.portId
                                                                                                     val I: Array<Int?>? =
                                                                                                         arrayOf<Int?>(
                                                                                                             WatchID,
@@ -1172,16 +1176,16 @@ class HackerServer(e: Editor, serverID: String) : IParty(e), HackerServerBridge 
                                                                                                         ApplicationData.OUTSIDE
                                                                                                     )
                                                                                                 } else if (RFC.getFunction() == "changewatchtype") {
-                                                                                                    var ip =
-                                                                                                        (RFC.getParameters() as Array<Any?>?)!![0] as String
+                                                                                                        val parsedCall = ChangeWatchType.fromRpc(RFC)
+                                                                                                    var ip = parsedCall.ip
                                                                                                     ip = crypt(
                                                                                                         ip,
                                                                                                         clientKey
                                                                                                     )
                                                                                                     val WatchID =
-                                                                                                        (RFC.getParameters() as Array<Any?>?)!![1] as Int?
+                                                                                                        parsedCall.watchID
                                                                                                     val PortID =
-                                                                                                        (RFC.getParameters() as Array<Any?>?)!![2] as Int?
+                                                                                                        parsedCall.portID
                                                                                                     val I: Array<Int?>? =
                                                                                                         arrayOf<Int?>(
                                                                                                             WatchID,
@@ -1200,31 +1204,33 @@ class HackerServer(e: Editor, serverID: String) : IParty(e), HackerServerBridge 
                                                                                                 }
 
                     if (RFC.getFunction() == "deletefolder") {
-                        var ip = (RFC.getParameters() as Array<Any?>?)!![0] as String
+                        val parsedCall = DeleteFolder.fromRpc(RFC)
+                        var ip = parsedCall.ip
                         ip = crypt(ip, clientKey)
-                        val directory = (RFC.getParameters() as Array<Any?>?)!![1] as String?
+                        val directory = parsedCall.directory
                         MyComputerHandler!!.addData(
                             ApplicationData("deletefolder", directory, 0, ip),
                             ip,
                             ApplicationData.OUTSIDE
                         )
                     } else if (RFC.getFunction() == "setdummyport") {
-                        var ip = (RFC.getParameters() as Array<Any?>?)!![0] as String
+                        val parsedCall = SetDummyPort.fromRpc(RFC)
+                        var ip = parsedCall.ip
                         ip = crypt(ip, clientKey)
-                        val port = (RFC.getParameters() as Array<Any?>?)!![1] as Int
-                        val dummy = (RFC.getParameters() as Array<Any?>?)!![2] as Boolean?
+                        val port = parsedCall.port
+                        val dummy = parsedCall.dummy
                         MyComputerHandler!!.addData(
                             ApplicationData("setdummyport", dummy, port, ip),
                             ip,
                             ApplicationData.OUTSIDE
                         )
                     } else if (RFC.getFunction() == "changedailypay") {
-                        val parameters = RFC.getParameters() as Array<Any?>
-                        val ip = parameters[0] as String?
-                        val port = parameters[1] as Int
-                        val change = parameters[2] as String?
-                        var finalizeIP = parameters[3] as String
-                        val attackPort = parameters[4] as Int
+                        val parsedCall = ChangeDailyPay.fromRpc(RFC)
+                        val ip = parsedCall.ip
+                        val port = parsedCall.port
+                        val change = parsedCall.change
+                        var finalizeIP = parsedCall.finalizeIP
+                        val attackPort = parsedCall.attackPort
                         finalizeIP = crypt(finalizeIP, clientKey)
 
                         MyComputerHandler!!.addData(
@@ -1236,7 +1242,8 @@ class HackerServer(e: Editor, serverID: String) : IParty(e), HackerServerBridge 
                             ), ip, ApplicationData.OUTSIDE
                         )
                     } else if (RFC.getFunction() == "deletelogs") {
-                        var ip = (RFC.getParameters() as Array<Any?>?)!![0] as String
+                        val parsedCall = DeleteLogs.fromRpc(RFC)
+                        var ip = parsedCall.ip
                         ip = crypt(ip, clientKey)
                         MyComputerHandler!!.addData(
                             ApplicationData("deletelogs", null, 0, ip),
@@ -1244,24 +1251,26 @@ class HackerServer(e: Editor, serverID: String) : IParty(e), HackerServerBridge 
                             ApplicationData.OUTSIDE
                         )
                     } else if (RFC.getFunction() == "createfolder") {
-                        var ip = (RFC.getParameters() as Array<Any?>?)!![0] as String
+                        val parsedCall = CreateFolder.fromRpc(RFC)
+                        var ip = parsedCall.ip
                         ip = crypt(ip, clientKey)
-                        val directory = (RFC.getParameters() as Array<Any?>?)!![1] as String?
+                        val directory = parsedCall.directory
                         MyComputerHandler!!.addData(
                             ApplicationData("createfolder", directory, 0, ip),
                             ip,
                             ApplicationData.OUTSIDE
                         )
                     } else if (RFC.getFunction() == "put") {
-                        val ip = (RFC.getParameters() as Array<Any?>?)!![0] as String?
-                        val port = (RFC.getParameters() as Array<Any?>?)!![1] as Int
-                        val name = (RFC.getParameters() as Array<Any?>?)!![2] as String?
-                        val fetch_path = (RFC.getParameters() as Array<Any?>?)!![3] as String?
-                        val put_path = (RFC.getParameters() as Array<Any?>?)!![4] as String?
-                        var targetIP = (RFC.getParameters() as Array<Any?>?)!![5] as String
+                        val parsedCall = Put.fromRpc(RFC)
+                        val ip = parsedCall.ip
+                        val port = parsedCall.port
+                        val name = parsedCall.name
+                        val fetch_path = parsedCall.fetchPath
+                        val put_path = parsedCall.putPath
+                        var targetIP = parsedCall.targetIP
                         targetIP = crypt(targetIP, clientKey)
-                        val password = (RFC.getParameters() as Array<Any?>?)!![6] as String?
-                        val quantity = (RFC.getParameters() as Array<Any?>?)!![7] as Int?
+                        val password = parsedCall.password
+                        val quantity = parsedCall.quantity
                         val Parameter: Array<Any?>? =
                             arrayOf<Any?>(ip, name, fetch_path, put_path, password, quantity)
                         MyComputerHandler!!.addData(
@@ -1270,15 +1279,16 @@ class HackerServer(e: Editor, serverID: String) : IParty(e), HackerServerBridge 
                             ApplicationData.OUTSIDE
                         )
                     } else if (RFC.getFunction() == "get") {
-                        val ip = (RFC.getParameters() as Array<Any?>?)!![0] as String?
-                        val port = (RFC.getParameters() as Array<Any?>?)!![1] as Int
-                        val name = (RFC.getParameters() as Array<Any?>?)!![2] as String?
-                        val fetch_path = (RFC.getParameters() as Array<Any?>?)!![3] as String?
-                        val put_path = (RFC.getParameters() as Array<Any?>?)!![4] as String?
-                        var targetIP = (RFC.getParameters() as Array<Any?>?)!![5] as String
+                        val parsedCall = Get.fromRpc(RFC)
+                        val ip = parsedCall.ip
+                        val port = parsedCall.port
+                        val name = parsedCall.name
+                        val fetch_path = parsedCall.fetchPath
+                        val put_path = parsedCall.putPath
+                        var targetIP = parsedCall.targetIP
                         targetIP = crypt(targetIP, clientKey)
-                        val password = (RFC.getParameters() as Array<Any?>?)!![6] as String?
-                        val quantity = (RFC.getParameters() as Array<Any?>?)!![7] as Int?
+                        val password = parsedCall.password
+                        val quantity = parsedCall.quantity
                         val Parameter: Array<Any?>? =
                             arrayOf<Any?>(targetIP, name, fetch_path, put_path, password, quantity)
                         MyComputerHandler!!.addData(
@@ -1287,14 +1297,14 @@ class HackerServer(e: Editor, serverID: String) : IParty(e), HackerServerBridge 
                             ApplicationData.OUTSIDE
                         )
                     } else if (RFC.getFunction() == "malget") {
-                        val parameters = RFC.getParameters() as Array<Any?>
-                        val ip = parameters[0] as String?
-                        val port = parameters[1] as Int
-                        val name = parameters[2] as String?
-                        val fetch_path = parameters[3] as String?
-                        val put_path = parameters[4] as String?
-                        var targetIP = parameters[5] as String
-                        val attackPort = parameters[6] as Int
+                        val parsedCall = MalGet.fromRpc(RFC)
+                        val ip = parsedCall.ip
+                        val port = parsedCall.port
+                        val name = parsedCall.name
+                        val fetch_path = parsedCall.fetchPath
+                        val put_path = parsedCall.putPath
+                        var targetIP = parsedCall.targetIP
+                        val attackPort = parsedCall.attackPort
                         targetIP = crypt(targetIP, clientKey)
                         val Parameter: Array<Any?>? =
                             arrayOf<Any?>(targetIP, name, fetch_path, put_path, "", port, attackPort)
@@ -1304,10 +1314,11 @@ class HackerServer(e: Editor, serverID: String) : IParty(e), HackerServerBridge 
                             ApplicationData.OUTSIDE
                         )
                     } else if (RFC.getFunction() == "requestfile") {
-                        var ip = (RFC.getParameters() as Array<Any?>?)!![0] as String
+                        val parsedCall = RequestFile.fromRpc(RFC)
+                        var ip = parsedCall.ip
                         ip = crypt(ip, clientKey)
-                        val path = (RFC.getParameters() as Array<Any?>?)!![1] as String?
-                        val name = (RFC.getParameters() as Array<Any?>?)!![2] as String?
+                        val path = parsedCall.path
+                        val name = parsedCall.name
                         val Parameter: Array<String?>? = arrayOf<String?>(path, name)
                         MyComputerHandler!!.addData(
                             ApplicationData("requestfile", Parameter, 0, ip),
@@ -1315,10 +1326,11 @@ class HackerServer(e: Editor, serverID: String) : IParty(e), HackerServerBridge 
                             ApplicationData.OUTSIDE
                         )
                     } else if (RFC.getFunction() == "requestgame") {
-                        var ip = (RFC.getParameters() as Array<Any?>?)!![0] as String
+                        val parsedCall = RequestGame.fromRpc(RFC)
+                        var ip = parsedCall.ip
                         ip = crypt(ip, clientKey)
-                        val path = (RFC.getParameters() as Array<Any?>?)!![1] as String?
-                        val name = (RFC.getParameters() as Array<Any?>?)!![2] as String?
+                        val path = parsedCall.path
+                        val name = parsedCall.name
                         val Parameter: Array<String?>? = arrayOf<String?>(path, name)
                         MyComputerHandler!!.addData(
                             ApplicationData("requestgame", Parameter, 0, ip),
@@ -1326,19 +1338,21 @@ class HackerServer(e: Editor, serverID: String) : IParty(e), HackerServerBridge 
                             ApplicationData.OUTSIDE
                         )
                     } else if (RFC.getFunction() == "requestscan") {
-                        var ip = (RFC.getParameters() as Array<Any?>?)!![0] as String
+                        val parsedCall = RequestScan.fromRpc(RFC)
+                        var ip = parsedCall.ip
                         ip = crypt(ip, clientKey)
-                        val targetIP = (RFC.getParameters() as Array<Any?>?)!![1] as String?
+                        val targetIP = parsedCall.targetIP
                         if (ip != targetIP) MyComputerHandler!!.addData(
                             ApplicationData("requestscan", ip, 0, ip),
                             targetIP,
                             ApplicationData.OUTSIDE
                         )
                     } else if (RFC.getFunction() == "savefile") {
-                        var ip = (RFC.getParameters() as Array<Any?>?)!![0] as String
+                        val parsedCall = SaveFile.fromRpc(RFC)
+                        var ip = parsedCall.ip
                         ip = crypt(ip, clientKey)
-                        val path = (RFC.getParameters() as Array<Any?>?)!![1] as String?
-                        val name = (RFC.getParameters() as Array<Any?>?)!![2] as HackerFile?
+                        val path = parsedCall.path
+                        val name = parsedCall.name
                         val Parameter: Array<Any?>? = arrayOf<Any?>(path, name)
                         MyComputerHandler!!.addData(
                             ApplicationData("savefile", Parameter, 0, ip),
@@ -1346,11 +1360,12 @@ class HackerServer(e: Editor, serverID: String) : IParty(e), HackerServerBridge 
                             ApplicationData.OUTSIDE
                         )
                     } else if (RFC.getFunction() == "compilefile") {
-                        var ip = (RFC.getParameters() as Array<Any?>?)!![0] as String
+                        val parsedCall = CompileFile.fromRpc(RFC)
+                        var ip = parsedCall.ip
                         ip = crypt(ip, clientKey)
-                        val path = (RFC.getParameters() as Array<Any?>?)!![1] as String?
-                        val name = (RFC.getParameters() as Array<Any?>?)!![2] as HackerFile?
-                        val price = (RFC.getParameters() as Array<Any?>?)!![3] as Float?
+                        val path = parsedCall.path
+                        val name = parsedCall.name
+                        val price = parsedCall.price
                         val Parameter: Array<Any?>? = arrayOf<Any?>(path, name, price)
                         MyComputerHandler!!.addData(
                             ApplicationData("compilefile", Parameter, 0, ip),
@@ -1358,10 +1373,11 @@ class HackerServer(e: Editor, serverID: String) : IParty(e), HackerServerBridge 
                             ApplicationData.OUTSIDE
                         )
                     } else if (RFC.getFunction() == "deletemulti") {
-                        var ip = (RFC.getParameters() as Array<Any?>?)!![0] as String
+                        val parsedCall = DeleteMulti.fromRpc(RFC)
+                        var ip = parsedCall.ip
                         ip = crypt(ip, clientKey)
 
-                        val allFiles = (RFC.getParameters() as Array<Any?>?)!![1] as Array<Any?>?
+                        val allFiles = parsedCall.allFiles
                         val parameters: Array<Any?>? = arrayOf<Any?>(allFiles)
                         MyComputerHandler!!.addData(
                             ApplicationData("deletemulti", parameters, 0, ip),
@@ -1369,10 +1385,11 @@ class HackerServer(e: Editor, serverID: String) : IParty(e), HackerServerBridge 
                             ApplicationData.OUTSIDE
                         )
                     } else if (RFC.getFunction() == "deletefile") {
-                        var ip = (RFC.getParameters() as Array<Any?>?)!![0] as String
+                        val parsedCall = DeleteFile.fromRpc(RFC)
+                        var ip = parsedCall.ip
                         ip = crypt(ip, clientKey)
-                        val path = (RFC.getParameters() as Array<Any?>?)!![1] as String?
-                        val name = (RFC.getParameters() as Array<Any?>?)!![2] as String?
+                        val path = parsedCall.path
+                        val name = parsedCall.name
                         val Parameter: Array<Any?>? = arrayOf<Any?>(path, name)
                         MyComputerHandler!!.addData(
                             ApplicationData("deletefile", Parameter, 0, ip),
@@ -1380,11 +1397,12 @@ class HackerServer(e: Editor, serverID: String) : IParty(e), HackerServerBridge 
                             ApplicationData.OUTSIDE
                         )
                     } else if (RFC.getFunction() == "setfiledescription") {
-                        var ip = (RFC.getParameters() as Array<Any?>?)!![0] as String
+                        val parsedCall = SetFileDescription.fromRpc(RFC)
+                        var ip = parsedCall.ip
                         ip = crypt(ip, clientKey)
-                        val path = (RFC.getParameters() as Array<Any?>?)!![1] as String?
-                        val name = (RFC.getParameters() as Array<Any?>?)!![2] as String?
-                        val description = (RFC.getParameters() as Array<Any?>?)!![3] as String?
+                        val path = parsedCall.path
+                        val name = parsedCall.name
+                        val description = parsedCall.description
                         val Parameter: Array<Any?>? = arrayOf<Any?>(path, name, description)
                         MyComputerHandler!!.addData(
                             ApplicationData("setfiledescription", Parameter, 0, ip),
@@ -1392,11 +1410,12 @@ class HackerServer(e: Editor, serverID: String) : IParty(e), HackerServerBridge 
                             ApplicationData.OUTSIDE
                         )
                     } else if (RFC.getFunction() == "setfileprice") {
-                        var ip = (RFC.getParameters() as Array<Any?>?)!![0] as String
+                        val parsedCall = SetFilePrice.fromRpc(RFC)
+                        var ip = parsedCall.ip
                         ip = crypt(ip, clientKey)
-                        val path = (RFC.getParameters() as Array<Any?>?)!![1] as String?
-                        val name = (RFC.getParameters() as Array<Any?>?)!![2] as String?
-                        val price = (RFC.getParameters() as Array<Any?>?)!![3] as Float?
+                        val path = parsedCall.path
+                        val name = parsedCall.name
+                        val price = parsedCall.price
                         val Parameter: Array<Any?>? = arrayOf<Any?>(path, name, price)
                         MyComputerHandler!!.addData(
                             ApplicationData("setfileprice", Parameter, 0, ip),
@@ -1404,40 +1423,41 @@ class HackerServer(e: Editor, serverID: String) : IParty(e), HackerServerBridge 
                             ApplicationData.OUTSIDE
                         )
                     } else if (RFC.getFunction() == "emptypettycash") {
-                        val parameters = RFC.getParameters() as Array<Any?>
-                        var ip = parameters[0] as String
+                        val parsedCall = EmptyPettyCash.fromRpc(RFC)
+                        var ip = parsedCall.ip
                         ip = crypt(ip, clientKey)
-                        val targetIP = parameters[1] as String?
-                        val targetPort = parameters[2] as Int
-                        val windowHandle = parameters[3] as Int
+                        val targetIP = parsedCall.targetIP
+                        val targetPort = parsedCall.targetPort
+                        val windowHandle = parsedCall.windowHandle
                         MyComputerHandler!!.addData(
                             ApplicationData("emptyPettyCash", windowHandle, targetPort, ip),
                             targetIP,
                             ApplicationData.OUTSIDE
                         )
                     } else if (RFC.getFunction() == "finalizecancelled") {
-                        var ip = (RFC.getParameters() as Array<Any?>?)!![0] as String
+                        val parsedCall = FinalizeCancelled.fromRpc(RFC)
+                        var ip = parsedCall.ip
                         ip = crypt(ip, clientKey)
-                        val targetIP = (RFC.getParameters() as Array<Any?>?)!![1] as String?
-                        val targetPort = (RFC.getParameters() as Array<Any?>?)!![2] as Int
+                        val targetIP = parsedCall.targetIP
+                        val targetPort = parsedCall.targetPort
                         MyComputerHandler!!.addData(
                             ApplicationData("finalizecancelled", null, targetPort, ip),
                             targetIP,
                             ApplicationData.OUTSIDE
                         )
                     } else if (RFC.getFunction() == "requestattack") {
-                        val parameters = RFC.getParameters() as Array<Any?>
-                        val targetIP = parameters[0] as String
-                        val targetPort = parameters[1] as Int
-                        var sourceIP = parameters[2] as String
+                        val parsedCall = RequestAttack.fromRpc(RFC)
+                        val targetIP = parsedCall.targetIP
+                        val targetPort = parsedCall.targetPort
+                        var sourceIP = parsedCall.sourceIP
                         sourceIP = crypt(sourceIP, clientKey)
 
-                        val sourcePort = parameters[3] as Int
+                        val sourcePort = parsedCall.sourcePort
 
-                        val secondaryPorts = parameters[4] as Array<Int?>?
-                        val scripts = parameters[5] as Array<Array<String?>?>?
-                        val extraInfo = parameters[6] as Array<Any?>?
-                        val windowHandle = parameters[7] as Int?
+                        val secondaryPorts = parsedCall.secondaryPorts
+                        val scripts = parsedCall.scripts
+                        val extraInfo = parsedCall.extraInfo
+                        val windowHandle = parsedCall.windowHandle
 
                         val Parameters: Array<Any?>? =
                             arrayOf<Any?>(targetIP, targetPort, secondaryPorts, scripts, extraInfo, windowHandle)
@@ -1449,15 +1469,16 @@ class HackerServer(e: Editor, serverID: String) : IParty(e), HackerServerBridge 
                             ApplicationData.OUTSIDE
                         )
                     } else if (RFC.getFunction() == "requestzombieattack") {
-                        val targetIP = (RFC.getParameters() as Array<Any?>?)!![0] as String
-                        val targetPort = (RFC.getParameters() as Array<Any?>?)!![1] as Int
-                        val sourceIP = (RFC.getParameters() as Array<Any?>?)!![2] as String?
-                        val sourcePort = (RFC.getParameters() as Array<Any?>?)!![3] as Int
+                        val parsedCall = RequestZombieAttack.fromRpc(RFC)
+                        val targetIP = parsedCall.targetIP
+                        val targetPort = parsedCall.targetPort
+                        val sourceIP = parsedCall.sourceIP
+                        val sourcePort = parsedCall.sourcePort
 
-                        val I = (RFC.getParameters() as Array<Any?>?)!![4] as Array<Int?>?
-                        val S = (RFC.getParameters() as Array<Any?>?)!![5] as Array<Array<String?>?>?
-                        val O = (RFC.getParameters() as Array<Any?>?)!![6] as Array<Any?>?
-                        var parentIP = (RFC.getParameters() as Array<Any?>?)!![7] as String
+                        val I = parsedCall.I
+                        val S = parsedCall.S
+                        val O = parsedCall.O
+                        var parentIP = parsedCall.parentIP
                         parentIP = crypt(parentIP, clientKey)
 
                         val Parameters: Array<Any?>? = arrayOf<Any?>(targetIP, targetPort, I, S, O, sourceIP)
@@ -1469,11 +1490,12 @@ class HackerServer(e: Editor, serverID: String) : IParty(e), HackerServerBridge 
                             ApplicationData.OUTSIDE
                         )
                     } else if (RFC.getFunction() == "transfer") {
-                        val amount = (RFC.getParameters() as Array<Any?>?)!![0] as Float
-                        var ip = (RFC.getParameters() as Array<Any?>?)!![1] as String
+                        val parsedCall = Transfer.fromRpc(RFC)
+                        val amount = parsedCall.amount
+                        var ip = parsedCall.ip
                         ip = crypt(ip, clientKey)
-                        val target_ip = (RFC.getParameters() as Array<Any?>?)!![2] as String?
-                        val port = (RFC.getParameters() as Array<Any?>?)!![3] as Int
+                        val target_ip = parsedCall.targetIp
+                        val port = parsedCall.port
                         val tO: Array<Any?>? = arrayOf<Any?>(target_ip, amount)
                         MyComputerHandler!!.addData(
                             ApplicationData("transfer", tO, port, ip),
@@ -1481,20 +1503,22 @@ class HackerServer(e: Editor, serverID: String) : IParty(e), HackerServerBridge 
                             ApplicationData.OUTSIDE
                         )
                     } else if (RFC.getFunction() == "deposit") {
-                        val amount = (RFC.getParameters() as Array<Any?>?)!![0] as Float
-                        var ip = (RFC.getParameters() as Array<Any?>?)!![1] as String
+                        val parsedCall = Deposit.fromRpc(RFC)
+                        val amount = parsedCall.amount
+                        var ip = parsedCall.ip
                         ip = crypt(ip, clientKey)
-                        val port = (RFC.getParameters() as Array<Any?>?)!![2] as Int
+                        val port = parsedCall.port
                         MyComputerHandler!!.addData(
                             ApplicationData("deposit", amount, port, ip),
                             ip,
                             ApplicationData.OUTSIDE
                         )
                     } else if (RFC.getFunction() == "dochallenge") {
-                        var ip = (RFC.getParameters() as Array<Any?>?)!![0] as String
+                        val parsedCall = DoChallenge.fromRpc(RFC)
+                        var ip = parsedCall.ip
                         ip = crypt(ip, clientKey)
-                        val code = (RFC.getParameters() as Array<Any?>?)!![1] as String?
-                        val challengeID = (RFC.getParameters() as Array<Any?>?)!![2] as String?
+                        val code = parsedCall.code
+                        val challengeID = parsedCall.challengeID
 
                         val O: Array<Any?>? = arrayOf<Any?>(code, challengeID)
                         MyComputerHandler!!.addData(
@@ -1504,12 +1528,13 @@ class HackerServer(e: Editor, serverID: String) : IParty(e), HackerServerBridge 
                         )
                     } else  //Allows a player to sell a file back to the game store.
                         if (RFC.getFunction() == "sellfile") {
-                            var ip = (RFC.getParameters() as Array<Any?>?)!![0] as String
+                            val parsedCall = SellFile.fromRpc(RFC)
+                            var ip = parsedCall.ip
                             ip = crypt(ip, clientKey)
-                            val location = (RFC.getParameters() as Array<Any?>?)!![1] as String?
-                            val fileName = (RFC.getParameters() as Array<Any?>?)!![2] as String?
-                            val compileCost = (RFC.getParameters() as Array<Any?>?)!![3] as Float?
-                            val quantity = (RFC.getParameters() as Array<Any?>?)!![4] as Int?
+                            val location = parsedCall.location
+                            val fileName = parsedCall.fileName
+                            val compileCost = parsedCall.compileCost
+                            val quantity = parsedCall.quantity
                             val O: Array<Any?>? = arrayOf<Any?>(location, fileName, compileCost, ip, quantity)
                             MyComputerHandler!!.addData(
                                 ApplicationData(
@@ -1521,9 +1546,10 @@ class HackerServer(e: Editor, serverID: String) : IParty(e), HackerServerBridge 
                             )
                         } else  // Sell multiple files at once from the client
                             if (RFC.getFunction() == "sellfilemulti") {
-                                var ip = (RFC.getParameters() as Array<Any?>?)!![0] as String
+                                val parsedCall = SellFileMulti.fromRpc(RFC)
+                                var ip = parsedCall.ip
                                 ip = crypt(ip, clientKey)
-                                val allFiles = (RFC.getParameters() as Array<Any?>?)!![1] as Array<Any?>?
+                                val allFiles = parsedCall.allFiles
                                 val O: Array<Any?>? = arrayOf<Any?>(allFiles, ip)
                                 MyComputerHandler!!.addData(
                                     ApplicationData(
@@ -1535,11 +1561,12 @@ class HackerServer(e: Editor, serverID: String) : IParty(e), HackerServerBridge 
                                 )
                             } else  //Allows a player to sell a file back to the game store.
                                 if (RFC.getFunction() == "decompilefile") {
-                                    var ip = (RFC.getParameters() as Array<Any?>?)!![0] as String
+                                    val parsedCall = DecompileFile.fromRpc(RFC)
+                                    var ip = parsedCall.ip
                                     ip = crypt(ip, clientKey)
-                                    val location = (RFC.getParameters() as Array<Any?>?)!![1] as String?
-                                    val fileName = (RFC.getParameters() as Array<Any?>?)!![2] as String?
-                                    val compileCost = (RFC.getParameters() as Array<Any?>?)!![3] as Float?
+                                    val location = parsedCall.location
+                                    val fileName = parsedCall.fileName
+                                    val compileCost = parsedCall.compileCost
                                     val O: Array<Any?>? = arrayOf<Any?>(location, fileName, compileCost, ip)
                                     MyComputerHandler!!.addData(
                                         ApplicationData("decompilefile", O, 0, ip),
@@ -1548,9 +1575,10 @@ class HackerServer(e: Editor, serverID: String) : IParty(e), HackerServerBridge 
                                     )
                                 } else  //A deposit requested from facebook.
                                     if (RFC.getFunction() == "facebookdeposit") {
-                                        val ip = (RFC.getParameters() as Array<Any?>?)!![0] as String?
-                                        val amount = (RFC.getParameters() as Array<Any?>?)!![1] as Float?
-                                        val defaultPort = (RFC.getParameters() as Array<Any?>?)!![2] as Int
+                                        val parsedCall = FacebookDeposit.fromRpc(RFC)
+                                        val ip = parsedCall.ip
+                                        val amount = parsedCall.amount
+                                        val defaultPort = parsedCall.defaultPort
 
                                         MyComputerHandler!!.addData(
                                             ApplicationData(
@@ -1562,9 +1590,10 @@ class HackerServer(e: Editor, serverID: String) : IParty(e), HackerServerBridge 
                                         )
                                     } else  //A withdraw requested from facebook.
                                         if (RFC.getFunction() == "facebookwithdraw") {
-                                            val ip = (RFC.getParameters() as Array<Any?>?)!![0] as String?
-                                            val amount = (RFC.getParameters() as Array<Any?>?)!![1] as Float?
-                                            val defaultPort = (RFC.getParameters() as Array<Any?>?)!![2] as Int
+                                            val parsedCall = FacebookWithdraw.fromRpc(RFC)
+                                            val ip = parsedCall.ip
+                                            val amount = parsedCall.amount
+                                            val defaultPort = parsedCall.defaultPort
 
                                             MyComputerHandler!!.addData(
                                                 ApplicationData(
@@ -1575,11 +1604,12 @@ class HackerServer(e: Editor, serverID: String) : IParty(e), HackerServerBridge 
                                                 ), ip, ApplicationData.OUTSIDE
                                             )
                                         } else if (RFC.getFunction() == "facebooktransfer") {
-                                            val ip = (RFC.getParameters() as Array<Any?>?)!![0] as String?
-                                            val ip2 = (RFC.getParameters() as Array<Any?>?)!![1] as String?
+                                            val parsedCall = FacebookTransfer.fromRpc(RFC)
+                                            val ip = parsedCall.ip
+                                            val ip2 = parsedCall.ip2
 
-                                            val amount = (RFC.getParameters() as Array<Any?>?)!![2] as Float
-                                            val defaultPort = (RFC.getParameters() as Array<Any?>?)!![3] as Int
+                                            val amount = parsedCall.amount
+                                            val defaultPort = parsedCall.defaultPort
 
                                             val tO: Array<Any?>? = arrayOf<Any?>(ip2, amount)
                                             MyComputerHandler!!.addData(
@@ -1591,7 +1621,8 @@ class HackerServer(e: Editor, serverID: String) : IParty(e), HackerServerBridge 
                                                 ), ip, ApplicationData.OUTSIDE
                                             )
                                         } else if (RFC.getFunction() == "facebookupdate") {
-                                            val ip = (RFC.getParameters() as Array<Any?>?)!![0] as String?
+                                            val parsedCall = FacebookUpdate.fromRpc(RFC)
+                                            val ip = parsedCall.ip
                                             MyComputerHandler!!.addData(
                                                 ApplicationData(
                                                     "facebookupdate",
@@ -1601,10 +1632,11 @@ class HackerServer(e: Editor, serverID: String) : IParty(e), HackerServerBridge 
                                                 ), ip, ApplicationData.OUTSIDE
                                             )
                                         } else if (RFC.getFunction() == "setpreferences") {
-                                            var ip = (RFC.getParameters() as Array<Any?>?)!![0] as String
+                                            val parsedCall = SetPreferences.fromRpc(RFC)
+                                            var ip = parsedCall.ip
                                             ip = crypt(ip, clientKey)
                                             val preferences =
-                                                (RFC.getParameters() as Array<Any?>?)!![1] as HashMap<*, *>?
+                                                parsedCall.preferences
                                             val O = arrayOf<Any?>(ip, preferences)
                                             MyComputerHandler!!.addData(
                                                 ApplicationData("setpreferences", O, 0, ip),
