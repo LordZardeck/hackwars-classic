@@ -33,6 +33,7 @@ dependencies {
     implementation project(':HackWars')
     implementation project(':Networking')
     implementation 'com.playfab:client-sdk:0.256.260313@jar'
+    implementation 'com.google.code.gson:gson:2.10.1'
     implementation 'org.apache.axis:axis:1.4'
     implementation 'com.github.weisj:jsvg:1.7.0'
     implementation 'de.sciss:jsyntaxpane:1.0.0'
