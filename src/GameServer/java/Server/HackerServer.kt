@@ -1,980 +1,1754 @@
-package server;
+package server
+
+import assignments.LoginAssignment
+import assignments.LoginFailedAssignment
+import assignments.PingAssignment
+import assignments.RemoteFunctionCall
+import com.plink.dolphinnet.Assignment
+import com.plink.dolphinnet.ClientData
+import com.plink.dolphinnet.Editor
+import com.plink.dolphinnet.IParty
+import com.plink.dolphinnet.assignments.ZippedAssignment
+import game.*
+import org.slf4j.Logger
+import org.slf4j.LoggerFactory
+import util.Encryption
+import util.PlayFabTokenVerifier
+import util.PlayFabTokenVerifier.AuthResult
+import util.Time
+import java.util.*
+import java.util.concurrent.Semaphore
 
 /**
  * (c) Hack Wars 2008
- * <p>
+ *
+ *
  * Description: This is the main Hack Wars server bridge. It creates the underlying connections and routes packets
  * to actual players of the game.
  */
 
-import com.plink.dolphinnet.*;
-import com.plink.dolphinnet.util.*;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import util.*;
+class HackerServer(e: Editor, serverID: String) : IParty(e), Runnable, HackerServerBridge {
+    companion object {
+        private val Logger: Logger = LoggerFactory.getLogger(HackerServer::class.java)
 
-import java.io.*;
-import java.math.*;
-import java.util.*;
-import java.util.TimerTask;
-import java.util.Timer;
-import java.util.Calendar;
+        //Singleton instance of the Hacker server.
+        private var MyHackerServer: HackerServer? = null
+        private var E: Editor? = null
 
-import assignments.*;
-import com.plink.dolphinnet.assignments.*;
-import game.*;
-
-import java.util.concurrent.Semaphore;
-
-public class HackerServer extends IParty implements Runnable, HackerServerBridge {
-    private static final Logger Logger = LoggerFactory.getLogger(HackerServer.class);
-
-    //Singleton instance of the Hacker server.
-    private static HackerServer MyHackerServer = null;
-    private static Editor E = null;
-    public static boolean TESTING = false;
-
-    public static HackerServer getInstance() {
-        if (MyHackerServer == null) {
-            try {
-                E = new Editor(2048, 1000, 10020, 10021);//Creates a new server for distributing tasks.
-                E.setClientJobSize(4);
-                MyHackerServer = new HackerServer(E, "1");
-            } catch (Exception e) {
-                e.printStackTrace();
+        val instance: HackerServer?
+            get() {
+                if (MyHackerServer == null) {
+                    try {
+                        E = Editor(2048, 1000, 10020, 10021) //Creates a new server for distributing tasks.
+                        E!!.setClientJobSize(4)
+                        MyHackerServer = HackerServer(E!!, "1")
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
+                    return (MyHackerServer)
+                } else {
+                    return (MyHackerServer)
+                }
             }
-            return (MyHackerServer);
-        } else {
-            return (MyHackerServer);
-        }
+
+        var MyTime: Time? = null
+        var on: Boolean = true
+        var SHUTDOWN_AT: Long = 0
     }
 
     //Data.
-    private HashMap Keys = new HashMap();
-    private HashMap IPs = new HashMap();
-    private ComputerHandler MyComputerHandler = null;
-    public static Time MyTime = null;
-    private final Semaphore available = new Semaphore(1, true);
-    private Thread MyThread = null;
-    private ArrayList Tasks = new ArrayList();
-    private String serverID = "";
-    public static boolean on = true;
-    public static long SHUTDOWN_AT = 0;
-    private Encryption MyEncryption = new Encryption();
-
-    public HackerServer(Editor e, String serverID) {//Used for constructor just keep this here in IPartys.
-        super(e);
-        this.serverID = serverID;
-        MyTime = new Time();
-        ServerRuntimeState.setClock(MyTime);
-        ServerRuntimeState.setRunning(on);
-        ServerRuntimeState.setShutdownAt(SHUTDOWN_AT);
-        ServerRuntimeState.setTesting(TESTING);
-        MyComputerHandler = new ComputerHandler(MyTime, this);
-        MyThread = new Thread(this, "HackerServer");
-        MyThread.start();
-    }
+    private val Keys = HashMap<Any?, Any?>()
+    private val IPs = HashMap<Any?, Any?>()
+    private var MyComputerHandler: ComputerHandler? = null
+    private val available = Semaphore(1, true)
+    private var MyThread: Thread? = null
+    private val Tasks: ArrayList<Any?> = ArrayList<Any?>()
+    private var serverID = ""
+    private val MyEncryption = Encryption()
 
     /**
-     Get the ID associated with this server.
+     * Get the ID associated with this server.
      */
-    public String getServerID() {
-        return (serverID);
+    override fun getServerID(): String {
+        return serverID
     }
 
-    /** Receive a failed assignment.*/
-    public void failedAssignment(Assignment a) {
-
+    /** Receive a failed assignment. */
+    override fun failedAssignment(a: Assignment?) {
     }
 
-    public void addData(Object o) {
+    override fun addData(o: Any?) {
         try {
-            available.acquire();
-            Tasks.add(o);
-        } catch (Exception e) {
-            e.printStackTrace();
+            available.acquire()
+            Tasks.add(o)
+        } catch (e: Exception) {
+            e.printStackTrace()
         } finally {
-            available.release();
+            available.release()
         }
     }
 
     /**
-     Dispatch a packet assignment.
+     * Dispatch a packet assignment.
      */
-    public void dispatchPacket(Assignment DispatchMe, int connectionID) {
-        ClientBinaryList MyClientBinaryList = this.getEditor().getClients();
-        ClientData MyClientData = (ClientData) MyClientBinaryList.get(new Integer(connectionID));
-        if (MyClientData != null) {
-            MyClientData.addJob(DispatchMe);
-        }
+    fun dispatchPacket(assignment: Assignment?, connectionID: Int) {
+        (editor.clients.get(connectionID) as ClientData?)?.addJob(assignment)
     }
 
-    /** Receive a completed assignment.*/
-    public synchronized void returnAssignment(Assignment MyAssignment) {
+    /** Receive a completed assignment. */
+    @Synchronized
+    override fun returnAssignment(assignment: Assignment?) {
         try {
-            available.acquire();
-            Tasks.add(MyAssignment);
-        } catch (Exception e) {
-            e.printStackTrace();
+            available.acquire()
+            Tasks.add(assignment)
+        } catch (e: Exception) {
+            e.printStackTrace()
         } finally {
-            available.release();
+            available.release()
         }
     }
 
 
     /**
-     Grabs work from the server and dispatches it via the computer handler to
-     individual 'PCs' playing the game.
+     * Grabs work from the server and dispatches it via the computer handler to
+     * individual 'PCs' playing the game.
      */
-    public void run() {
-        String clientKey;
+    override fun run() {
+        Logger.info("Game Server Started")
+
+        var clientKey: String?
         while (true) {
             try {
-
-                Object o = null;
+                var o: Any? = null
                 try {
-                    available.acquire();
-                    if (Tasks.size() > 0)
-                        o = Tasks.remove(0);
-                } catch (Exception e) {
-                    e.printStackTrace();
+                    available.acquire()
+                    if (Tasks.size > 0) o = Tasks.removeAt(0)
+                } catch (e: Exception) {
+                    e.printStackTrace()
                 } finally {
-                    available.release();
+                    available.release()
                 }
 
                 if (o != null) {
-
-                    Object MyAssignment = o;
-                    clientKey = "";
-                    if (o instanceof Assignment) {
-                        clientKey = ((Assignment) o).getHash();
+                    val MyAssignment: Any? = o
+                    clientKey = ""
+                    if (o is Assignment) {
+                        clientKey = o.getHash()
                     }
 
                     //Is somone trying to login?
-                    if (MyAssignment instanceof LoginAssignment) {
+                    if (MyAssignment is LoginAssignment) {
                         if (on) {
-                            LoginAssignment MyLoginAssignment = (LoginAssignment) MyAssignment;
-                            String accessToken = MyLoginAssignment.getAccessToken();
-                            PlayFabTokenVerifier.AuthResult authResult = null;
+                            val MyLoginAssignment = MyAssignment
+                            val accessToken = MyLoginAssignment.getAccessToken()
+                            var authResult: AuthResult? = null
                             try {
-                                authResult = PlayFabTokenVerifier.verify(accessToken);
-                            } catch (Exception authError) {
-                                Logger.error("HackerServer: PlayFab authentication failed", authError);
+                                authResult = PlayFabTokenVerifier.verify(accessToken)
+                            } catch (authError: Exception) {
+                                Logger.error("HackerServer: PlayFab authentication failed", authError)
                             }
 
                             if (authResult == null) {
-                                dispatchPacket(new LoginFailedAssignment(0), ((Assignment) MyAssignment).getReporterID());
-                                continue;
+                                dispatchPacket(LoginFailedAssignment(0), (MyAssignment as Assignment).getReporterID())
+                                continue
                             }
 
-                            String user = authResult.getPlayFabId();
-                            String ip = authResult.getPlayerIp();
+                            val user = authResult.getPlayFabId()
+                            val ip = authResult.getPlayerIp()
 
-                            if (MyComputerHandler.getComputer(ip) != null) {
-                                Computer C = MyComputerHandler.getComputer(ip);
-                                C.setClientHash(clientKey);
-                                C.setPublicKey(MyLoginAssignment.getPublicKey());
-                                C.setPlayFabAuthenticated(user);
-                                C.setConnectionID(MyLoginAssignment.getReporterID());
+                            if (MyComputerHandler!!.getComputer(ip) != null) {
+                                val C = MyComputerHandler!!.getComputer(ip)
+                                C.setClientHash(clientKey)
+                                C.setPublicKey(MyLoginAssignment.getPublicKey())
+                                C.setPlayFabAuthenticated(user)
+                                C.setConnectionID(MyLoginAssignment.getReporterID())
                             } else {
-                                Computer C = new Computer(user, ip, MyComputerHandler, MyTime, MyLoginAssignment.getReporterID(), this, true);
-                                C.setClientHash(clientKey);
-                                C.setPublicKey(MyLoginAssignment.getPublicKey());
-                                C.setPlayFabAuthenticated(user);
-                                MyComputerHandler.addComputer(C);
-                                C.loadSave();
+                                val C = Computer(
+                                    user,
+                                    ip,
+                                    MyComputerHandler,
+                                    MyTime,
+                                    MyLoginAssignment.getReporterID(),
+                                    this,
+                                    true
+                                )
+                                C.setClientHash(clientKey)
+                                C.setPublicKey(MyLoginAssignment.getPublicKey())
+                                C.setPlayFabAuthenticated(user)
+                                MyComputerHandler!!.addComputer(C)
+                                C.loadSave()
                             }
                         } else {
-                            dispatchPacket(new LoginFailedAssignment(0), ((Assignment) MyAssignment).getReporterID());
+                            dispatchPacket(LoginFailedAssignment(0), (MyAssignment as Assignment).getReporterID())
 
                             //	dispatchPacket(new LoginFailedAssignment(0,"<html><font color=\"#FF0000\">Server is Down for Testing. <br>Please Try Again Soon.</font></html>"),((Assignment)MyAssignment).getReporterID());
                         }
-                    } else if (MyAssignment instanceof PingAssignment) {
-
-                        PingAssignment PA = (PingAssignment) MyAssignment;
-                        MyComputerHandler.addData(new ApplicationData("ping", null, 0, PA.getUser()), PA.getUser());
+                    } else if (MyAssignment is PingAssignment) {
+                        val PA = MyAssignment
+                        MyComputerHandler!!.addData(ApplicationData("ping", null, 0, PA.getUser()), PA.getUser())
 
                         //Return a packet to the server.
-                        Object O[] = new Object[]{new PingAssignment(0, "bcoe"), ((Assignment) MyAssignment).getReporterID()};
-                        this.addData(O);
+                        this.addData(arrayOf<Any>(PingAssignment(0, "bcoe"), (MyAssignment as Assignment).reporterID))
 
-                        if (PA.getID() == 850335 && PA.getUser().equals("bcoe")) {//Start booting players.
-                            SHUTDOWN_AT = MyTime.getCurrentTime();
-                            on = false;
-                            ServerRuntimeState.setShutdownAt(SHUTDOWN_AT);
-                            ServerRuntimeState.setRunning(on);
-                            MyComputerHandler.startCountDown();
+                        if (PA.id == 850335 && PA.user == "bcoe") { //Start booting players.
+                            SHUTDOWN_AT = MyTime!!.getCurrentTime()
+                            on = false
+                            ServerRuntimeState.setShutdownAt(SHUTDOWN_AT)
+                            ServerRuntimeState.setRunning(on)
+                            MyComputerHandler!!.startCountDown()
                         }
-                    } else if (MyAssignment instanceof RemoteFunctionCall) {
-                        RemoteFunctionCall RFC = (RemoteFunctionCall) MyAssignment;
+                    } else if (MyAssignment is RemoteFunctionCall) {
+                        val RFC = MyAssignment
 
                         try {
-                            RFC.decryptFunction(MyEncryption, clientKey);
-                        } catch (Exception e) {
+                            RFC.decryptFunction(MyEncryption, clientKey)
+                        } catch (e: Exception) {
                         }
 
                         if (RFC.getFunction() == null) {
-                            continue;
+                            continue
                         }
 
                         //Sent when you want an array of ports to be updated client side.
-                        if (RFC.getFunction().equals("fetchports")) {
-                            String ip = (String) ((Object[]) RFC.getParameters())[0];
-                            ip = crypt(ip, clientKey);
-                            MyComputerHandler.addData(new ApplicationData("fetchports", null, 0, ip), ip, ApplicationData.OUTSIDE);
-                        } else
+                        if (RFC.getFunction() == "fetchports") {
+                            var ip = (RFC.getParameters() as Array<Any?>?)!![0] as String
+                            ip = crypt(ip, clientKey)
+                            MyComputerHandler!!.addData(
+                                ApplicationData("fetchports", null, 0, ip),
+                                ip,
+                                ApplicationData.OUTSIDE
+                            )
+                        } else  //Set the default port that an application will execute on.
+                            if (RFC.getFunction() == "setdefaultport") {
+                                var ip = (RFC.getParameters() as Array<Any?>?)!![0] as String
+                                val port = (RFC.getParameters() as Array<Any?>?)!![1] as Int
+                                val type = (RFC.getParameters() as Array<Any?>?)!![2] as Int?
+                                ip = crypt(ip, clientKey)
+                                MyComputerHandler!!.addData(
+                                    ApplicationData("setdefaultport", type, port, ip),
+                                    ip,
+                                    ApplicationData.OUTSIDE
+                                )
+                            } else  //RETURN TO THE ROOT NETWORK.
+                                if (RFC.getFunction() == "changenetwork") {
+                                    var ip = (RFC.getParameters() as Array<Any?>?)!![0] as String
+                                    ip = crypt(ip, clientKey)
+                                    val network = (RFC.getParameters() as Array<Any?>?)!![1] as String?
+                                    MyComputerHandler!!.addData(
+                                        ApplicationData("changenetwork", network, 0, ip),
+                                        ip,
+                                        ApplicationData.OUTSIDE
+                                    )
+                                } else  //Heal a specific port.
+                                    if (RFC.getFunction() == "healport") {
+                                        var ip = (RFC.getParameters() as Array<Any?>?)!![0] as String
+                                        val port = (RFC.getParameters() as Array<Any?>?)!![1] as Int
+                                        ip = crypt(ip, clientKey)
+                                        MyComputerHandler!!.addData(
+                                            ApplicationData("heal", null, port, ip),
+                                            ip,
+                                            ApplicationData.OUTSIDE
+                                        )
+                                    } else  //Allow hacktendo to activate a sprite.
+                                        if (RFC.getFunction() == "hacktendoActivate") {
+                                            val activateID = (RFC.getParameters() as Array<Any?>?)!![0] as Int
+                                            val activateType = (RFC.getParameters() as Array<Any?>?)!![1] as Int
+                                            val ip = (RFC.getParameters() as Array<Any?>?)!![2] as String?
 
-                            //Set the default port that an application will execute on.
-                            if (RFC.getFunction().equals("setdefaultport")) {
-                                String ip = (String) ((Object[]) RFC.getParameters())[0];
-                                int port = (Integer) ((Object[]) RFC.getParameters())[1];
-                                Integer type = (Integer) ((Object[]) RFC.getParameters())[2];
-                                ip = crypt(ip, clientKey);
-                                MyComputerHandler.addData(new ApplicationData("setdefaultport", type, port, ip), ip, ApplicationData.OUTSIDE);
-                            } else
+                                            val O = arrayOf<Any>(activateID, activateType)
+                                            MyComputerHandler!!.addData(
+                                                ApplicationData("hacktendoActivate", O, 0, ip),
+                                                ip,
+                                                ApplicationData.INSIDE
+                                            )
+                                        } else  //Allow Hacktendo to move objects through space.
+                                            if (RFC.getFunction() == "hacktendoTarget") {
+                                                val targetX = (RFC.getParameters() as Array<Any?>?)!![0] as Int
+                                                val targetY = (RFC.getParameters() as Array<Any?>?)!![1] as Int
+                                                val ip = (RFC.getParameters() as Array<Any?>?)!![2] as String?
+                                                val currentX = (RFC.getParameters() as Array<Any?>?)!![3] as Int
+                                                val currentY = (RFC.getParameters() as Array<Any?>?)!![4] as Int
 
-                                //RETURN TO THE ROOT NETWORK.
-                                if (RFC.getFunction().equals("changenetwork")) {
-                                    String ip = (String) ((Object[]) RFC.getParameters())[0];
-                                    ip = crypt(ip, clientKey);
-                                    String network = (String) ((Object[]) RFC.getParameters())[1];
-                                    MyComputerHandler.addData(new ApplicationData("changenetwork", network, 0, ip), ip, ApplicationData.OUTSIDE);
-                                } else
+                                                val O = arrayOf<Any>(targetX, targetY, currentX, currentY)
+                                                MyComputerHandler!!.addData(
+                                                    ApplicationData(
+                                                        "hacktendoTarget",
+                                                        O,
+                                                        0,
+                                                        ip
+                                                    ), ip, ApplicationData.INSIDE
+                                                )
+                                            } else  //Request a listing of equipment from a player.
+                                                if (RFC.getFunction() == "requestequipment") {
+                                                    var ip = (RFC.getParameters() as Array<Any?>?)!![0] as String
+                                                    ip = crypt(ip, clientKey)
+                                                    MyComputerHandler!!.addData(
+                                                        ApplicationData(
+                                                            "requestequipment",
+                                                            RFC.getID(),
+                                                            0,
+                                                            ip
+                                                        ), ip, ApplicationData.OUTSIDE
+                                                    )
+                                                } else  //Install equipment for a player.
+                                                    if (RFC.getFunction() == "installequipment") {
+                                                        var ip = (RFC.getParameters() as Array<Any?>?)!![0] as String
+                                                        val position =
+                                                            (RFC.getParameters() as Array<Any?>?)!![1] as Int?
+                                                        val name = (RFC.getParameters() as Array<Any?>?)!![2] as String?
+                                                        ip = crypt(ip, clientKey)
+                                                        val O: Array<Any?>? = arrayOf<Any?>(position, name, RFC.getID())
+                                                        MyComputerHandler!!.addData(
+                                                            ApplicationData(
+                                                                "installequipment",
+                                                                O,
+                                                                0,
+                                                                ip
+                                                            ), ip, ApplicationData.OUTSIDE
+                                                        )
+                                                    } else  //Repair equipment that's currently installed.
+                                                        if (RFC.getFunction() == "repairequipment") {
+                                                            var ip =
+                                                                (RFC.getParameters() as Array<Any?>?)!![0] as String
+                                                            val position =
+                                                                (RFC.getParameters() as Array<Any?>?)!![1] as Int?
+                                                            val name =
+                                                                (RFC.getParameters() as Array<Any?>?)!![2] as String?
+                                                            ip = crypt(ip, clientKey)
+                                                            val O: Array<Any?>? =
+                                                                arrayOf<Any?>(position, name, RFC.getID())
+                                                            MyComputerHandler!!.addData(
+                                                                ApplicationData(
+                                                                    "repairequipment",
+                                                                    O,
+                                                                    0,
+                                                                    ip
+                                                                ), ip, ApplicationData.OUTSIDE
+                                                            )
+                                                        } else  //Fetch the watches and return them to the client.
+                                                            if (RFC.getFunction() == "fetchwatches") {
+                                                                var ip =
+                                                                    (RFC.getParameters() as Array<Any?>?)!![0] as String
+                                                                ip = crypt(ip, clientKey)
+                                                                MyComputerHandler!!.addData(
+                                                                    ApplicationData(
+                                                                        "fetchwatches",
+                                                                        null,
+                                                                        0,
+                                                                        ip
+                                                                    ), ip, ApplicationData.OUTSIDE
+                                                                )
+                                                            } else  //Request your own webpage.
+                                                                if (RFC.getFunction() == "requestpage") {
+                                                                    var ip =
+                                                                        (RFC.getParameters() as Array<Any?>?)!![0] as String
+                                                                    ip = crypt(ip, clientKey)
+                                                                    MyComputerHandler!!.addData(
+                                                                        ApplicationData(
+                                                                            "requestpage",
+                                                                            null,
+                                                                            0,
+                                                                            ip
+                                                                        ), ip, ApplicationData.OUTSIDE
+                                                                    )
+                                                                } else  //Used whn a player wishes to peform a purchase with another player.
+                                                                    if (RFC.getFunction() == "requestpurchase") {
+                                                                        var target_ip =
+                                                                            (RFC.getParameters() as Array<Any?>?)!![0] as String
+                                                                        var source_ip =
+                                                                            (RFC.getParameters() as Array<Any?>?)!![1] as String
+                                                                        source_ip = crypt(source_ip, clientKey)
 
-                                    //Heal a specific port.
-                                    if (RFC.getFunction().equals("healport")) {
-                                        String ip = (String) ((Object[]) RFC.getParameters())[0];
-                                        int port = (Integer) ((Object[]) RFC.getParameters())[1];
-                                        ip = crypt(ip, clientKey);
-                                        MyComputerHandler.addData(new ApplicationData("heal", null, port, ip), ip, ApplicationData.OUTSIDE);
-                                    } else
+                                                                        val file_name =
+                                                                            (RFC.getParameters() as Array<Any?>?)!![2] as String?
+                                                                        val quantity =
+                                                                            (RFC.getParameters() as Array<Any?>?)!![3] as Int?
+                                                                        val O: Array<Any?>? =
+                                                                            arrayOf<Any?>(file_name, quantity)
 
-                                        //Allow hacktendo to activate a sprite.
-                                        if (RFC.getFunction().equals("hacktendoActivate")) {
-                                            int activateID = (Integer) ((Object[]) RFC.getParameters())[0];
-                                            int activateType = (Integer) ((Object[]) RFC.getParameters())[1];
-                                            String ip = (String) ((Object[]) RFC.getParameters())[2];
+                                                                        if (target_ip.length >= 5) if (target_ip.substring(
+                                                                                0,
+                                                                                5
+                                                                            ).lowercase(Locale.getDefault()) == "store"
+                                                                        ) target_ip = "store" + serverID
 
-                                            Object O[] = new Object[]{new Integer(activateID), new Integer(activateType)};
-                                            MyComputerHandler.addData(new ApplicationData("hacktendoActivate", O, 0, ip), ip, ApplicationData.INSIDE);
-                                        } else
+                                                                        MyComputerHandler!!.addData(
+                                                                            ApplicationData(
+                                                                                "requestpurchase",
+                                                                                O,
+                                                                                0,
+                                                                                source_ip
+                                                                            ), target_ip, ApplicationData.OUTSIDE
+                                                                        )
+                                                                    } else  //POST INFORMATION FROM A GAME.
+                                                                        if (RFC.getFunction() == "requesttrigger") {
+                                                                            val watchNote =
+                                                                                (RFC.getParameters() as Array<Any?>?)!![0] as String?
+                                                                            val TriggerParam =
+                                                                                (RFC.getParameters() as Array<Any?>?)!![1] as HashMap<*, *>?
+                                                                            val sourceIP =
+                                                                                (RFC.getParameters() as Array<Any?>?)!![2] as String?
+                                                                            val targetIP =
+                                                                                (RFC.getParameters() as Array<Any?>?)!![3] as String?
+                                                                            val O: Any = arrayOf<Any?>(
+                                                                                watchNote,
+                                                                                TriggerParam,
+                                                                                sourceIP
+                                                                            )
+                                                                            MyComputerHandler!!.addData(
+                                                                                ApplicationData(
+                                                                                    "requesttriggernote",
+                                                                                    O,
+                                                                                    0,
+                                                                                    sourceIP
+                                                                                ), targetIP, ApplicationData.OUTSIDE
+                                                                            )
+                                                                        } else  //SAVE INFORMATION FROM A GAME.
+                                                                            if (RFC.getFunction() == "requestsave") {
+                                                                                val fileName =
+                                                                                    (RFC.getParameters() as Array<Any?>?)!![0] as String?
+                                                                                val TriggerParam =
+                                                                                    (RFC.getParameters() as Array<Any?>?)!![1] as HashMap<*, *>?
+                                                                                val targetIP =
+                                                                                    (RFC.getParameters() as Array<Any?>?)!![2] as String?
+                                                                                val O: Any = arrayOf<Any?>(
+                                                                                    fileName,
+                                                                                    TriggerParam
+                                                                                )
 
-                                            //Allow Hacktendo to move objects through space.
-                                            if (RFC.getFunction().equals("hacktendoTarget")) {
-                                                int targetX = (Integer) ((Object[]) RFC.getParameters())[0];
-                                                int targetY = (Integer) ((Object[]) RFC.getParameters())[1];
-                                                String ip = (String) ((Object[]) RFC.getParameters())[2];
-                                                int currentX = (Integer) ((Object[]) RFC.getParameters())[3];
-                                                int currentY = (Integer) ((Object[]) RFC.getParameters())[4];
+                                                                                MyComputerHandler!!.addData(
+                                                                                    ApplicationData(
+                                                                                        "requestsave",
+                                                                                        O,
+                                                                                        0,
+                                                                                        targetIP
+                                                                                    ),
+                                                                                    targetIP,
+                                                                                    ApplicationData.OUTSIDE
+                                                                                )
+                                                                            } else  //LET A GAME FINISH A TASK IN A QUEST.
+                                                                                if (RFC.getFunction() == "requesttask") {
+                                                                                    val fileName =
+                                                                                        (RFC.getParameters() as Array<Any?>?)!![0] as String?
+                                                                                    val questID =
+                                                                                        (RFC.getParameters() as Array<Any?>?)!![1] as String?
+                                                                                    val taskName =
+                                                                                        (RFC.getParameters() as Array<Any?>?)!![2] as String?
+                                                                                    val targetIP =
+                                                                                        (RFC.getParameters() as Array<Any?>?)!![3] as String?
+                                                                                    val O: Any = arrayOf<Any?>(
+                                                                                        fileName,
+                                                                                        questID,
+                                                                                        taskName
+                                                                                    )
+                                                                                    MyComputerHandler!!.addData(
+                                                                                        ApplicationData(
+                                                                                            "requesttask",
+                                                                                            O,
+                                                                                            0,
+                                                                                            targetIP
+                                                                                        ),
+                                                                                        targetIP,
+                                                                                        ApplicationData.OUTSIDE
+                                                                                    )
+                                                                                } else  //Request another player's webpage.
+                                                                                    if (RFC.getFunction() == "requestwebpage") {
+                                                                                        var target_ip =
+                                                                                            (RFC.getParameters() as Array<Any?>?)!![0] as String
+                                                                                        var source_ip =
+                                                                                            (RFC.getParameters() as Array<Any?>?)!![1] as String
 
-                                                Object O[] = new Object[]{new Integer(targetX), new Integer(targetY), new Integer(currentX), new Integer(currentY)};
-                                                MyComputerHandler.addData(new ApplicationData("hacktendoTarget", O, 0, ip), ip, ApplicationData.INSIDE);
-                                            } else
+                                                                                        if (!(source_ip == "062.153.7.142"))  //This is the IP used to hook-in and make requests externally.
+                                                                                            source_ip = crypt(
+                                                                                                source_ip,
+                                                                                                clientKey
+                                                                                            )
 
-                                                //Request a listing of equipment from a player.
-                                                if (RFC.getFunction().equals("requestequipment")) {
-                                                    String ip = (String) ((Object[]) RFC.getParameters())[0];
-                                                    ip = crypt(ip, clientKey);
-                                                    MyComputerHandler.addData(new ApplicationData("requestequipment", new Integer(RFC.getID()), 0, ip), ip, ApplicationData.OUTSIDE);
-                                                } else
+                                                                                        val parameters =
+                                                                                            (RFC.parameters as? Array<*>?)
+                                                                                                ?.getOrNull(2)
+                                                                                                ?.let {
+                                                                                                    @Suppress("UNCHECKED_CAST")
+                                                                                                    it as? HashMap<Any?, Any?>
+                                                                                                }
+                                                                                                ?: HashMap<Any?, Any?>()
 
-                                                    //Install equipment for a player.
-                                                    if (RFC.getFunction().equals("installequipment")) {
-                                                        String ip = (String) ((Object[]) RFC.getParameters())[0];
-                                                        Integer position = (Integer) ((Object[]) RFC.getParameters())[1];
-                                                        String name = (String) ((Object[]) RFC.getParameters())[2];
-                                                        ip = crypt(ip, clientKey);
-                                                        Object O[] = new Object[]{position, name, new Integer(RFC.getID())};
-                                                        MyComputerHandler.addData(new ApplicationData("installequipment", O, 0, ip), ip, ApplicationData.OUTSIDE);
-                                                    } else
+                                                                                        parameters["packetid"] = RFC.id
 
-                                                        //Repair equipment that's currently installed.
-                                                        if (RFC.getFunction().equals("repairequipment")) {
-                                                            String ip = (String) ((Object[]) RFC.getParameters())[0];
-                                                            Integer position = (Integer) ((Object[]) RFC.getParameters())[1];
-                                                            String name = (String) ((Object[]) RFC.getParameters())[2];
-                                                            ip = crypt(ip, clientKey);
-                                                            Object O[] = new Object[]{position, name, new Integer(RFC.getID())};
-                                                            MyComputerHandler.addData(new ApplicationData("repairequipment", O, 0, ip), ip, ApplicationData.OUTSIDE);
-                                                        } else
+                                                                                        if (target_ip.length >= 5) if (target_ip.substring(
+                                                                                                0,
+                                                                                                5
+                                                                                            )
+                                                                                                .lowercase(Locale.getDefault()) == "store"
+                                                                                        ) target_ip = "store" + serverID
 
-                                                            //Fetch the watches and return them to the client.
-                                                            if (RFC.getFunction().equals("fetchwatches")) {
-                                                                String ip = (String) ((Object[]) RFC.getParameters())[0];
-                                                                ip = crypt(ip, clientKey);
-                                                                MyComputerHandler.addData(new ApplicationData("fetchwatches", null, 0, ip), ip, ApplicationData.OUTSIDE);
-                                                            } else
+                                                                                        MyComputerHandler!!.addData(
+                                                                                            ApplicationData(
+                                                                                                "requestwebpage",
+                                                                                                parameters,
+                                                                                                0,
+                                                                                                source_ip
+                                                                                            ),
+                                                                                            target_ip,
+                                                                                            ApplicationData.OUTSIDE
+                                                                                        )
+                                                                                    } else  //Send a form submission to another player.
+                                                                                        if (RFC.getFunction() == "submit") {
+                                                                                            val target_ip =
+                                                                                                (RFC.getParameters() as Array<Any?>?)!![0] as String?
+                                                                                            var source_ip =
+                                                                                                (RFC.getParameters() as Array<Any?>?)!![1] as String
 
-                                                                //Request your own webpage.
-                                                                if (RFC.getFunction().equals("requestpage")) {
-                                                                    String ip = (String) ((Object[]) RFC.getParameters())[0];
-                                                                    ip = crypt(ip, clientKey);
-                                                                    MyComputerHandler.addData(new ApplicationData("requestpage", null, 0, ip), ip, ApplicationData.OUTSIDE);
-                                                                } else
+                                                                                            val parameters =
+                                                                                                (RFC.parameters as? Array<*>?)
+                                                                                                    ?.getOrNull(2)
+                                                                                                    ?.let {
+                                                                                                        @Suppress("UNCHECKED_CAST")
+                                                                                                        it as? HashMap<Any?, Any?>
+                                                                                                    }
+                                                                                                    ?: HashMap<Any?, Any?>()
 
-                                                                    //Used whn a player wishes to peform a purchase with another player.
-                                                                    if (RFC.getFunction().equals("requestpurchase")) {
+                                                                                            parameters["packetid"] =
+                                                                                                RFC.id
 
-                                                                        String target_ip = (String) ((Object[]) RFC.getParameters())[0];
-                                                                        String source_ip = (String) ((Object[]) RFC.getParameters())[1];
-                                                                        source_ip = crypt(source_ip, clientKey);
+                                                                                            if (!(source_ip == "062.153.7.142"))  //This is the IP used to hook-in and make requests externally.
+                                                                                                source_ip = crypt(
+                                                                                                    source_ip,
+                                                                                                    clientKey
+                                                                                                )
 
-                                                                        String file_name = (String) ((Object[]) RFC.getParameters())[2];
-                                                                        Integer quantity = (Integer) ((Object[]) RFC.getParameters())[3];
-                                                                        Object O[] = new Object[]{file_name, quantity};
+                                                                                            MyComputerHandler!!.addData(
+                                                                                                ApplicationData(
+                                                                                                    "submit",
+                                                                                                    parameters,
+                                                                                                    0,
+                                                                                                    source_ip
+                                                                                                ),
+                                                                                                target_ip,
+                                                                                                ApplicationData.OUTSIDE
+                                                                                            )
+                                                                                        } else  //Create a bounty.
+                                                                                            if (RFC.getFunction() == "makebounty") {
+                                                                                                var source_ip =
+                                                                                                    (RFC.getParameters() as Array<Any?>?)!![0] as String
+                                                                                                source_ip = crypt(
+                                                                                                    source_ip,
+                                                                                                    clientKey
+                                                                                                )
+                                                                                                val anonymous =
+                                                                                                    (RFC.getParameters() as Array<Any?>?)!![1] as Boolean?
+                                                                                                val target =
+                                                                                                    (RFC.getParameters() as Array<Any?>?)!![2] as String?
+                                                                                                val type =
+                                                                                                    (RFC.getParameters() as Array<Any?>?)!![3] as Int?
+                                                                                                val fname =
+                                                                                                    (RFC.getParameters() as Array<Any?>?)!![4] as String?
+                                                                                                val folder =
+                                                                                                    (RFC.getParameters() as Array<Any?>?)!![5] as String?
+                                                                                                val iterations =
+                                                                                                    (RFC.getParameters() as Array<Any?>?)!![6] as Int?
+                                                                                                val reward =
+                                                                                                    (RFC.getParameters() as Array<Any?>?)!![7] as Float?
+                                                                                                val O: Array<Any?>? =
+                                                                                                    arrayOf<Any?>(
+                                                                                                        anonymous,
+                                                                                                        target,
+                                                                                                        type,
+                                                                                                        fname,
+                                                                                                        folder,
+                                                                                                        iterations,
+                                                                                                        reward
+                                                                                                    )
+                                                                                                MyComputerHandler!!.addData(
+                                                                                                    ApplicationData(
+                                                                                                        "makebounty",
+                                                                                                        O,
+                                                                                                        0,
+                                                                                                        source_ip
+                                                                                                    ),
+                                                                                                    source_ip,
+                                                                                                    ApplicationData.OUTSIDE
+                                                                                                )
+                                                                                            } else  //Exit a player's webpage.
+                                                                                                if (RFC.getFunction() == "exit") {
+                                                                                                    val target_ip =
+                                                                                                        (RFC.getParameters() as Array<Any?>?)!![0] as String?
+                                                                                                    var source_ip =
+                                                                                                        (RFC.getParameters() as Array<Any?>?)!![1] as String
 
-                                                                        if (target_ip.length() >= 5)
-                                                                            if (target_ip.substring(0, 5).toLowerCase().equals("store"))
-                                                                                target_ip = "store" + serverID;
+                                                                                                    source_ip = crypt(
+                                                                                                        source_ip,
+                                                                                                        clientKey
+                                                                                                    )
 
-                                                                        MyComputerHandler.addData(new ApplicationData("requestpurchase", O, 0, source_ip), target_ip, ApplicationData.OUTSIDE);
-                                                                    } else
+                                                                                                    MyComputerHandler!!.addData(
+                                                                                                        ApplicationData(
+                                                                                                            "exit",
+                                                                                                            null,
+                                                                                                            0,
+                                                                                                            source_ip
+                                                                                                        ),
+                                                                                                        target_ip,
+                                                                                                        ApplicationData.OUTSIDE
+                                                                                                    )
+                                                                                                } else  //Vote for a player's webpage.
+                                                                                                    if (RFC.getFunction() == "vote") {
+                                                                                                        val target_ip =
+                                                                                                            (RFC.getParameters() as Array<Any?>?)!![0] as String?
+                                                                                                        var source_ip =
+                                                                                                            (RFC.getParameters() as Array<Any?>?)!![1] as String
 
-                                                                        //POST INFORMATION FROM A GAME.
-                                                                        if (RFC.getFunction().equals("requesttrigger")) {
-                                                                            String watchNote = (String) ((Object[]) RFC.getParameters())[0];
-                                                                            HashMap TriggerParam = (HashMap) ((Object[]) RFC.getParameters())[1];
-                                                                            String sourceIP = (String) ((Object[]) RFC.getParameters())[2];
-                                                                            String targetIP = (String) ((Object[]) RFC.getParameters())[3];
-                                                                            Object O = new Object[]{watchNote, TriggerParam, sourceIP};
-                                                                            MyComputerHandler.addData(new ApplicationData("requesttriggernote", O, 0, sourceIP), targetIP, ApplicationData.OUTSIDE);
-                                                                        } else
+                                                                                                        source_ip =
+                                                                                                            crypt(
+                                                                                                                source_ip,
+                                                                                                                clientKey
+                                                                                                            )
 
-                                                                            //SAVE INFORMATION FROM A GAME.
-                                                                            if (RFC.getFunction().equals("requestsave")) {
+                                                                                                        MyComputerHandler!!.addData(
+                                                                                                            ApplicationData(
+                                                                                                                "vote",
+                                                                                                                null,
+                                                                                                                0,
+                                                                                                                target_ip
+                                                                                                            ),
+                                                                                                            source_ip,
+                                                                                                            ApplicationData.OUTSIDE
+                                                                                                        )
+                                                                                                    } else if (RFC.getFunction() == "savepage") {
+                                                                                                        var ip =
+                                                                                                            (RFC.getParameters() as Array<Any?>?)!![0] as String
+                                                                                                        ip = crypt(
+                                                                                                            ip,
+                                                                                                            clientKey
+                                                                                                        )
+                                                                                                        val title =
+                                                                                                            (RFC.getParameters() as Array<Any?>?)!![1] as String?
+                                                                                                        val body =
+                                                                                                            (RFC.getParameters() as Array<Any?>?)!![2] as String?
+                                                                                                        val O: Array<Any?>? =
+                                                                                                            arrayOf<Any?>(
+                                                                                                                title,
+                                                                                                                body
+                                                                                                            )
+                                                                                                        MyComputerHandler!!.addData(
+                                                                                                            ApplicationData(
+                                                                                                                "savepage",
+                                                                                                                O,
+                                                                                                                0,
+                                                                                                                ip
+                                                                                                            ),
+                                                                                                            ip,
+                                                                                                            ApplicationData.OUTSIDE
+                                                                                                        )
+                                                                                                    } else if (RFC.getFunction() == "withdraw") {
+                                                                                                        val amount =
+                                                                                                            (RFC.getParameters() as Array<Any?>?)!![0] as Float
+                                                                                                        var ip =
+                                                                                                            (RFC.getParameters() as Array<Any?>?)!![1] as String
+                                                                                                        ip = crypt(
+                                                                                                            ip,
+                                                                                                            clientKey
+                                                                                                        )
+                                                                                                        val port =
+                                                                                                            (RFC.getParameters() as Array<Any?>?)!![2] as Int
+                                                                                                        MyComputerHandler!!.addData(
+                                                                                                            ApplicationData(
+                                                                                                                "withdraw",
+                                                                                                                amount,
+                                                                                                                port,
+                                                                                                                ip
+                                                                                                            ),
+                                                                                                            ip,
+                                                                                                            ApplicationData.OUTSIDE
+                                                                                                        )
+                                                                                                    } else if (RFC.getFunction() == "requestdirectory") {
+                                                                                                        var ip =
+                                                                                                            (RFC.getParameters() as Array<Any?>?)!![0] as String
+                                                                                                        ip = crypt(
+                                                                                                            ip,
+                                                                                                            clientKey
+                                                                                                        )
+                                                                                                        val path =
+                                                                                                            (RFC.getParameters() as Array<Any?>?)!![1] as String?
+                                                                                                        val O: Array<Any?>? =
+                                                                                                            arrayOf<Any?>(
+                                                                                                                path,
+                                                                                                                RFC.getID()
+                                                                                                            )
+                                                                                                        MyComputerHandler!!.addData(
+                                                                                                            ApplicationData(
+                                                                                                                "requestdirectory",
+                                                                                                                O,
+                                                                                                                0,
+                                                                                                                ip
+                                                                                                            ),
+                                                                                                            ip,
+                                                                                                            ApplicationData.OUTSIDE
+                                                                                                        )
+                                                                                                    } else if (RFC.getFunction() == "unlock") {
+                                                                                                        var ip =
+                                                                                                            (RFC.getParameters() as Array<Any?>?)!![0] as String
+                                                                                                        ip = crypt(
+                                                                                                            ip,
+                                                                                                            clientKey
+                                                                                                        )
+                                                                                                        val code =
+                                                                                                            (RFC.getParameters() as Array<Any?>?)!![1] as String?
+                                                                                                        MyComputerHandler!!.addData(
+                                                                                                            ApplicationData(
+                                                                                                                "unlock",
+                                                                                                                code,
+                                                                                                                0,
+                                                                                                                ""
+                                                                                                            ),
+                                                                                                            ip,
+                                                                                                            ApplicationData.OUTSIDE
+                                                                                                        )
+                                                                                                    } else if (RFC.getFunction() == "setftppassword") {
+                                                                                                        var ip =
+                                                                                                            (RFC.getParameters() as Array<Any?>?)!![0] as String
+                                                                                                        ip = crypt(
+                                                                                                            ip,
+                                                                                                            clientKey
+                                                                                                        )
+                                                                                                        val password =
+                                                                                                            (RFC.getParameters() as Array<Any?>?)!![1] as String?
+                                                                                                        MyComputerHandler!!.addData(
+                                                                                                            ApplicationData(
+                                                                                                                "setftppassword",
+                                                                                                                password,
+                                                                                                                0,
+                                                                                                                ip
+                                                                                                            ),
+                                                                                                            ip,
+                                                                                                            ApplicationData.OUTSIDE
+                                                                                                        )
+                                                                                                    } else if (RFC.getFunction() == "requestsecondarydirectory") {
+                                                                                                        val ip =
+                                                                                                            (RFC.getParameters() as Array<Any?>?)!![0] as String?
+                                                                                                        val path =
+                                                                                                            (RFC.getParameters() as Array<Any?>?)!![1] as String?
+                                                                                                        var targetIP =
+                                                                                                            (RFC.getParameters() as Array<Any?>?)!![2] as String
 
-                                                                                String fileName = (String) ((Object[]) RFC.getParameters())[0];
-                                                                                HashMap TriggerParam = (HashMap) ((Object[]) RFC.getParameters())[1];
-                                                                                String targetIP = (String) ((Object[]) RFC.getParameters())[2];
-                                                                                Object O = new Object[]{fileName, TriggerParam};
+                                                                                                        targetIP =
+                                                                                                            crypt(
+                                                                                                                targetIP,
+                                                                                                                clientKey
+                                                                                                            )
 
-                                                                                MyComputerHandler.addData(new ApplicationData("requestsave", O, 0, targetIP), targetIP, ApplicationData.OUTSIDE);
-                                                                            } else
-
-                                                                                //LET A GAME FINISH A TASK IN A QUEST.
-                                                                                if (RFC.getFunction().equals("requesttask")) {
-
-                                                                                    String fileName = (String) ((Object[]) RFC.getParameters())[0];
-                                                                                    Integer questID = new Integer((String) ((Object[]) RFC.getParameters())[1]);
-                                                                                    String taskName = (String) ((Object[]) RFC.getParameters())[2];
-                                                                                    String targetIP = (String) ((Object[]) RFC.getParameters())[3];
-                                                                                    Object O = new Object[]{fileName, questID, taskName};
-                                                                                    MyComputerHandler.addData(new ApplicationData("requesttask", O, 0, targetIP), targetIP, ApplicationData.OUTSIDE);
-                                                                                } else
-
-                                                                                    //Request another player's webpage.
-                                                                                    if (RFC.getFunction().equals("requestwebpage")) {
-
-                                                                                        String target_ip = (String) ((Object[]) RFC.getParameters())[0];
-                                                                                        String source_ip = (String) ((Object[]) RFC.getParameters())[1];
-
-                                                                                        if (!(source_ip.equals("062.153.7.142")))//This is the IP used to hook-in and make requests externally.
-                                                                                            source_ip = crypt(source_ip, clientKey);
-
-                                                                                        HashMap Parameters = (HashMap) ((Object[]) RFC.getParameters())[2];
-
-                                                                                        if (Parameters == null)
-                                                                                            Parameters = new HashMap();
-                                                                                        Parameters.put("packetid", new Integer(RFC.getID()));
-
-                                                                                        if (target_ip.length() >= 5)
-                                                                                            if (target_ip.substring(0, 5).toLowerCase().equals("store"))
-                                                                                                target_ip = "store" + serverID;
-
-                                                                                        MyComputerHandler.addData(new ApplicationData("requestwebpage", Parameters, 0, source_ip), target_ip, ApplicationData.OUTSIDE);
-                                                                                    } else
-
-                                                                                        //Send a form submission to another player.
-                                                                                        if (RFC.getFunction().equals("submit")) {
-                                                                                            String target_ip = (String) ((Object[]) RFC.getParameters())[0];
-                                                                                            String source_ip = (String) ((Object[]) RFC.getParameters())[1];
-                                                                                            HashMap Parameters = (HashMap) ((Object[]) RFC.getParameters())[2];
-                                                                                            if (Parameters == null)
-                                                                                                Parameters = new HashMap();
-                                                                                            Parameters.put("packetid", new Integer(RFC.getID()));
-
-                                                                                            if (!(source_ip.equals("062.153.7.142")))//This is the IP used to hook-in and make requests externally.
-                                                                                                source_ip = crypt(source_ip, clientKey);
-
-                                                                                            MyComputerHandler.addData(new ApplicationData("submit", Parameters, 0, source_ip), target_ip, ApplicationData.OUTSIDE);
-                                                                                        } else
-
-                                                                                            //Create a bounty.
-                                                                                            if (RFC.getFunction().equals("makebounty")) {
-                                                                                                String source_ip = (String) ((Object[]) RFC.getParameters())[0];
-                                                                                                source_ip = crypt(source_ip, clientKey);
-                                                                                                Boolean anonymous = (Boolean) ((Object[]) RFC.getParameters())[1];
-                                                                                                String target = (String) ((Object[]) RFC.getParameters())[2];
-                                                                                                Integer type = (Integer) ((Object[]) RFC.getParameters())[3];
-                                                                                                String fname = (String) ((Object[]) RFC.getParameters())[4];
-                                                                                                String folder = (String) ((Object[]) RFC.getParameters())[5];
-                                                                                                Integer iterations = (Integer) ((Object[]) RFC.getParameters())[6];
-                                                                                                Float reward = (Float) ((Object[]) RFC.getParameters())[7];
-                                                                                                Object O[] = new Object[]{anonymous, target, type, fname, folder, iterations, reward};
-                                                                                                MyComputerHandler.addData(new ApplicationData("makebounty", O, 0, source_ip), source_ip, ApplicationData.OUTSIDE);
-                                                                                            } else
-
-                                                                                                //Exit a player's webpage.
-                                                                                                if (RFC.getFunction().equals("exit")) {
-                                                                                                    String target_ip = (String) ((Object[]) RFC.getParameters())[0];
-                                                                                                    String source_ip = (String) ((Object[]) RFC.getParameters())[1];
-
-                                                                                                    source_ip = crypt(source_ip, clientKey);
-
-                                                                                                    MyComputerHandler.addData(new ApplicationData("exit", null, 0, source_ip), target_ip, ApplicationData.OUTSIDE);
-                                                                                                } else
-
-                                                                                                    //Vote for a player's webpage.
-                                                                                                    if (RFC.getFunction().equals("vote")) {
-                                                                                                        String target_ip = (String) ((Object[]) RFC.getParameters())[0];
-                                                                                                        String source_ip = (String) ((Object[]) RFC.getParameters())[1];
-
-                                                                                                        source_ip = crypt(source_ip, clientKey);
-
-                                                                                                        MyComputerHandler.addData(new ApplicationData("vote", null, 0, target_ip), source_ip, ApplicationData.OUTSIDE);
-                                                                                                    } else if (RFC.getFunction().equals("savepage")) {
-                                                                                                        String ip = (String) ((Object[]) RFC.getParameters())[0];
-                                                                                                        ip = crypt(ip, clientKey);
-                                                                                                        String title = (String) ((Object[]) RFC.getParameters())[1];
-                                                                                                        String body = (String) ((Object[]) RFC.getParameters())[2];
-                                                                                                        Object O[] = new Object[]{title, body};
-                                                                                                        MyComputerHandler.addData(new ApplicationData("savepage", O, 0, ip), ip, ApplicationData.OUTSIDE);
-                                                                                                    } else if (RFC.getFunction().equals("withdraw")) {
-                                                                                                        float amount = (Float) ((Object[]) RFC.getParameters())[0];
-                                                                                                        String ip = (String) ((Object[]) RFC.getParameters())[1];
-                                                                                                        ip = crypt(ip, clientKey);
-                                                                                                        int port = (Integer) ((Object[]) RFC.getParameters())[2];
-                                                                                                        MyComputerHandler.addData(new ApplicationData("withdraw", amount, port, ip), ip, ApplicationData.OUTSIDE);
-                                                                                                    } else if (RFC.getFunction().equals("requestdirectory")) {
-                                                                                                        String ip = (String) ((Object[]) RFC.getParameters())[0];
-                                                                                                        ip = crypt(ip, clientKey);
-                                                                                                        String path = (String) ((Object[]) RFC.getParameters())[1];
-                                                                                                        Object O[] = new Object[]{path, new Integer(RFC.getID())};
-                                                                                                        MyComputerHandler.addData(new ApplicationData("requestdirectory", O, 0, ip), ip, ApplicationData.OUTSIDE);
-                                                                                                    } else if (RFC.getFunction().equals("unlock")) {
-                                                                                                        String ip = (String) ((Object[]) RFC.getParameters())[0];
-                                                                                                        ip = crypt(ip, clientKey);
-                                                                                                        String code = (String) ((Object[]) RFC.getParameters())[1];
-                                                                                                        MyComputerHandler.addData(new ApplicationData("unlock", code, 0, ""), ip, ApplicationData.OUTSIDE);
-                                                                                                    } else if (RFC.getFunction().equals("setftppassword")) {
-                                                                                                        String ip = (String) ((Object[]) RFC.getParameters())[0];
-                                                                                                        ip = crypt(ip, clientKey);
-                                                                                                        String password = (String) ((Object[]) RFC.getParameters())[1];
-                                                                                                        MyComputerHandler.addData(new ApplicationData("setftppassword", password, 0, ip), ip, ApplicationData.OUTSIDE);
-                                                                                                    } else if (RFC.getFunction().equals("requestsecondarydirectory")) {
-                                                                                                        String ip = (String) ((Object[]) RFC.getParameters())[0];
-                                                                                                        String path = (String) ((Object[]) RFC.getParameters())[1];
-                                                                                                        String targetIP = (String) ((Object[]) RFC.getParameters())[2];
-
-                                                                                                        targetIP = crypt(targetIP, clientKey);
-
-                                                                                                        int port = (Integer) ((Object[]) RFC.getParameters())[3];
-                                                                                                        Object Parameter[] = new Object[]{targetIP, path, new Integer(RFC.getID())};
-                                                                                                        MyComputerHandler.addData(new ApplicationData("requestsecondarydirectory", Parameter, port, targetIP), ip, ApplicationData.OUTSIDE);
-                                                                                                    } else if (RFC.getFunction().equals("requestcancelattack")) {
-                                                                                                        String ip = (String) ((Object[]) RFC.getParameters())[0];
-                                                                                                        ip = crypt(ip, clientKey);
-                                                                                                        int port = (Integer) ((Object[]) RFC.getParameters())[1];
-                                                                                                        MyComputerHandler.addData(new ApplicationData("requestcancelattack", null, port, ip), ip, ApplicationData.OUTSIDE);
-                                                                                                    } else if (RFC.getFunction().equals("cluedata")) {
-                                                                                                        String ip = (String) ((Object[]) RFC.getParameters())[0];
-                                                                                                        ip = crypt(ip, clientKey);
-                                                                                                        String data = (String) ((Object[]) RFC.getParameters())[1];
-                                                                                                        MyComputerHandler.addData(new ApplicationData("cluedata", data, 0, ip), ip, ApplicationData.OUTSIDE);
-                                                                                                    } else if (RFC.getFunction().equals("requestzombiecancelattack")) {
-                                                                                                        String ip = (String) ((Object[]) RFC.getParameters())[0];
-                                                                                                        int port = (Integer) ((Object[]) RFC.getParameters())[1];
-                                                                                                        String targetIP = (String) ((Object[]) RFC.getParameters())[2];
-                                                                                                        targetIP = crypt(targetIP, clientKey);
-                                                                                                        MyComputerHandler.addData(new ApplicationData("requestcancelattack", null, port, targetIP), ip, ApplicationData.OUTSIDE);
-                                                                                                    } else if (RFC.getFunction().equals("installapplication")) {
-                                                                                                        String ip = (String) ((Object[]) RFC.getParameters())[0];
-                                                                                                        ip = crypt(ip, clientKey);
-                                                                                                        int port = (Integer) ((Object[]) RFC.getParameters())[1];
-                                                                                                        String path = (String) ((Object[]) RFC.getParameters())[2];
-                                                                                                        String name = (String) ((Object[]) RFC.getParameters())[3];
-                                                                                                        String Parameter[] = new String[]{path, name};
-                                                                                                        MyComputerHandler.addData(new ApplicationData("installapplication", Parameter, port, ip), ip, ApplicationData.OUTSIDE);
-                                                                                                    } else if (RFC.getFunction().equals("installwatch")) {
-                                                                                                        String ip = (String) ((Object[]) RFC.getParameters())[0];
-                                                                                                        ip = crypt(ip, clientKey);
-                                                                                                        String path = (String) ((Object[]) RFC.getParameters())[1];
-                                                                                                        String name = (String) ((Object[]) RFC.getParameters())[2];
-                                                                                                        int type = (Integer) ((Object[]) RFC.getParameters())[3];
-                                                                                                        int port = (Integer) ((Object[]) RFC.getParameters())[4];
-                                                                                                        Object Parameter[] = new Object[]{path, name, new Integer(type)};
-                                                                                                        MyComputerHandler.addData(new ApplicationData("installwatch", Parameter, port, ip), ip, ApplicationData.OUTSIDE);
-                                                                                                    } else if (RFC.getFunction().equals("setwatchobservedports")) {
-                                                                                                        String ip = (String) ((Object[]) RFC.getParameters())[0];
-                                                                                                        ip = crypt(ip, clientKey);
-                                                                                                        Integer watchID = (Integer) ((Object[]) RFC.getParameters())[1];
-                                                                                                        Integer ObservedPorts[] = (Integer[]) ((Object[]) RFC.getParameters())[2];
-                                                                                                        Object Parameter[] = new Object[]{watchID, ObservedPorts};
-                                                                                                        MyComputerHandler.addData(new ApplicationData("setwatchobservedports", Parameter, 0, ip), ip, ApplicationData.OUTSIDE);
-                                                                                                    } else if (RFC.getFunction().equals("installfirewall")) {
-                                                                                                        String ip = (String) ((Object[]) RFC.getParameters())[0];
-                                                                                                        ip = crypt(ip, clientKey);
-                                                                                                        int port = (Integer) ((Object[]) RFC.getParameters())[1];
-                                                                                                        String path = (String) ((Object[]) RFC.getParameters())[2];
-                                                                                                        String name = (String) ((Object[]) RFC.getParameters())[3];
-                                                                                                        String Parameter[] = new String[]{path, name};
-                                                                                                        MyComputerHandler.addData(new ApplicationData("installfirewall", Parameter, port, ip), ip, ApplicationData.OUTSIDE);
-                                                                                                    } else if (RFC.getFunction().equals("replaceapplication")) {
-                                                                                                        String ip = (String) ((Object[]) RFC.getParameters())[0];
-                                                                                                        ip = crypt(ip, clientKey);
-                                                                                                        int port = (Integer) ((Object[]) RFC.getParameters())[1];
-                                                                                                        String path = (String) ((Object[]) RFC.getParameters())[2];
-                                                                                                        String name = (String) ((Object[]) RFC.getParameters())[3];
-                                                                                                        String Parameter[] = new String[]{path, name};
-                                                                                                        MyComputerHandler.addData(new ApplicationData("replaceapplication", Parameter, port, ip), ip, ApplicationData.OUTSIDE);
-                                                                                                    } else if (RFC.getFunction().equals("uninstallport")) {
-                                                                                                        String ip = (String) ((Object[]) RFC.getParameters())[0];
-                                                                                                        ip = crypt(ip, clientKey);
-                                                                                                        int port = (Integer) ((Object[]) RFC.getParameters())[1];
-                                                                                                        MyComputerHandler.addData(new ApplicationData("uninstallport", new Integer(port), port, ip), ip, ApplicationData.OUTSIDE);
-                                                                                                    } else if (RFC.getFunction().equals("portonoff")) {
-                                                                                                        String ip = (String) ((Object[]) RFC.getParameters())[0];
-                                                                                                        ip = crypt(ip, clientKey);
-                                                                                                        int port = (Integer) ((Object[]) RFC.getParameters())[1];
-                                                                                                        Boolean on = (Boolean) ((Object[]) RFC.getParameters())[2];
-                                                                                                        MyComputerHandler.addData(new ApplicationData("portonoff", on, port, ip), ip, ApplicationData.OUTSIDE);
-                                                                                                    } else if (RFC.getFunction().equals("peekcode")) {
-                                                                                                        String ip = (String) ((Object[]) RFC.getParameters())[0];
-                                                                                                        ip = crypt(ip, clientKey);
-                                                                                                        String targetIP = (String) ((Object[]) RFC.getParameters())[1];
-                                                                                                        int port = (Integer) ((Object[]) RFC.getParameters())[2];
-                                                                                                        MyComputerHandler.addData(new ApplicationData("peekcode", null, port, ip), targetIP, ApplicationData.OUTSIDE);
-                                                                                                    } else if (RFC.getFunction().equals("peeklogs")) {
-                                                                                                        String ip = (String) ((Object[]) RFC.getParameters())[0];
-                                                                                                        ip = crypt(ip, clientKey);
-                                                                                                        String targetIP = (String) ((Object[]) RFC.getParameters())[1];
-                                                                                                        int port = (Integer) ((Object[]) RFC.getParameters())[2];
-                                                                                                        MyComputerHandler.addData(new ApplicationData("peeklogs", null, port, ip), targetIP, ApplicationData.OUTSIDE);
-                                                                                                    } else if (RFC.getFunction().equals("saveportnote")) {
-                                                                                                        String ip = (String) ((Object[]) RFC.getParameters())[0];
-                                                                                                        ip = crypt(ip, clientKey);
-                                                                                                        int port = (Integer) ((Object[]) RFC.getParameters())[1];
-                                                                                                        String note = (String) ((Object[]) RFC.getParameters())[2];
-                                                                                                        MyComputerHandler.addData(new ApplicationData("saveportnote", note, port, ip), ip, ApplicationData.OUTSIDE);
-                                                                                                    } else if (RFC.getFunction().equals("setwatchquantity")) {
-                                                                                                        String ip = (String) ((Object[]) RFC.getParameters())[0];
-                                                                                                        ip = crypt(ip, clientKey);
-                                                                                                        Integer watchID = (Integer) ((Object[]) RFC.getParameters())[1];
-                                                                                                        Float quantity = (Float) ((Object[]) RFC.getParameters())[2];
-                                                                                                        Object O = new Object[]{watchID, quantity};
-                                                                                                        MyComputerHandler.addData(new ApplicationData("setwatchquantity", O, 0, ip), ip, ApplicationData.OUTSIDE);
-                                                                                                    } else if (RFC.getFunction().equals("setwatchonoff")) {
-                                                                                                        String ip = (String) ((Object[]) RFC.getParameters())[0];
-                                                                                                        ip = crypt(ip, clientKey);
-                                                                                                        Integer watchID = (Integer) ((Object[]) RFC.getParameters())[1];
-                                                                                                        Boolean state = (Boolean) ((Object[]) RFC.getParameters())[2];
-                                                                                                        Object O = new Object[]{watchID, state};
-                                                                                                        MyComputerHandler.addData(new ApplicationData("setwatchonoff", O, 0, ip), ip, ApplicationData.OUTSIDE);
-                                                                                                    } else if (RFC.getFunction().equals("setwatchnote")) {
-                                                                                                        String ip = (String) ((Object[]) RFC.getParameters())[0];
-                                                                                                        ip = crypt(ip, clientKey);
-                                                                                                        Integer watchID = (Integer) ((Object[]) RFC.getParameters())[1];
-                                                                                                        String note = (String) ((Object[]) RFC.getParameters())[2];
-                                                                                                        Object O = new Object[]{watchID, note};
-                                                                                                        MyComputerHandler.addData(new ApplicationData("setwatchnote", O, 0, ip), ip, ApplicationData.OUTSIDE);
-                                                                                                    } else if (RFC.getFunction().equals("setwatchsearchfirewall")) {
-                                                                                                        String ip = (String) ((Object[]) RFC.getParameters())[0];
-                                                                                                        ip = crypt(ip, clientKey);
-                                                                                                        Integer watchID = (Integer) ((Object[]) RFC.getParameters())[1];
-                                                                                                        Integer searchFireWall = (Integer) ((Object[]) RFC.getParameters())[2];
-                                                                                                        Object O = new Object[]{watchID, searchFireWall};
-                                                                                                        MyComputerHandler.addData(new ApplicationData("setwatchsearchfirewall", O, 0, ip), ip, ApplicationData.OUTSIDE);
-                                                                                                    } else if (RFC.getFunction().equals("deletewatch")) {
-                                                                                                        String ip = (String) ((Object[]) RFC.getParameters())[0];
-                                                                                                        ip = crypt(ip, clientKey);
-                                                                                                        Integer watchID = (Integer) ((Object[]) RFC.getParameters())[1];
-                                                                                                        Object O = new Object[]{watchID};
-                                                                                                        MyComputerHandler.addData(new ApplicationData("deletewatch", O, 0, ip), ip, ApplicationData.OUTSIDE);
-                                                                                                    } else if (RFC.getFunction().equals("deletefirewall")) {
-                                                                                                        String ip = (String) ((Object[]) RFC.getParameters())[0];
-                                                                                                        ip = crypt(ip, clientKey);
-                                                                                                        Integer portID = (Integer) ((Object[]) RFC.getParameters())[1];
-                                                                                                        MyComputerHandler.addData(new ApplicationData("deletefirewall", portID, 0, ip), ip, ApplicationData.OUTSIDE);
-                                                                                                    } else if (RFC.getFunction().equals("changewatchport")) {
-                                                                                                        String ip = (String) ((Object[]) RFC.getParameters())[0];
-                                                                                                        ip = crypt(ip, clientKey);
-                                                                                                        Integer WatchID = (Integer) ((Object[]) RFC.getParameters())[1];
-                                                                                                        Integer PortID = (Integer) ((Object[]) RFC.getParameters())[2];
-                                                                                                        Integer I[] = new Integer[]{WatchID, PortID};
-                                                                                                        MyComputerHandler.addData(new ApplicationData("changewatchport", I, 0, ip), ip, ApplicationData.OUTSIDE);
-                                                                                                    } else if (RFC.getFunction().equals("changewatchtype")) {
-                                                                                                        String ip = (String) ((Object[]) RFC.getParameters())[0];
-                                                                                                        ip = crypt(ip, clientKey);
-                                                                                                        Integer WatchID = (Integer) ((Object[]) RFC.getParameters())[1];
-                                                                                                        Integer PortID = (Integer) ((Object[]) RFC.getParameters())[2];
-                                                                                                        Integer I[] = new Integer[]{WatchID, PortID};
-                                                                                                        MyComputerHandler.addData(new ApplicationData("changewatchtype", I, 0, ip), ip, ApplicationData.OUTSIDE);
+                                                                                                        val port =
+                                                                                                            (RFC.getParameters() as Array<Any?>?)!![3] as Int
+                                                                                                        val Parameter: Array<Any?>? =
+                                                                                                            arrayOf<Any?>(
+                                                                                                                targetIP,
+                                                                                                                path,
+                                                                                                                RFC.getID()
+                                                                                                            )
+                                                                                                        MyComputerHandler!!.addData(
+                                                                                                            ApplicationData(
+                                                                                                                "requestsecondarydirectory",
+                                                                                                                Parameter,
+                                                                                                                port,
+                                                                                                                targetIP
+                                                                                                            ),
+                                                                                                            ip,
+                                                                                                            ApplicationData.OUTSIDE
+                                                                                                        )
+                                                                                                    } else if (RFC.getFunction() == "requestcancelattack") {
+                                                                                                        var ip =
+                                                                                                            (RFC.getParameters() as Array<Any?>?)!![0] as String
+                                                                                                        ip = crypt(
+                                                                                                            ip,
+                                                                                                            clientKey
+                                                                                                        )
+                                                                                                        val port =
+                                                                                                            (RFC.getParameters() as Array<Any?>?)!![1] as Int
+                                                                                                        MyComputerHandler!!.addData(
+                                                                                                            ApplicationData(
+                                                                                                                "requestcancelattack",
+                                                                                                                null,
+                                                                                                                port,
+                                                                                                                ip
+                                                                                                            ),
+                                                                                                            ip,
+                                                                                                            ApplicationData.OUTSIDE
+                                                                                                        )
+                                                                                                    } else if (RFC.getFunction() == "cluedata") {
+                                                                                                        var ip =
+                                                                                                            (RFC.getParameters() as Array<Any?>?)!![0] as String
+                                                                                                        ip = crypt(
+                                                                                                            ip,
+                                                                                                            clientKey
+                                                                                                        )
+                                                                                                        val data =
+                                                                                                            (RFC.getParameters() as Array<Any?>?)!![1] as String?
+                                                                                                        MyComputerHandler!!.addData(
+                                                                                                            ApplicationData(
+                                                                                                                "cluedata",
+                                                                                                                data,
+                                                                                                                0,
+                                                                                                                ip
+                                                                                                            ),
+                                                                                                            ip,
+                                                                                                            ApplicationData.OUTSIDE
+                                                                                                        )
+                                                                                                    } else if (RFC.getFunction() == "requestzombiecancelattack") {
+                                                                                                        val ip =
+                                                                                                            (RFC.getParameters() as Array<Any?>?)!![0] as String?
+                                                                                                        val port =
+                                                                                                            (RFC.getParameters() as Array<Any?>?)!![1] as Int
+                                                                                                        var targetIP =
+                                                                                                            (RFC.getParameters() as Array<Any?>?)!![2] as String
+                                                                                                        targetIP =
+                                                                                                            crypt(
+                                                                                                                targetIP,
+                                                                                                                clientKey
+                                                                                                            )
+                                                                                                        MyComputerHandler!!.addData(
+                                                                                                            ApplicationData(
+                                                                                                                "requestcancelattack",
+                                                                                                                null,
+                                                                                                                port,
+                                                                                                                targetIP
+                                                                                                            ),
+                                                                                                            ip,
+                                                                                                            ApplicationData.OUTSIDE
+                                                                                                        )
+                                                                                                    } else if (RFC.getFunction() == "installapplication") {
+                                                                                                        var ip =
+                                                                                                            (RFC.getParameters() as Array<Any?>?)!![0] as String
+                                                                                                        ip = crypt(
+                                                                                                            ip,
+                                                                                                            clientKey
+                                                                                                        )
+                                                                                                        val port =
+                                                                                                            (RFC.getParameters() as Array<Any?>?)!![1] as Int
+                                                                                                        val path =
+                                                                                                            (RFC.getParameters() as Array<Any?>?)!![2] as String?
+                                                                                                        val name =
+                                                                                                            (RFC.getParameters() as Array<Any?>?)!![3] as String?
+                                                                                                        val Parameter: Array<String?>? =
+                                                                                                            arrayOf<String?>(
+                                                                                                                path,
+                                                                                                                name
+                                                                                                            )
+                                                                                                        MyComputerHandler!!.addData(
+                                                                                                            ApplicationData(
+                                                                                                                "installapplication",
+                                                                                                                Parameter,
+                                                                                                                port,
+                                                                                                                ip
+                                                                                                            ),
+                                                                                                            ip,
+                                                                                                            ApplicationData.OUTSIDE
+                                                                                                        )
+                                                                                                    } else if (RFC.getFunction() == "installwatch") {
+                                                                                                        var ip =
+                                                                                                            (RFC.getParameters() as Array<Any?>?)!![0] as String
+                                                                                                        ip = crypt(
+                                                                                                            ip,
+                                                                                                            clientKey
+                                                                                                        )
+                                                                                                        val path =
+                                                                                                            (RFC.getParameters() as Array<Any?>?)!![1] as String?
+                                                                                                        val name =
+                                                                                                            (RFC.getParameters() as Array<Any?>?)!![2] as String?
+                                                                                                        val type =
+                                                                                                            (RFC.getParameters() as Array<Any?>?)!![3] as Int
+                                                                                                        val port =
+                                                                                                            (RFC.getParameters() as Array<Any?>?)!![4] as Int
+                                                                                                        val Parameter: Array<Any?>? =
+                                                                                                            arrayOf<Any?>(
+                                                                                                                path,
+                                                                                                                name,
+                                                                                                                type
+                                                                                                            )
+                                                                                                        MyComputerHandler!!.addData(
+                                                                                                            ApplicationData(
+                                                                                                                "installwatch",
+                                                                                                                Parameter,
+                                                                                                                port,
+                                                                                                                ip
+                                                                                                            ),
+                                                                                                            ip,
+                                                                                                            ApplicationData.OUTSIDE
+                                                                                                        )
+                                                                                                    } else if (RFC.getFunction() == "setwatchobservedports") {
+                                                                                                        var ip =
+                                                                                                            (RFC.getParameters() as Array<Any?>?)!![0] as String
+                                                                                                        ip = crypt(
+                                                                                                            ip,
+                                                                                                            clientKey
+                                                                                                        )
+                                                                                                        val watchID =
+                                                                                                            (RFC.getParameters() as Array<Any?>?)!![1] as Int?
+                                                                                                        val ObservedPorts =
+                                                                                                            (RFC.getParameters() as Array<Any?>?)!![2] as Array<Int?>?
+                                                                                                        val Parameter: Array<Any?>? =
+                                                                                                            arrayOf<Any?>(
+                                                                                                                watchID,
+                                                                                                                ObservedPorts
+                                                                                                            )
+                                                                                                        MyComputerHandler!!.addData(
+                                                                                                            ApplicationData(
+                                                                                                                "setwatchobservedports",
+                                                                                                                Parameter,
+                                                                                                                0,
+                                                                                                                ip
+                                                                                                            ),
+                                                                                                            ip,
+                                                                                                            ApplicationData.OUTSIDE
+                                                                                                        )
+                                                                                                    } else if (RFC.getFunction() == "installfirewall") {
+                                                                                                        var ip =
+                                                                                                            (RFC.getParameters() as Array<Any?>?)!![0] as String
+                                                                                                        ip = crypt(
+                                                                                                            ip,
+                                                                                                            clientKey
+                                                                                                        )
+                                                                                                        val port =
+                                                                                                            (RFC.getParameters() as Array<Any?>?)!![1] as Int
+                                                                                                        val path =
+                                                                                                            (RFC.getParameters() as Array<Any?>?)!![2] as String?
+                                                                                                        val name =
+                                                                                                            (RFC.getParameters() as Array<Any?>?)!![3] as String?
+                                                                                                        val Parameter: Array<String?>? =
+                                                                                                            arrayOf<String?>(
+                                                                                                                path,
+                                                                                                                name
+                                                                                                            )
+                                                                                                        MyComputerHandler!!.addData(
+                                                                                                            ApplicationData(
+                                                                                                                "installfirewall",
+                                                                                                                Parameter,
+                                                                                                                port,
+                                                                                                                ip
+                                                                                                            ),
+                                                                                                            ip,
+                                                                                                            ApplicationData.OUTSIDE
+                                                                                                        )
+                                                                                                    } else if (RFC.getFunction() == "replaceapplication") {
+                                                                                                        var ip =
+                                                                                                            (RFC.getParameters() as Array<Any?>?)!![0] as String
+                                                                                                        ip = crypt(
+                                                                                                            ip,
+                                                                                                            clientKey
+                                                                                                        )
+                                                                                                        val port =
+                                                                                                            (RFC.getParameters() as Array<Any?>?)!![1] as Int
+                                                                                                        val path =
+                                                                                                            (RFC.getParameters() as Array<Any?>?)!![2] as String?
+                                                                                                        val name =
+                                                                                                            (RFC.getParameters() as Array<Any?>?)!![3] as String?
+                                                                                                        val Parameter: Array<String?>? =
+                                                                                                            arrayOf<String?>(
+                                                                                                                path,
+                                                                                                                name
+                                                                                                            )
+                                                                                                        MyComputerHandler!!.addData(
+                                                                                                            ApplicationData(
+                                                                                                                "replaceapplication",
+                                                                                                                Parameter,
+                                                                                                                port,
+                                                                                                                ip
+                                                                                                            ),
+                                                                                                            ip,
+                                                                                                            ApplicationData.OUTSIDE
+                                                                                                        )
+                                                                                                    } else if (RFC.getFunction() == "uninstallport") {
+                                                                                                        var ip =
+                                                                                                            (RFC.getParameters() as Array<Any?>?)!![0] as String
+                                                                                                        ip = crypt(
+                                                                                                            ip,
+                                                                                                            clientKey
+                                                                                                        )
+                                                                                                        val port =
+                                                                                                            (RFC.getParameters() as Array<Any?>?)!![1] as Int
+                                                                                                        MyComputerHandler!!.addData(
+                                                                                                            ApplicationData(
+                                                                                                                "uninstallport",
+                                                                                                                port,
+                                                                                                                port,
+                                                                                                                ip
+                                                                                                            ),
+                                                                                                            ip,
+                                                                                                            ApplicationData.OUTSIDE
+                                                                                                        )
+                                                                                                    } else if (RFC.getFunction() == "portonoff") {
+                                                                                                        var ip =
+                                                                                                            (RFC.getParameters() as Array<Any?>?)!![0] as String
+                                                                                                        ip = crypt(
+                                                                                                            ip,
+                                                                                                            clientKey
+                                                                                                        )
+                                                                                                        val port =
+                                                                                                            (RFC.getParameters() as Array<Any?>?)!![1] as Int
+                                                                                                        val on =
+                                                                                                            (RFC.getParameters() as Array<Any?>?)!![2] as Boolean?
+                                                                                                        MyComputerHandler!!.addData(
+                                                                                                            ApplicationData(
+                                                                                                                "portonoff",
+                                                                                                                on,
+                                                                                                                port,
+                                                                                                                ip
+                                                                                                            ),
+                                                                                                            ip,
+                                                                                                            ApplicationData.OUTSIDE
+                                                                                                        )
+                                                                                                    } else if (RFC.getFunction() == "peekcode") {
+                                                                                                        var ip =
+                                                                                                            (RFC.getParameters() as Array<Any?>?)!![0] as String
+                                                                                                        ip = crypt(
+                                                                                                            ip,
+                                                                                                            clientKey
+                                                                                                        )
+                                                                                                        val targetIP =
+                                                                                                            (RFC.getParameters() as Array<Any?>?)!![1] as String?
+                                                                                                        val port =
+                                                                                                            (RFC.getParameters() as Array<Any?>?)!![2] as Int
+                                                                                                        MyComputerHandler!!.addData(
+                                                                                                            ApplicationData(
+                                                                                                                "peekcode",
+                                                                                                                null,
+                                                                                                                port,
+                                                                                                                ip
+                                                                                                            ),
+                                                                                                            targetIP,
+                                                                                                            ApplicationData.OUTSIDE
+                                                                                                        )
+                                                                                                    } else if (RFC.getFunction() == "peeklogs") {
+                                                                                                        var ip =
+                                                                                                            (RFC.getParameters() as Array<Any?>?)!![0] as String
+                                                                                                        ip = crypt(
+                                                                                                            ip,
+                                                                                                            clientKey
+                                                                                                        )
+                                                                                                        val targetIP =
+                                                                                                            (RFC.getParameters() as Array<Any?>?)!![1] as String?
+                                                                                                        val port =
+                                                                                                            (RFC.getParameters() as Array<Any?>?)!![2] as Int
+                                                                                                        MyComputerHandler!!.addData(
+                                                                                                            ApplicationData(
+                                                                                                                "peeklogs",
+                                                                                                                null,
+                                                                                                                port,
+                                                                                                                ip
+                                                                                                            ),
+                                                                                                            targetIP,
+                                                                                                            ApplicationData.OUTSIDE
+                                                                                                        )
+                                                                                                    } else if (RFC.getFunction() == "saveportnote") {
+                                                                                                        var ip =
+                                                                                                            (RFC.getParameters() as Array<Any?>?)!![0] as String
+                                                                                                        ip = crypt(
+                                                                                                            ip,
+                                                                                                            clientKey
+                                                                                                        )
+                                                                                                        val port =
+                                                                                                            (RFC.getParameters() as Array<Any?>?)!![1] as Int
+                                                                                                        val note =
+                                                                                                            (RFC.getParameters() as Array<Any?>?)!![2] as String?
+                                                                                                        MyComputerHandler!!.addData(
+                                                                                                            ApplicationData(
+                                                                                                                "saveportnote",
+                                                                                                                note,
+                                                                                                                port,
+                                                                                                                ip
+                                                                                                            ),
+                                                                                                            ip,
+                                                                                                            ApplicationData.OUTSIDE
+                                                                                                        )
+                                                                                                    } else if (RFC.getFunction() == "setwatchquantity") {
+                                                                                                        var ip =
+                                                                                                            (RFC.getParameters() as Array<Any?>?)!![0] as String
+                                                                                                        ip = crypt(
+                                                                                                            ip,
+                                                                                                            clientKey
+                                                                                                        )
+                                                                                                        val watchID =
+                                                                                                            (RFC.getParameters() as Array<Any?>?)!![1] as Int?
+                                                                                                        val quantity =
+                                                                                                            (RFC.getParameters() as Array<Any?>?)!![2] as Float?
+                                                                                                        val O: Any =
+                                                                                                            arrayOf<Any?>(
+                                                                                                                watchID,
+                                                                                                                quantity
+                                                                                                            )
+                                                                                                        MyComputerHandler!!.addData(
+                                                                                                            ApplicationData(
+                                                                                                                "setwatchquantity",
+                                                                                                                O,
+                                                                                                                0,
+                                                                                                                ip
+                                                                                                            ),
+                                                                                                            ip,
+                                                                                                            ApplicationData.OUTSIDE
+                                                                                                        )
+                                                                                                    } else if (RFC.getFunction() == "setwatchonoff") {
+                                                                                                        var ip =
+                                                                                                            (RFC.getParameters() as Array<Any?>?)!![0] as String
+                                                                                                        ip = crypt(
+                                                                                                            ip,
+                                                                                                            clientKey
+                                                                                                        )
+                                                                                                        val watchID =
+                                                                                                            (RFC.getParameters() as Array<Any?>?)!![1] as Int?
+                                                                                                        val state =
+                                                                                                            (RFC.getParameters() as Array<Any?>?)!![2] as Boolean?
+                                                                                                        val O: Any =
+                                                                                                            arrayOf<Any?>(
+                                                                                                                watchID,
+                                                                                                                state
+                                                                                                            )
+                                                                                                        MyComputerHandler!!.addData(
+                                                                                                            ApplicationData(
+                                                                                                                "setwatchonoff",
+                                                                                                                O,
+                                                                                                                0,
+                                                                                                                ip
+                                                                                                            ),
+                                                                                                            ip,
+                                                                                                            ApplicationData.OUTSIDE
+                                                                                                        )
+                                                                                                    } else if (RFC.getFunction() == "setwatchnote") {
+                                                                                                        var ip =
+                                                                                                            (RFC.getParameters() as Array<Any?>?)!![0] as String
+                                                                                                        ip = crypt(
+                                                                                                            ip,
+                                                                                                            clientKey
+                                                                                                        )
+                                                                                                        val watchID =
+                                                                                                            (RFC.getParameters() as Array<Any?>?)!![1] as Int?
+                                                                                                        val note =
+                                                                                                            (RFC.getParameters() as Array<Any?>?)!![2] as String?
+                                                                                                        val O: Any =
+                                                                                                            arrayOf<Any?>(
+                                                                                                                watchID,
+                                                                                                                note
+                                                                                                            )
+                                                                                                        MyComputerHandler!!.addData(
+                                                                                                            ApplicationData(
+                                                                                                                "setwatchnote",
+                                                                                                                O,
+                                                                                                                0,
+                                                                                                                ip
+                                                                                                            ),
+                                                                                                            ip,
+                                                                                                            ApplicationData.OUTSIDE
+                                                                                                        )
+                                                                                                    } else if (RFC.getFunction() == "setwatchsearchfirewall") {
+                                                                                                        var ip =
+                                                                                                            (RFC.getParameters() as Array<Any?>?)!![0] as String
+                                                                                                        ip = crypt(
+                                                                                                            ip,
+                                                                                                            clientKey
+                                                                                                        )
+                                                                                                        val watchID =
+                                                                                                            (RFC.getParameters() as Array<Any?>?)!![1] as Int?
+                                                                                                        val searchFireWall =
+                                                                                                            (RFC.getParameters() as Array<Any?>?)!![2] as Int?
+                                                                                                        val O: Any =
+                                                                                                            arrayOf<Any?>(
+                                                                                                                watchID,
+                                                                                                                searchFireWall
+                                                                                                            )
+                                                                                                        MyComputerHandler!!.addData(
+                                                                                                            ApplicationData(
+                                                                                                                "setwatchsearchfirewall",
+                                                                                                                O,
+                                                                                                                0,
+                                                                                                                ip
+                                                                                                            ),
+                                                                                                            ip,
+                                                                                                            ApplicationData.OUTSIDE
+                                                                                                        )
+                                                                                                    } else if (RFC.getFunction() == "deletewatch") {
+                                                                                                        var ip =
+                                                                                                            (RFC.getParameters() as Array<Any?>?)!![0] as String
+                                                                                                        ip = crypt(
+                                                                                                            ip,
+                                                                                                            clientKey
+                                                                                                        )
+                                                                                                        val watchID =
+                                                                                                            (RFC.getParameters() as Array<Any?>?)!![1] as Int?
+                                                                                                        val O: Any =
+                                                                                                            arrayOf<Any?>(
+                                                                                                                watchID
+                                                                                                            )
+                                                                                                        MyComputerHandler!!.addData(
+                                                                                                            ApplicationData(
+                                                                                                                "deletewatch",
+                                                                                                                O,
+                                                                                                                0,
+                                                                                                                ip
+                                                                                                            ),
+                                                                                                            ip,
+                                                                                                            ApplicationData.OUTSIDE
+                                                                                                        )
+                                                                                                    } else if (RFC.getFunction() == "deletefirewall") {
+                                                                                                        var ip =
+                                                                                                            (RFC.getParameters() as Array<Any?>?)!![0] as String
+                                                                                                        ip = crypt(
+                                                                                                            ip,
+                                                                                                            clientKey
+                                                                                                        )
+                                                                                                        val portID =
+                                                                                                            (RFC.getParameters() as Array<Any?>?)!![1] as Int?
+                                                                                                        MyComputerHandler!!.addData(
+                                                                                                            ApplicationData(
+                                                                                                                "deletefirewall",
+                                                                                                                portID,
+                                                                                                                0,
+                                                                                                                ip
+                                                                                                            ),
+                                                                                                            ip,
+                                                                                                            ApplicationData.OUTSIDE
+                                                                                                        )
+                                                                                                    } else if (RFC.getFunction() == "changewatchport") {
+                                                                                                        var ip =
+                                                                                                            (RFC.getParameters() as Array<Any?>?)!![0] as String
+                                                                                                        ip = crypt(
+                                                                                                            ip,
+                                                                                                            clientKey
+                                                                                                        )
+                                                                                                        val WatchID =
+                                                                                                            (RFC.getParameters() as Array<Any?>?)!![1] as Int?
+                                                                                                        val PortID =
+                                                                                                            (RFC.getParameters() as Array<Any?>?)!![2] as Int?
+                                                                                                        val I: Array<Int?>? =
+                                                                                                            arrayOf<Int?>(
+                                                                                                                WatchID,
+                                                                                                                PortID
+                                                                                                            )
+                                                                                                        MyComputerHandler!!.addData(
+                                                                                                            ApplicationData(
+                                                                                                                "changewatchport",
+                                                                                                                I,
+                                                                                                                0,
+                                                                                                                ip
+                                                                                                            ),
+                                                                                                            ip,
+                                                                                                            ApplicationData.OUTSIDE
+                                                                                                        )
+                                                                                                    } else if (RFC.getFunction() == "changewatchtype") {
+                                                                                                        var ip =
+                                                                                                            (RFC.getParameters() as Array<Any?>?)!![0] as String
+                                                                                                        ip = crypt(
+                                                                                                            ip,
+                                                                                                            clientKey
+                                                                                                        )
+                                                                                                        val WatchID =
+                                                                                                            (RFC.getParameters() as Array<Any?>?)!![1] as Int?
+                                                                                                        val PortID =
+                                                                                                            (RFC.getParameters() as Array<Any?>?)!![2] as Int?
+                                                                                                        val I: Array<Int?>? =
+                                                                                                            arrayOf<Int?>(
+                                                                                                                WatchID,
+                                                                                                                PortID
+                                                                                                            )
+                                                                                                        MyComputerHandler!!.addData(
+                                                                                                            ApplicationData(
+                                                                                                                "changewatchtype",
+                                                                                                                I,
+                                                                                                                0,
+                                                                                                                ip
+                                                                                                            ),
+                                                                                                            ip,
+                                                                                                            ApplicationData.OUTSIDE
+                                                                                                        )
                                                                                                     }
 
-                        if (RFC.getFunction().equals("deletefolder")) {
-                            String ip = (String) ((Object[]) RFC.getParameters())[0];
-                            ip = crypt(ip, clientKey);
-                            String directory = (String) ((Object[]) RFC.getParameters())[1];
-                            MyComputerHandler.addData(new ApplicationData("deletefolder", directory, 0, ip), ip, ApplicationData.OUTSIDE);
-                        } else if (RFC.getFunction().equals("setdummyport")) {
-                            String ip = (String) ((Object[]) RFC.getParameters())[0];
-                            ip = crypt(ip, clientKey);
-                            int port = (Integer) ((Object[]) RFC.getParameters())[1];
-                            Boolean dummy = (Boolean) ((Object[]) RFC.getParameters())[2];
-                            MyComputerHandler.addData(new ApplicationData("setdummyport", dummy, port, ip), ip, ApplicationData.OUTSIDE);
-                        } else if (RFC.getFunction().equals("changedailypay")) {
-                            Object[] parameters = (Object[]) RFC.getParameters();
-                            String ip = (String) parameters[0];
-                            int port = (Integer) parameters[1];
-                            String change = (String) parameters[2];
-                            String finalizeIP = (String) parameters[3];
-                            int attackPort = (Integer) parameters[4];
-                            finalizeIP = crypt(finalizeIP, clientKey);
+                        if (RFC.getFunction() == "deletefolder") {
+                            var ip = (RFC.getParameters() as Array<Any?>?)!![0] as String
+                            ip = crypt(ip, clientKey)
+                            val directory = (RFC.getParameters() as Array<Any?>?)!![1] as String?
+                            MyComputerHandler!!.addData(
+                                ApplicationData("deletefolder", directory, 0, ip),
+                                ip,
+                                ApplicationData.OUTSIDE
+                            )
+                        } else if (RFC.getFunction() == "setdummyport") {
+                            var ip = (RFC.getParameters() as Array<Any?>?)!![0] as String
+                            ip = crypt(ip, clientKey)
+                            val port = (RFC.getParameters() as Array<Any?>?)!![1] as Int
+                            val dummy = (RFC.getParameters() as Array<Any?>?)!![2] as Boolean?
+                            MyComputerHandler!!.addData(
+                                ApplicationData("setdummyport", dummy, port, ip),
+                                ip,
+                                ApplicationData.OUTSIDE
+                            )
+                        } else if (RFC.getFunction() == "changedailypay") {
+                            val parameters = RFC.getParameters() as Array<Any?>
+                            val ip = parameters[0] as String?
+                            val port = parameters[1] as Int
+                            val change = parameters[2] as String?
+                            var finalizeIP = parameters[3] as String
+                            val attackPort = parameters[4] as Int
+                            finalizeIP = crypt(finalizeIP, clientKey)
 
-                            MyComputerHandler.addData(new ApplicationData("changedailypay", new Object[]{change, attackPort}, port, finalizeIP), ip, ApplicationData.OUTSIDE);
-                        } else if (RFC.getFunction().equals("deletelogs")) {
-                            String ip = (String) ((Object[]) RFC.getParameters())[0];
-                            ip = crypt(ip, clientKey);
-                            MyComputerHandler.addData(new ApplicationData("deletelogs", null, 0, ip), ip, ApplicationData.OUTSIDE);
-                        } else if (RFC.getFunction().equals("createfolder")) {
-                            String ip = (String) ((Object[]) RFC.getParameters())[0];
-                            ip = crypt(ip, clientKey);
-                            String directory = (String) ((Object[]) RFC.getParameters())[1];
-                            MyComputerHandler.addData(new ApplicationData("createfolder", directory, 0, ip), ip, ApplicationData.OUTSIDE);
-                        } else if (RFC.getFunction().equals("put")) {
-                            String ip = (String) ((Object[]) RFC.getParameters())[0];
-                            int port = (Integer) ((Object[]) RFC.getParameters())[1];
-                            String name = (String) ((Object[]) RFC.getParameters())[2];
-                            String fetch_path = (String) ((Object[]) RFC.getParameters())[3];
-                            String put_path = (String) ((Object[]) RFC.getParameters())[4];
-                            String targetIP = (String) ((Object[]) RFC.getParameters())[5];
-                            targetIP = crypt(targetIP, clientKey);
-                            String password = (String) ((Object[]) RFC.getParameters())[6];
-                            Integer quantity = (Integer) ((Object[]) RFC.getParameters())[7];
-                            Object Parameter[] = new Object[]{ip, name, fetch_path, put_path, password, quantity};
-                            MyComputerHandler.addData(new ApplicationData("put", Parameter, port, targetIP), targetIP, ApplicationData.OUTSIDE);
-                        } else if (RFC.getFunction().equals("get")) {
-                            String ip = (String) ((Object[]) RFC.getParameters())[0];
-                            int port = (Integer) ((Object[]) RFC.getParameters())[1];
-                            String name = (String) ((Object[]) RFC.getParameters())[2];
-                            String fetch_path = (String) ((Object[]) RFC.getParameters())[3];
-                            String put_path = (String) ((Object[]) RFC.getParameters())[4];
-                            String targetIP = (String) ((Object[]) RFC.getParameters())[5];
-                            targetIP = crypt(targetIP, clientKey);
-                            String password = (String) ((Object[]) RFC.getParameters())[6];
-                            Integer quantity = (Integer) ((Object[]) RFC.getParameters())[7];
-                            Object Parameter[] = new Object[]{targetIP, name, fetch_path, put_path, password, quantity};
-                            MyComputerHandler.addData(new ApplicationData("get", Parameter, port, ip), ip, ApplicationData.OUTSIDE);
-                        } else if (RFC.getFunction().equals("malget")) {
-                            Object[] parameters = (Object[]) RFC.getParameters();
-                            String ip = (String) parameters[0];
-                            int port = (Integer) parameters[1];
-                            String name = (String) parameters[2];
-                            String fetch_path = (String) parameters[3];
-                            String put_path = (String) parameters[4];
-                            String targetIP = (String) parameters[5];
-                            int attackPort = (Integer) parameters[6];
-                            targetIP = crypt(targetIP, clientKey);
-                            Object Parameter[] = new Object[]{targetIP, name, fetch_path, put_path, "", port, attackPort};
-                            MyComputerHandler.addData(new ApplicationData("malget", Parameter, port, targetIP), ip, ApplicationData.OUTSIDE);
-                        } else if (RFC.getFunction().equals("requestfile")) {
-                            String ip = (String) ((Object[]) RFC.getParameters())[0];
-                            ip = crypt(ip, clientKey);
-                            String path = (String) ((Object[]) RFC.getParameters())[1];
-                            String name = (String) ((Object[]) RFC.getParameters())[2];
-                            String Parameter[] = new String[]{path, name};
-                            MyComputerHandler.addData(new ApplicationData("requestfile", Parameter, 0, ip), ip, ApplicationData.OUTSIDE);
-                        } else if (RFC.getFunction().equals("requestgame")) {
-                            String ip = (String) ((Object[]) RFC.getParameters())[0];
-                            ip = crypt(ip, clientKey);
-                            String path = (String) ((Object[]) RFC.getParameters())[1];
-                            String name = (String) ((Object[]) RFC.getParameters())[2];
-                            String Parameter[] = new String[]{path, name};
-                            MyComputerHandler.addData(new ApplicationData("requestgame", Parameter, 0, ip), ip, ApplicationData.OUTSIDE);
-                        } else if (RFC.getFunction().equals("requestscan")) {
-                            String ip = (String) ((Object[]) RFC.getParameters())[0];
-                            ip = crypt(ip, clientKey);
-                            String targetIP = (String) ((Object[]) RFC.getParameters())[1];
-                            if (!ip.equals(targetIP))
-                                MyComputerHandler.addData(new ApplicationData("requestscan", ip, 0, ip), targetIP, ApplicationData.OUTSIDE);
-                        } else if (RFC.getFunction().equals("savefile")) {
-                            String ip = (String) ((Object[]) RFC.getParameters())[0];
-                            ip = crypt(ip, clientKey);
-                            String path = (String) ((Object[]) RFC.getParameters())[1];
-                            HackerFile name = (HackerFile) ((Object[]) RFC.getParameters())[2];
-                            Object Parameter[] = new Object[]{path, name};
-                            MyComputerHandler.addData(new ApplicationData("savefile", Parameter, 0, ip), ip, ApplicationData.OUTSIDE);
-                        } else if (RFC.getFunction().equals("compilefile")) {
-                            String ip = (String) ((Object[]) RFC.getParameters())[0];
-                            ip = crypt(ip, clientKey);
-                            String path = (String) ((Object[]) RFC.getParameters())[1];
-                            HackerFile name = (HackerFile) ((Object[]) RFC.getParameters())[2];
-                            Float price = (Float) ((Object[]) RFC.getParameters())[3];
-                            Object Parameter[] = new Object[]{path, name, price};
-                            MyComputerHandler.addData(new ApplicationData("compilefile", Parameter, 0, ip), ip, ApplicationData.OUTSIDE);
-                        } else if (RFC.getFunction().equals("deletemulti")) {
-                            String ip = (String) ((Object[]) RFC.getParameters())[0];
-                            ip = crypt(ip, clientKey);
+                            MyComputerHandler!!.addData(
+                                ApplicationData(
+                                    "changedailypay",
+                                    arrayOf<Any?>(change, attackPort),
+                                    port,
+                                    finalizeIP
+                                ), ip, ApplicationData.OUTSIDE
+                            )
+                        } else if (RFC.getFunction() == "deletelogs") {
+                            var ip = (RFC.getParameters() as Array<Any?>?)!![0] as String
+                            ip = crypt(ip, clientKey)
+                            MyComputerHandler!!.addData(
+                                ApplicationData("deletelogs", null, 0, ip),
+                                ip,
+                                ApplicationData.OUTSIDE
+                            )
+                        } else if (RFC.getFunction() == "createfolder") {
+                            var ip = (RFC.getParameters() as Array<Any?>?)!![0] as String
+                            ip = crypt(ip, clientKey)
+                            val directory = (RFC.getParameters() as Array<Any?>?)!![1] as String?
+                            MyComputerHandler!!.addData(
+                                ApplicationData("createfolder", directory, 0, ip),
+                                ip,
+                                ApplicationData.OUTSIDE
+                            )
+                        } else if (RFC.getFunction() == "put") {
+                            val ip = (RFC.getParameters() as Array<Any?>?)!![0] as String?
+                            val port = (RFC.getParameters() as Array<Any?>?)!![1] as Int
+                            val name = (RFC.getParameters() as Array<Any?>?)!![2] as String?
+                            val fetch_path = (RFC.getParameters() as Array<Any?>?)!![3] as String?
+                            val put_path = (RFC.getParameters() as Array<Any?>?)!![4] as String?
+                            var targetIP = (RFC.getParameters() as Array<Any?>?)!![5] as String
+                            targetIP = crypt(targetIP, clientKey)
+                            val password = (RFC.getParameters() as Array<Any?>?)!![6] as String?
+                            val quantity = (RFC.getParameters() as Array<Any?>?)!![7] as Int?
+                            val Parameter: Array<Any?>? =
+                                arrayOf<Any?>(ip, name, fetch_path, put_path, password, quantity)
+                            MyComputerHandler!!.addData(
+                                ApplicationData("put", Parameter, port, targetIP),
+                                targetIP,
+                                ApplicationData.OUTSIDE
+                            )
+                        } else if (RFC.getFunction() == "get") {
+                            val ip = (RFC.getParameters() as Array<Any?>?)!![0] as String?
+                            val port = (RFC.getParameters() as Array<Any?>?)!![1] as Int
+                            val name = (RFC.getParameters() as Array<Any?>?)!![2] as String?
+                            val fetch_path = (RFC.getParameters() as Array<Any?>?)!![3] as String?
+                            val put_path = (RFC.getParameters() as Array<Any?>?)!![4] as String?
+                            var targetIP = (RFC.getParameters() as Array<Any?>?)!![5] as String
+                            targetIP = crypt(targetIP, clientKey)
+                            val password = (RFC.getParameters() as Array<Any?>?)!![6] as String?
+                            val quantity = (RFC.getParameters() as Array<Any?>?)!![7] as Int?
+                            val Parameter: Array<Any?>? =
+                                arrayOf<Any?>(targetIP, name, fetch_path, put_path, password, quantity)
+                            MyComputerHandler!!.addData(
+                                ApplicationData("get", Parameter, port, ip),
+                                ip,
+                                ApplicationData.OUTSIDE
+                            )
+                        } else if (RFC.getFunction() == "malget") {
+                            val parameters = RFC.getParameters() as Array<Any?>
+                            val ip = parameters[0] as String?
+                            val port = parameters[1] as Int
+                            val name = parameters[2] as String?
+                            val fetch_path = parameters[3] as String?
+                            val put_path = parameters[4] as String?
+                            var targetIP = parameters[5] as String
+                            val attackPort = parameters[6] as Int
+                            targetIP = crypt(targetIP, clientKey)
+                            val Parameter: Array<Any?>? =
+                                arrayOf<Any?>(targetIP, name, fetch_path, put_path, "", port, attackPort)
+                            MyComputerHandler!!.addData(
+                                ApplicationData("malget", Parameter, port, targetIP),
+                                ip,
+                                ApplicationData.OUTSIDE
+                            )
+                        } else if (RFC.getFunction() == "requestfile") {
+                            var ip = (RFC.getParameters() as Array<Any?>?)!![0] as String
+                            ip = crypt(ip, clientKey)
+                            val path = (RFC.getParameters() as Array<Any?>?)!![1] as String?
+                            val name = (RFC.getParameters() as Array<Any?>?)!![2] as String?
+                            val Parameter: Array<String?>? = arrayOf<String?>(path, name)
+                            MyComputerHandler!!.addData(
+                                ApplicationData("requestfile", Parameter, 0, ip),
+                                ip,
+                                ApplicationData.OUTSIDE
+                            )
+                        } else if (RFC.getFunction() == "requestgame") {
+                            var ip = (RFC.getParameters() as Array<Any?>?)!![0] as String
+                            ip = crypt(ip, clientKey)
+                            val path = (RFC.getParameters() as Array<Any?>?)!![1] as String?
+                            val name = (RFC.getParameters() as Array<Any?>?)!![2] as String?
+                            val Parameter: Array<String?>? = arrayOf<String?>(path, name)
+                            MyComputerHandler!!.addData(
+                                ApplicationData("requestgame", Parameter, 0, ip),
+                                ip,
+                                ApplicationData.OUTSIDE
+                            )
+                        } else if (RFC.getFunction() == "requestscan") {
+                            var ip = (RFC.getParameters() as Array<Any?>?)!![0] as String
+                            ip = crypt(ip, clientKey)
+                            val targetIP = (RFC.getParameters() as Array<Any?>?)!![1] as String?
+                            if (ip != targetIP) MyComputerHandler!!.addData(
+                                ApplicationData("requestscan", ip, 0, ip),
+                                targetIP,
+                                ApplicationData.OUTSIDE
+                            )
+                        } else if (RFC.getFunction() == "savefile") {
+                            var ip = (RFC.getParameters() as Array<Any?>?)!![0] as String
+                            ip = crypt(ip, clientKey)
+                            val path = (RFC.getParameters() as Array<Any?>?)!![1] as String?
+                            val name = (RFC.getParameters() as Array<Any?>?)!![2] as HackerFile?
+                            val Parameter: Array<Any?>? = arrayOf<Any?>(path, name)
+                            MyComputerHandler!!.addData(
+                                ApplicationData("savefile", Parameter, 0, ip),
+                                ip,
+                                ApplicationData.OUTSIDE
+                            )
+                        } else if (RFC.getFunction() == "compilefile") {
+                            var ip = (RFC.getParameters() as Array<Any?>?)!![0] as String
+                            ip = crypt(ip, clientKey)
+                            val path = (RFC.getParameters() as Array<Any?>?)!![1] as String?
+                            val name = (RFC.getParameters() as Array<Any?>?)!![2] as HackerFile?
+                            val price = (RFC.getParameters() as Array<Any?>?)!![3] as Float?
+                            val Parameter: Array<Any?>? = arrayOf<Any?>(path, name, price)
+                            MyComputerHandler!!.addData(
+                                ApplicationData("compilefile", Parameter, 0, ip),
+                                ip,
+                                ApplicationData.OUTSIDE
+                            )
+                        } else if (RFC.getFunction() == "deletemulti") {
+                            var ip = (RFC.getParameters() as Array<Any?>?)!![0] as String
+                            ip = crypt(ip, clientKey)
 
-                            Object[] allFiles = (Object[]) ((Object[]) RFC.getParameters())[1];
-                            Object parameters[] = new Object[]{allFiles};
-                            MyComputerHandler.addData(new ApplicationData("deletemulti", parameters, 0, ip), ip, ApplicationData.OUTSIDE);
+                            val allFiles = (RFC.getParameters() as Array<Any?>?)!![1] as Array<Any?>?
+                            val parameters: Array<Any?>? = arrayOf<Any?>(allFiles)
+                            MyComputerHandler!!.addData(
+                                ApplicationData("deletemulti", parameters, 0, ip),
+                                ip,
+                                ApplicationData.OUTSIDE
+                            )
+                        } else if (RFC.getFunction() == "deletefile") {
+                            var ip = (RFC.getParameters() as Array<Any?>?)!![0] as String
+                            ip = crypt(ip, clientKey)
+                            val path = (RFC.getParameters() as Array<Any?>?)!![1] as String?
+                            val name = (RFC.getParameters() as Array<Any?>?)!![2] as String?
+                            val Parameter: Array<Any?>? = arrayOf<Any?>(path, name)
+                            MyComputerHandler!!.addData(
+                                ApplicationData("deletefile", Parameter, 0, ip),
+                                ip,
+                                ApplicationData.OUTSIDE
+                            )
+                        } else if (RFC.getFunction() == "setfiledescription") {
+                            var ip = (RFC.getParameters() as Array<Any?>?)!![0] as String
+                            ip = crypt(ip, clientKey)
+                            val path = (RFC.getParameters() as Array<Any?>?)!![1] as String?
+                            val name = (RFC.getParameters() as Array<Any?>?)!![2] as String?
+                            val description = (RFC.getParameters() as Array<Any?>?)!![3] as String?
+                            val Parameter: Array<Any?>? = arrayOf<Any?>(path, name, description)
+                            MyComputerHandler!!.addData(
+                                ApplicationData("setfiledescription", Parameter, 0, ip),
+                                ip,
+                                ApplicationData.OUTSIDE
+                            )
+                        } else if (RFC.getFunction() == "setfileprice") {
+                            var ip = (RFC.getParameters() as Array<Any?>?)!![0] as String
+                            ip = crypt(ip, clientKey)
+                            val path = (RFC.getParameters() as Array<Any?>?)!![1] as String?
+                            val name = (RFC.getParameters() as Array<Any?>?)!![2] as String?
+                            val price = (RFC.getParameters() as Array<Any?>?)!![3] as Float?
+                            val Parameter: Array<Any?>? = arrayOf<Any?>(path, name, price)
+                            MyComputerHandler!!.addData(
+                                ApplicationData("setfileprice", Parameter, 0, ip),
+                                ip,
+                                ApplicationData.OUTSIDE
+                            )
+                        } else if (RFC.getFunction() == "emptypettycash") {
+                            val parameters = RFC.getParameters() as Array<Any?>
+                            var ip = parameters[0] as String
+                            ip = crypt(ip, clientKey)
+                            val targetIP = parameters[1] as String?
+                            val targetPort = parameters[2] as Int
+                            val windowHandle = parameters[3] as Int
+                            MyComputerHandler!!.addData(
+                                ApplicationData("emptyPettyCash", windowHandle, targetPort, ip),
+                                targetIP,
+                                ApplicationData.OUTSIDE
+                            )
+                        } else if (RFC.getFunction() == "finalizecancelled") {
+                            var ip = (RFC.getParameters() as Array<Any?>?)!![0] as String
+                            ip = crypt(ip, clientKey)
+                            val targetIP = (RFC.getParameters() as Array<Any?>?)!![1] as String?
+                            val targetPort = (RFC.getParameters() as Array<Any?>?)!![2] as Int
+                            MyComputerHandler!!.addData(
+                                ApplicationData("finalizecancelled", null, targetPort, ip),
+                                targetIP,
+                                ApplicationData.OUTSIDE
+                            )
+                        } else if (RFC.getFunction() == "requestattack") {
+                            val parameters = RFC.getParameters() as Array<Any?>
+                            val targetIP = parameters[0] as String
+                            val targetPort = parameters[1] as Int
+                            var sourceIP = parameters[2] as String
+                            sourceIP = crypt(sourceIP, clientKey)
 
-                        } else if (RFC.getFunction().equals("deletefile")) {
-                            String ip = (String) ((Object[]) RFC.getParameters())[0];
-                            ip = crypt(ip, clientKey);
-                            String path = (String) ((Object[]) RFC.getParameters())[1];
-                            String name = (String) ((Object[]) RFC.getParameters())[2];
-                            Object Parameter[] = new Object[]{path, name};
-                            MyComputerHandler.addData(new ApplicationData("deletefile", Parameter, 0, ip), ip, ApplicationData.OUTSIDE);
-                        } else if (RFC.getFunction().equals("setfiledescription")) {
-                            String ip = (String) ((Object[]) RFC.getParameters())[0];
-                            ip = crypt(ip, clientKey);
-                            String path = (String) ((Object[]) RFC.getParameters())[1];
-                            String name = (String) ((Object[]) RFC.getParameters())[2];
-                            String description = (String) ((Object[]) RFC.getParameters())[3];
-                            Object Parameter[] = new Object[]{path, name, description};
-                            MyComputerHandler.addData(new ApplicationData("setfiledescription", Parameter, 0, ip), ip, ApplicationData.OUTSIDE);
-                        } else if (RFC.getFunction().equals("setfileprice")) {
-                            String ip = (String) ((Object[]) RFC.getParameters())[0];
-                            ip = crypt(ip, clientKey);
-                            String path = (String) ((Object[]) RFC.getParameters())[1];
-                            String name = (String) ((Object[]) RFC.getParameters())[2];
-                            Float price = (Float) ((Object[]) RFC.getParameters())[3];
-                            Object Parameter[] = new Object[]{path, name, price};
-                            MyComputerHandler.addData(new ApplicationData("setfileprice", Parameter, 0, ip), ip, ApplicationData.OUTSIDE);
-                        } else if (RFC.getFunction().equals("emptypettycash")) {
-                            Object[] parameters = (Object[]) RFC.getParameters();
-                            String ip = (String) parameters[0];
-                            ip = crypt(ip, clientKey);
-                            String targetIP = (String) parameters[1];
-                            int targetPort = (Integer) parameters[2];
-                            int windowHandle = (Integer) parameters[3];
-                            MyComputerHandler.addData(new ApplicationData("emptyPettyCash", windowHandle, targetPort, ip), targetIP, ApplicationData.OUTSIDE);
-                        } else if (RFC.getFunction().equals("finalizecancelled")) {
-                            String ip = (String) ((Object[]) RFC.getParameters())[0];
-                            ip = crypt(ip, clientKey);
-                            String targetIP = (String) ((Object[]) RFC.getParameters())[1];
-                            int targetPort = (Integer) ((Object[]) RFC.getParameters())[2];
-                            MyComputerHandler.addData(new ApplicationData("finalizecancelled", null, targetPort, ip), targetIP, ApplicationData.OUTSIDE);
-                        } else if (RFC.getFunction().equals("requestattack")) {
-                            Object[] parameters = (Object[]) RFC.getParameters();
-                            String targetIP = (String) parameters[0];
-                            int targetPort = (Integer) parameters[1];
-                            String sourceIP = (String) parameters[2];
-                            sourceIP = crypt(sourceIP, clientKey);
+                            val sourcePort = parameters[3] as Int
 
-                            int sourcePort = (Integer) parameters[3];
+                            val secondaryPorts = parameters[4] as Array<Int?>?
+                            val scripts = parameters[5] as Array<Array<String?>?>?
+                            val extraInfo = parameters[6] as Array<Any?>?
+                            val windowHandle = parameters[7] as Int?
 
-                            Integer secondaryPorts[] = (Integer[]) parameters[4];
-                            String scripts[][] = (String[][]) parameters[5];
-                            Object extraInfo[] = (Object[]) parameters[6];
-                            Integer windowHandle = (Integer) parameters[7];
+                            val Parameters: Array<Any?>? =
+                                arrayOf<Any?>(targetIP, targetPort, secondaryPorts, scripts, extraInfo, windowHandle)
+                            val AD = ApplicationData("requestattack", Parameters, sourcePort, sourceIP)
 
-                            Object Parameters[] = new Object[]{targetIP, new Integer(targetPort), secondaryPorts, scripts, extraInfo, windowHandle};
-                            ApplicationData AD = new ApplicationData("requestattack", Parameters, sourcePort, sourceIP);
+                            if (targetIP != sourceIP && targetIP.indexOf("store") == -1) MyComputerHandler!!.addData(
+                                AD,
+                                sourceIP,
+                                ApplicationData.OUTSIDE
+                            )
+                        } else if (RFC.getFunction() == "requestzombieattack") {
+                            val targetIP = (RFC.getParameters() as Array<Any?>?)!![0] as String
+                            val targetPort = (RFC.getParameters() as Array<Any?>?)!![1] as Int
+                            val sourceIP = (RFC.getParameters() as Array<Any?>?)!![2] as String?
+                            val sourcePort = (RFC.getParameters() as Array<Any?>?)!![3] as Int
 
-                            if (!targetIP.equals(sourceIP) && targetIP.indexOf("store") == -1)
-                                MyComputerHandler.addData(AD, sourceIP, ApplicationData.OUTSIDE);
-                        } else if (RFC.getFunction().equals("requestzombieattack")) {
-                            String targetIP = (String) ((Object[]) RFC.getParameters())[0];
-                            int targetPort = (Integer) ((Object[]) RFC.getParameters())[1];
-                            String sourceIP = (String) ((Object[]) RFC.getParameters())[2];
-                            int sourcePort = (Integer) ((Object[]) RFC.getParameters())[3];
+                            val I = (RFC.getParameters() as Array<Any?>?)!![4] as Array<Int?>?
+                            val S = (RFC.getParameters() as Array<Any?>?)!![5] as Array<Array<String?>?>?
+                            val O = (RFC.getParameters() as Array<Any?>?)!![6] as Array<Any?>?
+                            var parentIP = (RFC.getParameters() as Array<Any?>?)!![7] as String
+                            parentIP = crypt(parentIP, clientKey)
 
-                            Integer I[] = (Integer[]) ((Object[]) RFC.getParameters())[4];
-                            String S[][] = (String[][]) ((Object[]) RFC.getParameters())[5];
-                            Object O[] = (Object[]) ((Object[]) RFC.getParameters())[6];
-                            String parentIP = (String) ((Object[]) RFC.getParameters())[7];
-                            parentIP = crypt(parentIP, clientKey);
+                            val Parameters: Array<Any?>? = arrayOf<Any?>(targetIP, targetPort, I, S, O, sourceIP)
+                            val AD = ApplicationData("requestzombieattack", Parameters, sourcePort, parentIP)
 
-                            Object Parameters[] = new Object[]{targetIP, new Integer(targetPort), I, S, O, sourceIP};
-                            ApplicationData AD = new ApplicationData("requestzombieattack", Parameters, sourcePort, parentIP);
+                            if (targetIP != sourceIP && targetIP.indexOf("store") == -1) MyComputerHandler!!.addData(
+                                AD,
+                                parentIP,
+                                ApplicationData.OUTSIDE
+                            )
+                        } else if (RFC.getFunction() == "transfer") {
+                            val amount = (RFC.getParameters() as Array<Any?>?)!![0] as Float
+                            var ip = (RFC.getParameters() as Array<Any?>?)!![1] as String
+                            ip = crypt(ip, clientKey)
+                            val target_ip = (RFC.getParameters() as Array<Any?>?)!![2] as String?
+                            val port = (RFC.getParameters() as Array<Any?>?)!![3] as Int
+                            val tO: Array<Any?>? = arrayOf<Any?>(target_ip, amount)
+                            MyComputerHandler!!.addData(
+                                ApplicationData("transfer", tO, port, ip),
+                                ip,
+                                ApplicationData.OUTSIDE
+                            )
+                        } else if (RFC.getFunction() == "deposit") {
+                            val amount = (RFC.getParameters() as Array<Any?>?)!![0] as Float
+                            var ip = (RFC.getParameters() as Array<Any?>?)!![1] as String
+                            ip = crypt(ip, clientKey)
+                            val port = (RFC.getParameters() as Array<Any?>?)!![2] as Int
+                            MyComputerHandler!!.addData(
+                                ApplicationData("deposit", amount, port, ip),
+                                ip,
+                                ApplicationData.OUTSIDE
+                            )
+                        } else if (RFC.getFunction() == "dochallenge") {
+                            var ip = (RFC.getParameters() as Array<Any?>?)!![0] as String
+                            ip = crypt(ip, clientKey)
+                            val code = (RFC.getParameters() as Array<Any?>?)!![1] as String?
+                            val challengeID = (RFC.getParameters() as Array<Any?>?)!![2] as String?
 
-                            if (!targetIP.equals(sourceIP) && targetIP.indexOf("store") == -1)
-                                MyComputerHandler.addData(AD, parentIP, ApplicationData.OUTSIDE);
-                        } else if (RFC.getFunction().equals("transfer")) {
-                            float amount = (Float) ((Object[]) RFC.getParameters())[0];
-                            String ip = (String) ((Object[]) RFC.getParameters())[1];
-                            ip = crypt(ip, clientKey);
-                            String target_ip = (String) ((Object[]) RFC.getParameters())[2];
-                            int port = (Integer) ((Object[]) RFC.getParameters())[3];
-                            Object tO[] = new Object[]{target_ip, new Float(amount)};
-                            MyComputerHandler.addData(new ApplicationData("transfer", tO, port, ip), ip, ApplicationData.OUTSIDE);
-                        } else if (RFC.getFunction().equals("deposit")) {
-                            float amount = (Float) ((Object[]) RFC.getParameters())[0];
-                            String ip = (String) ((Object[]) RFC.getParameters())[1];
-                            ip = crypt(ip, clientKey);
-                            int port = (Integer) ((Object[]) RFC.getParameters())[2];
-                            MyComputerHandler.addData(new ApplicationData("deposit", amount, port, ip), ip, ApplicationData.OUTSIDE);
-                        } else if (RFC.getFunction().equals("dochallenge")) {
-                            String ip = (String) ((Object[]) RFC.getParameters())[0];
-                            ip = crypt(ip, clientKey);
-                            String code = (String) ((Object[]) RFC.getParameters())[1];
-                            String challengeID = (String) ((Object[]) RFC.getParameters())[2];
+                            val O: Array<Any?>? = arrayOf<Any?>(code, challengeID)
+                            MyComputerHandler!!.addData(
+                                ApplicationData("dochallenge", O, 0, ip),
+                                ip,
+                                ApplicationData.OUTSIDE
+                            )
+                        } else  //Allows a player to sell a file back to the game store.
+                            if (RFC.getFunction() == "sellfile") {
+                                var ip = (RFC.getParameters() as Array<Any?>?)!![0] as String
+                                ip = crypt(ip, clientKey)
+                                val location = (RFC.getParameters() as Array<Any?>?)!![1] as String?
+                                val fileName = (RFC.getParameters() as Array<Any?>?)!![2] as String?
+                                val compileCost = (RFC.getParameters() as Array<Any?>?)!![3] as Float?
+                                val quantity = (RFC.getParameters() as Array<Any?>?)!![4] as Int?
+                                val O: Array<Any?>? = arrayOf<Any?>(location, fileName, compileCost, ip, quantity)
+                                MyComputerHandler!!.addData(
+                                    ApplicationData(
+                                        "requestsellfile",
+                                        O,
+                                        0,
+                                        "store" + serverID
+                                    ), ip, ApplicationData.OUTSIDE
+                                )
+                            } else  // Sell multiple files at once from the client
+                                if (RFC.getFunction() == "sellfilemulti") {
+                                    var ip = (RFC.getParameters() as Array<Any?>?)!![0] as String
+                                    ip = crypt(ip, clientKey)
+                                    val allFiles = (RFC.getParameters() as Array<Any?>?)!![1] as Array<Any?>?
+                                    val O: Array<Any?>? = arrayOf<Any?>(allFiles, ip)
+                                    MyComputerHandler!!.addData(
+                                        ApplicationData(
+                                            "sellfilemulti",
+                                            O,
+                                            0,
+                                            "store" + serverID
+                                        ), ip, ApplicationData.OUTSIDE
+                                    )
+                                } else  //Allows a player to sell a file back to the game store.
+                                    if (RFC.getFunction() == "decompilefile") {
+                                        var ip = (RFC.getParameters() as Array<Any?>?)!![0] as String
+                                        ip = crypt(ip, clientKey)
+                                        val location = (RFC.getParameters() as Array<Any?>?)!![1] as String?
+                                        val fileName = (RFC.getParameters() as Array<Any?>?)!![2] as String?
+                                        val compileCost = (RFC.getParameters() as Array<Any?>?)!![3] as Float?
+                                        val O: Array<Any?>? = arrayOf<Any?>(location, fileName, compileCost, ip)
+                                        MyComputerHandler!!.addData(
+                                            ApplicationData("decompilefile", O, 0, ip),
+                                            ip,
+                                            ApplicationData.OUTSIDE
+                                        )
+                                    } else  //A deposit requested from facebook.
+                                        if (RFC.getFunction() == "facebookdeposit") {
+                                            val ip = (RFC.getParameters() as Array<Any?>?)!![0] as String?
+                                            val amount = (RFC.getParameters() as Array<Any?>?)!![1] as Float?
+                                            val defaultPort = (RFC.getParameters() as Array<Any?>?)!![2] as Int
 
-                            Object O[] = new Object[]{code, challengeID};
-                            MyComputerHandler.addData(new ApplicationData("dochallenge", O, 0, ip), ip, ApplicationData.OUTSIDE);
-                        } else
+                                            MyComputerHandler!!.addData(
+                                                ApplicationData(
+                                                    "deposit",
+                                                    amount,
+                                                    defaultPort,
+                                                    ip
+                                                ), ip, ApplicationData.OUTSIDE
+                                            )
+                                        } else  //A withdraw requested from facebook.
+                                            if (RFC.getFunction() == "facebookwithdraw") {
+                                                val ip = (RFC.getParameters() as Array<Any?>?)!![0] as String?
+                                                val amount = (RFC.getParameters() as Array<Any?>?)!![1] as Float?
+                                                val defaultPort = (RFC.getParameters() as Array<Any?>?)!![2] as Int
 
-                            //Allows a player to sell a file back to the game store.
-                            if (RFC.getFunction().equals("sellfile")) {
-                                String ip = (String) ((Object[]) RFC.getParameters())[0];
-                                ip = crypt(ip, clientKey);
-                                String location = (String) ((Object[]) RFC.getParameters())[1];
-                                String fileName = (String) ((Object[]) RFC.getParameters())[2];
-                                Float compileCost = (Float) ((Object[]) RFC.getParameters())[3];
-                                Integer quantity = (Integer) ((Object[]) RFC.getParameters())[4];
-                                Object O[] = new Object[]{location, fileName, compileCost, ip, quantity};
-                                MyComputerHandler.addData(new ApplicationData("requestsellfile", O, 0, "store" + serverID), ip, ApplicationData.OUTSIDE);
-                            } else
+                                                MyComputerHandler!!.addData(
+                                                    ApplicationData(
+                                                        "withdraw",
+                                                        amount,
+                                                        defaultPort,
+                                                        ip
+                                                    ), ip, ApplicationData.OUTSIDE
+                                                )
+                                            } else if (RFC.getFunction() == "facebooktransfer") {
+                                                val ip = (RFC.getParameters() as Array<Any?>?)!![0] as String?
+                                                val ip2 = (RFC.getParameters() as Array<Any?>?)!![1] as String?
 
-                                // Sell multiple files at once from the client
-                                if (RFC.getFunction().equals("sellfilemulti")) {
-                                    String ip = (String) ((Object[]) RFC.getParameters())[0];
-                                    ip = crypt(ip, clientKey);
-                                    Object[] allFiles = (Object[]) ((Object[]) RFC.getParameters())[1];
-                                    Object O[] = new Object[]{allFiles, ip};
-                                    MyComputerHandler.addData(new ApplicationData("sellfilemulti", O, 0, "store" + serverID), ip, ApplicationData.OUTSIDE);
-                                } else
+                                                val amount = (RFC.getParameters() as Array<Any?>?)!![2] as Float
+                                                val defaultPort = (RFC.getParameters() as Array<Any?>?)!![3] as Int
 
-                                    //Allows a player to sell a file back to the game store.
-                                    if (RFC.getFunction().equals("decompilefile")) {
-                                        String ip = (String) ((Object[]) RFC.getParameters())[0];
-                                        ip = crypt(ip, clientKey);
-                                        String location = (String) ((Object[]) RFC.getParameters())[1];
-                                        String fileName = (String) ((Object[]) RFC.getParameters())[2];
-                                        Float compileCost = (Float) ((Object[]) RFC.getParameters())[3];
-                                        Object O[] = new Object[]{location, fileName, compileCost, ip};
-                                        MyComputerHandler.addData(new ApplicationData("decompilefile", O, 0, ip), ip, ApplicationData.OUTSIDE);
-                                    } else
-
-                                        //A deposit requested from facebook.
-                                        if (RFC.getFunction().equals("facebookdeposit")) {
-                                            String ip = (String) ((Object[]) RFC.getParameters())[0];
-                                            Float amount = (Float) ((Object[]) RFC.getParameters())[1];
-                                            int defaultPort = (Integer) ((Object[]) RFC.getParameters())[2];
-
-                                            MyComputerHandler.addData(new ApplicationData("deposit", amount, defaultPort, ip), ip, ApplicationData.OUTSIDE);
-                                        } else
-
-                                            //A withdraw requested from facebook.
-                                            if (RFC.getFunction().equals("facebookwithdraw")) {
-                                                String ip = (String) ((Object[]) RFC.getParameters())[0];
-                                                Float amount = (Float) ((Object[]) RFC.getParameters())[1];
-                                                int defaultPort = (Integer) ((Object[]) RFC.getParameters())[2];
-
-                                                MyComputerHandler.addData(new ApplicationData("withdraw", amount, defaultPort, ip), ip, ApplicationData.OUTSIDE);
-                                            } else if (RFC.getFunction().equals("facebooktransfer")) {
-                                                String ip = (String) ((Object[]) RFC.getParameters())[0];
-                                                String ip2 = (String) ((Object[]) RFC.getParameters())[1];
-
-                                                Float amount = (Float) ((Object[]) RFC.getParameters())[2];
-                                                int defaultPort = (Integer) ((Object[]) RFC.getParameters())[3];
-
-                                                Object tO[] = new Object[]{ip2, new Float(amount)};
-                                                MyComputerHandler.addData(new ApplicationData("transfer", tO, defaultPort, ip), ip, ApplicationData.OUTSIDE);
-                                            } else if (RFC.getFunction().equals("facebookupdate")) {
-                                                String ip = (String) ((Object[]) RFC.getParameters())[0];
-                                                MyComputerHandler.addData(new ApplicationData("facebookupdate", null, 0, ip), ip, ApplicationData.OUTSIDE);
-                                            } else if (RFC.getFunction().equals("setpreferences")) {
-                                                String ip = (String) ((Object[]) RFC.getParameters())[0];
-                                                ip = crypt(ip, clientKey);
-                                                HashMap preferences = (HashMap) ((Object[]) RFC.getParameters())[1];
-                                                Object[] O = new Object[]{ip, preferences};
-                                                MyComputerHandler.addData(new ApplicationData("setpreferences", O, 0, ip), ip, ApplicationData.OUTSIDE);
+                                                val tO: Array<Any?>? = arrayOf<Any?>(ip2, amount)
+                                                MyComputerHandler!!.addData(
+                                                    ApplicationData(
+                                                        "transfer",
+                                                        tO,
+                                                        defaultPort,
+                                                        ip
+                                                    ), ip, ApplicationData.OUTSIDE
+                                                )
+                                            } else if (RFC.getFunction() == "facebookupdate") {
+                                                val ip = (RFC.getParameters() as Array<Any?>?)!![0] as String?
+                                                MyComputerHandler!!.addData(
+                                                    ApplicationData(
+                                                        "facebookupdate",
+                                                        null,
+                                                        0,
+                                                        ip
+                                                    ), ip, ApplicationData.OUTSIDE
+                                                )
+                                            } else if (RFC.getFunction() == "setpreferences") {
+                                                var ip = (RFC.getParameters() as Array<Any?>?)!![0] as String
+                                                ip = crypt(ip, clientKey)
+                                                val preferences =
+                                                    (RFC.getParameters() as Array<Any?>?)!![1] as HashMap<*, *>?
+                                                val O = arrayOf<Any?>(ip, preferences)
+                                                MyComputerHandler!!.addData(
+                                                    ApplicationData("setpreferences", O, 0, ip),
+                                                    ip,
+                                                    ApplicationData.OUTSIDE
+                                                )
                                             }
-
-
-                    } else if (MyAssignment instanceof Object[]) {
-                        Object[] AssignmentData = (Object[]) MyAssignment;
-                        if (AssignmentData.length >= 2 && AssignmentData[0] instanceof Assignment && AssignmentData[1] instanceof Integer) {
-                            Assignment DispatchMe = (Assignment) AssignmentData[0];
-                            int connectionID = (Integer) AssignmentData[1];
-                            ClientBinaryList MyClientBinaryList = this.getEditor().getClients();
-                            ClientData MyClientData = (ClientData) MyClientBinaryList.get(new Integer(connectionID));
+                    } else if (MyAssignment is Array<*>) {
+                        val AssignmentData = MyAssignment as Array<Any?>
+                        if (AssignmentData.size >= 2 && AssignmentData[0] is Assignment && AssignmentData[1] is Int) {
+                            val DispatchMe = AssignmentData[0] as Assignment
+                            val connectionID = AssignmentData[1] as Int
+                            val MyClientBinaryList = this.getEditor().getClients()
+                            val MyClientData = MyClientBinaryList.get(connectionID) as ClientData?
                             if (MyClientData != null) {
-                                MyClientData.addJob(new ZippedAssignment(0, DispatchMe));
+                                MyClientData.addJob(ZippedAssignment(0, DispatchMe))
                             }
                         }
                     }
-
                 }
 
-                Thread.sleep(1);
-            } catch (Exception e) {
-                e.printStackTrace();
+                Thread.sleep(1)
+            } catch (e: Exception) {
+                e.printStackTrace()
             }
-
-
         }
     }
 
-    Random rnd = null;
-    private long startTime = 0;
+    init { //Used for constructor just keep this here in IPartys.
+        this.serverID = serverID
+        MyTime = Time()
+        ServerRuntimeState.setClock(MyTime)
+        ServerRuntimeState.setRunning(on)
+        ServerRuntimeState.setShutdownAt(SHUTDOWN_AT)
+        MyComputerHandler = ComputerHandler(MyTime, this)
+        MyThread = Thread(this, "HackerServer")
+        MyThread!!.start()
+    }
 
     /**
      * De/encrypts binary data in a given byte array. Calling the method again
      * reverses the encryption.
      */
-    public String crypt(String ip, String clientHash) {
-        String resolvedIP = (String) Keys.get(ip + clientHash);
-        if (resolvedIP == null) {
-            return (ip);
-        }
-        return (resolvedIP);
+    fun crypt(ip: String, clientHash: String?): String {
+        return Keys[ip + clientHash] as? String? ?: return ip
     }
 
 
     /**
-     Remove a key from our encryption system based on an IP provided.
+     * Remove a key from our encryption system based on an IP provided.
      */
-    public synchronized void removeRandomKey(String ip) {
-        String hash = (String) IPs.get(ip);
-        if (ip != null)
-            Keys.remove(hash);
-        IPs.remove(ip);
-        MyEncryption.remove(ip);
+    @Synchronized
+    override fun removeRandomKey(ip: String?) {
+        val hash = IPs[ip] as String?
+        if (ip != null) Keys.remove(hash)
+        IPs.remove(ip)
+        MyEncryption.remove(ip)
     }
 
 
     /**
-     Generates a random key for use with our encryption algorithm.
+     * Generates a random key for use with our encryption algorithm.
      */
-    public synchronized Object[] getRandomKey(String ip, String clientHash, byte publicKey[]) {
-
-        String key = "";
-        for (int i = 0; i < 10; i++) {
-            int ii = (int) (Math.random() * 26);
-            char c = (char) ('a' + ii);
-            key += c;
+    @Synchronized
+    override fun getRandomKey(ip: String?, clientHash: String?, publicKey: ByteArray?): Array<Any?> {
+        var key = ""
+        for (i in 0..9) {
+            key += ('a'.code + (Math.random() * 26).toInt()).toChar()
         }
 
-        Keys.put(key + clientHash, ip);
-        IPs.put(ip, key + clientHash);
-        byte myPublicKey[] = null;
-        if (publicKey != null) {
-            myPublicKey = MyEncryption.init(publicKey, clientHash, ip);
-        }
+        Keys[key + clientHash] = ip
+        IPs[ip] = key + clientHash
+        val myPublicKey: ByteArray? = publicKey?.let { MyEncryption.init(publicKey, clientHash, ip) }
 
-        Object returnMe[] = new Object[]{key, myPublicKey};
-
-        return (returnMe);
+        return arrayOf(key, myPublicKey)
     }
+}
 
-    /**
-     Create an instance of the server.
-     */
-    static void main(String args[]) {
-        try {
-            Editor E = new Editor(2048, 1000, 10020, 10021);//Creates a new server for distributing tasks.
-            E.setClientJobSize(4);
-            if (args.length == 2 && args[1].equals("test"))
-                TESTING = true;
-            ServerRuntimeState.setTesting(TESTING);
-            new HackerServer(E, args[0]);
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+fun main(args: Array<String>) {
+    try {
+        val editor = Editor(2048, 1000, 10020, 10021) //Creates a new server for distributing tasks.
+        editor.setClientJobSize(4)
+        HackerServer(editor, args[0])
+    } catch (e: Exception) {
+        e.printStackTrace()
     }
 }
