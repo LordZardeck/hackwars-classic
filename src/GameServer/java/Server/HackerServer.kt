@@ -15,7 +15,7 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.onFailure
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
-import rpc.FetchPorts
+import rpc.*
 import util.Encryption
 import util.PlayFabTokenVerifier
 import util.PlayFabTokenVerifier.AuthResult
@@ -181,32 +181,28 @@ class HackerServer(e: Editor, serverID: String) : IParty(e), HackerServerBridge 
                         )
                     } else  //Set the default port that an application will execute on.
                         if (RFC.getFunction() == "setdefaultport") {
-                            var ip = (RFC.getParameters() as Array<Any?>?)!![0] as String
-                            val port = (RFC.getParameters() as Array<Any?>?)!![1] as Int
-                            val type = (RFC.getParameters() as Array<Any?>?)!![2] as Int?
-                            ip = crypt(ip, clientKey)
+                            val setDefaultPortCall = SetDefaultPort.fromRpc(RFC)
+                            val ip = crypt(setDefaultPortCall.encryptedIp, clientKey)
                             MyComputerHandler!!.addData(
-                                ApplicationData("setdefaultport", type, port, ip),
+                                ApplicationData("setdefaultport", setDefaultPortCall.type, setDefaultPortCall.port, ip),
                                 ip,
                                 ApplicationData.OUTSIDE
                             )
                         } else  //RETURN TO THE ROOT NETWORK.
                             if (RFC.getFunction() == "changenetwork") {
-                                var ip = (RFC.getParameters() as Array<Any?>?)!![0] as String
-                                ip = crypt(ip, clientKey)
-                                val network = (RFC.getParameters() as Array<Any?>?)!![1] as String?
+                                val changeNetworkCall = ChangeNetwork.fromRpc(RFC)
+                                val ip = crypt(changeNetworkCall.encryptedIp, clientKey)
                                 MyComputerHandler!!.addData(
-                                    ApplicationData("changenetwork", network, 0, ip),
+                                    ApplicationData("changenetwork", changeNetworkCall.network, 0, ip),
                                     ip,
                                     ApplicationData.OUTSIDE
                                 )
                             } else  //Heal a specific port.
                                 if (RFC.getFunction() == "healport") {
-                                    var ip = (RFC.getParameters() as Array<Any?>?)!![0] as String
-                                    val port = (RFC.getParameters() as Array<Any?>?)!![1] as Int
-                                    ip = crypt(ip, clientKey)
+                                    val healPortCall = HealPort.fromRpc(RFC)
+                                    val ip = crypt(healPortCall.encryptedIp, clientKey)
                                     MyComputerHandler!!.addData(
-                                        ApplicationData("heal", null, port, ip),
+                                        ApplicationData("heal", null, healPortCall.port, ip),
                                         ip,
                                         ApplicationData.OUTSIDE
                                     )
@@ -414,10 +410,10 @@ class HackerServer(e: Editor, serverID: String) : IParty(e), HackerServerBridge 
                                                                                 )
                                                                             } else  //Request another player's webpage.
                                                                                 if (RFC.getFunction() == "requestwebpage") {
-                                                                                    var target_ip =
-                                                                                        (RFC.getParameters() as Array<Any?>?)!![0] as String
-                                                                                    var source_ip =
-                                                                                        (RFC.getParameters() as Array<Any?>?)!![1] as String
+                                                                                    val requestWebpageCall =
+                                                                                        RequestWebpage.fromRpc(RFC)
+                                                                                    var target_ip = requestWebpageCall.targetIp
+                                                                                    var source_ip = requestWebpageCall.sourceIp
 
                                                                                     if (!(source_ip == "062.153.7.142"))  //This is the IP used to hook-in and make requests externally.
                                                                                         source_ip = crypt(
@@ -425,15 +421,7 @@ class HackerServer(e: Editor, serverID: String) : IParty(e), HackerServerBridge 
                                                                                             clientKey
                                                                                         )
 
-                                                                                    val parameters =
-                                                                                        (RFC.parameters as? Array<*>?)
-                                                                                            ?.getOrNull(2)
-                                                                                            ?.let {
-                                                                                                @Suppress("UNCHECKED_CAST")
-                                                                                                it as? HashMap<Any?, Any?>
-                                                                                            }
-                                                                                            ?: HashMap<Any?, Any?>()
-
+                                                                                    val parameters = HashMap(requestWebpageCall.parameters)
                                                                                     parameters["packetid"] = RFC.id
 
                                                                                     if (target_ip.length >= 5) if (target_ip.substring(
@@ -455,19 +443,10 @@ class HackerServer(e: Editor, serverID: String) : IParty(e), HackerServerBridge 
                                                                                     )
                                                                                 } else  //Send a form submission to another player.
                                                                                     if (RFC.getFunction() == "submit") {
-                                                                                        val target_ip =
-                                                                                            (RFC.getParameters() as Array<Any?>?)!![0] as String?
-                                                                                        var source_ip =
-                                                                                            (RFC.getParameters() as Array<Any?>?)!![1] as String
-
-                                                                                        val parameters =
-                                                                                            (RFC.parameters as? Array<*>?)
-                                                                                                ?.getOrNull(2)
-                                                                                                ?.let {
-                                                                                                    @Suppress("UNCHECKED_CAST")
-                                                                                                    it as? HashMap<Any?, Any?>
-                                                                                                }
-                                                                                                ?: HashMap<Any?, Any?>()
+                                                                                        val submitCall = Submit.fromRpc(RFC)
+                                                                                        val target_ip = submitCall.targetIp
+                                                                                        var source_ip = submitCall.sourceIp
+                                                                                        val parameters = HashMap(submitCall.parameters)
 
                                                                                         parameters["packetid"] =
                                                                                             RFC.id
