@@ -1,10 +1,13 @@
 package com.hackwars.gui.login
 
 import org.slf4j.LoggerFactory
+import java.io.ByteArrayOutputStream
 import java.net.URI
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
 import java.net.http.HttpResponse
+import java.nio.CharBuffer
+import java.nio.charset.StandardCharsets
 import java.util.Arrays
 import javax.swing.SwingUtilities
 import kotlin.concurrent.thread
@@ -33,17 +36,21 @@ class LoginScene : LoginSceneView() {
             return
         }
 
-        val passwordValue = String(password)
+        val escapedPasswordBytes = encodeEscapedJsonPasswordBytes(password)
         Arrays.fill(password, '\u0000')
         thread(name = "playfab-login", isDaemon = true) {
-            val authResult = authenticateWithPlayFab(trimmedEmail, passwordValue)
-            SwingUtilities.invokeLater {
-                if (authResult.token != null) {
-                    userToken = authResult.token
-                    Logger.info("PlayFab authentication successful for '{}': {}", trimmedEmail, authResult.token)
-                } else {
-                    onAuthenticationFailure(authResult.error ?: "PlayFab authentication failed.")
+            try {
+                val authResult = authenticateWithPlayFab(trimmedEmail, escapedPasswordBytes)
+                SwingUtilities.invokeLater {
+                    if (authResult.token != null) {
+                        userToken = authResult.token
+                        Logger.info("PlayFab authentication successful for '{}': {}", trimmedEmail, authResult.token)
+                    } else {
+                        onAuthenticationFailure(authResult.error ?: "PlayFab authentication failed.")
+                    }
                 }
+            } finally {
+                Arrays.fill(escapedPasswordBytes, 0)
             }
         }
     }
@@ -55,9 +62,9 @@ class LoginScene : LoginSceneView() {
 
     private data class AuthenticationResult(val token: String? = null, val error: String? = null)
 
-    private fun authenticateWithPlayFab(email: String, password: String): AuthenticationResult {
+    private fun authenticateWithPlayFab(email: String, escapedPasswordBytes: ByteArray): AuthenticationResult {
         return try {
-            val responseBody = sendPlayFabLoginRequest(email, password)
+            val responseBody = sendPlayFabLoginRequest(email, escapedPasswordBytes)
             val token = extractJsonString(responseBody, "SessionTicket")
             if (!token.isNullOrBlank()) {
                 AuthenticationResult(token = token)
@@ -71,31 +78,36 @@ class LoginScene : LoginSceneView() {
         }
     }
 
-    private fun sendPlayFabLoginRequest(email: String, password: String): String {
+    private fun sendPlayFabLoginRequest(email: String, escapedPasswordBytes: ByteArray): String {
         val baseUrl = System.getProperty(PLAYFAB_BASE_URL_PROPERTY, "https://$PLAYFAB_TITLE_ID.playfabapi.com")
             .trimEnd('/')
         val timeoutSeconds = System.getProperty(PLAYFAB_TIMEOUT_SECONDS_PROPERTY, DEFAULT_TIMEOUT_SECONDS.toString())
             .toLongOrNull()
             ?: DEFAULT_TIMEOUT_SECONDS
 
-        val requestBody = """
-            {"TitleId":"${escapeJson(PLAYFAB_TITLE_ID)}","Email":"${escapeJson(email)}","Password":"${escapeJson(password)}"}
-        """.trimIndent()
+        val requestBodyPrefix = """{"TitleId":"${escapeJson(PLAYFAB_TITLE_ID)}","Email":"${escapeJson(email)}","Password":""""
+            .toByteArray(StandardCharsets.UTF_8)
+        val requestBodySuffix = "\"}".toByteArray(StandardCharsets.UTF_8)
+        val requestBodyBytes = combineRequestBodyBytes(requestBodyPrefix, escapedPasswordBytes, requestBodySuffix)
 
         val request = HttpRequest.newBuilder()
             .uri(URI.create("$baseUrl/Client/LoginWithEmailAddress"))
             .timeout(java.time.Duration.ofSeconds(timeoutSeconds))
             .header("Content-Type", "application/json")
-            .POST(HttpRequest.BodyPublishers.ofString(requestBody))
+            .POST(HttpRequest.BodyPublishers.ofByteArray(requestBodyBytes))
             .build()
 
-        val response = httpClient.send(request, HttpResponse.BodyHandlers.ofString())
-        if (response.statusCode() !in 200..299) {
-            val errorMessage = extractJsonString(response.body(), "errorMessage")
-                ?: "PlayFab returned HTTP ${response.statusCode()}."
-            throw IllegalStateException(errorMessage)
+        try {
+            val response = httpClient.send(request, HttpResponse.BodyHandlers.ofString())
+            if (response.statusCode() !in 200..299) {
+                val errorMessage = extractJsonString(response.body(), "errorMessage")
+                    ?: "PlayFab returned HTTP ${response.statusCode()}."
+                throw IllegalStateException(errorMessage)
+            }
+            return response.body()
+        } finally {
+            Arrays.fill(requestBodyBytes, 0)
         }
-        return response.body()
     }
 
     private fun extractJsonString(json: String, field: String): String? {
@@ -122,5 +134,33 @@ class LoginScene : LoginSceneView() {
                 }
             }
         }
+    }
+
+    private fun encodeEscapedJsonPasswordBytes(password: CharArray): ByteArray {
+        val encoded = StandardCharsets.UTF_8.encode(CharBuffer.wrap(password))
+        val utf8 = ByteArray(encoded.remaining())
+        encoded.get(utf8)
+
+        val out = ByteArrayOutputStream(utf8.size + 8)
+        for (b in utf8) {
+            when (b.toInt() and 0xFF) {
+                '\\'.code -> out.write('\\'.code).also { out.write('\\'.code) }
+                '"'.code -> out.write('\\'.code).also { out.write('"'.code) }
+                '\n'.code -> out.write('\\'.code).also { out.write('n'.code) }
+                '\r'.code -> out.write('\\'.code).also { out.write('r'.code) }
+                '\t'.code -> out.write('\\'.code).also { out.write('t'.code) }
+                else -> out.write(b.toInt())
+            }
+        }
+        Arrays.fill(utf8, 0)
+        return out.toByteArray()
+    }
+
+    private fun combineRequestBodyBytes(prefix: ByteArray, password: ByteArray, suffix: ByteArray): ByteArray {
+        val output = ByteArray(prefix.size + password.size + suffix.size)
+        System.arraycopy(prefix, 0, output, 0, prefix.size)
+        System.arraycopy(password, 0, output, prefix.size, password.size)
+        System.arraycopy(suffix, 0, output, prefix.size + password.size, suffix.size)
+        return output
     }
 }

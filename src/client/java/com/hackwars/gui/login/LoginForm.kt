@@ -13,7 +13,7 @@ import javax.swing.*
 
 class LoginForm : JPanel(GridBagLayout()) {
     sealed class AuthenticationEvent(source: Any) : EventObject(source)
-    class PasswordAuthenticationEvent(source: Any, val username: String, val password: CharArray) :
+    class PasswordAuthenticationEvent(source: Any, val email: String, val password: CharArray) :
         AuthenticationEvent(source)
 
     interface AuthenticationListener : EventListener
@@ -169,10 +169,10 @@ class LoginForm : JPanel(GridBagLayout()) {
         }
 
         private fun buildContent(container: JPanel) {
-            val usernameLabel = createLabel("Username")
+            val emailLabel = createLabel("Email")
             val passwordLabel = createLabel("Password")
 
-            val usernameField = LoginTextField().apply {
+            val emailField = LoginTextField().apply {
                 text = "localuser"
             }
 
@@ -180,8 +180,8 @@ class LoginForm : JPanel(GridBagLayout()) {
                 text = "password1234"
             }
 
-            val usernameFieldPanel = LoginFieldPanel(usernameField)
-            usernameFieldPanel.preferredSize = Dimension(200, 46)
+            val emailFieldPanel = LoginFieldPanel(emailField)
+            emailFieldPanel.preferredSize = Dimension(200, 46)
             val passwordFieldPanel = LoginFieldPanel(passwordField)
             passwordFieldPanel.preferredSize = Dimension(200, 46)
 
@@ -190,7 +190,7 @@ class LoginForm : JPanel(GridBagLayout()) {
                     firePasswordAuthenticationEvent(
                         PasswordAuthenticationEvent(
                             this@LoginForm,
-                            usernameField.text,
+                            emailField.text,
                             passwordField.password
                         )
                     )
@@ -199,8 +199,8 @@ class LoginForm : JPanel(GridBagLayout()) {
             val footerPanel = createFooterPanel()
 
 
-            container.add(leftRow(10, usernameLabel))
-            container.add(fillRow(usernameFieldPanel))
+            container.add(leftRow(10, emailLabel))
+            container.add(fillRow(emailFieldPanel))
             container.add(Box.createVerticalStrut(10))
             container.add(leftRow(10, passwordLabel))
             container.add(fillRow(passwordFieldPanel))
