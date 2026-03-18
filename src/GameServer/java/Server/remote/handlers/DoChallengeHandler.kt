@@ -8,13 +8,18 @@ import server.remote.RemoteCallHandler
 import server.remote.RpcHandler
 import java.util.*
 
-@RpcHandler("fetchports")
-object FetchPortsHandler : RemoteCallHandler {
+@RpcHandler("dochallenge")
+object DoChallengeHandler : RemoteCallHandler {
     override fun handle(rfc: RemoteFunctionCall, context: RemoteCallContext) {
-        val fetchPortsCall = FetchPorts.fromRpc(rfc)
-        val ip = context.crypt(fetchPortsCall.encryptedIp)
+        val parsedCall = DoChallenge.fromRpc(rfc)
+        var ip = parsedCall.ip
+        ip = context.crypt(ip)
+        val code = parsedCall.code
+        val challengeID = parsedCall.challengeID
+
+        val O: Array<Any?>? = arrayOf<Any?>(code, challengeID)
         context.computerHandler.addData(
-            ApplicationData("fetchports", null, 0, ip),
+            ApplicationData("dochallenge", O, 0, ip),
             ip,
             ApplicationData.OUTSIDE
         )

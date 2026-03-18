@@ -8,13 +8,17 @@ import server.remote.RemoteCallHandler
 import server.remote.RpcHandler
 import java.util.*
 
-@RpcHandler("fetchports")
-object FetchPortsHandler : RemoteCallHandler {
+@RpcHandler("deletemulti")
+object DeleteMultiHandler : RemoteCallHandler {
     override fun handle(rfc: RemoteFunctionCall, context: RemoteCallContext) {
-        val fetchPortsCall = FetchPorts.fromRpc(rfc)
-        val ip = context.crypt(fetchPortsCall.encryptedIp)
+        val parsedCall = DeleteMulti.fromRpc(rfc)
+        var ip = parsedCall.ip
+        ip = context.crypt(ip)
+
+        val allFiles = parsedCall.allFiles
+        val parameters: Array<Any?>? = arrayOf<Any?>(allFiles)
         context.computerHandler.addData(
-            ApplicationData("fetchports", null, 0, ip),
+            ApplicationData("deletemulti", parameters, 0, ip),
             ip,
             ApplicationData.OUTSIDE
         )

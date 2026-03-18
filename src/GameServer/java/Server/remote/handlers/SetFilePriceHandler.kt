@@ -8,13 +8,18 @@ import server.remote.RemoteCallHandler
 import server.remote.RpcHandler
 import java.util.*
 
-@RpcHandler("fetchports")
-object FetchPortsHandler : RemoteCallHandler {
+@RpcHandler("setfileprice")
+object SetFilePriceHandler : RemoteCallHandler {
     override fun handle(rfc: RemoteFunctionCall, context: RemoteCallContext) {
-        val fetchPortsCall = FetchPorts.fromRpc(rfc)
-        val ip = context.crypt(fetchPortsCall.encryptedIp)
+        val parsedCall = SetFilePrice.fromRpc(rfc)
+        var ip = parsedCall.ip
+        ip = context.crypt(ip)
+        val path = parsedCall.path
+        val name = parsedCall.name
+        val price = parsedCall.price
+        val Parameter: Array<Any?>? = arrayOf<Any?>(path, name, price)
         context.computerHandler.addData(
-            ApplicationData("fetchports", null, 0, ip),
+            ApplicationData("setfileprice", Parameter, 0, ip),
             ip,
             ApplicationData.OUTSIDE
         )
