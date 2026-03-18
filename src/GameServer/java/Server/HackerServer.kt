@@ -16,6 +16,9 @@ import kotlinx.coroutines.channels.onFailure
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import rpc.*
+import rpc.MakeBounty
+import server.remote.RemoteCallContext
+import server.remote.invokeOnServer
 import util.Encryption
 import util.PlayFabTokenVerifier
 import util.PlayFabTokenVerifier.AuthResult
@@ -170,6 +173,13 @@ class HackerServer(e: Editor, serverID: String) : IParty(e), HackerServerBridge 
                         continue
                     }
 
+                    val remoteCallContext = RemoteCallContext(MyComputerHandler!!) { ip ->
+                        crypt(ip, clientKey)
+                    }
+                    if (RFC.invokeOnServer(remoteCallContext)) {
+                        continue
+                    }
+
                     //Sent when you want an array of ports to be updated client side.
                     if (RFC.function == "fetchports") {
                         val fetchPortsCall = FetchPorts.fromRpc(RFC)
@@ -179,1029 +189,1170 @@ class HackerServer(e: Editor, serverID: String) : IParty(e), HackerServerBridge 
                             ip,
                             ApplicationData.OUTSIDE
                         )
-                    } else  //Set the default port that an application will execute on.
-                        if (RFC.getFunction() == "setdefaultport") {
-                            val setDefaultPortCall = SetDefaultPort.fromRpc(RFC)
-                            val ip = crypt(setDefaultPortCall.encryptedIp, clientKey)
-                            MyComputerHandler!!.addData(
-                                ApplicationData("setdefaultport", setDefaultPortCall.type, setDefaultPortCall.port, ip),
-                                ip,
-                                ApplicationData.OUTSIDE
+                    }
+                    //Set the default port that an application will execute on.
+                    else if (RFC.getFunction() == "setdefaultport") {
+                        val setDefaultPortCall = SetDefaultPort.fromRpc(RFC)
+                        val ip = crypt(setDefaultPortCall.encryptedIp, clientKey)
+                        MyComputerHandler!!.addData(
+                            ApplicationData("setdefaultport", setDefaultPortCall.type, setDefaultPortCall.port, ip),
+                            ip,
+                            ApplicationData.OUTSIDE
+                        )
+                    }
+                    //RETURN TO THE ROOT NETWORK.
+                    else if (RFC.getFunction() == "changenetwork") {
+                        val changeNetworkCall = ChangeNetwork.fromRpc(RFC)
+                        val ip = crypt(changeNetworkCall.encryptedIp, clientKey)
+                        MyComputerHandler!!.addData(
+                            ApplicationData("changenetwork", changeNetworkCall.network, 0, ip),
+                            ip,
+                            ApplicationData.OUTSIDE
+                        )
+                    }
+                    //Heal a specific port.
+                    else if (RFC.getFunction() == "healport") {
+                        val healPortCall = HealPort.fromRpc(RFC)
+                        val ip = crypt(healPortCall.encryptedIp, clientKey)
+                        MyComputerHandler!!.addData(
+                            ApplicationData("heal", null, healPortCall.port, ip),
+                            ip,
+                            ApplicationData.OUTSIDE
+                        )
+                    }
+                    //Allow hacktendo to activate a sprite.
+                    else if (RFC.getFunction() == "hacktendoActivate") {
+                        val parsedCall = HacktendoActivate.fromRpc(RFC)
+                        val activateID = parsedCall.activateID
+                        val activateType = parsedCall.activateType
+                        val ip = parsedCall.ip
+
+                        val O = arrayOf<Any>(activateID, activateType)
+                        MyComputerHandler!!.addData(
+                            ApplicationData("hacktendoActivate", O, 0, ip),
+                            ip,
+                            ApplicationData.INSIDE
+                        )
+                    }
+                    //Allow Hacktendo to move objects through space.
+                    else if (RFC.getFunction() == "hacktendoTarget") {
+                        val parsedCall = HacktendoTarget.fromRpc(RFC)
+                        val targetX = parsedCall.targetX
+                        val targetY = parsedCall.targetY
+                        val ip = parsedCall.ip
+                        val currentX = parsedCall.currentX
+                        val currentY = parsedCall.currentY
+
+                        val O = arrayOf<Any>(targetX, targetY, currentX, currentY)
+                        MyComputerHandler!!.addData(
+                            ApplicationData(
+                                "hacktendoTarget",
+                                O,
+                                0,
+                                ip
+                            ), ip, ApplicationData.INSIDE
+                        )
+                    }
+                    //Request a listing of equipment from a player.
+                    else if (RFC.getFunction() == "requestequipment") {
+                        val parsedCall = RequestEquipment.fromRpc(RFC)
+                        var ip = parsedCall.ip
+                        ip = crypt(ip, clientKey)
+                        MyComputerHandler!!.addData(
+                            ApplicationData(
+                                "requestequipment",
+                                RFC.getID(),
+                                0,
+                                ip
+                            ), ip, ApplicationData.OUTSIDE
+                        )
+                    }
+                    //Install equipment for a player.
+                    else if (RFC.getFunction() == "installequipment") {
+                        val parsedCall = InstallEquipment.fromRpc(RFC)
+                        var ip = parsedCall.ip
+                        val position =
+                            parsedCall.position
+                        val name = parsedCall.name
+                        ip = crypt(ip, clientKey)
+                        val O: Array<Any?>? = arrayOf<Any?>(position, name, RFC.getID())
+                        MyComputerHandler!!.addData(
+                            ApplicationData(
+                                "installequipment",
+                                O,
+                                0,
+                                ip
+                            ), ip, ApplicationData.OUTSIDE
+                        )
+                    }
+                    //Repair equipment that's currently installed.
+                    else if (RFC.getFunction() == "repairequipment") {
+                        val parsedCall = RepairEquipment.fromRpc(RFC)
+                        var ip = parsedCall.ip
+                        val position =
+                            parsedCall.position
+                        val name =
+                            parsedCall.name
+                        ip = crypt(ip, clientKey)
+                        val O: Array<Any?>? =
+                            arrayOf<Any?>(position, name, RFC.getID())
+                        MyComputerHandler!!.addData(
+                            ApplicationData(
+                                "repairequipment",
+                                O,
+                                0,
+                                ip
+                            ), ip, ApplicationData.OUTSIDE
+                        )
+                    }
+                    //Fetch the watches and return them to the client.
+                    else if (RFC.getFunction() == "fetchwatches") {
+                        val parsedCall = FetchWatches.fromRpc(RFC)
+                        var ip = parsedCall.ip
+                        ip = crypt(ip, clientKey)
+                        MyComputerHandler!!.addData(
+                            ApplicationData(
+                                "fetchwatches",
+                                null,
+                                0,
+                                ip
+                            ), ip, ApplicationData.OUTSIDE
+                        )
+                    }
+                    //Request your own webpage.
+                    else if (RFC.getFunction() == "requestpage") {
+                        val parsedCall = RequestPage.fromRpc(RFC)
+                        var ip = parsedCall.ip
+                        ip = crypt(ip, clientKey)
+                        MyComputerHandler!!.addData(
+                            ApplicationData(
+                                "requestpage",
+                                null,
+                                0,
+                                ip
+                            ), ip, ApplicationData.OUTSIDE
+                        )
+                    }
+                    //Used whn a player wishes to peform a purchase with another player.
+                    else if (RFC.getFunction() == "requestpurchase") {
+                        val parsedCall = RequestPurchase.fromRpc(RFC)
+                        var target_ip = parsedCall.targetIp
+                        var source_ip =
+                            parsedCall.sourceIp
+                        source_ip = crypt(source_ip, clientKey)
+
+                        val file_name =
+                            parsedCall.fileName
+                        val quantity =
+                            parsedCall.quantity
+                        val O: Array<Any?>? =
+                            arrayOf<Any?>(file_name, quantity)
+
+                        if (target_ip.length >= 5) if (target_ip.substring(
+                                0,
+                                5
+                            ).lowercase(Locale.getDefault()) == "store"
+                        ) target_ip = "store" + serverID
+
+                        MyComputerHandler!!.addData(
+                            ApplicationData(
+                                "requestpurchase",
+                                O,
+                                0,
+                                source_ip
+                            ), target_ip, ApplicationData.OUTSIDE
+                        )
+                    }
+                    //POST INFORMATION FROM A GAME.
+                    else if (RFC.getFunction() == "requesttrigger") {
+                        val parsedCall = RequestTrigger.fromRpc(RFC)
+                        val watchNote = parsedCall.watchNote
+                        val TriggerParam =
+                            parsedCall.triggerParam
+                        val sourceIP =
+                            parsedCall.sourceIP
+                        val targetIP =
+                            parsedCall.targetIP
+                        val O: Any = arrayOf<Any?>(
+                            watchNote,
+                            TriggerParam,
+                            sourceIP
+                        )
+                        MyComputerHandler!!.addData(
+                            ApplicationData(
+                                "requesttriggernote",
+                                O,
+                                0,
+                                sourceIP
+                            ), targetIP, ApplicationData.OUTSIDE
+                        )
+                    }
+                    //SAVE INFORMATION FROM A GAME.
+                    else if (RFC.getFunction() == "requestsave") {
+                        val parsedCall = RequestSave.fromRpc(RFC)
+                        val fileName = parsedCall.fileName
+                        val TriggerParam =
+                            parsedCall.triggerParam
+                        val targetIP =
+                            parsedCall.targetIP
+                        val O: Any = arrayOf<Any?>(
+                            fileName,
+                            TriggerParam
+                        )
+
+                        MyComputerHandler!!.addData(
+                            ApplicationData(
+                                "requestsave",
+                                O,
+                                0,
+                                targetIP
+                            ),
+                            targetIP,
+                            ApplicationData.OUTSIDE
+                        )
+                    }
+                    //LET A GAME FINISH A TASK IN A QUEST.
+                    else if (RFC.getFunction() == "requesttask") {
+                        val parsedCall =
+                            RequestTask.fromRpc(RFC)
+                        val fileName = parsedCall.fileName
+                        val questID =
+                            parsedCall.questID
+                        val taskName =
+                            parsedCall.taskName
+                        val targetIP =
+                            parsedCall.targetIP
+                        val O: Any = arrayOf<Any?>(
+                            fileName,
+                            questID,
+                            taskName
+                        )
+                        MyComputerHandler!!.addData(
+                            ApplicationData(
+                                "requesttask",
+                                O,
+                                0,
+                                targetIP
+                            ),
+                            targetIP,
+                            ApplicationData.OUTSIDE
+                        )
+                    }
+                    //Request another player's webpage.
+                    else if (RFC.getFunction() == "requestwebpage") {
+                        val requestWebpageCall =
+                            RequestWebpage.fromRpc(RFC)
+                        var target_ip =
+                            requestWebpageCall.targetIp
+                        var source_ip =
+                            requestWebpageCall.sourceIp
+
+                        if (!(source_ip == "062.153.7.142"))  //This is the IP used to hook-in and make requests externally.
+                            source_ip = crypt(
+                                source_ip,
+                                clientKey
                             )
-                        } else  //RETURN TO THE ROOT NETWORK.
-                            if (RFC.getFunction() == "changenetwork") {
-                                val changeNetworkCall = ChangeNetwork.fromRpc(RFC)
-                                val ip = crypt(changeNetworkCall.encryptedIp, clientKey)
-                                MyComputerHandler!!.addData(
-                                    ApplicationData("changenetwork", changeNetworkCall.network, 0, ip),
-                                    ip,
-                                    ApplicationData.OUTSIDE
-                                )
-                            } else  //Heal a specific port.
-                                if (RFC.getFunction() == "healport") {
-                                    val healPortCall = HealPort.fromRpc(RFC)
-                                    val ip = crypt(healPortCall.encryptedIp, clientKey)
-                                    MyComputerHandler!!.addData(
-                                        ApplicationData("heal", null, healPortCall.port, ip),
-                                        ip,
-                                        ApplicationData.OUTSIDE
-                                    )
-                                } else  //Allow hacktendo to activate a sprite.
-                                    if (RFC.getFunction() == "hacktendoActivate") {
-                                        val parsedCall = HacktendoActivate.fromRpc(RFC)
-                                        val activateID = parsedCall.activateID
-                                        val activateType = parsedCall.activateType
-                                        val ip = parsedCall.ip
 
-                                        val O = arrayOf<Any>(activateID, activateType)
-                                        MyComputerHandler!!.addData(
-                                            ApplicationData("hacktendoActivate", O, 0, ip),
-                                            ip,
-                                            ApplicationData.INSIDE
-                                        )
-                                    } else  //Allow Hacktendo to move objects through space.
-                                        if (RFC.getFunction() == "hacktendoTarget") {
-                                            val parsedCall = HacktendoTarget.fromRpc(RFC)
-                                            val targetX = parsedCall.targetX
-                                            val targetY = parsedCall.targetY
-                                            val ip = parsedCall.ip
-                                            val currentX = parsedCall.currentX
-                                            val currentY = parsedCall.currentY
+                        val parameters =
+                            HashMap(requestWebpageCall.parameters)
+                        parameters["packetid"] = RFC.id
 
-                                            val O = arrayOf<Any>(targetX, targetY, currentX, currentY)
-                                            MyComputerHandler!!.addData(
-                                                ApplicationData(
-                                                    "hacktendoTarget",
-                                                    O,
-                                                    0,
-                                                    ip
-                                                ), ip, ApplicationData.INSIDE
-                                            )
-                                        } else  //Request a listing of equipment from a player.
-                                            if (RFC.getFunction() == "requestequipment") {
-                                                val parsedCall = RequestEquipment.fromRpc(RFC)
-                                                var ip = parsedCall.ip
-                                                ip = crypt(ip, clientKey)
-                                                MyComputerHandler!!.addData(
-                                                    ApplicationData(
-                                                        "requestequipment",
-                                                        RFC.getID(),
-                                                        0,
-                                                        ip
-                                                    ), ip, ApplicationData.OUTSIDE
-                                                )
-                                            } else  //Install equipment for a player.
-                                                if (RFC.getFunction() == "installequipment") {
-                                                    val parsedCall = InstallEquipment.fromRpc(RFC)
-                                                    var ip = parsedCall.ip
-                                                    val position =
-                                                        parsedCall.position
-                                                    val name = parsedCall.name
-                                                    ip = crypt(ip, clientKey)
-                                                    val O: Array<Any?>? = arrayOf<Any?>(position, name, RFC.getID())
-                                                    MyComputerHandler!!.addData(
-                                                        ApplicationData(
-                                                            "installequipment",
-                                                            O,
-                                                            0,
-                                                            ip
-                                                        ), ip, ApplicationData.OUTSIDE
-                                                    )
-                                                } else  //Repair equipment that's currently installed.
-                                                    if (RFC.getFunction() == "repairequipment") {
-                                                            val parsedCall = RepairEquipment.fromRpc(RFC)
-                                                        var ip = parsedCall.ip
-                                                        val position =
-                                                            parsedCall.position
-                                                        val name =
-                                                            parsedCall.name
-                                                        ip = crypt(ip, clientKey)
-                                                        val O: Array<Any?>? =
-                                                            arrayOf<Any?>(position, name, RFC.getID())
-                                                        MyComputerHandler!!.addData(
-                                                            ApplicationData(
-                                                                "repairequipment",
-                                                                O,
-                                                                0,
-                                                                ip
-                                                            ), ip, ApplicationData.OUTSIDE
-                                                        )
-                                                    } else  //Fetch the watches and return them to the client.
-                                                        if (RFC.getFunction() == "fetchwatches") {
-                                                                val parsedCall = FetchWatches.fromRpc(RFC)
-                                                            var ip = parsedCall.ip
-                                                            ip = crypt(ip, clientKey)
-                                                            MyComputerHandler!!.addData(
-                                                                ApplicationData(
-                                                                    "fetchwatches",
-                                                                    null,
-                                                                    0,
-                                                                    ip
-                                                                ), ip, ApplicationData.OUTSIDE
-                                                            )
-                                                        } else  //Request your own webpage.
-                                                            if (RFC.getFunction() == "requestpage") {
-                                                                    val parsedCall = RequestPage.fromRpc(RFC)
-                                                                var ip = parsedCall.ip
-                                                                ip = crypt(ip, clientKey)
-                                                                MyComputerHandler!!.addData(
-                                                                    ApplicationData(
-                                                                        "requestpage",
-                                                                        null,
-                                                                        0,
-                                                                        ip
-                                                                    ), ip, ApplicationData.OUTSIDE
-                                                                )
-                                                            } else  //Used whn a player wishes to peform a purchase with another player.
-                                                                if (RFC.getFunction() == "requestpurchase") {
-                                                                        val parsedCall = RequestPurchase.fromRpc(RFC)
-                                                                    var target_ip = parsedCall.targetIp
-                                                                    var source_ip =
-                                                                        parsedCall.sourceIp
-                                                                    source_ip = crypt(source_ip, clientKey)
+                        if (target_ip.length >= 5) if (target_ip.substring(
+                                0,
+                                5
+                            )
+                                .lowercase(Locale.getDefault()) == "store"
+                        ) target_ip = "store" + serverID
 
-                                                                    val file_name =
-                                                                        parsedCall.fileName
-                                                                    val quantity =
-                                                                        parsedCall.quantity
-                                                                    val O: Array<Any?>? =
-                                                                        arrayOf<Any?>(file_name, quantity)
+                        MyComputerHandler!!.addData(
+                            ApplicationData(
+                                "requestwebpage",
+                                parameters,
+                                0,
+                                source_ip
+                            ),
+                            target_ip,
+                            ApplicationData.OUTSIDE
+                        )
+                    }
+                    //Send a form submission to another player.
+                    else if (RFC.getFunction() == "submit") {
+                        val submitCall =
+                            Submit.fromRpc(RFC)
+                        val target_ip =
+                            submitCall.targetIp
+                        var source_ip =
+                            submitCall.sourceIp
+                        val parameters =
+                            HashMap(submitCall.parameters)
 
-                                                                    if (target_ip.length >= 5) if (target_ip.substring(
-                                                                            0,
-                                                                            5
-                                                                        ).lowercase(Locale.getDefault()) == "store"
-                                                                    ) target_ip = "store" + serverID
+                        parameters["packetid"] =
+                            RFC.id
 
-                                                                    MyComputerHandler!!.addData(
-                                                                        ApplicationData(
-                                                                            "requestpurchase",
-                                                                            O,
-                                                                            0,
-                                                                            source_ip
-                                                                        ), target_ip, ApplicationData.OUTSIDE
-                                                                    )
-                                                                } else  //POST INFORMATION FROM A GAME.
-                                                                    if (RFC.getFunction() == "requesttrigger") {
-                                                                            val parsedCall = RequestTrigger.fromRpc(RFC)
-                                                                        val watchNote = parsedCall.watchNote
-                                                                        val TriggerParam =
-                                                                            parsedCall.triggerParam
-                                                                        val sourceIP =
-                                                                            parsedCall.sourceIP
-                                                                        val targetIP =
-                                                                            parsedCall.targetIP
-                                                                        val O: Any = arrayOf<Any?>(
-                                                                            watchNote,
-                                                                            TriggerParam,
-                                                                            sourceIP
-                                                                        )
-                                                                        MyComputerHandler!!.addData(
-                                                                            ApplicationData(
-                                                                                "requesttriggernote",
-                                                                                O,
-                                                                                0,
-                                                                                sourceIP
-                                                                            ), targetIP, ApplicationData.OUTSIDE
-                                                                        )
-                                                                    } else  //SAVE INFORMATION FROM A GAME.
-                                                                        if (RFC.getFunction() == "requestsave") {
-                                                                                val parsedCall = RequestSave.fromRpc(RFC)
-                                                                            val fileName = parsedCall.fileName
-                                                                            val TriggerParam =
-                                                                                parsedCall.triggerParam
-                                                                            val targetIP =
-                                                                                parsedCall.targetIP
-                                                                            val O: Any = arrayOf<Any?>(
-                                                                                fileName,
-                                                                                TriggerParam
-                                                                            )
+                        if (!(source_ip == "062.153.7.142"))  //This is the IP used to hook-in and make requests externally.
+                            source_ip = crypt(
+                                source_ip,
+                                clientKey
+                            )
 
-                                                                            MyComputerHandler!!.addData(
-                                                                                ApplicationData(
-                                                                                    "requestsave",
-                                                                                    O,
-                                                                                    0,
-                                                                                    targetIP
-                                                                                ),
-                                                                                targetIP,
-                                                                                ApplicationData.OUTSIDE
-                                                                            )
-                                                                        } else  //LET A GAME FINISH A TASK IN A QUEST.
-                                                                            if (RFC.getFunction() == "requesttask") {
-                                                                                    val parsedCall = RequestTask.fromRpc(RFC)
-                                                                                val fileName = parsedCall.fileName
-                                                                                val questID =
-                                                                                    parsedCall.questID
-                                                                                val taskName =
-                                                                                    parsedCall.taskName
-                                                                                val targetIP =
-                                                                                    parsedCall.targetIP
-                                                                                val O: Any = arrayOf<Any?>(
-                                                                                    fileName,
-                                                                                    questID,
-                                                                                    taskName
-                                                                                )
-                                                                                MyComputerHandler!!.addData(
-                                                                                    ApplicationData(
-                                                                                        "requesttask",
-                                                                                        O,
-                                                                                        0,
-                                                                                        targetIP
-                                                                                    ),
-                                                                                    targetIP,
-                                                                                    ApplicationData.OUTSIDE
-                                                                                )
-                                                                            } else  //Request another player's webpage.
-                                                                                if (RFC.getFunction() == "requestwebpage") {
-                                                                                    val requestWebpageCall =
-                                                                                        RequestWebpage.fromRpc(RFC)
-                                                                                    var target_ip = requestWebpageCall.targetIp
-                                                                                    var source_ip = requestWebpageCall.sourceIp
+                        MyComputerHandler!!.addData(
+                            ApplicationData(
+                                "submit",
+                                parameters,
+                                0,
+                                source_ip
+                            ),
+                            target_ip,
+                            ApplicationData.OUTSIDE
+                        )
+                    }
+                    //Create a bounty.
+                    else if (RFC.getFunction() == "makebounty") {
+                        val parsedCall =
+                            MakeBounty.fromRpc(RFC)
+                        var source_ip =
+                            parsedCall.sourceIp
+                        source_ip = crypt(
+                            source_ip,
+                            clientKey
+                        )
+                        val anonymous =
+                            parsedCall.anonymous
+                        val target =
+                            parsedCall.target
+                        val type =
+                            parsedCall.type
+                        val fname =
+                            parsedCall.fname
+                        val folder =
+                            parsedCall.folder
+                        val iterations =
+                            parsedCall.iterations
+                        val reward =
+                            parsedCall.reward
+                        val O: Array<Any?>? =
+                            arrayOf<Any?>(
+                                anonymous,
+                                target,
+                                type,
+                                fname,
+                                folder,
+                                iterations,
+                                reward
+                            )
+                        MyComputerHandler!!.addData(
+                            ApplicationData(
+                                "makebounty",
+                                O,
+                                0,
+                                source_ip
+                            ),
+                            source_ip,
+                            ApplicationData.OUTSIDE
+                        )
+                    }
+                    //Exit a player's webpage.
+                    else if (RFC.getFunction() == "exit") {
+                        val parsedCall =
+                            Exit.fromRpc(RFC)
+                        val target_ip =
+                            parsedCall.targetIp
+                        var source_ip =
+                            parsedCall.sourceIp
 
-                                                                                    if (!(source_ip == "062.153.7.142"))  //This is the IP used to hook-in and make requests externally.
-                                                                                        source_ip = crypt(
-                                                                                            source_ip,
-                                                                                            clientKey
-                                                                                        )
+                        source_ip = crypt(
+                            source_ip,
+                            clientKey
+                        )
 
-                                                                                    val parameters = HashMap(requestWebpageCall.parameters)
-                                                                                    parameters["packetid"] = RFC.id
+                        MyComputerHandler!!.addData(
+                            ApplicationData(
+                                "exit",
+                                null,
+                                0,
+                                source_ip
+                            ),
+                            target_ip,
+                            ApplicationData.OUTSIDE
+                        )
+                    }
+                    //Vote for a player's webpage.
+                    else if (RFC.getFunction() == "vote") {
+                        val parsedCall =
+                            Vote.fromRpc(RFC)
+                        val target_ip =
+                            parsedCall.targetIp
+                        var source_ip =
+                            parsedCall.sourceIp
 
-                                                                                    if (target_ip.length >= 5) if (target_ip.substring(
-                                                                                            0,
-                                                                                            5
-                                                                                        )
-                                                                                            .lowercase(Locale.getDefault()) == "store"
-                                                                                    ) target_ip = "store" + serverID
+                        source_ip =
+                            crypt(
+                                source_ip,
+                                clientKey
+                            )
 
-                                                                                    MyComputerHandler!!.addData(
-                                                                                        ApplicationData(
-                                                                                            "requestwebpage",
-                                                                                            parameters,
-                                                                                            0,
-                                                                                            source_ip
-                                                                                        ),
-                                                                                        target_ip,
-                                                                                        ApplicationData.OUTSIDE
-                                                                                    )
-                                                                                } else  //Send a form submission to another player.
-                                                                                    if (RFC.getFunction() == "submit") {
-                                                                                        val submitCall = Submit.fromRpc(RFC)
-                                                                                        val target_ip = submitCall.targetIp
-                                                                                        var source_ip = submitCall.sourceIp
-                                                                                        val parameters = HashMap(submitCall.parameters)
+                        MyComputerHandler!!.addData(
+                            ApplicationData(
+                                "vote",
+                                null,
+                                0,
+                                target_ip
+                            ),
+                            source_ip,
+                            ApplicationData.OUTSIDE
+                        )
+                    } else if (RFC.getFunction() == "savepage") {
+                        val parsedCall =
+                            SavePage.fromRpc(
+                                RFC
+                            )
+                        var ip =
+                            parsedCall.ip
+                        ip = crypt(
+                            ip,
+                            clientKey
+                        )
+                        val title =
+                            parsedCall.title
+                        val body =
+                            parsedCall.body
+                        val O: Array<Any?>? =
+                            arrayOf<Any?>(
+                                title,
+                                body
+                            )
+                        MyComputerHandler!!.addData(
+                            ApplicationData(
+                                "savepage",
+                                O,
+                                0,
+                                ip
+                            ),
+                            ip,
+                            ApplicationData.OUTSIDE
+                        )
+                    } else if (RFC.getFunction() == "withdraw") {
+                        val parsedCall =
+                            Withdraw.fromRpc(
+                                RFC
+                            )
+                        val amount =
+                            parsedCall.amount
+                        var ip =
+                            parsedCall.ip
+                        ip = crypt(
+                            ip,
+                            clientKey
+                        )
+                        val port =
+                            parsedCall.port
+                        MyComputerHandler!!.addData(
+                            ApplicationData(
+                                "withdraw",
+                                amount,
+                                port,
+                                ip
+                            ),
+                            ip,
+                            ApplicationData.OUTSIDE
+                        )
+                    } else if (RFC.getFunction() == "requestdirectory") {
+                        val parsedCall =
+                            RequestDirectory.fromRpc(
+                                RFC
+                            )
+                        var ip =
+                            parsedCall.ip
+                        ip = crypt(
+                            ip,
+                            clientKey
+                        )
+                        val path =
+                            parsedCall.path
+                        val O: Array<Any?>? =
+                            arrayOf<Any?>(
+                                path,
+                                RFC.getID()
+                            )
+                        MyComputerHandler!!.addData(
+                            ApplicationData(
+                                "requestdirectory",
+                                O,
+                                0,
+                                ip
+                            ),
+                            ip,
+                            ApplicationData.OUTSIDE
+                        )
+                    } else if (RFC.getFunction() == "unlock") {
+                        val parsedCall =
+                            Unlock.fromRpc(
+                                RFC
+                            )
+                        var ip =
+                            parsedCall.ip
+                        ip = crypt(
+                            ip,
+                            clientKey
+                        )
+                        val code =
+                            parsedCall.code
+                        MyComputerHandler!!.addData(
+                            ApplicationData(
+                                "unlock",
+                                code,
+                                0,
+                                ""
+                            ),
+                            ip,
+                            ApplicationData.OUTSIDE
+                        )
+                    } else if (RFC.getFunction() == "setftppassword") {
+                        val parsedCall =
+                            SetFtpPassword.fromRpc(
+                                RFC
+                            )
+                        var ip =
+                            parsedCall.ip
+                        ip = crypt(
+                            ip,
+                            clientKey
+                        )
+                        val password =
+                            parsedCall.password
+                        MyComputerHandler!!.addData(
+                            ApplicationData(
+                                "setftppassword",
+                                password,
+                                0,
+                                ip
+                            ),
+                            ip,
+                            ApplicationData.OUTSIDE
+                        )
+                    } else if (RFC.getFunction() == "requestsecondarydirectory") {
+                        val parsedCall =
+                            RequestSecondaryDirectory.fromRpc(
+                                RFC
+                            )
+                        val ip =
+                            parsedCall.ip
+                        val path =
+                            parsedCall.path
+                        var targetIP =
+                            parsedCall.targetIP
 
-                                                                                        parameters["packetid"] =
-                                                                                            RFC.id
+                        targetIP =
+                            crypt(
+                                targetIP,
+                                clientKey
+                            )
 
-                                                                                        if (!(source_ip == "062.153.7.142"))  //This is the IP used to hook-in and make requests externally.
-                                                                                            source_ip = crypt(
-                                                                                                source_ip,
-                                                                                                clientKey
-                                                                                            )
-
-                                                                                        MyComputerHandler!!.addData(
-                                                                                            ApplicationData(
-                                                                                                "submit",
-                                                                                                parameters,
-                                                                                                0,
-                                                                                                source_ip
-                                                                                            ),
-                                                                                            target_ip,
-                                                                                            ApplicationData.OUTSIDE
-                                                                                        )
-                                                                                    } else  //Create a bounty.
-                                                                                        if (RFC.getFunction() == "makebounty") {
-                                                                                                val parsedCall = MakeBounty.fromRpc(RFC)
-                                                                                            var source_ip = parsedCall.sourceIp
-                                                                                            source_ip = crypt(
-                                                                                                source_ip,
-                                                                                                clientKey
-                                                                                            )
-                                                                                            val anonymous =
-                                                                                                parsedCall.anonymous
-                                                                                            val target =
-                                                                                                parsedCall.target
-                                                                                            val type =
-                                                                                                parsedCall.type
-                                                                                            val fname =
-                                                                                                parsedCall.fname
-                                                                                            val folder =
-                                                                                                parsedCall.folder
-                                                                                            val iterations =
-                                                                                                parsedCall.iterations
-                                                                                            val reward =
-                                                                                                parsedCall.reward
-                                                                                            val O: Array<Any?>? =
-                                                                                                arrayOf<Any?>(
-                                                                                                    anonymous,
-                                                                                                    target,
-                                                                                                    type,
-                                                                                                    fname,
-                                                                                                    folder,
-                                                                                                    iterations,
-                                                                                                    reward
-                                                                                                )
-                                                                                            MyComputerHandler!!.addData(
-                                                                                                ApplicationData(
-                                                                                                    "makebounty",
-                                                                                                    O,
-                                                                                                    0,
-                                                                                                    source_ip
-                                                                                                ),
-                                                                                                source_ip,
-                                                                                                ApplicationData.OUTSIDE
-                                                                                            )
-                                                                                        } else  //Exit a player's webpage.
-                                                                                            if (RFC.getFunction() == "exit") {
-                                                                                                    val parsedCall = Exit.fromRpc(RFC)
-                                                                                                val target_ip = parsedCall.targetIp
-                                                                                                var source_ip =
-                                                                                                    parsedCall.sourceIp
-
-                                                                                                source_ip = crypt(
-                                                                                                    source_ip,
-                                                                                                    clientKey
-                                                                                                )
-
-                                                                                                MyComputerHandler!!.addData(
-                                                                                                    ApplicationData(
-                                                                                                        "exit",
-                                                                                                        null,
-                                                                                                        0,
-                                                                                                        source_ip
-                                                                                                    ),
-                                                                                                    target_ip,
-                                                                                                    ApplicationData.OUTSIDE
-                                                                                                )
-                                                                                            } else  //Vote for a player's webpage.
-                                                                                                if (RFC.getFunction() == "vote") {
-                                                                                                        val parsedCall = Vote.fromRpc(RFC)
-                                                                                                    val target_ip = parsedCall.targetIp
-                                                                                                    var source_ip =
-                                                                                                        parsedCall.sourceIp
-
-                                                                                                    source_ip =
-                                                                                                        crypt(
-                                                                                                            source_ip,
-                                                                                                            clientKey
-                                                                                                        )
-
-                                                                                                    MyComputerHandler!!.addData(
-                                                                                                        ApplicationData(
-                                                                                                            "vote",
-                                                                                                            null,
-                                                                                                            0,
-                                                                                                            target_ip
-                                                                                                        ),
-                                                                                                        source_ip,
-                                                                                                        ApplicationData.OUTSIDE
-                                                                                                    )
-                                                                                                } else if (RFC.getFunction() == "savepage") {
-                                                                                                        val parsedCall = SavePage.fromRpc(RFC)
-                                                                                                    var ip = parsedCall.ip
-                                                                                                    ip = crypt(
-                                                                                                        ip,
-                                                                                                        clientKey
-                                                                                                    )
-                                                                                                    val title =
-                                                                                                        parsedCall.title
-                                                                                                    val body =
-                                                                                                        parsedCall.body
-                                                                                                    val O: Array<Any?>? =
-                                                                                                        arrayOf<Any?>(
-                                                                                                            title,
-                                                                                                            body
-                                                                                                        )
-                                                                                                    MyComputerHandler!!.addData(
-                                                                                                        ApplicationData(
-                                                                                                            "savepage",
-                                                                                                            O,
-                                                                                                            0,
-                                                                                                            ip
-                                                                                                        ),
-                                                                                                        ip,
-                                                                                                        ApplicationData.OUTSIDE
-                                                                                                    )
-                                                                                                } else if (RFC.getFunction() == "withdraw") {
-                                                                                                        val parsedCall = Withdraw.fromRpc(RFC)
-                                                                                                    val amount = parsedCall.amount
-                                                                                                    var ip =
-                                                                                                        parsedCall.ip
-                                                                                                    ip = crypt(
-                                                                                                        ip,
-                                                                                                        clientKey
-                                                                                                    )
-                                                                                                    val port =
-                                                                                                        parsedCall.port
-                                                                                                    MyComputerHandler!!.addData(
-                                                                                                        ApplicationData(
-                                                                                                            "withdraw",
-                                                                                                            amount,
-                                                                                                            port,
-                                                                                                            ip
-                                                                                                        ),
-                                                                                                        ip,
-                                                                                                        ApplicationData.OUTSIDE
-                                                                                                    )
-                                                                                                } else if (RFC.getFunction() == "requestdirectory") {
-                                                                                                        val parsedCall = RequestDirectory.fromRpc(RFC)
-                                                                                                    var ip = parsedCall.ip
-                                                                                                    ip = crypt(
-                                                                                                        ip,
-                                                                                                        clientKey
-                                                                                                    )
-                                                                                                    val path =
-                                                                                                        parsedCall.path
-                                                                                                    val O: Array<Any?>? =
-                                                                                                        arrayOf<Any?>(
-                                                                                                            path,
-                                                                                                            RFC.getID()
-                                                                                                        )
-                                                                                                    MyComputerHandler!!.addData(
-                                                                                                        ApplicationData(
-                                                                                                            "requestdirectory",
-                                                                                                            O,
-                                                                                                            0,
-                                                                                                            ip
-                                                                                                        ),
-                                                                                                        ip,
-                                                                                                        ApplicationData.OUTSIDE
-                                                                                                    )
-                                                                                                } else if (RFC.getFunction() == "unlock") {
-                                                                                                        val parsedCall = Unlock.fromRpc(RFC)
-                                                                                                    var ip = parsedCall.ip
-                                                                                                    ip = crypt(
-                                                                                                        ip,
-                                                                                                        clientKey
-                                                                                                    )
-                                                                                                    val code =
-                                                                                                        parsedCall.code
-                                                                                                    MyComputerHandler!!.addData(
-                                                                                                        ApplicationData(
-                                                                                                            "unlock",
-                                                                                                            code,
-                                                                                                            0,
-                                                                                                            ""
-                                                                                                        ),
-                                                                                                        ip,
-                                                                                                        ApplicationData.OUTSIDE
-                                                                                                    )
-                                                                                                } else if (RFC.getFunction() == "setftppassword") {
-                                                                                                        val parsedCall = SetFtpPassword.fromRpc(RFC)
-                                                                                                    var ip = parsedCall.ip
-                                                                                                    ip = crypt(
-                                                                                                        ip,
-                                                                                                        clientKey
-                                                                                                    )
-                                                                                                    val password =
-                                                                                                        parsedCall.password
-                                                                                                    MyComputerHandler!!.addData(
-                                                                                                        ApplicationData(
-                                                                                                            "setftppassword",
-                                                                                                            password,
-                                                                                                            0,
-                                                                                                            ip
-                                                                                                        ),
-                                                                                                        ip,
-                                                                                                        ApplicationData.OUTSIDE
-                                                                                                    )
-                                                                                                } else if (RFC.getFunction() == "requestsecondarydirectory") {
-                                                                                                        val parsedCall = RequestSecondaryDirectory.fromRpc(RFC)
-                                                                                                    val ip = parsedCall.ip
-                                                                                                    val path =
-                                                                                                        parsedCall.path
-                                                                                                    var targetIP =
-                                                                                                        parsedCall.targetIP
-
-                                                                                                    targetIP =
-                                                                                                        crypt(
-                                                                                                            targetIP,
-                                                                                                            clientKey
-                                                                                                        )
-
-                                                                                                    val port =
-                                                                                                        parsedCall.port
-                                                                                                    val Parameter: Array<Any?>? =
-                                                                                                        arrayOf<Any?>(
-                                                                                                            targetIP,
-                                                                                                            path,
-                                                                                                            RFC.getID()
-                                                                                                        )
-                                                                                                    MyComputerHandler!!.addData(
-                                                                                                        ApplicationData(
-                                                                                                            "requestsecondarydirectory",
-                                                                                                            Parameter,
-                                                                                                            port,
-                                                                                                            targetIP
-                                                                                                        ),
-                                                                                                        ip,
-                                                                                                        ApplicationData.OUTSIDE
-                                                                                                    )
-                                                                                                } else if (RFC.getFunction() == "requestcancelattack") {
-                                                                                                        val parsedCall = RequestCancelAttack.fromRpc(RFC)
-                                                                                                    var ip = parsedCall.ip
-                                                                                                    ip = crypt(
-                                                                                                        ip,
-                                                                                                        clientKey
-                                                                                                    )
-                                                                                                    val port =
-                                                                                                        parsedCall.port
-                                                                                                    MyComputerHandler!!.addData(
-                                                                                                        ApplicationData(
-                                                                                                            "requestcancelattack",
-                                                                                                            null,
-                                                                                                            port,
-                                                                                                            ip
-                                                                                                        ),
-                                                                                                        ip,
-                                                                                                        ApplicationData.OUTSIDE
-                                                                                                    )
-                                                                                                } else if (RFC.getFunction() == "cluedata") {
-                                                                                                        val parsedCall = ClueData.fromRpc(RFC)
-                                                                                                    var ip = parsedCall.ip
-                                                                                                    ip = crypt(
-                                                                                                        ip,
-                                                                                                        clientKey
-                                                                                                    )
-                                                                                                    val data =
-                                                                                                        parsedCall.data
-                                                                                                    MyComputerHandler!!.addData(
-                                                                                                        ApplicationData(
-                                                                                                            "cluedata",
-                                                                                                            data,
-                                                                                                            0,
-                                                                                                            ip
-                                                                                                        ),
-                                                                                                        ip,
-                                                                                                        ApplicationData.OUTSIDE
-                                                                                                    )
-                                                                                                } else if (RFC.getFunction() == "requestzombiecancelattack") {
-                                                                                                        val parsedCall = RequestZombieCancelAttack.fromRpc(RFC)
-                                                                                                    val ip = parsedCall.ip
-                                                                                                    val port =
-                                                                                                        parsedCall.port
-                                                                                                    var targetIP =
-                                                                                                        parsedCall.targetIP
-                                                                                                    targetIP =
-                                                                                                        crypt(
-                                                                                                            targetIP,
-                                                                                                            clientKey
-                                                                                                        )
-                                                                                                    MyComputerHandler!!.addData(
-                                                                                                        ApplicationData(
-                                                                                                            "requestcancelattack",
-                                                                                                            null,
-                                                                                                            port,
-                                                                                                            targetIP
-                                                                                                        ),
-                                                                                                        ip,
-                                                                                                        ApplicationData.OUTSIDE
-                                                                                                    )
-                                                                                                } else if (RFC.getFunction() == "installapplication") {
-                                                                                                        val parsedCall = InstallApplication.fromRpc(RFC)
-                                                                                                    var ip = parsedCall.ip
-                                                                                                    ip = crypt(
-                                                                                                        ip,
-                                                                                                        clientKey
-                                                                                                    )
-                                                                                                    val port =
-                                                                                                        parsedCall.port
-                                                                                                    val path =
-                                                                                                        parsedCall.path
-                                                                                                    val name =
-                                                                                                        parsedCall.name
-                                                                                                    val Parameter: Array<String?>? =
-                                                                                                        arrayOf<String?>(
-                                                                                                            path,
-                                                                                                            name
-                                                                                                        )
-                                                                                                    MyComputerHandler!!.addData(
-                                                                                                        ApplicationData(
-                                                                                                            "installapplication",
-                                                                                                            Parameter,
-                                                                                                            port,
-                                                                                                            ip
-                                                                                                        ),
-                                                                                                        ip,
-                                                                                                        ApplicationData.OUTSIDE
-                                                                                                    )
-                                                                                                } else if (RFC.getFunction() == "installwatch") {
-                                                                                                        val parsedCall = InstallWatch.fromRpc(RFC)
-                                                                                                    var ip = parsedCall.ip
-                                                                                                    ip = crypt(
-                                                                                                        ip,
-                                                                                                        clientKey
-                                                                                                    )
-                                                                                                    val path =
-                                                                                                        parsedCall.path
-                                                                                                    val name =
-                                                                                                        parsedCall.name
-                                                                                                    val type =
-                                                                                                        parsedCall.type
-                                                                                                    val port =
-                                                                                                        parsedCall.port
-                                                                                                    val Parameter: Array<Any?>? =
-                                                                                                        arrayOf<Any?>(
-                                                                                                            path,
-                                                                                                            name,
-                                                                                                            type
-                                                                                                        )
-                                                                                                    MyComputerHandler!!.addData(
-                                                                                                        ApplicationData(
-                                                                                                            "installwatch",
-                                                                                                            Parameter,
-                                                                                                            port,
-                                                                                                            ip
-                                                                                                        ),
-                                                                                                        ip,
-                                                                                                        ApplicationData.OUTSIDE
-                                                                                                    )
-                                                                                                } else if (RFC.getFunction() == "setwatchobservedports") {
-                                                                                                        val parsedCall = SetWatchObservedPorts.fromRpc(RFC)
-                                                                                                    var ip = parsedCall.ip
-                                                                                                    ip = crypt(
-                                                                                                        ip,
-                                                                                                        clientKey
-                                                                                                    )
-                                                                                                    val watchID =
-                                                                                                        parsedCall.watchID
-                                                                                                    val ObservedPorts =
-                                                                                                        parsedCall.observedPorts
-                                                                                                    val Parameter: Array<Any?>? =
-                                                                                                        arrayOf<Any?>(
-                                                                                                            watchID,
-                                                                                                            ObservedPorts
-                                                                                                        )
-                                                                                                    MyComputerHandler!!.addData(
-                                                                                                        ApplicationData(
-                                                                                                            "setwatchobservedports",
-                                                                                                            Parameter,
-                                                                                                            0,
-                                                                                                            ip
-                                                                                                        ),
-                                                                                                        ip,
-                                                                                                        ApplicationData.OUTSIDE
-                                                                                                    )
-                                                                                                } else if (RFC.getFunction() == "installfirewall") {
-                                                                                                        val parsedCall = InstallFirewall.fromRpc(RFC)
-                                                                                                    var ip = parsedCall.ip
-                                                                                                    ip = crypt(
-                                                                                                        ip,
-                                                                                                        clientKey
-                                                                                                    )
-                                                                                                    val port =
-                                                                                                        parsedCall.port
-                                                                                                    val path =
-                                                                                                        parsedCall.path
-                                                                                                    val name =
-                                                                                                        parsedCall.name
-                                                                                                    val Parameter: Array<String?>? =
-                                                                                                        arrayOf<String?>(
-                                                                                                            path,
-                                                                                                            name
-                                                                                                        )
-                                                                                                    MyComputerHandler!!.addData(
-                                                                                                        ApplicationData(
-                                                                                                            "installfirewall",
-                                                                                                            Parameter,
-                                                                                                            port,
-                                                                                                            ip
-                                                                                                        ),
-                                                                                                        ip,
-                                                                                                        ApplicationData.OUTSIDE
-                                                                                                    )
-                                                                                                } else if (RFC.getFunction() == "replaceapplication") {
-                                                                                                        val parsedCall = ReplaceApplication.fromRpc(RFC)
-                                                                                                    var ip = parsedCall.ip
-                                                                                                    ip = crypt(
-                                                                                                        ip,
-                                                                                                        clientKey
-                                                                                                    )
-                                                                                                    val port =
-                                                                                                        parsedCall.port
-                                                                                                    val path =
-                                                                                                        parsedCall.path
-                                                                                                    val name =
-                                                                                                        parsedCall.name
-                                                                                                    val Parameter: Array<String?>? =
-                                                                                                        arrayOf<String?>(
-                                                                                                            path,
-                                                                                                            name
-                                                                                                        )
-                                                                                                    MyComputerHandler!!.addData(
-                                                                                                        ApplicationData(
-                                                                                                            "replaceapplication",
-                                                                                                            Parameter,
-                                                                                                            port,
-                                                                                                            ip
-                                                                                                        ),
-                                                                                                        ip,
-                                                                                                        ApplicationData.OUTSIDE
-                                                                                                    )
-                                                                                                } else if (RFC.getFunction() == "uninstallport") {
-                                                                                                        val parsedCall = UninstallPort.fromRpc(RFC)
-                                                                                                    var ip = parsedCall.ip
-                                                                                                    ip = crypt(
-                                                                                                        ip,
-                                                                                                        clientKey
-                                                                                                    )
-                                                                                                    val port =
-                                                                                                        parsedCall.port
-                                                                                                    MyComputerHandler!!.addData(
-                                                                                                        ApplicationData(
-                                                                                                            "uninstallport",
-                                                                                                            port,
-                                                                                                            port,
-                                                                                                            ip
-                                                                                                        ),
-                                                                                                        ip,
-                                                                                                        ApplicationData.OUTSIDE
-                                                                                                    )
-                                                                                                } else if (RFC.getFunction() == "portonoff") {
-                                                                                                        val parsedCall = PortOnOff.fromRpc(RFC)
-                                                                                                    var ip = parsedCall.ip
-                                                                                                    ip = crypt(
-                                                                                                        ip,
-                                                                                                        clientKey
-                                                                                                    )
-                                                                                                    val port =
-                                                                                                        parsedCall.port
-                                                                                                    val on =
-                                                                                                        parsedCall.on
-                                                                                                    MyComputerHandler!!.addData(
-                                                                                                        ApplicationData(
-                                                                                                            "portonoff",
-                                                                                                            on,
-                                                                                                            port,
-                                                                                                            ip
-                                                                                                        ),
-                                                                                                        ip,
-                                                                                                        ApplicationData.OUTSIDE
-                                                                                                    )
-                                                                                                } else if (RFC.getFunction() == "peekcode") {
-                                                                                                        val parsedCall = PeekCode.fromRpc(RFC)
-                                                                                                    var ip = parsedCall.ip
-                                                                                                    ip = crypt(
-                                                                                                        ip,
-                                                                                                        clientKey
-                                                                                                    )
-                                                                                                    val targetIP =
-                                                                                                        parsedCall.targetIP
-                                                                                                    val port =
-                                                                                                        parsedCall.port
-                                                                                                    MyComputerHandler!!.addData(
-                                                                                                        ApplicationData(
-                                                                                                            "peekcode",
-                                                                                                            null,
-                                                                                                            port,
-                                                                                                            ip
-                                                                                                        ),
-                                                                                                        targetIP,
-                                                                                                        ApplicationData.OUTSIDE
-                                                                                                    )
-                                                                                                } else if (RFC.getFunction() == "peeklogs") {
-                                                                                                        val parsedCall = PeekLogs.fromRpc(RFC)
-                                                                                                    var ip = parsedCall.ip
-                                                                                                    ip = crypt(
-                                                                                                        ip,
-                                                                                                        clientKey
-                                                                                                    )
-                                                                                                    val targetIP =
-                                                                                                        parsedCall.targetIP
-                                                                                                    val port =
-                                                                                                        parsedCall.port
-                                                                                                    MyComputerHandler!!.addData(
-                                                                                                        ApplicationData(
-                                                                                                            "peeklogs",
-                                                                                                            null,
-                                                                                                            port,
-                                                                                                            ip
-                                                                                                        ),
-                                                                                                        targetIP,
-                                                                                                        ApplicationData.OUTSIDE
-                                                                                                    )
-                                                                                                } else if (RFC.getFunction() == "saveportnote") {
-                                                                                                        val parsedCall = SavePortNote.fromRpc(RFC)
-                                                                                                    var ip = parsedCall.ip
-                                                                                                    ip = crypt(
-                                                                                                        ip,
-                                                                                                        clientKey
-                                                                                                    )
-                                                                                                    val port =
-                                                                                                        parsedCall.port
-                                                                                                    val note =
-                                                                                                        parsedCall.note
-                                                                                                    MyComputerHandler!!.addData(
-                                                                                                        ApplicationData(
-                                                                                                            "saveportnote",
-                                                                                                            note,
-                                                                                                            port,
-                                                                                                            ip
-                                                                                                        ),
-                                                                                                        ip,
-                                                                                                        ApplicationData.OUTSIDE
-                                                                                                    )
-                                                                                                } else if (RFC.getFunction() == "setwatchquantity") {
-                                                                                                        val parsedCall = SetWatchQuantity.fromRpc(RFC)
-                                                                                                    var ip = parsedCall.ip
-                                                                                                    ip = crypt(
-                                                                                                        ip,
-                                                                                                        clientKey
-                                                                                                    )
-                                                                                                    val watchID =
-                                                                                                        parsedCall.watchID
-                                                                                                    val quantity =
-                                                                                                        parsedCall.quantity
-                                                                                                    val O: Any =
-                                                                                                        arrayOf<Any?>(
-                                                                                                            watchID,
-                                                                                                            quantity
-                                                                                                        )
-                                                                                                    MyComputerHandler!!.addData(
-                                                                                                        ApplicationData(
-                                                                                                            "setwatchquantity",
-                                                                                                            O,
-                                                                                                            0,
-                                                                                                            ip
-                                                                                                        ),
-                                                                                                        ip,
-                                                                                                        ApplicationData.OUTSIDE
-                                                                                                    )
-                                                                                                } else if (RFC.getFunction() == "setwatchonoff") {
-                                                                                                        val parsedCall = SetWatchOnOff.fromRpc(RFC)
-                                                                                                    var ip = parsedCall.ip
-                                                                                                    ip = crypt(
-                                                                                                        ip,
-                                                                                                        clientKey
-                                                                                                    )
-                                                                                                    val watchID =
-                                                                                                        parsedCall.watchID
-                                                                                                    val state =
-                                                                                                        parsedCall.state
-                                                                                                    val O: Any =
-                                                                                                        arrayOf<Any?>(
-                                                                                                            watchID,
-                                                                                                            state
-                                                                                                        )
-                                                                                                    MyComputerHandler!!.addData(
-                                                                                                        ApplicationData(
-                                                                                                            "setwatchonoff",
-                                                                                                            O,
-                                                                                                            0,
-                                                                                                            ip
-                                                                                                        ),
-                                                                                                        ip,
-                                                                                                        ApplicationData.OUTSIDE
-                                                                                                    )
-                                                                                                } else if (RFC.getFunction() == "setwatchnote") {
-                                                                                                        val parsedCall = SetWatchNote.fromRpc(RFC)
-                                                                                                    var ip = parsedCall.ip
-                                                                                                    ip = crypt(
-                                                                                                        ip,
-                                                                                                        clientKey
-                                                                                                    )
-                                                                                                    val watchID =
-                                                                                                        parsedCall.watchID
-                                                                                                    val note =
-                                                                                                        parsedCall.note
-                                                                                                    val O: Any =
-                                                                                                        arrayOf<Any?>(
-                                                                                                            watchID,
-                                                                                                            note
-                                                                                                        )
-                                                                                                    MyComputerHandler!!.addData(
-                                                                                                        ApplicationData(
-                                                                                                            "setwatchnote",
-                                                                                                            O,
-                                                                                                            0,
-                                                                                                            ip
-                                                                                                        ),
-                                                                                                        ip,
-                                                                                                        ApplicationData.OUTSIDE
-                                                                                                    )
-                                                                                                } else if (RFC.getFunction() == "setwatchsearchfirewall") {
-                                                                                                        val parsedCall = SetWatchSearchFirewall.fromRpc(RFC)
-                                                                                                    var ip = parsedCall.ip
-                                                                                                    ip = crypt(
-                                                                                                        ip,
-                                                                                                        clientKey
-                                                                                                    )
-                                                                                                    val watchID =
-                                                                                                        parsedCall.watchID
-                                                                                                    val searchFireWall =
-                                                                                                        parsedCall.searchFireWall
-                                                                                                    val O: Any =
-                                                                                                        arrayOf<Any?>(
-                                                                                                            watchID,
-                                                                                                            searchFireWall
-                                                                                                        )
-                                                                                                    MyComputerHandler!!.addData(
-                                                                                                        ApplicationData(
-                                                                                                            "setwatchsearchfirewall",
-                                                                                                            O,
-                                                                                                            0,
-                                                                                                            ip
-                                                                                                        ),
-                                                                                                        ip,
-                                                                                                        ApplicationData.OUTSIDE
-                                                                                                    )
-                                                                                                } else if (RFC.getFunction() == "deletewatch") {
-                                                                                                        val parsedCall = DeleteWatch.fromRpc(RFC)
-                                                                                                    var ip = parsedCall.ip
-                                                                                                    ip = crypt(
-                                                                                                        ip,
-                                                                                                        clientKey
-                                                                                                    )
-                                                                                                    val watchID =
-                                                                                                        parsedCall.watchID
-                                                                                                    val O: Any =
-                                                                                                        arrayOf<Any?>(
-                                                                                                            watchID
-                                                                                                        )
-                                                                                                    MyComputerHandler!!.addData(
-                                                                                                        ApplicationData(
-                                                                                                            "deletewatch",
-                                                                                                            O,
-                                                                                                            0,
-                                                                                                            ip
-                                                                                                        ),
-                                                                                                        ip,
-                                                                                                        ApplicationData.OUTSIDE
-                                                                                                    )
-                                                                                                } else if (RFC.getFunction() == "deletefirewall") {
-                                                                                                        val parsedCall = DeleteFirewall.fromRpc(RFC)
-                                                                                                    var ip = parsedCall.ip
-                                                                                                    ip = crypt(
-                                                                                                        ip,
-                                                                                                        clientKey
-                                                                                                    )
-                                                                                                    val portID =
-                                                                                                        parsedCall.portID
-                                                                                                    MyComputerHandler!!.addData(
-                                                                                                        ApplicationData(
-                                                                                                            "deletefirewall",
-                                                                                                            portID,
-                                                                                                            0,
-                                                                                                            ip
-                                                                                                        ),
-                                                                                                        ip,
-                                                                                                        ApplicationData.OUTSIDE
-                                                                                                    )
-                                                                                                } else if (RFC.getFunction() == "changewatchport") {
-                                                                                                        val parsedCall = ChangeWatchPort.fromRpc(RFC)
-                                                                                                    var ip = parsedCall.ip
-                                                                                                    ip = crypt(
-                                                                                                        ip,
-                                                                                                        clientKey
-                                                                                                    )
-                                                                                                    val WatchID =
-                                                                                                        parsedCall.watchId
-                                                                                                    val PortID =
-                                                                                                        parsedCall.portId
-                                                                                                    val I: Array<Int?>? =
-                                                                                                        arrayOf<Int?>(
-                                                                                                            WatchID,
-                                                                                                            PortID
-                                                                                                        )
-                                                                                                    MyComputerHandler!!.addData(
-                                                                                                        ApplicationData(
-                                                                                                            "changewatchport",
-                                                                                                            I,
-                                                                                                            0,
-                                                                                                            ip
-                                                                                                        ),
-                                                                                                        ip,
-                                                                                                        ApplicationData.OUTSIDE
-                                                                                                    )
-                                                                                                } else if (RFC.getFunction() == "changewatchtype") {
-                                                                                                        val parsedCall = ChangeWatchType.fromRpc(RFC)
-                                                                                                    var ip = parsedCall.ip
-                                                                                                    ip = crypt(
-                                                                                                        ip,
-                                                                                                        clientKey
-                                                                                                    )
-                                                                                                    val WatchID =
-                                                                                                        parsedCall.watchID
-                                                                                                    val PortID =
-                                                                                                        parsedCall.portID
-                                                                                                    val I: Array<Int?>? =
-                                                                                                        arrayOf<Int?>(
-                                                                                                            WatchID,
-                                                                                                            PortID
-                                                                                                        )
-                                                                                                    MyComputerHandler!!.addData(
-                                                                                                        ApplicationData(
-                                                                                                            "changewatchtype",
-                                                                                                            I,
-                                                                                                            0,
-                                                                                                            ip
-                                                                                                        ),
-                                                                                                        ip,
-                                                                                                        ApplicationData.OUTSIDE
-                                                                                                    )
-                                                                                                }
+                        val port =
+                            parsedCall.port
+                        val Parameter: Array<Any?>? =
+                            arrayOf<Any?>(
+                                targetIP,
+                                path,
+                                RFC.getID()
+                            )
+                        MyComputerHandler!!.addData(
+                            ApplicationData(
+                                "requestsecondarydirectory",
+                                Parameter,
+                                port,
+                                targetIP
+                            ),
+                            ip,
+                            ApplicationData.OUTSIDE
+                        )
+                    } else if (RFC.getFunction() == "requestcancelattack") {
+                        val parsedCall =
+                            RequestCancelAttack.fromRpc(
+                                RFC
+                            )
+                        var ip =
+                            parsedCall.ip
+                        ip = crypt(
+                            ip,
+                            clientKey
+                        )
+                        val port =
+                            parsedCall.port
+                        MyComputerHandler!!.addData(
+                            ApplicationData(
+                                "requestcancelattack",
+                                null,
+                                port,
+                                ip
+                            ),
+                            ip,
+                            ApplicationData.OUTSIDE
+                        )
+                    } else if (RFC.getFunction() == "cluedata") {
+                        val parsedCall =
+                            ClueData.fromRpc(
+                                RFC
+                            )
+                        var ip =
+                            parsedCall.ip
+                        ip = crypt(
+                            ip,
+                            clientKey
+                        )
+                        val data =
+                            parsedCall.data
+                        MyComputerHandler!!.addData(
+                            ApplicationData(
+                                "cluedata",
+                                data,
+                                0,
+                                ip
+                            ),
+                            ip,
+                            ApplicationData.OUTSIDE
+                        )
+                    } else if (RFC.getFunction() == "requestzombiecancelattack") {
+                        val parsedCall =
+                            RequestZombieCancelAttack.fromRpc(
+                                RFC
+                            )
+                        val ip =
+                            parsedCall.ip
+                        val port =
+                            parsedCall.port
+                        var targetIP =
+                            parsedCall.targetIP
+                        targetIP =
+                            crypt(
+                                targetIP,
+                                clientKey
+                            )
+                        MyComputerHandler!!.addData(
+                            ApplicationData(
+                                "requestcancelattack",
+                                null,
+                                port,
+                                targetIP
+                            ),
+                            ip,
+                            ApplicationData.OUTSIDE
+                        )
+                    } else if (RFC.getFunction() == "installapplication") {
+                        val parsedCall =
+                            InstallApplication.fromRpc(
+                                RFC
+                            )
+                        var ip =
+                            parsedCall.ip
+                        ip = crypt(
+                            ip,
+                            clientKey
+                        )
+                        val port =
+                            parsedCall.port
+                        val path =
+                            parsedCall.path
+                        val name =
+                            parsedCall.name
+                        val Parameter: Array<String?>? =
+                            arrayOf<String?>(
+                                path,
+                                name
+                            )
+                        MyComputerHandler!!.addData(
+                            ApplicationData(
+                                "installapplication",
+                                Parameter,
+                                port,
+                                ip
+                            ),
+                            ip,
+                            ApplicationData.OUTSIDE
+                        )
+                    } else if (RFC.getFunction() == "installwatch") {
+                        val parsedCall =
+                            InstallWatch.fromRpc(
+                                RFC
+                            )
+                        var ip =
+                            parsedCall.ip
+                        ip = crypt(
+                            ip,
+                            clientKey
+                        )
+                        val path =
+                            parsedCall.path
+                        val name =
+                            parsedCall.name
+                        val type =
+                            parsedCall.type
+                        val port =
+                            parsedCall.port
+                        val Parameter: Array<Any?>? =
+                            arrayOf<Any?>(
+                                path,
+                                name,
+                                type
+                            )
+                        MyComputerHandler!!.addData(
+                            ApplicationData(
+                                "installwatch",
+                                Parameter,
+                                port,
+                                ip
+                            ),
+                            ip,
+                            ApplicationData.OUTSIDE
+                        )
+                    } else if (RFC.getFunction() == "setwatchobservedports") {
+                        val parsedCall =
+                            SetWatchObservedPorts.fromRpc(
+                                RFC
+                            )
+                        var ip =
+                            parsedCall.ip
+                        ip = crypt(
+                            ip,
+                            clientKey
+                        )
+                        val watchID =
+                            parsedCall.watchID
+                        val ObservedPorts =
+                            parsedCall.observedPorts
+                        val Parameter: Array<Any?>? =
+                            arrayOf<Any?>(
+                                watchID,
+                                ObservedPorts
+                            )
+                        MyComputerHandler!!.addData(
+                            ApplicationData(
+                                "setwatchobservedports",
+                                Parameter,
+                                0,
+                                ip
+                            ),
+                            ip,
+                            ApplicationData.OUTSIDE
+                        )
+                    } else if (RFC.getFunction() == "installfirewall") {
+                        val parsedCall =
+                            InstallFirewall.fromRpc(
+                                RFC
+                            )
+                        var ip =
+                            parsedCall.ip
+                        ip = crypt(
+                            ip,
+                            clientKey
+                        )
+                        val port =
+                            parsedCall.port
+                        val path =
+                            parsedCall.path
+                        val name =
+                            parsedCall.name
+                        val Parameter: Array<String?>? =
+                            arrayOf<String?>(
+                                path,
+                                name
+                            )
+                        MyComputerHandler!!.addData(
+                            ApplicationData(
+                                "installfirewall",
+                                Parameter,
+                                port,
+                                ip
+                            ),
+                            ip,
+                            ApplicationData.OUTSIDE
+                        )
+                    } else if (RFC.getFunction() == "replaceapplication") {
+                        val parsedCall =
+                            ReplaceApplication.fromRpc(
+                                RFC
+                            )
+                        var ip =
+                            parsedCall.ip
+                        ip = crypt(
+                            ip,
+                            clientKey
+                        )
+                        val port =
+                            parsedCall.port
+                        val path =
+                            parsedCall.path
+                        val name =
+                            parsedCall.name
+                        val Parameter: Array<String?>? =
+                            arrayOf<String?>(
+                                path,
+                                name
+                            )
+                        MyComputerHandler!!.addData(
+                            ApplicationData(
+                                "replaceapplication",
+                                Parameter,
+                                port,
+                                ip
+                            ),
+                            ip,
+                            ApplicationData.OUTSIDE
+                        )
+                    } else if (RFC.getFunction() == "uninstallport") {
+                        val parsedCall =
+                            UninstallPort.fromRpc(
+                                RFC
+                            )
+                        var ip =
+                            parsedCall.ip
+                        ip = crypt(
+                            ip,
+                            clientKey
+                        )
+                        val port =
+                            parsedCall.port
+                        MyComputerHandler!!.addData(
+                            ApplicationData(
+                                "uninstallport",
+                                port,
+                                port,
+                                ip
+                            ),
+                            ip,
+                            ApplicationData.OUTSIDE
+                        )
+                    } else if (RFC.getFunction() == "portonoff") {
+                        val parsedCall =
+                            PortOnOff.fromRpc(
+                                RFC
+                            )
+                        var ip =
+                            parsedCall.ip
+                        ip = crypt(
+                            ip,
+                            clientKey
+                        )
+                        val port =
+                            parsedCall.port
+                        val on =
+                            parsedCall.on
+                        MyComputerHandler!!.addData(
+                            ApplicationData(
+                                "portonoff",
+                                on,
+                                port,
+                                ip
+                            ),
+                            ip,
+                            ApplicationData.OUTSIDE
+                        )
+                    } else if (RFC.getFunction() == "peekcode") {
+                        val parsedCall =
+                            PeekCode.fromRpc(
+                                RFC
+                            )
+                        var ip =
+                            parsedCall.ip
+                        ip = crypt(
+                            ip,
+                            clientKey
+                        )
+                        val targetIP =
+                            parsedCall.targetIP
+                        val port =
+                            parsedCall.port
+                        MyComputerHandler!!.addData(
+                            ApplicationData(
+                                "peekcode",
+                                null,
+                                port,
+                                ip
+                            ),
+                            targetIP,
+                            ApplicationData.OUTSIDE
+                        )
+                    } else if (RFC.getFunction() == "peeklogs") {
+                        val parsedCall =
+                            PeekLogs.fromRpc(
+                                RFC
+                            )
+                        var ip =
+                            parsedCall.ip
+                        ip = crypt(
+                            ip,
+                            clientKey
+                        )
+                        val targetIP =
+                            parsedCall.targetIP
+                        val port =
+                            parsedCall.port
+                        MyComputerHandler!!.addData(
+                            ApplicationData(
+                                "peeklogs",
+                                null,
+                                port,
+                                ip
+                            ),
+                            targetIP,
+                            ApplicationData.OUTSIDE
+                        )
+                    } else if (RFC.getFunction() == "saveportnote") {
+                        val parsedCall =
+                            SavePortNote.fromRpc(
+                                RFC
+                            )
+                        var ip =
+                            parsedCall.ip
+                        ip = crypt(
+                            ip,
+                            clientKey
+                        )
+                        val port =
+                            parsedCall.port
+                        val note =
+                            parsedCall.note
+                        MyComputerHandler!!.addData(
+                            ApplicationData(
+                                "saveportnote",
+                                note,
+                                port,
+                                ip
+                            ),
+                            ip,
+                            ApplicationData.OUTSIDE
+                        )
+                    } else if (RFC.getFunction() == "setwatchquantity") {
+                        val parsedCall =
+                            SetWatchQuantity.fromRpc(
+                                RFC
+                            )
+                        var ip =
+                            parsedCall.ip
+                        ip = crypt(
+                            ip,
+                            clientKey
+                        )
+                        val watchID =
+                            parsedCall.watchID
+                        val quantity =
+                            parsedCall.quantity
+                        val O: Any =
+                            arrayOf<Any?>(
+                                watchID,
+                                quantity
+                            )
+                        MyComputerHandler!!.addData(
+                            ApplicationData(
+                                "setwatchquantity",
+                                O,
+                                0,
+                                ip
+                            ),
+                            ip,
+                            ApplicationData.OUTSIDE
+                        )
+                    } else if (RFC.getFunction() == "setwatchonoff") {
+                        val parsedCall =
+                            SetWatchOnOff.fromRpc(
+                                RFC
+                            )
+                        var ip =
+                            parsedCall.ip
+                        ip = crypt(
+                            ip,
+                            clientKey
+                        )
+                        val watchID =
+                            parsedCall.watchID
+                        val state =
+                            parsedCall.state
+                        val O: Any =
+                            arrayOf<Any?>(
+                                watchID,
+                                state
+                            )
+                        MyComputerHandler!!.addData(
+                            ApplicationData(
+                                "setwatchonoff",
+                                O,
+                                0,
+                                ip
+                            ),
+                            ip,
+                            ApplicationData.OUTSIDE
+                        )
+                    } else if (RFC.getFunction() == "setwatchnote") {
+                        val parsedCall =
+                            SetWatchNote.fromRpc(
+                                RFC
+                            )
+                        var ip =
+                            parsedCall.ip
+                        ip = crypt(
+                            ip,
+                            clientKey
+                        )
+                        val watchID =
+                            parsedCall.watchID
+                        val note =
+                            parsedCall.note
+                        val O: Any =
+                            arrayOf<Any?>(
+                                watchID,
+                                note
+                            )
+                        MyComputerHandler!!.addData(
+                            ApplicationData(
+                                "setwatchnote",
+                                O,
+                                0,
+                                ip
+                            ),
+                            ip,
+                            ApplicationData.OUTSIDE
+                        )
+                    } else if (RFC.getFunction() == "setwatchsearchfirewall") {
+                        val parsedCall =
+                            SetWatchSearchFirewall.fromRpc(
+                                RFC
+                            )
+                        var ip =
+                            parsedCall.ip
+                        ip = crypt(
+                            ip,
+                            clientKey
+                        )
+                        val watchID =
+                            parsedCall.watchID
+                        val searchFireWall =
+                            parsedCall.searchFireWall
+                        val O: Any =
+                            arrayOf<Any?>(
+                                watchID,
+                                searchFireWall
+                            )
+                        MyComputerHandler!!.addData(
+                            ApplicationData(
+                                "setwatchsearchfirewall",
+                                O,
+                                0,
+                                ip
+                            ),
+                            ip,
+                            ApplicationData.OUTSIDE
+                        )
+                    } else if (RFC.getFunction() == "deletewatch") {
+                        val parsedCall =
+                            DeleteWatch.fromRpc(
+                                RFC
+                            )
+                        var ip =
+                            parsedCall.ip
+                        ip = crypt(
+                            ip,
+                            clientKey
+                        )
+                        val watchID =
+                            parsedCall.watchID
+                        val O: Any =
+                            arrayOf<Any?>(
+                                watchID
+                            )
+                        MyComputerHandler!!.addData(
+                            ApplicationData(
+                                "deletewatch",
+                                O,
+                                0,
+                                ip
+                            ),
+                            ip,
+                            ApplicationData.OUTSIDE
+                        )
+                    } else if (RFC.getFunction() == "deletefirewall") {
+                        val parsedCall =
+                            DeleteFirewall.fromRpc(
+                                RFC
+                            )
+                        var ip =
+                            parsedCall.ip
+                        ip = crypt(
+                            ip,
+                            clientKey
+                        )
+                        val portID =
+                            parsedCall.portID
+                        MyComputerHandler!!.addData(
+                            ApplicationData(
+                                "deletefirewall",
+                                portID,
+                                0,
+                                ip
+                            ),
+                            ip,
+                            ApplicationData.OUTSIDE
+                        )
+                    } else if (RFC.getFunction() == "changewatchport") {
+                        val parsedCall =
+                            ChangeWatchPort.fromRpc(
+                                RFC
+                            )
+                        var ip =
+                            parsedCall.ip
+                        ip = crypt(
+                            ip,
+                            clientKey
+                        )
+                        val WatchID =
+                            parsedCall.watchId
+                        val PortID =
+                            parsedCall.portId
+                        val I: Array<Int?>? =
+                            arrayOf<Int?>(
+                                WatchID,
+                                PortID
+                            )
+                        MyComputerHandler!!.addData(
+                            ApplicationData(
+                                "changewatchport",
+                                I,
+                                0,
+                                ip
+                            ),
+                            ip,
+                            ApplicationData.OUTSIDE
+                        )
+                    } else if (RFC.getFunction() == "changewatchtype") {
+                        val parsedCall =
+                            ChangeWatchType.fromRpc(
+                                RFC
+                            )
+                        var ip =
+                            parsedCall.ip
+                        ip = crypt(
+                            ip,
+                            clientKey
+                        )
+                        val WatchID =
+                            parsedCall.watchID
+                        val PortID =
+                            parsedCall.portID
+                        val I: Array<Int?>? =
+                            arrayOf<Int?>(
+                                WatchID,
+                                PortID
+                            )
+                        MyComputerHandler!!.addData(
+                            ApplicationData(
+                                "changewatchtype",
+                                I,
+                                0,
+                                ip
+                            ),
+                            ip,
+                            ApplicationData.OUTSIDE
+                        )
+                    }
 
                     if (RFC.getFunction() == "deletefolder") {
                         val parsedCall = DeleteFolder.fromRpc(RFC)
@@ -1526,124 +1677,129 @@ class HackerServer(e: Editor, serverID: String) : IParty(e), HackerServerBridge 
                             ip,
                             ApplicationData.OUTSIDE
                         )
-                    } else  //Allows a player to sell a file back to the game store.
-                        if (RFC.getFunction() == "sellfile") {
-                            val parsedCall = SellFile.fromRpc(RFC)
-                            var ip = parsedCall.ip
-                            ip = crypt(ip, clientKey)
-                            val location = parsedCall.location
-                            val fileName = parsedCall.fileName
-                            val compileCost = parsedCall.compileCost
-                            val quantity = parsedCall.quantity
-                            val O: Array<Any?>? = arrayOf<Any?>(location, fileName, compileCost, ip, quantity)
-                            MyComputerHandler!!.addData(
-                                ApplicationData(
-                                    "requestsellfile",
-                                    O,
-                                    0,
-                                    "store" + serverID
-                                ), ip, ApplicationData.OUTSIDE
-                            )
-                        } else  // Sell multiple files at once from the client
-                            if (RFC.getFunction() == "sellfilemulti") {
-                                val parsedCall = SellFileMulti.fromRpc(RFC)
-                                var ip = parsedCall.ip
-                                ip = crypt(ip, clientKey)
-                                val allFiles = parsedCall.allFiles
-                                val O: Array<Any?>? = arrayOf<Any?>(allFiles, ip)
-                                MyComputerHandler!!.addData(
-                                    ApplicationData(
-                                        "sellfilemulti",
-                                        O,
-                                        0,
-                                        "store" + serverID
-                                    ), ip, ApplicationData.OUTSIDE
-                                )
-                            } else  //Allows a player to sell a file back to the game store.
-                                if (RFC.getFunction() == "decompilefile") {
-                                    val parsedCall = DecompileFile.fromRpc(RFC)
-                                    var ip = parsedCall.ip
-                                    ip = crypt(ip, clientKey)
-                                    val location = parsedCall.location
-                                    val fileName = parsedCall.fileName
-                                    val compileCost = parsedCall.compileCost
-                                    val O: Array<Any?>? = arrayOf<Any?>(location, fileName, compileCost, ip)
-                                    MyComputerHandler!!.addData(
-                                        ApplicationData("decompilefile", O, 0, ip),
-                                        ip,
-                                        ApplicationData.OUTSIDE
-                                    )
-                                } else  //A deposit requested from facebook.
-                                    if (RFC.getFunction() == "facebookdeposit") {
-                                        val parsedCall = FacebookDeposit.fromRpc(RFC)
-                                        val ip = parsedCall.ip
-                                        val amount = parsedCall.amount
-                                        val defaultPort = parsedCall.defaultPort
+                    }
+                    //Allows a player to sell a file back to the game store.
+                    else if (RFC.getFunction() == "sellfile") {
+                        val parsedCall = SellFile.fromRpc(RFC)
+                        var ip = parsedCall.ip
+                        ip = crypt(ip, clientKey)
+                        val location = parsedCall.location
+                        val fileName = parsedCall.fileName
+                        val compileCost = parsedCall.compileCost
+                        val quantity = parsedCall.quantity
+                        val O: Array<Any?>? = arrayOf<Any?>(location, fileName, compileCost, ip, quantity)
+                        MyComputerHandler!!.addData(
+                            ApplicationData(
+                                "requestsellfile",
+                                O,
+                                0,
+                                "store" + serverID
+                            ), ip, ApplicationData.OUTSIDE
+                        )
+                    }
+                    // Sell multiple files at once from the client
+                    else if (RFC.getFunction() == "sellfilemulti") {
+                        val parsedCall = SellFileMulti.fromRpc(RFC)
+                        var ip = parsedCall.ip
+                        ip = crypt(ip, clientKey)
+                        val allFiles = parsedCall.allFiles
+                        val O: Array<Any?>? = arrayOf<Any?>(allFiles, ip)
+                        MyComputerHandler!!.addData(
+                            ApplicationData(
+                                "sellfilemulti",
+                                O,
+                                0,
+                                "store" + serverID
+                            ), ip, ApplicationData.OUTSIDE
+                        )
+                    }
+                    //Allows a player to sell a file back to the game store.
+                    else if (RFC.getFunction() == "decompilefile") {
+                        val parsedCall = DecompileFile.fromRpc(RFC)
+                        var ip = parsedCall.ip
+                        ip = crypt(ip, clientKey)
+                        val location = parsedCall.location
+                        val fileName = parsedCall.fileName
+                        val compileCost = parsedCall.compileCost
+                        val O: Array<Any?>? = arrayOf<Any?>(location, fileName, compileCost, ip)
+                        MyComputerHandler!!.addData(
+                            ApplicationData("decompilefile", O, 0, ip),
+                            ip,
+                            ApplicationData.OUTSIDE
+                        )
+                    }
+                    //A deposit requested from facebook.
+                    else if (RFC.getFunction() == "facebookdeposit") {
+                        val parsedCall = FacebookDeposit.fromRpc(RFC)
+                        val ip = parsedCall.ip
+                        val amount = parsedCall.amount
+                        val defaultPort = parsedCall.defaultPort
 
-                                        MyComputerHandler!!.addData(
-                                            ApplicationData(
-                                                "deposit",
-                                                amount,
-                                                defaultPort,
-                                                ip
-                                            ), ip, ApplicationData.OUTSIDE
-                                        )
-                                    } else  //A withdraw requested from facebook.
-                                        if (RFC.getFunction() == "facebookwithdraw") {
-                                            val parsedCall = FacebookWithdraw.fromRpc(RFC)
-                                            val ip = parsedCall.ip
-                                            val amount = parsedCall.amount
-                                            val defaultPort = parsedCall.defaultPort
+                        MyComputerHandler!!.addData(
+                            ApplicationData(
+                                "deposit",
+                                amount,
+                                defaultPort,
+                                ip
+                            ), ip, ApplicationData.OUTSIDE
+                        )
+                    }
+                    //A withdraw requested from facebook.
+                    else if (RFC.getFunction() == "facebookwithdraw") {
+                        val parsedCall = FacebookWithdraw.fromRpc(RFC)
+                        val ip = parsedCall.ip
+                        val amount = parsedCall.amount
+                        val defaultPort = parsedCall.defaultPort
 
-                                            MyComputerHandler!!.addData(
-                                                ApplicationData(
-                                                    "withdraw",
-                                                    amount,
-                                                    defaultPort,
-                                                    ip
-                                                ), ip, ApplicationData.OUTSIDE
-                                            )
-                                        } else if (RFC.getFunction() == "facebooktransfer") {
-                                            val parsedCall = FacebookTransfer.fromRpc(RFC)
-                                            val ip = parsedCall.ip
-                                            val ip2 = parsedCall.ip2
+                        MyComputerHandler!!.addData(
+                            ApplicationData(
+                                "withdraw",
+                                amount,
+                                defaultPort,
+                                ip
+                            ), ip, ApplicationData.OUTSIDE
+                        )
+                    } else if (RFC.getFunction() == "facebooktransfer") {
+                        val parsedCall = FacebookTransfer.fromRpc(RFC)
+                        val ip = parsedCall.ip
+                        val ip2 = parsedCall.ip2
 
-                                            val amount = parsedCall.amount
-                                            val defaultPort = parsedCall.defaultPort
+                        val amount = parsedCall.amount
+                        val defaultPort = parsedCall.defaultPort
 
-                                            val tO: Array<Any?>? = arrayOf<Any?>(ip2, amount)
-                                            MyComputerHandler!!.addData(
-                                                ApplicationData(
-                                                    "transfer",
-                                                    tO,
-                                                    defaultPort,
-                                                    ip
-                                                ), ip, ApplicationData.OUTSIDE
-                                            )
-                                        } else if (RFC.getFunction() == "facebookupdate") {
-                                            val parsedCall = FacebookUpdate.fromRpc(RFC)
-                                            val ip = parsedCall.ip
-                                            MyComputerHandler!!.addData(
-                                                ApplicationData(
-                                                    "facebookupdate",
-                                                    null,
-                                                    0,
-                                                    ip
-                                                ), ip, ApplicationData.OUTSIDE
-                                            )
-                                        } else if (RFC.getFunction() == "setpreferences") {
-                                            val parsedCall = SetPreferences.fromRpc(RFC)
-                                            var ip = parsedCall.ip
-                                            ip = crypt(ip, clientKey)
-                                            val preferences =
-                                                parsedCall.preferences
-                                            val O = arrayOf<Any?>(ip, preferences)
-                                            MyComputerHandler!!.addData(
-                                                ApplicationData("setpreferences", O, 0, ip),
-                                                ip,
-                                                ApplicationData.OUTSIDE
-                                            )
-                                        }
+                        val tO: Array<Any?>? = arrayOf<Any?>(ip2, amount)
+                        MyComputerHandler!!.addData(
+                            ApplicationData(
+                                "transfer",
+                                tO,
+                                defaultPort,
+                                ip
+                            ), ip, ApplicationData.OUTSIDE
+                        )
+                    } else if (RFC.getFunction() == "facebookupdate") {
+                        val parsedCall = FacebookUpdate.fromRpc(RFC)
+                        val ip = parsedCall.ip
+                        MyComputerHandler!!.addData(
+                            ApplicationData(
+                                "facebookupdate",
+                                null,
+                                0,
+                                ip
+                            ), ip, ApplicationData.OUTSIDE
+                        )
+                    } else if (RFC.getFunction() == "setpreferences") {
+                        val parsedCall = SetPreferences.fromRpc(RFC)
+                        var ip = parsedCall.ip
+                        ip = crypt(ip, clientKey)
+                        val preferences =
+                            parsedCall.preferences
+                        val O = arrayOf<Any?>(ip, preferences)
+                        MyComputerHandler!!.addData(
+                            ApplicationData("setpreferences", O, 0, ip),
+                            ip,
+                            ApplicationData.OUTSIDE
+                        )
+                    }
                 } else if (MyAssignment is Array<*>) {
                     val AssignmentData = MyAssignment as Array<Any?>
                     if (AssignmentData.size >= 2 && AssignmentData[0] is Assignment && AssignmentData[1] is Int) {

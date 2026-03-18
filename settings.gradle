@@ -4,6 +4,14 @@ include ':HackWars'
 project(':HackWars').projectDir = file('src/HackWars')
 project(':HackWars').buildFileName = 'hackwars.gradle'
 
+include ':RpcDispatchAnnotations'
+project(':RpcDispatchAnnotations').projectDir = file('src/RpcDispatchAnnotations')
+project(':RpcDispatchAnnotations').buildFileName = 'rpcDispatchAnnotations.gradle'
+
+include ':RpcDispatchKsp'
+project(':RpcDispatchKsp').projectDir = file('src/RpcDispatchKsp')
+project(':RpcDispatchKsp').buildFileName = 'rpcDispatchKsp.gradle'
+
 include ':GameServer'
 project(':GameServer').projectDir = file('src/GameServer')
 project(':GameServer').buildFileName = 'GameServer.gradle'

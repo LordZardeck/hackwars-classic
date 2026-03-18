@@ -1,0 +1,10 @@
+dependencies {
+    implementation project(':RpcDispatchAnnotations')
+    implementation 'com.google.devtools.ksp:symbol-processing-api:2.1.20-1.0.32'
+}
+
+sourceSets {
+    main {
+        resources.setSrcDirs(['resources'])
+    }
+}

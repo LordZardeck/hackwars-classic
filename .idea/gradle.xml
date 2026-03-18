@@ -13,6 +13,8 @@
             <option value="$PROJECT_DIR$/src/GameServer" />
             <option value="$PROJECT_DIR$/src/HackWars" />
             <option value="$PROJECT_DIR$/src/Networking" />
+            <option value="$PROJECT_DIR$/src/RpcDispatchAnnotations" />
+            <option value="$PROJECT_DIR$/src/RpcDispatchKsp" />
             <option value="$PROJECT_DIR$/src/Tomcat" />
           </set>
         </option>
