@@ -9,7 +9,7 @@ import server.remote.RpcHandler
 import java.util.*
 
 @RpcHandler(InstallApplication.FUNCTION)
-object InstallapplicationHandler : RemoteCallHandler {
+object InstallApplicationHandler : RemoteCallHandler {
     override fun handle(rfc: RemoteFunctionCall, context: RemoteCallContext) {
         val parsedCall =
             InstallApplication.fromRpc(

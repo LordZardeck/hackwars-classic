@@ -9,7 +9,7 @@ import server.remote.RpcHandler
 import java.util.*
 
 @RpcHandler(DeleteWatch.FUNCTION)
-object DeletewatchHandler : RemoteCallHandler {
+object DeleteWatchHandler : RemoteCallHandler {
     override fun handle(rfc: RemoteFunctionCall, context: RemoteCallContext) {
         val parsedCall =
             DeleteWatch.fromRpc(

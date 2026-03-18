@@ -1,0 +1,41 @@
+package gui;
+
+
+import javax.swing.*;
+import java.awt.event.*;
+
+import com.hackwars.state.GameState;
+
+import assignments.*;
+
+public class StoreActionListener implements ActionListener {
+
+    private Hacker MyHacker;
+    private String name, ip;
+    private JSpinner spinner;
+    private WebBrowser MyWebBrowser;
+
+    public StoreActionListener(Hacker MyHacker, String name, JSpinner spinner, String ip, WebBrowser MyWebBrowser) {
+        this.MyHacker = MyHacker;
+        this.MyWebBrowser = MyWebBrowser;
+        this.name = name;
+        this.spinner = spinner;
+        this.ip = ip;
+    }
+
+    public void actionPerformed(ActionEvent e) {
+        if (e.getActionCommand().equals("Buy")) {
+            int quantity = (int) ((Integer) spinner.getValue());
+            //System.out.println("Buy "+quantity+" copies of "+name);
+            GameState myGameState = MyHacker.getView();
+            Object[] params = new Object[]{ip};
+            String result = (String) XMLRPCCall.execute("http://www.hackwars.net/xmlrpc/domain.php", "domainLookup", params);
+            Object objects[] = {result, MyHacker.getEncryptedIP(), name, quantity};
+            myGameState.setFunction("requestpurchase");
+            myGameState.addFunctionCall(new RemoteFunctionCall(Hacker.BROWSER, "requestpurchase", objects));
+            MyHacker.setRequestedDirectory(Hacker.BROWSER);
+            //MyWebBrowser.removeProducts();
+        }
+    }
+}
+		

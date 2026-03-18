@@ -9,7 +9,7 @@ import server.remote.RpcHandler
 import java.util.*
 
 @RpcHandler(SetWatchSearchFirewall.FUNCTION)
-object SetwatchsearchfirewallHandler : RemoteCallHandler {
+object SetWatchSearchFirewallHandler : RemoteCallHandler {
     override fun handle(rfc: RemoteFunctionCall, context: RemoteCallContext) {
         val parsedCall =
             SetWatchSearchFirewall.fromRpc(

@@ -9,7 +9,7 @@ import server.remote.RpcHandler
 import java.util.*
 
 @RpcHandler(DeleteFirewall.FUNCTION)
-object DeletefirewallHandler : RemoteCallHandler {
+object DeleteFirewallHandler : RemoteCallHandler {
     override fun handle(rfc: RemoteFunctionCall, context: RemoteCallContext) {
         val parsedCall =
             DeleteFirewall.fromRpc(

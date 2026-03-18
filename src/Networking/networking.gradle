@@ -1,0 +1,74 @@
+plugins {
+    id 'java-library'
+    id 'com.google.protobuf' version '0.9.4'
+}
+
+def protobufVersion = '3.25.5'
+def generatedProtoJavaDir = layout.buildDirectory.dir('generated/source/proto/main/java')
+
+dependencies {
+    api "com.google.protobuf:protobuf-java:${protobufVersion}"
+    implementation "org.jetbrains.kotlin:kotlin-reflect:2.1.21"
+    implementation "org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2"
+    testImplementation 'junit:junit:4.13.2'
+}
+
+sourceSets {
+    main {
+        java {
+            srcDir generatedProtoJavaDir
+        }
+        proto {
+            srcDir 'proto'
+        }
+        resources {
+            srcDir 'proto'
+            include '**/*.proto'
+        }
+    }
+    test {
+        java.setSrcDirs(['test'])
+        kotlin.setSrcDirs(['test'])
+        resources.setSrcDirs([])
+    }
+}
+
+tasks.named('compileKotlin') {
+    dependsOn tasks.named('generateProto')
+    compilerOptions {
+        freeCompilerArgs.add("-Xjava-source-roots=${generatedProtoJavaDir.get().asFile.absolutePath}")
+    }
+}
+
+protobuf {
+    protoc {
+        artifact = "com.google.protobuf:protoc:${protobufVersion}"
+    }
+    generateProtoTasks {
+        all().configureEach { task ->
+            task.builtins {
+                java {}
+            }
+            task.generateDescriptorSet = true
+            task.descriptorSetOptions.includeImports = true
+            task.descriptorSetOptions.includeSourceInfo = true
+            task.descriptorSetOptions.path = "${buildDir}/descriptors/networking.protoset"
+        }
+    }
+}
+
+tasks.register('exportProtoDefinitions', Copy) {
+    group = 'build'
+    description = 'Copies protobuf schemas for non-Java services.'
+    from('proto')
+    include '**/*.proto'
+    into(layout.buildDirectory.dir('exported-proto'))
+}
+
+tasks.named('assemble') {
+    dependsOn tasks.named('exportProtoDefinitions')
+}
+
+tasks.named('processResources', Copy) {
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}

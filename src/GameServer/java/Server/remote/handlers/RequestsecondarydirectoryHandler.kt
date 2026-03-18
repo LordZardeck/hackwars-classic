@@ -9,7 +9,7 @@ import server.remote.RpcHandler
 import java.util.*
 
 @RpcHandler(RequestSecondaryDirectory.FUNCTION)
-object RequestsecondarydirectoryHandler : RemoteCallHandler {
+object RequestSecondaryDirectoryHandler : RemoteCallHandler {
     override fun handle(rfc: RemoteFunctionCall, context: RemoteCallContext) {
         val parsedCall =
             RequestSecondaryDirectory.fromRpc(

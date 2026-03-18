@@ -9,7 +9,7 @@ import server.remote.RpcHandler
 import java.util.*
 
 @RpcHandler(SavePortNote.FUNCTION)
-object SaveportnoteHandler : RemoteCallHandler {
+object SavePortNoteHandler : RemoteCallHandler {
     override fun handle(rfc: RemoteFunctionCall, context: RemoteCallContext) {
         val parsedCall =
             SavePortNote.fromRpc(

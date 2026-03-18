@@ -9,7 +9,7 @@ import server.remote.RpcHandler
 import java.util.*
 
 @RpcHandler(InstallWatch.FUNCTION)
-object InstallwatchHandler : RemoteCallHandler {
+object InstallWatchHandler : RemoteCallHandler {
     override fun handle(rfc: RemoteFunctionCall, context: RemoteCallContext) {
         val parsedCall =
             InstallWatch.fromRpc(

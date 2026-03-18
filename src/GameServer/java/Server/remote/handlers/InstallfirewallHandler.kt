@@ -9,7 +9,7 @@ import server.remote.RpcHandler
 import java.util.*
 
 @RpcHandler(InstallFirewall.FUNCTION)
-object InstallfirewallHandler : RemoteCallHandler {
+object InstallFirewallHandler : RemoteCallHandler {
     override fun handle(rfc: RemoteFunctionCall, context: RemoteCallContext) {
         val parsedCall =
             InstallFirewall.fromRpc(

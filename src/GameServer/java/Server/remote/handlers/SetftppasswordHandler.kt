@@ -9,7 +9,7 @@ import server.remote.RpcHandler
 import java.util.*
 
 @RpcHandler(SetFtpPassword.FUNCTION)
-object SetftppasswordHandler : RemoteCallHandler {
+object SetFtpPasswordHandler : RemoteCallHandler {
     override fun handle(rfc: RemoteFunctionCall, context: RemoteCallContext) {
         val parsedCall =
             SetFtpPassword.fromRpc(

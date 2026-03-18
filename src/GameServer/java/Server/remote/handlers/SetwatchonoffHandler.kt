@@ -9,7 +9,7 @@ import server.remote.RpcHandler
 import java.util.*
 
 @RpcHandler(SetWatchOnOff.FUNCTION)
-object SetwatchonoffHandler : RemoteCallHandler {
+object SetWatchOnOffHandler : RemoteCallHandler {
     override fun handle(rfc: RemoteFunctionCall, context: RemoteCallContext) {
         val parsedCall =
             SetWatchOnOff.fromRpc(

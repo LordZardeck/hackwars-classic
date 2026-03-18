@@ -9,7 +9,7 @@ import server.remote.RpcHandler
 import java.util.*
 
 @RpcHandler(RequestZombieCancelAttack.FUNCTION)
-object RequestzombiecancelattackHandler : RemoteCallHandler {
+object RequestZombieCancelAttackHandler : RemoteCallHandler {
     override fun handle(rfc: RemoteFunctionCall, context: RemoteCallContext) {
         val parsedCall =
             RequestZombieCancelAttack.fromRpc(

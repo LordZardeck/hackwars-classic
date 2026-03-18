@@ -9,7 +9,7 @@ import server.remote.RpcHandler
 import java.util.*
 
 @RpcHandler(SetWatchQuantity.FUNCTION)
-object SetwatchquantityHandler : RemoteCallHandler {
+object SetWatchQuantityHandler : RemoteCallHandler {
     override fun handle(rfc: RemoteFunctionCall, context: RemoteCallContext) {
         val parsedCall =
             SetWatchQuantity.fromRpc(

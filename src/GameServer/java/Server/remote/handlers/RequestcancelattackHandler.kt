@@ -9,7 +9,7 @@ import server.remote.RpcHandler
 import java.util.*
 
 @RpcHandler(RequestCancelAttack.FUNCTION)
-object RequestcancelattackHandler : RemoteCallHandler {
+object RequestCancelAttackHandler : RemoteCallHandler {
     override fun handle(rfc: RemoteFunctionCall, context: RemoteCallContext) {
         val parsedCall =
             RequestCancelAttack.fromRpc(

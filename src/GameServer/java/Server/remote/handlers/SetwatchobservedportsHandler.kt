@@ -9,7 +9,7 @@ import server.remote.RpcHandler
 import java.util.*
 
 @RpcHandler(SetWatchObservedPorts.FUNCTION)
-object SetwatchobservedportsHandler : RemoteCallHandler {
+object SetWatchObservedPortsHandler : RemoteCallHandler {
     override fun handle(rfc: RemoteFunctionCall, context: RemoteCallContext) {
         val parsedCall =
             SetWatchObservedPorts.fromRpc(

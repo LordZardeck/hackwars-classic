@@ -1,0 +1,29 @@
+syntax = "proto3";
+
+package hackwars.networking.auth.v1;
+
+option java_multiple_files = true;
+option java_package = "com.hackwars.networking.auth.v1";
+option java_outer_classname = "AuthProto";
+option go_package = "hackwars/networking/auth/v1;authv1";
+
+message AuthRequest {
+  bytes jwt = 1;
+  int64 client_build = 2;
+}
+
+message AuthResponse {
+  oneof response {
+    AuthAccepted accepted = 1;
+    AuthRejected rejected = 2;
+  }
+}
+
+message AuthAccepted {
+  bool success = 1;
+}
+
+message AuthRejected {
+  string reason_code = 1;
+  string reason_text = 2;
+}

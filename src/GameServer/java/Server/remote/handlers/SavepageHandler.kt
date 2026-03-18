@@ -9,7 +9,7 @@ import server.remote.RpcHandler
 import java.util.*
 
 @RpcHandler(SavePage.FUNCTION)
-object SavepageHandler : RemoteCallHandler {
+object SavePageHandler : RemoteCallHandler {
     override fun handle(rfc: RemoteFunctionCall, context: RemoteCallContext) {
         val parsedCall =
             SavePage.fromRpc(

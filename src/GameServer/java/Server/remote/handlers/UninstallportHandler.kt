@@ -9,7 +9,7 @@ import server.remote.RpcHandler
 import java.util.*
 
 @RpcHandler(UninstallPort.FUNCTION)
-object UninstallportHandler : RemoteCallHandler {
+object UninstallPortHandler : RemoteCallHandler {
     override fun handle(rfc: RemoteFunctionCall, context: RemoteCallContext) {
         val parsedCall =
             UninstallPort.fromRpc(
