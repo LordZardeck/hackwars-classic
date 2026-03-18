@@ -2,13 +2,7 @@ package com.hackwars.gui.login
 
 import com.github.weisj.jsvg.attributes.ViewBox
 import com.hackwars.gui.svgResource
-import java.awt.Dimension
-import java.awt.Graphics
-import java.awt.Graphics2D
-import java.awt.GridBagConstraints
-import java.awt.GridBagLayout
-import java.awt.Insets
-import java.awt.RenderingHints
+import java.awt.*
 import java.awt.event.HierarchyEvent
 import java.awt.event.HierarchyListener
 import java.awt.geom.Rectangle2D
@@ -17,6 +11,9 @@ import javax.swing.SwingUtilities
 import javax.swing.Timer
 import kotlin.concurrent.schedule
 import kotlin.math.hypot
+import kotlin.time.Duration.Companion.seconds
+import kotlin.time.DurationUnit
+import kotlin.time.toDuration
 
 abstract class LoginSceneView : LoginBackgroundPanel() {
     companion object {
@@ -28,11 +25,13 @@ abstract class LoginSceneView : LoginBackgroundPanel() {
         private const val SPINNER_FRAME_DELAY_MS = 16
         private const val SPINNER_ROTATION_STEP_DEG = 3.8f
         private const val SPINNER_VERTICAL_OFFSET_PX = -10f
+        private val LOGIN_MIN_DURATION = 2.seconds
 
         val spinnerRingDocument = svgResource("images/loading.svg")
         val spinnerGlowlineDocument = svgResource("images/glowline-curved.svg")
     }
 
+    private var authStartedAt = System.nanoTime()
     private var isAuthenticating = false
         set(value) {
             if (field == value) {
@@ -90,18 +89,34 @@ abstract class LoginSceneView : LoginBackgroundPanel() {
 
         formPanel.apply {
             addPasswordAuthenticationListener { event ->
-                onUsernamePasswordAuthenticate(event.username, event.password)
+                authStartedAt = System.nanoTime()
+                onUsernamePasswordAuthenticate(event.email, event.password)
             }
         }
     }
 
-    protected fun onUsernamePasswordAuthenticate(username: String, password: CharArray){
+    protected open fun onUsernamePasswordAuthenticate(email: String, password: CharArray){
         isAuthenticating = true
         toggleLogin(false)
     }
-    fun onAuthenticationFailure(reason: String) {
-        isAuthenticating = false
-        toggleLogin(true)
+    open fun onAuthenticationFailure(reason: String) {
+        val resetLoginForm = {
+            isAuthenticating = false
+            toggleLogin(true)
+        }
+        val timeSinceAuthStarted = (System.nanoTime() - authStartedAt).toDuration(DurationUnit.NANOSECONDS)
+
+        if(timeSinceAuthStarted < LOGIN_MIN_DURATION) {
+            Timer((LOGIN_MIN_DURATION - timeSinceAuthStarted).inWholeMilliseconds.toInt()) {
+                resetLoginForm()
+            }.apply {
+                isRepeats = false
+                start()
+            }
+            return
+        }
+
+        resetLoginForm()
     }
 
     override fun addNotify() {

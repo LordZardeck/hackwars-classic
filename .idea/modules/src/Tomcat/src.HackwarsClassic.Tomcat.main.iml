@@ -5,13 +5,6 @@
       <configuration>
         <webroots>
           <root url="file://$MODULE_DIR$/../../../../src/Tomcat/src/main/webapp" relative="/" />
-          <root url="file://$MODULE_DIR$/../../../../src/ChatServer/build/classes/java/main/assignments" relative="/WEB-INF/classes/chatServer/assignments" />
-          <root url="file://$MODULE_DIR$/../../../../src/ChatServer/build/classes/java/main/chat" relative="/WEB-INF/classes/chatServer/chat" />
-          <root url="file://$MODULE_DIR$/../../../../src/ChatServer/build/classes/java/main/util" relative="/WEB-INF/classes/chatServer/util" />
-          <root url="file://$MODULE_DIR$/../../../../src/ChatServer/build/classes/java/main/server" relative="/WEB-INF/classes/chatServer/server" />
-          <root url="file://$MODULE_DIR$/../../../../src/ChatServer/build/classes/java/main/com" relative="/WEB-INF/classes/chatServer/com" />
-          <root url="file://$MODULE_DIR$/../../../../src/ChatServer/build/resources/main/com" relative="/WEB-INF/classes/chatServer/com" />
-          <root url="file://$MODULE_DIR$/../../../../src/Tomcat/build/generated/webapp" relative="" />
         </webroots>
       </configuration>
     </facet>
@@ -102,5 +95,6 @@
     <orderEntry type="library" scope="RUNTIME" name="Gradle: org.apache.ws.commons.util:ws-commons-util:1.0.2" level="project" />
     <orderEntry type="library" scope="RUNTIME" name="Gradle: junit:junit:3.8.1" level="project" />
     <orderEntry type="library" scope="RUNTIME" name="Gradle: xml-apis:xml-apis:1.0.b2" level="project" />
+    <orderEntry type="library" scope="RUNTIME" name="Gradle: com.playfab:client-sdk:0.256.260313" level="project" />
   </component>
 </module>

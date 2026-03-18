@@ -13,9 +13,26 @@ def joglNativeCoordinates = [
         'net.java.dev.gluegen:gluegen-rt-windows-i586:1.0b05'
 ]
 
+repositories {
+    ivy {
+        name = 'PlayFabGitHubRaw'
+        url = uri('https://raw.githubusercontent.com/PlayFab/JavaSDK')
+        patternLayout {
+            artifact '/versioned/builds/[artifact]-[revision].[ext]'
+        }
+        metadataSources {
+            artifact()
+        }
+        content {
+            includeModule('com.playfab', 'client-sdk')
+        }
+    }
+}
+
 dependencies {
     implementation project(':HackWars')
     implementation project(':Networking')
+    implementation 'com.playfab:client-sdk:0.256.260313@jar'
     implementation 'org.apache.axis:axis:1.4'
     implementation 'com.github.weisj:jsvg:1.7.0'
     implementation 'de.sciss:jsyntaxpane:1.0.0'
