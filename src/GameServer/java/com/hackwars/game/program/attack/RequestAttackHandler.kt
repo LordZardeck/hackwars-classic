@@ -11,13 +11,13 @@ class RequestAttackHandler : AttackFunctionHandler {
         val parameters = applicationData.parameters as Array<Any?>
         val windowHandle = parameters[5] as Int
 
-        if (program.parentPort.attacking) {
-            program.computerHandler.addData(
+        if (program.parentPort!!.attacking) {
+            program.computerHandler!!.addData(
                 ApplicationData(
                     "message",
                     arrayOf<Any>(
                         MessageHandler.PORT_ALREADY_ATTACKING,
-                        arrayOf<Any>(program.parentPort.number),
+                        arrayOf<Any>(program.parentPort!!.number),
                         arrayOf<Any?>(windowHandle, program.sourceIP)
                     ),
                     0,
@@ -28,8 +28,8 @@ class RequestAttackHandler : AttackFunctionHandler {
             return
         }
 
-        if (program.parentPort.overHeated) {
-            program.computerHandler.addData(
+        if (program.parentPort!!.overHeated) {
+            program.computerHandler!!.addData(
                 ApplicationData(
                     "message",
                     arrayOf<Any>(
@@ -48,16 +48,16 @@ class RequestAttackHandler : AttackFunctionHandler {
         program.windowHandle = windowHandle
         program.switching = false
 
-        if (!program.computer.checkBank()) {
-            program.computerHandler.addData(
+        if (!program.computer!!.checkBank()) {
+            program.computerHandler!!.addData(
                 ApplicationData("message", MessageHandler.ACTIVE_BANK_NOT_FOUND, 0, program.sourceIP),
                 program.sourceIP
             )
             return
         }
 
-        if (program.computer.pettyCash < 10.0f) {
-            program.computer.addMessage(MessageHandler.ATTACK_FAIL_NOT_ENOUGH_MONEY)
+        if (program.computer!!.pettyCash < 10.0f) {
+            program.computer!!.addMessage(MessageHandler.ATTACK_FAIL_NOT_ENOUGH_MONEY)
             return
         }
 
@@ -69,16 +69,16 @@ class RequestAttackHandler : AttackFunctionHandler {
         }
 
         if (parameters.size > 3) {
-            program.MaliciousCode = parameters[3] as Array<Array<String?>?>
+            program.maliciousCode = parameters[3] as Array<Array<String?>?>
         }
 
         if (parameters[4] != null) {
-            program.MaliciousParameters = parameters[4] as Array<Any?>
-            program.pettyCashTarget = program.MaliciousParameters!![3] as Float
+            program.maliciousParameters = parameters[4] as Array<Any?>
+            program.pettyCashTarget = program.maliciousParameters!![3] as Float
         }
 
-        val request = ApplicationData("attack", program.computer.network, program.targetPort, applicationData.sourceIP)
-        request.sourcePort = program.parentPort.number
-        program.computerHandler.addData(request, program.targetIP)
+        val request = ApplicationData("attack", program.computer!!.network, program.targetPort, applicationData.sourceIP)
+        request.sourcePort = program.parentPort!!.number
+        program.computerHandler!!.addData(request, program.targetIP)
     }
 }

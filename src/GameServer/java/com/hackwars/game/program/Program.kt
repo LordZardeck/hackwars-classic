@@ -12,10 +12,12 @@ import game.NetworkSwitch
  * (Banking,Attacking,FTP,etc.).
  */
 
-abstract class Program {
-    private var myComputerHandler: NetworkSwitch? = null //Central mechanism for contacting other computers.
-    private var myComputer: Computer? = null //The Computer this program is installed on.
+abstract class Program(computer: Computer?, var computerHandler: NetworkSwitch?) {
     private var error: String? = ""
+
+    // The Computer this program is installed on.
+    var computer: Computer? = computer
+        protected set
 
     /**
      * Set the error string for this program which is used when compiling.
@@ -32,46 +34,15 @@ abstract class Program {
     }
 
     /**
-     * setComputerHandler(ComputerHandler MyComputerHandler)
-     * sets the computer handler associated with this program.
-     */
-    fun setComputerHandler(myComputerHandler: NetworkSwitch?) {
-        this.myComputerHandler = myComputerHandler
-    }
-
-    /**
-     * setComput(Computer MyComputer)
-     * sets the computer associated with this program.
-     */
-    fun setComputer(myComputer: Computer?) {
-        this.myComputer = myComputer
-    }
-
-    /**
-     * Get the computer setup to run with this application.
-     */
-    open fun getComputer(): Computer? {
-        return myComputer
-    }
-
-    /**
-     * getComputerHandler()
-     * returns the computer handler associated with this program.
-     */
-    fun getComputerHandler(): NetworkSwitch? {
-        return myComputerHandler
-    }
-
-    /**
      * installScript(HashMap Script);
      * Installs a script on the various entrance points on this program.
      */
-    abstract fun installScript(Script: HashMap<*, *>)
+    abstract fun installScript(script: HashMap<*, *>)
 
     /**
      * Execute the program with the RFC provided.
      */
-    abstract fun execute(MyApplicationData: ApplicationData)
+    abstract fun execute(applicationData: ApplicationData)
 
     /**
      * Returns the keys that should be parsed from the save file given this program type.

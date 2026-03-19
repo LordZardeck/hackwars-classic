@@ -12,11 +12,11 @@ class AttackContinueHandler : AttackFunctionHandler {
 
         if (program.dealDamage) {
             val payload: Array<Any?> = arrayOf(
-                program.computer.getDamage("Attack") + program.computer.equipmentSheet.getDamageBonus(),
-                program.parentPort.ip,
-                program.parentPort.number,
+                program.computer!!.getDamage("Attack") + program.computer!!.equipmentSheet.getDamageBonus(),
+                program.parentPort!!.ip,
+                program.parentPort!!.number,
                 false,
-                program.parentPort.ip.takeIf { program.zombie },
+                program.parentPort!!.ip.takeIf { program.zombie },
                 program.windowHandle,
                 -1
             )
@@ -24,11 +24,11 @@ class AttackContinueHandler : AttackFunctionHandler {
                 "damage",
                 payload,
                 program.targetPort,
-                program.maliciousIP.takeIf { program.zombie } ?: program.computer.ip,
+                program.maliciousIP.takeIf { program.zombie } ?: program.computer!!.ip,
             )
 
-            damageData.sourcePort = program.parentPort.number
-            program.computerHandler.addData(damageData, program.targetIP)
+            damageData.sourcePort = program.parentPort!!.number
+            program.computerHandler!!.addData(damageData, program.targetIP)
         }
         program.dealDamage = true
     }

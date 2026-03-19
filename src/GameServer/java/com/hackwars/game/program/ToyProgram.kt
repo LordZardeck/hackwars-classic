@@ -13,7 +13,7 @@ import kotlin.math.abs
  * (Banking,Attacking,FTP,etc.).
  */
 
-class ToyProgram(script: String?, MAX_ARRAY: Int, MAX_ITERATIONS: Int) : Program() {
+class ToyProgram(script: String?, MAX_ARRAY: Int, MAX_ITERATIONS: Int) : Program(null, null) {
     private var MAX_ARRAY = 64
     private var MAX_ITERATIONS = 128
     private val InFloat: ArrayList<Any?> = ArrayList()
@@ -174,13 +174,13 @@ class ToyProgram(script: String?, MAX_ARRAY: Int, MAX_ITERATIONS: Int) : Program
      * installScript(HashMap Script);
      * Installs a script on the various entrance points on this program.
      */
-    override fun installScript(Script: HashMap<*, *>) {
+    override fun installScript(script: HashMap<*, *>) {
     }
 
     /**
      * Execute the program with the RFC provided.
      */
-    override fun execute(MyApplicationData: ApplicationData) {
+    override fun execute(applicationData: ApplicationData) {
         try {
             val HL = ToyLinker(this, null)
             RunFactory.runCode(script, HL, MAX_ITERATIONS)

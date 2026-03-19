@@ -2604,19 +2604,19 @@ public class Computer implements Runnable{//Runnable is an interface that allows
 											P.setCPUCost(HF.getCPUCost());
 											
 											if(PortType==Port.ATTACK){
-												NewProgram=new AttackProgram(this,P,MyComputerHandler,Choices,MyMakeBounty);
+												NewProgram=new AttackProgram(this, MyComputerHandler, P, Choices,MyMakeBounty);
 											}else
 											
 											if(PortType==Port.SHIPPING){
-												NewProgram=new ShippingProgram(this,P,MyComputerHandler,Choices,MyMakeBounty);
+												NewProgram=new ShippingProgram(this, MyComputerHandler, P);
 											}else
 											
 											if(PortType==Port.BANKING){
-												NewProgram=new Banking(MyComputerHandler,this,P);
+												NewProgram=new Banking(this, MyComputerHandler, P);
 											}else
 											
 											if(PortType==Port.FTP){
-												NewProgram=new FTPProgram(this,MyFileSystem,P,MyComputerHandler);
+												NewProgram=new FTPProgram(this, MyComputerHandler, MyFileSystem,P);
 											}else
 																						
 											if(PortType==Port.HTTP){
@@ -2744,25 +2744,25 @@ public class Computer implements Runnable{//Runnable is an interface that allows
 											if(PortType==Port.ATTACK){
 												if(defaultAttack==0)
 													defaultAttack=port;
-												NewProgram=new AttackProgram(this,P,MyComputerHandler,Choices,MyMakeBounty);
+												NewProgram=new AttackProgram(this, MyComputerHandler, P, Choices,MyMakeBounty);
 											}else
 											
 											if(PortType==Port.SHIPPING){
 												if(defaultShipping==0)
 													defaultShipping=port;
-												NewProgram=new ShippingProgram(this,P,MyComputerHandler,Choices,MyMakeBounty);
+												NewProgram=new ShippingProgram(this, MyComputerHandler, P);
 											}else
 											
 											if(PortType==Port.BANKING){
 												if(defaultBank==0)
 													defaultBank=port;
-												NewProgram=new Banking(MyComputerHandler,this,P);
+												NewProgram=new Banking(this, MyComputerHandler, P);
 											}else
 											
 											if(PortType==Port.FTP){
 												if(defaultFTP==0)
 													defaultFTP=port;
-												NewProgram=new FTPProgram(this,MyFileSystem,P,MyComputerHandler);
+												NewProgram=new FTPProgram(this, MyComputerHandler, MyFileSystem,P);
 											}
 											
 											if(PortType==Port.HTTP){
@@ -6192,19 +6192,19 @@ while (it.hasNext()) {
 					Program MyProgram=null;
 					
 					if(type==Port.BANKING){
-						MyProgram=new Banking(MyComputerHandler,MyComputer,tport);
+						MyProgram=new Banking(MyComputer, MyComputerHandler, tport);
 					}else
 					
 					if(type==Port.ATTACK){
-						MyProgram=new AttackProgram(MyComputer,tport,MyComputerHandler,Choices,MyMakeBounty);
+						MyProgram=new AttackProgram(MyComputer, MyComputerHandler, tport, Choices,MyMakeBounty);
 					}else
 					
 					if(type==Port.SHIPPING){
-						MyProgram=new ShippingProgram(MyComputer,tport,MyComputerHandler,Choices,MyMakeBounty);
+						MyProgram=new ShippingProgram(MyComputer, MyComputerHandler, tport);
 					}else
 					
 					if(type==Port.FTP){
-						MyProgram=new FTPProgram(MyComputer,MyFileSystem,tport,MyComputerHandler);
+						MyProgram=new FTPProgram(MyComputer, MyComputerHandler, MyFileSystem,tport);
 					}
 					
 					if(type==Port.HTTP){

@@ -633,7 +633,7 @@ public class HackerRPC extends HttpServlet implements DataHandler {
                 Keys = RedirectKeys;
                 if (Stats.get("Redirect") != null)
                     level = (Integer) Stats.get("Redirect");
-                GatherInformation = new ShippingProgram(null, null, null, null, null);
+                GatherInformation = new ShippingProgram(null, null, null);
                 cpubase = redirectbase;
             } else if (type == HackerFile.FTP_COMPILED) {
                 Keys = FTPKeys;

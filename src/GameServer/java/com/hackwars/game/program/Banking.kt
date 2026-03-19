@@ -7,13 +7,11 @@ import hackscript.model.RunFactory
  * Class which contains the banking application.
  */
 
-class Banking(MyComputerHandler: NetworkSwitch?, MyComputer: Computer?, ParentPort: Port?) : Program() {
+class Banking(computer: Computer?, computerHandler: NetworkSwitch?, ParentPort: Port?) :
+    Program(computer, computerHandler) {
     private var depositScript: String? = null //Script which runs when a deposit is requested.
     private var withdrawScript: String? = null //Script which runs when withdraw is requested.
     private var transferScript: String? = null //Script which runs when a transfer is requested.
-
-    private var MyComputerHandler: NetworkSwitch? = null //Used to dispatch ApplicationData to other computers.
-    private var MyComputer: Computer? = null //The computer executing this program.
 
     /* The amount which has been provided for this transaction.
        In the case of withdraws the script running can't exceed this amount.*/
@@ -37,20 +35,20 @@ class Banking(MyComputerHandler: NetworkSwitch?, MyComputer: Computer?, ParentPo
      * Deposit money in the the players bank.
      */
     fun deposit(amount: Float) {
-        MyComputer!!.setBank(MyComputer!!.getBank() + amount)
+        this@Banking.computer!!.bank = this@Banking.computer!!.bank + amount
     }
 
     val iP: String?
         /**
          * Get the IP address of the computer that this program is installed on.
          */
-        get() = (MyComputer!!.getIP())
+        get() = (this@Banking.computer!!.ip)
 
     val maliciousTarget: String?
         /**
          * Get the malicious IP that should be delivered money.
          */
-        get() = (ParentPort!!.getMaliciousTarget())
+        get() = (ParentPort!!.maliciousTarget)
 
     /**
      * Return the target IP of a money transfer.
@@ -103,10 +101,6 @@ class Banking(MyComputerHandler: NetworkSwitch?, MyComputer: Computer?, ParentPo
 
     //constructor
     init {
-        super.setComputerHandler(MyComputerHandler)
-        super.setComputer(MyComputer)
-        this.MyComputerHandler = MyComputerHandler
-        this.MyComputer = MyComputer
         this.ParentPort = ParentPort
     }
 
@@ -119,31 +113,31 @@ class Banking(MyComputerHandler: NetworkSwitch?, MyComputer: Computer?, ParentPo
         /**
          * Return the amount in the pettycash of the computer this is attached to.
          */
-        get() = (MyComputer!!.getPettyCash())
+        get() = (this@Banking.computer!!.pettyCash)
         /**
          * Set the amount of money in the computer's petty cash.
          */
         set(pettyCash) {
-            MyComputer!!.setPettyCash(pettyCash)
+            this@Banking.computer!!.setPettyCash(pettyCash)
         }
 
     var bank: Float
         /**
          * Return the amount in the pettycash of the computer this is attached to.
          */
-        get() = (MyComputer!!.getBank())
+        get() = (this@Banking.computer!!.bank)
         /**
          * Set the amount of money in the computer's petty cash.
          */
         set(bankMoney) {
-            MyComputer!!.setBank(bankMoney)
+            this@Banking.computer!!.setBank(bankMoney)
         }
 
     val bankMoney: Float
         /**
          * Return the amount in the bank of the computer this is attached to.
          */
-        get() = (MyComputer!!.getBankMoney())
+        get() = (this@Banking.computer!!.bankMoney)
 
     /**
      * Set the script to run when a deposit is performed.
@@ -183,44 +177,44 @@ class Banking(MyComputerHandler: NetworkSwitch?, MyComputer: Computer?, ParentPo
     /**
      * Provides an ApplicationData packet and executes scripts accordingly.
      */
-    override fun execute(MyApplicationData: ApplicationData) {
+    override fun execute(applicationData: ApplicationData) {
         var data: String? = null
 
         //A 'deposit' function call.
-        if (MyApplicationData.getFunction() == "deposit") {
-            amount = (MyApplicationData.getParameters() as kotlin.Float?)!!
+        if (applicationData.function == "deposit") {
+            amount = (applicationData.parameters as kotlin.Float?)!!
             initialAmount = amount
-            if (amount > MyComputer!!.getPettyCash()) amount = MyComputer!!.getPettyCash()
+            if (amount > this@Banking.computer!!.pettyCash) amount = this@Banking.computer!!.pettyCash
             data = depositScript
             withdraw = false
             deposit = true
             transfer = false
         } else  //A 'withdraw' function call.
-            if (MyApplicationData.getFunction() == "withdraw") {
-                amount = (MyApplicationData.getParameters() as kotlin.Float?)!!
+            if (applicationData.function == "withdraw") {
+                amount = (applicationData.parameters as kotlin.Float?)!!
                 initialAmount = amount
-                if (amount > MyComputer!!.getBankMoney()) {
-                    amount = MyComputer!!.getBankMoney()
+                if (amount > this@Banking.computer!!.bankMoney) {
+                    amount = this@Banking.computer!!.bankMoney
                 }
                 data = withdrawScript
                 withdraw = true
                 deposit = false
                 transfer = false
             } else  //A 'transfer' function call.
-                if (MyApplicationData.getFunction() == "transfer") {
-                    val parameters = MyApplicationData.getParameters() as Array<Any?>
+                if (applicationData.function == "transfer") {
+                    val parameters = applicationData.parameters as Array<Any?>
                     targetIP = parameters[0] as String
 
                     //We make an exception for Alexi.
-                    if (MyComputer!!.getTotalLevel() < 15 && targetIP != "900.800.7.012") { //Noob check.
-                        MyComputer!!.addMessage(MessageHandler.TRANSFER_FAIL_NOOB)
-                        MyComputer!!.sendPacket()
+                    if (this@Banking.computer!!.getTotalLevel() < 15 && targetIP != "900.800.7.012") { //Noob check.
+                        this@Banking.computer!!.addMessage(MessageHandler.TRANSFER_FAIL_NOOB)
+                        this@Banking.computer!!.sendPacket()
                         return
                     }
 
                     amount = (parameters[1] as Float?)!!
                     initialAmount = amount
-                    if (amount > MyComputer!!.getPettyCash()) amount = MyComputer!!.getPettyCash()
+                    if (amount > this@Banking.computer!!.pettyCash) amount = this@Banking.computer!!.pettyCash
                     data = transferScript
                     withdraw = false
                     transfer = true
@@ -228,9 +222,9 @@ class Banking(MyComputerHandler: NetworkSwitch?, MyComputer: Computer?, ParentPo
                 } else return
 
         try {
-            val HL = HackerLinker(this, MyComputerHandler)
+            val HL = HackerLinker(this, this@Banking.computerHandler)
 
-            RunFactory.runCode(data, HL, MyComputer!!.MAX_OPS)
+            RunFactory.runCode(data, HL, this@Banking.computer!!.MAX_OPS)
         } catch (e: Exception) {
             e.printStackTrace()
         }
@@ -240,10 +234,10 @@ class Banking(MyComputerHandler: NetworkSwitch?, MyComputer: Computer?, ParentPo
      * installScript(HashMap Script);
      * Installs a script on the various entrance points on this program.
      */
-    override fun installScript(Script: HashMap<*, *>) {
-        depositScript = Script.get("deposit") as String?
-        withdrawScript = Script.get("withdraw") as String?
-        transferScript = Script.get("transfer") as String?
+    override fun installScript(script: HashMap<*, *>) {
+        depositScript = script.get("deposit") as String?
+        withdrawScript = script.get("withdraw") as String?
+        transferScript = script.get("transfer") as String?
     }
 
     /**

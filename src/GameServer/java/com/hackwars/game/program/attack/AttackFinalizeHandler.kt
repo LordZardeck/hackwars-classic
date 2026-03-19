@@ -8,7 +8,7 @@ class AttackFinalizeHandler : AttackFunctionHandler {
     override val functionName: String = "attackfinalize"
 
     override fun execute(program: AttackProgram, applicationData: ApplicationData) {
-        if (!program.parentPort.attacking) {
+        if (!program.parentPort!!.attacking) {
             return
         }
 
@@ -19,7 +19,7 @@ class AttackFinalizeHandler : AttackFunctionHandler {
         program.finalizeScript?.let(program::runScript)
 
         program.attacking = false
-        program.computer.incrementSuccessfulHacks()
+        program.computer!!.incrementSuccessfulHacks()
         program.checkBounty(null, MakeBounty.KILL)
     }
 }

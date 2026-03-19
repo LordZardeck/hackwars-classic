@@ -7,17 +7,17 @@ class AttackInitializeHandler : AttackFunctionHandler {
     override val functionName: String = "attackinitialize"
 
     override fun execute(program: AttackProgram, applicationData: ApplicationData) {
-        if (program.switching || program.parentPort.attacking) {
+        if (program.switching || program.parentPort!!.attacking) {
             return
         }
 
-        program.computerHandler.addData(
-            ApplicationData("pettycash", -10.0f, 0, program.computer.ip),
-            program.computer.ip
+        program.computerHandler!!.addData(
+            ApplicationData("pettycash", -10.0f, 0, program.computer!!.ip),
+            program.computer!!.ip
         )
 
         program.choicesShown = false
-        program.attackStart = program.computer.currentTime
+        program.attackStart = program.computer!!.currentTime
         program.iterations = 0
 
         val parameters = applicationData.parameters as Array<Any?>
@@ -28,10 +28,10 @@ class AttackInitializeHandler : AttackFunctionHandler {
             program.isNPC = parameters[2] as Boolean
         }
 
-        program.parentPort.targetHP = targetStats[1]!!
-        program.parentPort.targetPettyCash = targetStats[2]!!
-        program.parentPort.targetCPUCost = targetStats[3]!!
-        program.parentPort.targetWatch = targetWatch
+        program.parentPort!!.targetHP = targetStats[1]!!
+        program.parentPort!!.targetPettyCash = targetStats[2]!!
+        program.parentPort!!.targetCPUCost = targetStats[3]!!
+        program.parentPort!!.targetWatch = targetWatch
 
         program.targetIP = applicationData.sourceIP
         program.targetPort = applicationData.sourcePort
@@ -39,8 +39,8 @@ class AttackInitializeHandler : AttackFunctionHandler {
 
         program.initializeScript?.let(program::runScript)
 
-        if (!program.zombie && !program.computer.checkBank()) {
-            program.computerHandler.addData(
+        if (!program.zombie && !program.computer!!.checkBank()) {
+            program.computerHandler!!.addData(
                 ApplicationData("cancelattack", null, program.getTargetPort(), program.sourceIP),
                 program.getTargetIP()
             )

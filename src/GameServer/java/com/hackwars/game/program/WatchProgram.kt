@@ -8,161 +8,141 @@ import hackscript.model.RunFactory
  * A watch program is executed by the watch handler when a specific event has fired.
  */
 
-class WatchProgram(MyComputer: Computer?, MyComputerHandler: NetworkSwitch?, ParentWatch: Watch?) : Program() {
+class WatchProgram(computer: Computer?, computerHandler: NetworkSwitch?, parentWatch: Watch?) : Program(computer, computerHandler) {
     private var fireScript: String? = "" //Script that runs when watch fires.
-    private var MyComputer: Computer? = null //Computer associated with this program.
-    private var ParentWatch: Watch? = null //Watch housing this program.
-    private var triggered = false
 
-    //Constructor.
-    init {
-        super.setComputerHandler(MyComputerHandler)
-        super.setComputer(MyComputer)
-        this.MyComputer = MyComputer
-        this.ParentWatch = ParentWatch
-    }
-
-    fun getTriggered(): Boolean {
-        return (triggered)
-    }
-
-    fun setTriggered(triggered: Boolean) {
-        this.triggered = triggered
-    }
-
-    //Get the parent watch associated with this program.
-    fun getParentWatch(): Watch? {
-        return (ParentWatch)
-    }
+    var triggered = false
+    var parentWatch: Watch? = parentWatch
+        private set
 
     /**
      * Shut down all observed ports.
      */
     fun shutDownPorts() {
-        ParentWatch!!.shutDownPorts()
+        parentWatch!!.shutDownPorts()
     }
 
     /**
      * Shut down a specific port.
      */
     fun shutDownPort(port: Int) {
-        ParentWatch!!.shutDownPort(port)
+        parentWatch!!.shutDownPort(port)
     }
 
     /**
      * Shut down all observed ports.
      */
     fun turnOnPorts() {
-        ParentWatch!!.turnOnPorts()
+        parentWatch!!.turnOnPorts()
     }
 
     /**
      * Shut down a specific port.
      */
     fun turnOnPort(port: Int) {
-        ParentWatch!!.turnOnPort(port)
+        parentWatch!!.turnOnPort(port)
     }
 
     var pettyCash: Float
         /**
          * Return the amount currently in the player's petty cash.
          */
-        get() = (MyComputer!!.getPettyCash())
+        get() = (computer!!.pettyCash)
         /**
          * Set the amount currently in the player's petty cash.
          */
         set(pettyCash) {
-            MyComputer!!.setPettyCash(pettyCash)
+            computer!!.setPettyCash(pettyCash)
         }
 
     /**
      * Switch the fire wall from the port provided to this port.
      */
     fun switchFireWall(port: Int) {
-        ParentWatch!!.switchFireWall(port)
+        parentWatch!!.switchFireWall(port)
     }
 
     /**
      * Switch any fire wall from a port in the observed ports array.
      */
     fun switchAnyFireWall() {
-        ParentWatch!!.switchAnyFireWall()
+        parentWatch!!.switchAnyFireWall()
     }
 
     /**
      * Check the array of observed fire walls for the fire wall with the given name.
      */
     fun checkForFireWall(FireWallName: String?): Int {
-        return (ParentWatch!!.checkForFireWall(FireWallName))
+        return (parentWatch!!.checkForFireWall(FireWallName))
     }
 
     /**
      * Check whether the given fire wall is present on the port this program is installed on.
      */
     fun checkFireWall(FireWallName: String?): Boolean {
-        return (ParentWatch!!.checkFireWall(FireWallName))
+        return (parentWatch!!.checkFireWall(FireWallName))
     }
 
     val defaultBank: Int
         /**
          * Get the banking application associated with the computer.
          */
-        get() = (MyComputer!!.getDefaultBank())
+        get() = (computer!!.defaultBank)
 
     val defaultAttack: Int
         /**
          * Get the default attacking application associated with the computer.
          */
-        get() = (MyComputer!!.getDefaultAttack())
+        get() = (computer!!.defaultAttack)
 
     val defaultFTP: Int
         /**
          * Get the ftp application associated with the computer.
          */
-        get() = (MyComputer!!.getDefaultBank())
+        get() = (computer!!.defaultBank)
 
     val defaultHTTP: Int
         /**
          * Get the default HTTP application associated with the computer.
          */
-        get() = (MyComputer!!.getDefaultHTTP())
+        get() = (computer!!.defaultHTTP)
 
     val targetIP: String?
         /**
          * Get the IP that triggered this watch (Used if this happens to be a damage or health watch).
          */
-        get() = (ParentWatch!!.getTargetIP())
+        get() = (parentWatch!!.targetIP)
 
     val targetPort: Int
         /**
          * Get the port that triggered this watch.
          */
-        get() = (ParentWatch!!.getTargetPort())
+        get() = (parentWatch!!.targetPort)
 
     val iP: String?
         /**
          * Get the IP of the computer associated with this program.
          */
-        get() = (MyComputer!!.getIP())
+        get() = (computer!!.ip)
 
     val number: Int
         /**
          * Get the port number associated with this program.
          */
-        get() = (ParentWatch!!.getNumber())
+        get() = (parentWatch!!.getNumber())
 
     val searchFireWall: String?
         /**
          * Get the fire wall that should be searched for based on initial setup.
          */
-        get() = (NewFireWall.FireWallNames[ParentWatch!!.getSearchFireWall()])
+        get() = (NewFireWall.FireWallNames[parentWatch!!.searchFireWall])
 
     /**
      * installScript(HashMap Script);
      * Installs a script on the various entrance points on this program.
      */
-    override fun installScript(Script: HashMap<*, *>) {
-        fireScript = Script.get("fire") as String?
+    override fun installScript(script: HashMap<*, *>) {
+        fireScript = script.get("fire") as String?
     }
 
     /**
@@ -177,10 +157,10 @@ class WatchProgram(MyComputer: Computer?, MyComputerHandler: NetworkSwitch?, Par
     /**
      * Execute the script associated with this watch.
      */
-    override fun execute(MyApplicationData: ApplicationData) {
+    override fun execute(applicationData: ApplicationData) {
         try {
-            val HL = HackerLinker(this, super.getComputerHandler())
-            RunFactory.runCode(fireScript, HL, MyComputer!!.MAX_OPS)
+            val HL = HackerLinker(this, computerHandler)
+            RunFactory.runCode(fireScript, HL, computer!!.MAX_OPS)
         } catch (e: Exception) {
             e.printStackTrace()
         }

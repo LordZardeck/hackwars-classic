@@ -10,25 +10,21 @@ import hackscript.model.RunFactory
  * A program that can be installed on a port of type HTTP and which performs "enter" and "exit" and "submit" operations.
  */
 
-class HTTPProgram(MyComputer: Computer?, MyComputerHandler: NetworkSwitch?) : Program() {
+class HTTPProgram(computer: Computer?, computerHandler: NetworkSwitch?) : Program(computer, computerHandler) {
     //Scripts.
     private var enterScript: String? = ""
     private var exitScript: String? = ""
     private var submitScript: String? = ""
-    private var content = ""
+    private var content = computer?.body ?: ""
 
     private var targetIP: String? = "" //IP of computer that caused this program to run.
     private var Parameters: HashMap<*, *>? = null //The parameters submitted along with a submit.
-
-    //Data
-    private var MyComputer: Computer? = null //Computer this program is associated with.
-    private var MyComputerHandler: NetworkSwitch? = null //Computer this program is associated with.
 
     /**
      * Trigger a watch.
      */
     fun triggerWatch(watchNumber: Int, TriggerParam: HashMap<*, *>?) {
-        MyComputer!!.getWatchHandler().triggerWatch(watchNumber, targetIP, TriggerParam)
+        computer!!.watchHandler.triggerWatch(watchNumber, targetIP, TriggerParam)
     }
 
     /**
@@ -51,15 +47,6 @@ class HTTPProgram(MyComputer: Computer?, MyComputerHandler: NetworkSwitch?) : Pr
      * HTTP Get variable.
      */
     var GetString: HashMap<*, *>? = null
-
-    //Constructor.
-    init {
-        super.setComputerHandler(MyComputerHandler)
-        super.setComputer(MyComputer)
-        this.MyComputer = MyComputer
-        this.MyComputerHandler = MyComputerHandler
-        if (MyComputer != null) content = MyComputer.getBody()
-    }
 
     fun fetchGetVariable(key: String?): String {
         if (GetString == null) return ("")
@@ -92,31 +79,31 @@ class HTTPProgram(MyComputer: Computer?, MyComputerHandler: NetworkSwitch?) : Pr
     /**
      * Execute the commands.
      */
-    override fun execute(MyApplicationData: ApplicationData) {
-        content = MyComputer!!.getBody()
+    override fun execute(applicationData: ApplicationData) {
+        content = computer!!.body
         var script: String? = ""
         hideStore = false
         var packetID: Int? = 0
 
-        if (MyApplicationData.getFunction() == "requestwebpage") {
-            GetString = MyApplicationData.getParameters() as HashMap<*, *>?
+        if (applicationData.function == "requestwebpage") {
+            GetString = applicationData.parameters as HashMap<*, *>?
             packetID = GetString!!.get("packetid") as Int?
-            targetIP = MyApplicationData.getSourceIP()
+            targetIP = applicationData.sourceIP
             script = enterScript
         } else  //Prepare the put message.
-            if (MyApplicationData.getFunction() == "exit") {
-                targetIP = MyApplicationData.getSourceIP()
+            if (applicationData.function == "exit") {
+                targetIP = applicationData.sourceIP
                 script = exitScript
             } else  //Prepare the put message.
-                if (MyApplicationData.getFunction() == "submit") {
-                    targetIP = MyApplicationData.getSourceIP()
-                    Parameters = MyApplicationData.getParameters() as HashMap<*, *>?
+                if (applicationData.function == "submit") {
+                    targetIP = applicationData.sourceIP
+                    Parameters = applicationData.parameters as HashMap<*, *>?
                     packetID = Parameters!!.get("packetid") as Int?
                     script = submitScript
 
                     try {
-                        val HL = HackerLinker(this, MyComputerHandler)
-                        RunFactory.runCode(script, HL, MyComputer!!.MAX_OPS)
+                        val HL = HackerLinker(this, computerHandler)
+                        RunFactory.runCode(script, HL, computer!!.MAX_OPS)
                     } catch (e: Exception) {
                     }
 
@@ -125,14 +112,14 @@ class HTTPProgram(MyComputer: Computer?, MyComputerHandler: NetworkSwitch?) : Pr
 
         if (script != null && script != "") {
             try {
-                val HL = HackerLinker(this, MyComputerHandler)
-                RunFactory.runCode(script, HL, MyComputer!!.MAX_OPS)
+                val HL = HackerLinker(this, computerHandler)
+                RunFactory.runCode(script, HL, computer!!.MAX_OPS)
             } catch (e: Exception) {
             }
         }
 
-        if (MyApplicationData.getFunction() != "exit")  //Serve the web-page.
-            serveWebPage(MyApplicationData, packetID)
+        if (applicationData.function != "exit")  //Serve the web-page.
+            serveWebPage(applicationData, packetID)
 
         Parameters = null
     }
@@ -141,10 +128,10 @@ class HTTPProgram(MyComputer: Computer?, MyComputerHandler: NetworkSwitch?) : Pr
      * installScript(HashMap Script);
      * Installs a script on the various entrance points on this program.
      */
-    override fun installScript(Script: HashMap<*, *>) {
-        enterScript = Script.get("enter") as String?
-        exitScript = Script.get("exit") as String?
-        submitScript = Script.get("submit") as String?
+    override fun installScript(script: HashMap<*, *>) {
+        enterScript = script.get("enter") as String?
+        exitScript = script.get("exit") as String?
+        submitScript = script.get("submit") as String?
     }
 
     /**
@@ -170,21 +157,21 @@ class HTTPProgram(MyComputer: Computer?, MyComputerHandler: NetworkSwitch?) : Pr
      * Server a webpage to a player.
      */
     fun serveWebPage(MyApplicationData: ApplicationData, packetID: Int?) {
-        var PageTitle = MyComputer!!.getTitle()
+        var PageTitle = computer!!.title
         var PageBody: String? = content
 
         //Receive Payment.
-        var Files = MyComputer!!.getFileSystem().getWebDirectory("Store/")
+        var Files = computer!!.fileSystem.getWebDirectory("Store/")
         for (i in Files!!.indices) { //Make sure we describe hardware.
-            val MyEquipmentSheet = EquipmentSheet(MyComputer)
-            if (Files[i] != null && Files[i] is HackerFile && ((Files[i] as HackerFile).getType() == HackerFile.PCI || (Files[i] as HackerFile).getType() == HackerFile.AGP)) {
+            val MyEquipmentSheet = EquipmentSheet(computer)
+            if (Files[i] != null && Files[i] is HackerFile && ((Files[i] as HackerFile).type == HackerFile.PCI || (Files[i] as HackerFile).type == HackerFile.AGP)) {
                 MyEquipmentSheet.degradeEquipment(Files[i] as HackerFile?)
                 MyEquipmentSheet.describeCard(Files[i] as HackerFile?) //Testing outputting a description of the bonus.
             }
         }
 
         var TempPort: Port? = null
-        if (!MyComputer!!.checkHTTP()) {
+        if (!computer!!.checkHTTP()) {
             //if(((TempPort=(Port)MyComputer.getPorts().get(new Integer(MyComputer.getDefaultHTTP())))==null)||TempPort.getType()!=Port.HTTP||!TempPort.getOn()||TempPort.getDummy()){
             PageTitle = "Server Not Found"
             PageBody =
@@ -193,14 +180,14 @@ class HTTPProgram(MyComputer: Computer?, MyComputerHandler: NetworkSwitch?) : Pr
         }
 
         //If no banking application is found don't return the store listing.
-        if (!MyComputer!!.checkBank()) {
+        if (!computer!!.checkBank()) {
             Files = null
         }
 
         //If the default FTP application is null don't return the store listing.
-        if ((((MyComputer!!.getPorts().get(MyComputer!!.getDefaultFTP()) as Port?).also {
+        if ((((computer!!.ports.get(computer!!.defaultFTP) as Port?).also {
                 TempPort = it
-            }) == null) || TempPort!!.getType() != Port.FTP || !TempPort.getOn()) {
+            }) == null) || TempPort!!.type != Port.FTP || !TempPort.on) {
             Files = null
         }
 
@@ -208,9 +195,9 @@ class HTTPProgram(MyComputer: Computer?, MyComputerHandler: NetworkSwitch?) : Pr
 
         val O: Array<Any?>? = arrayOf<Any?>(PageTitle, PageBody, Files, packetID)
 
-        MyComputerHandler!!.addData(
-            ApplicationData("webpage", O, 0, MyComputer!!.getIP()),
-            MyApplicationData.getSourceIP()
+        computerHandler!!.addData(
+            ApplicationData("webpage", O, 0, computer!!.ip),
+            MyApplicationData.sourceIP
         )
     }
 

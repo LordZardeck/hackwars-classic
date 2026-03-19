@@ -13,15 +13,9 @@ package com.hackwars.game.program
 import game.*
 import hackscript.model.RunFactory
 
-class ShippingProgram(
-    MyComputer: Computer?,
-    ParentPort: Port?,
-    MyComputerHandler: NetworkSwitch?,
-    Choices: ArrayList<Any?>?,
-    MyMakeBounty: MakeBounty?
-) : Program() {
-    private var attackStart: Long = 0//	if(!getAttacking()){
-    //	}
+class ShippingProgram(computer: Computer?, computerHandler: NetworkSwitch?, private var parentPort: Port?) :
+    Program(computer, computerHandler) {
+    private var attackStart: Long = computer?.currentTime ?: 0
 
     /**
      * Sets the current commodity being mined for.
@@ -37,14 +31,8 @@ class ShippingProgram(
     private var finalizeScript: String? = ""
     private var initializeScript: String? = ""
 
-    private var ParentPort: Port? = null //The Port that this program is installed on.
-
     private var SecondaryTargets: ArrayList<Any?> = ArrayList() //An array of secondary targets to attack.
     private var currentTarget = 0
-
-    private var MyComputer: Computer? = null //The computer that the parent port is attached to.
-    private var MyComputerHandler: NetworkSwitch? = null //Computer handler for dispatching messages to other computers.
-    private val MyMakeBounty: MakeBounty? = null //Used for checking bounties as an attack takes place.
 
     //State information.
     private var targetIP = "" //IP address being targeted with attack.
@@ -72,19 +60,12 @@ class ShippingProgram(
      */
     fun cancelAttack(heal: Boolean) {
         if (getTargetIP() != "") {
-            MyComputerHandler!!.addData(
+            computerHandler!!.addData(
                 ApplicationData("cancelattack", heal, this.getTargetPort(), this.iP),
                 this.getTargetIP()
             )
             this.attacking = false
         }
-    }
-
-    /**
-     * Get the computer that this attack program is attached to.
-     */
-    override fun getComputer(): Computer? {
-        return (MyComputer)
     }
 
     /**
@@ -105,25 +86,25 @@ class ShippingProgram(
         /**
          * Get the IP of the computer associated with this program.
          */
-        get() = (MyComputer!!.getIP())
+        get() = (computer!!.getIP())
 
     val port: Int
         /**
          * Get the port number of the port that this program is installed on.
          */
-        get() = (ParentPort!!.getNumber())
+        get() = (parentPort!!.getNumber())
 
     val savedMaliciousIP: String?
         /**
          * Get the malicious IP associated with the parent port.
          */
-        get() = (ParentPort!!.getMaliciousTarget())
+        get() = (parentPort!!.getMaliciousTarget())
 
     val targetHP: Float
         /**
          * Get the HP of the port being targeted with this attack.
          */
-        get() = (ParentPort!!.getTargetHP())
+        get() = (parentPort!!.getTargetHP())
 
     /**
      * Set the target port of this attack.
@@ -136,24 +117,24 @@ class ShippingProgram(
         /**
          * Get the CPU load on the computer that this attack is associated with.
          */
-        get() = (MyComputer!!.getCPULoad())
+        get() = (computer!!.getCPULoad())
 
     val maximumCPULoad: Float
         /**
          * Get the maximum CPU load of the current CPU installed
          */
-        get() = (MyComputer!!.getMaximumCPULoad())
+        get() = (computer!!.getMaximumCPULoad())
 
     var attacking: Boolean
         /**
          * Get whether the parent port is currently in an attacking state.
          */
-        get() = (ParentPort!!.getAttacking())
+        get() = (parentPort!!.getAttacking())
         /**
          * Set whether or not this attacks' parent port is still attacking.
          */
         set(attacking) {
-            ParentPort!!.setAttacking(attacking)
+            parentPort!!.setAttacking(attacking)
             if (!attacking) {
                 windowHandle = 0
             }
@@ -170,7 +151,7 @@ class ShippingProgram(
         /**
          * Get the HP of the port that this program is attached to.
          */
-        get() = (ParentPort!!.getHealth())
+        get() = (parentPort!!.getHealth())
 
     /**
      * Get the target IP of the current attack taking place.
@@ -183,22 +164,22 @@ class ShippingProgram(
         /**
          * Get the CPU cost of the port being attacked.
          */
-        get() = (ParentPort!!.getTargetCPUCost())
+        get() = (parentPort!!.getTargetCPUCost())
 
     val targetWatch: Boolean
         /**
          * Get whether the port being targeted with an attack has a watch installed.
          */
-        get() = (ParentPort!!.getTargetWatch())
+        get() = (parentPort!!.getTargetWatch())
 
     /**
      * installScript(HashMap Script);
      * Installs a script on the various entrance points on this program.
      */
-    override fun installScript(Script: HashMap<*, *>) {
-        continueScript = Script.get("continue") as String?
-        initializeScript = Script.get("initialize") as String?
-        finalizeScript = Script.get("finalize") as String?
+    override fun installScript(script: HashMap<*, *>) {
+        continueScript = script.get("continue") as String?
+        initializeScript = script.get("initialize") as String?
+        finalizeScript = script.get("finalize") as String?
     }
 
     /**
@@ -212,14 +193,14 @@ class ShippingProgram(
         return (windowHandle)
     }
 
-    override fun execute(MyApplicationData: ApplicationData) {
-        if (this.attacking && MyComputer!!.getCurrentTime() - attackStart > ATTACK_TIMEOUT) { //Attacks can only take up to 5 minutes.
+    override fun execute(applicationData: ApplicationData) {
+        if (this.attacking && computer!!.getCurrentTime() - attackStart > ATTACK_TIMEOUT) { //Attacks can only take up to 5 minutes.
 
-            MyComputerHandler!!.addData(
+            computerHandler!!.addData(
                 ApplicationData("cancelattack", null, this.getTargetPort(), this.iP),
                 this.getTargetIP()
             )
-            MyComputerHandler!!.addData(
+            computerHandler!!.addData(
                 ApplicationData(
                     "message", MessageHandler.REDIRECT_EXCEEDED_MAXIMUM_TIMEOUT, 0,
                     this.iP
@@ -231,77 +212,77 @@ class ShippingProgram(
         }
 
         var execute: String? = null
-        if (MyApplicationData.getFunction() == "attackcontinue") {
+        if (applicationData.getFunction() == "attackcontinue") {
             iterations++
             execute = continueScript
-            val damage = MyComputer!!.getDamage("Redirecting")
+            val damage = computer!!.getDamage("Redirecting")
 
             try {
-                val HL = HackerLinker(this, MyComputerHandler)
-                RunFactory.runCode(execute, HL, MyComputer!!.MAX_OPS)
+                val HL = HackerLinker(this, computerHandler)
+                RunFactory.runCode(execute, HL, computer!!.MAX_OPS)
             } catch (e: Exception) {
             }
 
             if (dealDamage) { //Should the port deal damage this iteration.
                 val O: Array<Any?>? = arrayOf<Any?>(
-                    damage + MyComputer!!.getEquipmentSheet().getMiningBonus(),
-                    ParentPort!!.getIP(),
-                    ParentPort!!.getNumber(),
+                    damage + computer!!.getEquipmentSheet().getMiningBonus(),
+                    parentPort!!.getIP(),
+                    parentPort!!.getNumber(),
                     false,
                     null,
                     windowHandle,
                     this.currentCommodity
                 )
-                val AD = ApplicationData("damage", O, targetPort, MyComputer!!.getIP())
-                AD.setSourcePort(ParentPort!!.getNumber())
-                MyComputerHandler!!.addData(AD, targetIP)
+                val AD = ApplicationData("damage", O, targetPort, computer!!.getIP())
+                AD.setSourcePort(parentPort!!.getNumber())
+                computerHandler!!.addData(AD, targetIP)
             }
             dealDamage = true
 
             return
-        } else if (MyApplicationData.getFunction() == "attackinitialize" && !switching && !ParentPort!!.getAttacking()) {
-            MyComputerHandler!!.addData(
-                ApplicationData("pettycash", -10.0f, 0, MyComputer!!.getIP()),
-                MyComputer!!.getIP()
+        } else if (applicationData.getFunction() == "attackinitialize" && !switching && !parentPort!!.getAttacking()) {
+            computerHandler!!.addData(
+                ApplicationData("pettycash", -10.0f, 0, computer!!.getIP()),
+                computer!!.getIP()
             )
             choicesShown = false
-            attackStart = MyComputer!!.getCurrentTime()
+            attackStart = computer!!.getCurrentTime()
 
             iterations = 0
 
-            val parameters = MyApplicationData.getParameters() as Array<Any?>
+            val parameters = applicationData.getParameters() as Array<Any?>
             val F = parameters[0] as Array<Float?>
             val targetWatch = parameters[1] as Boolean
             if (parameters.size > 2) isNPC = (parameters[2] as Boolean?)!!
 
-            ParentPort!!.setTargetHP(F!![1]!!)
-            ParentPort!!.setTargetPettyCash(F[2]!!)
-            ParentPort!!.setTargetCPUCost(F[3]!!)
-            ParentPort!!.setTargetWatch(targetWatch)
+            parentPort!!.setTargetHP(F!![1]!!)
+            parentPort!!.setTargetPettyCash(F[2]!!)
+            parentPort!!.setTargetCPUCost(F[3]!!)
+            parentPort!!.setTargetWatch(targetWatch)
 
-            targetIP = MyApplicationData.getSourceIP()
-            targetPort = MyApplicationData.getSourcePort()
+            targetIP = applicationData.getSourceIP()
+            targetPort = applicationData.getSourcePort()
             execute = initializeScript
 
             this.attacking = true
 
             try {
-                val HL = HackerLinker(this, MyComputerHandler)
-                RunFactory.runCode(execute, HL, MyComputer!!.MAX_OPS)
+                val HL = HackerLinker(this, computerHandler)
+                RunFactory.runCode(execute, HL, computer!!.MAX_OPS)
             } catch (e: Exception) {
             }
 
-            if (!MyComputer!!.checkBank()) {
-                MyComputerHandler!!.addData(
+            if (!computer!!.checkBank()) {
+                computerHandler!!.addData(
                     ApplicationData("cancelattack", null, this.getTargetPort(), this.iP),
                     this.getTargetIP()
                 )
                 this.attacking = false
                 return
             }
-        } else if (MyApplicationData.getFunction() == "attackfinalize" && ParentPort!!.getAttacking()) {
-            targetPortType = (MyApplicationData.getParameters() as Int?)!!
-            targetPort = MyApplicationData.getSourcePort()
+        } else if (applicationData.getFunction() == "attackfinalize" && parentPort!!.getAttacking()) {
+            targetPortType = (applicationData.getParameters() as Int?)!!
+            targetPort = applicationData.getSourcePort()
 
             val MyIterator = SecondaryTargets.iterator()
             while (MyIterator.hasNext()) { //Remove this port from our list of secondary targets.
@@ -311,31 +292,31 @@ class ShippingProgram(
 
 
             try {
-                val HL = HackerLinker(this, MyComputerHandler)
-                RunFactory.runCode(finalizeScript, HL, MyComputer!!.MAX_OPS)
+                val HL = HackerLinker(this, computerHandler)
+                RunFactory.runCode(finalizeScript, HL, computer!!.MAX_OPS)
             } catch (e: Exception) {
             }
 
-            MyComputer!!.addMessage(
+            computer!!.addMessage(
                 MessageHandler.REDIRECT_FINISHED, arrayOf<Any>(this.port), arrayOf<Any?>(
                     windowHandle,
                     this.iP
                 )
             )
-            MyComputer!!.addMessage(MessageHandler.REDIRECT_FINISHED_GAME, arrayOf<Any>(this.port))
+            computer!!.addMessage(MessageHandler.REDIRECT_FINISHED_GAME, arrayOf<Any>(this.port))
 
-            MyComputerHandler!!.addData(
+            computerHandler!!.addData(
                 ApplicationData("cancelattack", null, this.getTargetPort(), this.iP),
                 this.getTargetIP()
             )
-            MyComputer!!.incrementSuccessfulHacks()
+            computer!!.incrementSuccessfulHacks()
             this.attacking = false
             return
-        } else if (MyApplicationData.getFunction() == "requestattack") {
-            val parameters = MyApplicationData.getParameters() as Array<Any?>
+        } else if (applicationData.getFunction() == "requestattack") {
+            val parameters = applicationData.getParameters() as Array<Any?>
             val windowHandle = parameters[5] as Int
-            if (ParentPort!!.getAttacking()) {
-                MyComputerHandler!!.addData(
+            if (parentPort!!.getAttacking()) {
+                computerHandler!!.addData(
                     ApplicationData(
                         "message", MessageHandler.REDIRECT_FAIL_ALREADY_REDIRECTING, 0,
                         this.iP
@@ -343,8 +324,8 @@ class ShippingProgram(
                 )
                 return
             }
-            if (ParentPort!!.getOverHeated()) {
-                MyComputerHandler!!.addData(
+            if (parentPort!!.getOverHeated()) {
+                computerHandler!!.addData(
                     ApplicationData(
                         "message", MessageHandler.REDIRECT_FAIL_OVERHEATED, 0,
                         this.iP
@@ -356,9 +337,9 @@ class ShippingProgram(
             switching = false
             this.windowHandle = windowHandle
             //Check whether you have enough money in your account to perform an attack.
-            if (!MyComputer!!.checkBank()) {
-                MyComputer!!.addMessage(MessageHandler.ACTIVE_BANK_NOT_FOUND)
-            } else if (MyComputer!!.getPettyCash() >= 10.0f) {
+            if (!computer!!.checkBank()) {
+                computer!!.addMessage(MessageHandler.ACTIVE_BANK_NOT_FOUND)
+            } else if (computer!!.getPettyCash() >= 10.0f) {
                 targetIP = parameters[0] as String
                 targetPort = (parameters[1] as Int?)!!
 
@@ -376,14 +357,19 @@ class ShippingProgram(
                     MaliciousCode = parameters[3] as Array<Array<String?>?>
                 }
 
-                val AD = ApplicationData("mine", MyComputer!!.getNetwork(), targetPort, MyApplicationData.getSourceIP())
-                AD.setSourcePort(ParentPort!!.getNumber())
-                MyComputerHandler!!.addData(AD, targetIP)
-            } else MyComputer!!.addMessage(MessageHandler.REDIRECT_FAIL_NOT_ENOUGH_MONEY)
+                val AD = ApplicationData(
+                    "mine",
+                    computer!!.getNetwork(),
+                    targetPort,
+                    applicationData.getSourceIP()
+                )
+                AD.setSourcePort(parentPort!!.getNumber())
+                computerHandler!!.addData(AD, targetIP)
+            } else computer!!.addMessage(MessageHandler.REDIRECT_FAIL_NOT_ENOUGH_MONEY)
 
             return
-        } else if (MyApplicationData.getFunction() == "requestcancelattack" && ParentPort!!.getAttacking() && (MyApplicationData.getSourceIP() == ParentPort!!.getIP())) {
-            MyComputerHandler!!.addData(
+        } else if (applicationData.getFunction() == "requestcancelattack" && parentPort!!.getAttacking() && (applicationData.getSourceIP() == parentPort!!.getIP())) {
+            computerHandler!!.addData(
                 ApplicationData("cancelattack", null, this.getTargetPort(), this.iP),
                 this.getTargetIP()
             )
@@ -411,12 +397,7 @@ class ShippingProgram(
 
     //Constructor.
     init {
-        super.setComputerHandler(MyComputerHandler)
-        super.setComputer(MyComputer)
-        if (MyComputer != null) this.attackStart = MyComputer.getCurrentTime()
-        this.MyComputer = MyComputer
-        this.ParentPort = ParentPort
-        this.MyComputerHandler = MyComputerHandler
+        this.parentPort = parentPort
     }
 
     fun getLastFile(): HackerFile? {
@@ -429,7 +410,7 @@ class ShippingProgram(
     fun getMaliciousCode(): HashMap<*, *>? {
         if (MaliciousCode!![targetPortType] == null) return (null)
 
-        val HF = MyComputer!!.getFileSystem()
+        val HF = computer!!.getFileSystem()
             .getFile(MaliciousCode!![targetPortType]!![0], MaliciousCode!![targetPortType]!![1])
 
         if (HF == null) return (null)
@@ -438,7 +419,7 @@ class ShippingProgram(
 
         HF.setQuantity(HF.getQuantity() - 1)
         if (HF.getQuantity() <= 0) {
-            MyComputer!!.getFileSystem()
+            computer!!.getFileSystem()
                 .deleteFile(MaliciousCode!![targetPortType]!![0], MaliciousCode!![targetPortType]!![1])
         }
 

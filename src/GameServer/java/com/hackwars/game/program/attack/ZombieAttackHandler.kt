@@ -8,7 +8,7 @@ class ZombieAttackHandler : AttackFunctionHandler {
     override val functionName: String = "zombieattack"
 
     override fun execute(program: AttackProgram, applicationData: ApplicationData) {
-        if (!program.parentPort.attacking && !program.parentPort.overHeated) {
+        if (!program.parentPort!!.attacking && !program.parentPort!!.overHeated) {
             program.switching = false
 
             val parameters = applicationData.parameters as Array<Any?>
@@ -21,12 +21,12 @@ class ZombieAttackHandler : AttackFunctionHandler {
             }
 
             if (parameters.size > 3) {
-                program.MaliciousCode = parameters[3] as Array<Array<String?>?>
+                program.maliciousCode = parameters[3] as Array<Array<String?>?>
             }
 
             if (parameters.size > 4) {
-                program.MaliciousParameters = parameters[4] as Array<Any?>
-                program.pettyCashTarget = program.MaliciousParameters!![3] as Float
+                program.maliciousParameters = parameters[4] as Array<Any?>
+                program.pettyCashTarget = program.maliciousParameters!![3] as Float
             }
 
             program.initializeScript?.let(program::runScript)
@@ -35,12 +35,12 @@ class ZombieAttackHandler : AttackFunctionHandler {
                 program.zombie = true
                 val request = ApplicationData(
                     "attack",
-                    arrayOf<String?>(program.parentPort.ip, program.computer.network),
+                    arrayOf<String?>(program.parentPort!!.ip, program.computer!!.network),
                     program.targetPort,
                     applicationData.sourceIP
                 )
-                request.sourcePort = program.parentPort.number
-                program.computerHandler.addData(request, program.targetIP)
+                request.sourcePort = program.parentPort!!.number
+                program.computerHandler!!.addData(request, program.targetIP)
                 return
             }
 
@@ -58,11 +58,11 @@ class ZombieAttackHandler : AttackFunctionHandler {
 
 
         // Notify the user that the attack failed due to it being already attacked
-        if (program.parentPort.attacking)
+        if (program.parentPort!!.attacking)
             return sendMessage(
                 program, applicationData.sourceIP, arrayOf(
                     MessageHandler.PORT_ALREADY_ATTACKING,
-                    arrayOf<Any>(program.parentPort.number),
+                    arrayOf<Any>(program.parentPort!!.number),
                     arrayOf<Any?>(program.windowHandle, program.sourceIP)
                 )
             )
@@ -78,7 +78,7 @@ class ZombieAttackHandler : AttackFunctionHandler {
     }
 
     private fun sendMessage(program: AttackProgram, sourceIp: String, parameters: Array<Any>) {
-        program.computerHandler.addData(
+        program.computerHandler!!.addData(
             ApplicationData("message", parameters, 0, program.sourceIP),
             sourceIp
         )
