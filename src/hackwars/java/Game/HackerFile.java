@@ -306,15 +306,15 @@ public class HackerFile implements Serializable {
      */
     public int getPortType() {
         if (type == BANKING_COMPILED)
-            return (Port.BANKING);
+            return (PortType.BANKING.getCode());
         if (type == ATTACKING_COMPILED)
-            return (Port.ATTACK);
+            return (PortType.ATTACK.getCode());
         if (type == FTP_COMPILED)
-            return (Port.FTP);
+            return (PortType.FTP.getCode());
         if (type == HTTP)
-            return (Port.HTTP);
+            return (PortType.HTTP.getCode());
         if (type == SHIPPING_COMPILED)
-            return (Port.REDIRECT);
+            return (PortType.REDIRECT.getCode());
 
         return (-1);
     }

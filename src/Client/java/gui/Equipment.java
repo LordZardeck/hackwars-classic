@@ -530,7 +530,7 @@ public class Equipment extends Application implements KeyListener, TableModelLis
                     PacketPort[] ports = MyHacker.getPorts();
                     if (ports != null) {
                         for (int i = 0; i < ports.length; i++) {
-                            if (ports[i].getType() == Port.BANKING && (ports[i].getOn() == true) && (ports[i].getDummy() == false)) {
+                            if (ports[i].getType() == PortType.BANKING.getCode() && (ports[i].getOn() == true) && (ports[i].getDummy() == false)) {
                                 ok = true;
                                 break;
                             }
@@ -696,4 +696,3 @@ public class Equipment extends Application implements KeyListener, TableModelLis
     }
 
 }
-

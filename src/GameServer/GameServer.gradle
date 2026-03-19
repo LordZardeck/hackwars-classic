@@ -5,6 +5,10 @@ dependencies {
     implementation project(':Networking')
     implementation project(':RpcDispatchAnnotations')
     ksp project(':RpcDispatchKsp')
+    implementation 'mysql:mysql-connector-java:5.1.49'
+    implementation 'org.apache.xmlrpc:xmlrpc-client:3.1.3'
+    implementation 'org.apache.axis:axis:1.4'
+    implementation 'org.antlr:antlr-runtime:3.0.1'
     implementation "org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2"
     implementation 'com.miglayout:miglayout-swing:11.4.2'
     testImplementation "org.jetbrains.kotlin:kotlin-test-junit:2.1.21"
@@ -29,7 +33,6 @@ tasks.register('runHackerServer', JavaExec) {
     classpath = files(
             sourceSets.main.output,
             project(':HackWars').sourceSets.main.output,
-            project(':Client').sourceSets.main.output,
             sourceSets.main.runtimeClasspath,
             rootProject.ext.resourcesRootDir
     )

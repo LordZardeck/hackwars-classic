@@ -16,7 +16,7 @@ import chat.messages.MsgOutChannelText;
 import com.hackwars.gui.OSMenuBar;
 import com.hackwars.state.GameState;
 import game.HackerFile;
-import game.Port;
+import game.PortType;
 import game.mmo.HacktendoPacket;
 
 import javax.imageio.ImageIO;
@@ -1704,19 +1704,19 @@ public class Hacker implements ActionListener, WindowListener, ComponentListener
      * @return Vector
      */
     public Vector getBankPorts() {
-        return getPortsOfType(Port.BANKING);
+        return getPortsOfType(PortType.BANKING.getCode());
     }
 
     public Vector getRedirectPorts() {
-        return getPortsOfType(Port.REDIRECT);
+        return getPortsOfType(PortType.REDIRECT.getCode());
     }
 
     public Vector getAttackPorts() {
-        return getPortsOfType(Port.ATTACK);
+        return getPortsOfType(PortType.ATTACK.getCode());
     }
 
     /**
-     * Get all ports of the given type.  "type" comes from Port.java.
+     * Get all ports of the given type. "type" values come from PortType codes.
      */
     private Vector getPortsOfType(int type) {
         Vector portsOfType = new Vector();

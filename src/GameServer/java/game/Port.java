@@ -22,6 +22,16 @@ public class Port {
     public static final int HTTP = 3;
     public static final int REDIRECT = 4;
     public static final int SHIPPING = REDIRECT;
+    static {
+        if (BANKING != PortType.BANKING.getCode()
+                || FTP != PortType.FTP.getCode()
+                || ATTACK != PortType.ATTACK.getCode()
+                || HTTP != PortType.HTTP.getCode()
+                || REDIRECT != PortType.REDIRECT.getCode()
+                || SHIPPING != PortType.SHIPPING.getCode()) {
+            throw new IllegalStateException("Port constants are out of sync with PortType codes");
+        }
+    }
     public static final float MAX_REDIRECT_XP = 2000.0f;//The max redirect XP that can be gained in a single round of redirecting.
     private float currentRedirectXP = 0.0f;//The amount of redirecting XP that has been gained from this single target.
     private String currentRedirectIP = "";//The IP of the individual currently redirecting off this port.
