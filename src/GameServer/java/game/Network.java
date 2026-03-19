@@ -289,48 +289,6 @@ public class Network implements Runnable {
         // stuff them in the hashmap, name is the key, values are the arrayLists of the NPCs
     }
 
-    //MAIN FOR TESTING.
-    public static void main(String[] args) {
-        //Jon's testing stuff.
-        /*
-        Network myNetwork = Network.getInstance(MyComputerHandler);
-        HashMap allNetworks = myNetwork.loadNetworks();
-        HashSet keys = new HashSet(allNetworks.keySet());
-        Iterator it = keys.iterator();
-        while (it.hasNext()) {
-            String key = (String)it.next();
-            System.out.println("Network: " + key);
-            HashMap currentNetwork = (HashMap)allNetworks.get(key);
-            HashSet keys1 = new HashSet(currentNetwork.keySet());
-            Iterator it1 = keys1.iterator();
-            while (it1.hasNext()) {
-                String newKey = (String)it1.next();
-                System.out.println("**** " + newKey + " ****\n");
-                Object x = currentNetwork.get(newKey);
-                if (x instanceof String) {
-                    System.out.println("      " + (String)x);
-                }
-                else if (x instanceof ArrayList) {
-                    ArrayList npcs = (ArrayList)x;
-                    for (int i = 0; i < npcs.size(); i++) {
-                        HashMap npc = (HashMap)npcs.get(i);
-                        Iterator npcIterator = npc.keySet().iterator();
-                        while (npcIterator.hasNext()) {
-                            String npcKey = (String)npcIterator.next();
-                            System.out.println(npcKey + ": " + npc.get(npcKey)); 
-                        }
-                        System.out.println("-----------");
-                    }
-                }
-            }
-        }
-        */
-	/*	System.out.println(Network.getInstance(MyComputerHandler).switchNetwork("Root","The Subway","900.800.7.002"));
-		Network.getInstance(MyComputerHandler).addToNetwork("Root","192.168.2.002");
-		Network.getInstance(MyComputerHandler).addToNetwork("Root","192.168.2.012");
-		Network.getInstance(MyComputerHandler).removeFromNetwork("Root","192.168.2.012");*/
-    }
-
     //The thread for the network.
     public void run() {
         while (true) {
