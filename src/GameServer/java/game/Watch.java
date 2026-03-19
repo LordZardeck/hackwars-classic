@@ -6,6 +6,8 @@ package game;
 import java.util.*;
 
 import assignments.*;
+import com.hackwars.game.program.Program;
+import com.hackwars.game.program.WatchProgram;
 import hackscript.model.*;
 
 public class Watch {

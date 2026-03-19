@@ -6,6 +6,7 @@ package game.runchallenge;
 import java.util.ArrayList;
 import java.util.HashMap;
 
+import com.hackwars.game.program.ToyProgram;
 import hackscript.model.*;
 import hackerlogin.*;
 

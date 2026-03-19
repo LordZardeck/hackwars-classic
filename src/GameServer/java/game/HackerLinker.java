@@ -8,6 +8,7 @@ package game;
 
 import java.util.ArrayList;
 
+import com.hackwars.game.program.*;
 import hackscript.model.*;
 import util.*;
 

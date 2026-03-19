@@ -17,6 +17,8 @@ import assignments.PacketNetwork;
 import assignments.PacketPort;
 import assignments.PacketWatch;
 import java.util.*;
+
+import com.hackwars.game.program.*;
 import org.w3c.dom.Node;
 import java.util.concurrent.Semaphore;
 import org.apache.xmlrpc.client.XmlRpcClient;
@@ -6211,7 +6213,7 @@ while (it.hasNext()) {
 					Node contentNode = LX.findNode(N,"code",0);
 					//IF THIS PORT HAS A PROGRAM.
 					if(MyProgram!=null){
-						String Keys[]=MyProgram.getTypeKeys();
+						String Keys[]= MyProgram.getTypeKeys();
 						for(int ii=0;ii<Keys.length;ii++){
 							if(type!=Port.HTTP&&type!=Port.FTP){
 								temp=LX.findNode(contentNode,Keys[ii],0);

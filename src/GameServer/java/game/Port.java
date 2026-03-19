@@ -10,6 +10,10 @@ package game;
 import java.util.*;
 
 import assignments.*;
+import com.hackwars.game.program.AttackProgram;
+import com.hackwars.game.program.Banking;
+import com.hackwars.game.program.Program;
+import com.hackwars.game.program.ShippingProgram;
 
 import java.text.*;
 

@@ -9,6 +9,7 @@
 
 package hackerlogin;
 
+import com.hackwars.game.program.*;
 import game.*;
 
 import java.util.ArrayList;

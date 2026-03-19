@@ -6,6 +6,7 @@ package hackerlogin;
  * It is also good for performing some central tasks like search engine indexing, etc.
  */
 
+import com.hackwars.game.program.*;
 import util.zip;
 
 import java.io.*;
@@ -14,7 +15,6 @@ import javax.servlet.http.*;
 
 import com.plink.dolphinnet.*;
 import hackersearch.assignments.*;
-import hackersearch.util.*;
 import hackersearch.server.*;
 
 import java.util.ArrayList;
@@ -24,11 +24,7 @@ import assignments.*;
 import util.*;
 import hackscript.model.*;
 
-import java.util.concurrent.Semaphore;
-
 import game.*;
-import assignments.*;
-import server.*;
 
 public class HackerRPC extends HttpServlet implements DataHandler {
 

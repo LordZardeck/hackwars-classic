@@ -1,0 +1,243 @@
+package com.hackwars.game.program
+
+import game.*
+import hackscript.model.RunFactory
+
+/**
+ * FTPProgram.java
+ * 
+ * 
+ * A program that can be installed on a port of type HTTP and which performs "enter" and "exit" and "submit" operations.
+ */
+
+class HTTPProgram(MyComputer: Computer?, MyComputerHandler: NetworkSwitch?) : Program() {
+    //Scripts.
+    private var enterScript: String? = ""
+    private var exitScript: String? = ""
+    private var submitScript: String? = ""
+    private var content = ""
+
+    private var targetIP: String? = "" //IP of computer that caused this program to run.
+    private var Parameters: HashMap<*, *>? = null //The parameters submitted along with a submit.
+
+    //Data
+    private var MyComputer: Computer? = null //Computer this program is associated with.
+    private var MyComputerHandler: NetworkSwitch? = null //Computer this program is associated with.
+
+    /**
+     * Trigger a watch.
+     */
+    fun triggerWatch(watchNumber: Int, TriggerParam: HashMap<*, *>?) {
+        MyComputer!!.getWatchHandler().triggerWatch(watchNumber, targetIP, TriggerParam)
+    }
+
+    /**
+     * Get the path of the file being transfered.
+     */
+    fun getTargetIP(): String? {
+        return (targetIP)
+    }
+
+    /**
+     * Should the store be served?
+     */
+    var hideStore: Boolean = false
+
+    fun hideStore() {
+        hideStore = true
+    }
+
+    /**
+     * HTTP Get variable.
+     */
+    var GetString: HashMap<*, *>? = null
+
+    //Constructor.
+    init {
+        super.setComputerHandler(MyComputerHandler)
+        super.setComputer(MyComputer)
+        this.MyComputer = MyComputer
+        this.MyComputerHandler = MyComputerHandler
+        if (MyComputer != null) content = MyComputer.getBody()
+    }
+
+    fun fetchGetVariable(key: String?): String {
+        if (GetString == null) return ("")
+        val Data = GetString!!.get(key) as String?
+        if (Data == null) return ("")
+        else return (Data)
+    }
+
+    /**
+     * Replace a place-holder string in the HTML page.
+     */
+    fun replaceContent(key: String?, content: String) {
+        var content = content
+        content = content.replace("\\\\".toRegex(), "\\\\\\\\")
+        content = content.replace("\\$".toRegex(), "\\\\\\$")
+        this.content = this.content.replace(("\\<\\?" + key + "\\?\\>").toRegex(), content)
+    }
+
+    /**
+     * Get a parameter from
+     */
+    fun getParameter(Key: String?): String? {
+        var returnMe: String? = ""
+        if (Parameters == null) return ("")
+        else returnMe = Parameters!!.get(Key) as String?
+        if (Key != null) return (returnMe)
+        else return ("")
+    }
+
+    /**
+     * Execute the commands.
+     */
+    override fun execute(MyApplicationData: ApplicationData) {
+        content = MyComputer!!.getBody()
+        var script: String? = ""
+        hideStore = false
+        var packetID: Int? = 0
+
+        if (MyApplicationData.getFunction() == "requestwebpage") {
+            GetString = MyApplicationData.getParameters() as HashMap<*, *>?
+            packetID = GetString!!.get("packetid") as Int?
+            targetIP = MyApplicationData.getSourceIP()
+            script = enterScript
+        } else  //Prepare the put message.
+            if (MyApplicationData.getFunction() == "exit") {
+                targetIP = MyApplicationData.getSourceIP()
+                script = exitScript
+            } else  //Prepare the put message.
+                if (MyApplicationData.getFunction() == "submit") {
+                    targetIP = MyApplicationData.getSourceIP()
+                    Parameters = MyApplicationData.getParameters() as HashMap<*, *>?
+                    packetID = Parameters!!.get("packetid") as Int?
+                    script = submitScript
+
+                    try {
+                        val HL = HackerLinker(this, MyComputerHandler)
+                        RunFactory.runCode(script, HL, MyComputer!!.MAX_OPS)
+                    } catch (e: Exception) {
+                    }
+
+                    script = enterScript
+                }
+
+        if (script != null && script != "") {
+            try {
+                val HL = HackerLinker(this, MyComputerHandler)
+                RunFactory.runCode(script, HL, MyComputer!!.MAX_OPS)
+            } catch (e: Exception) {
+            }
+        }
+
+        if (MyApplicationData.getFunction() != "exit")  //Serve the web-page.
+            serveWebPage(MyApplicationData, packetID)
+
+        Parameters = null
+    }
+
+    /**
+     * installScript(HashMap Script);
+     * Installs a script on the various entrance points on this program.
+     */
+    override fun installScript(Script: HashMap<*, *>) {
+        enterScript = Script.get("enter") as String?
+        exitScript = Script.get("exit") as String?
+        submitScript = Script.get("submit") as String?
+    }
+
+    /**
+     * Return a hash map representation of the program currently installed on this port.
+     */
+    override fun getContent(): HashMap<*, *> {
+        val returnMe: HashMap<Any?, Any?> = HashMap()
+        returnMe.put("enter", enterScript)
+        returnMe.put("exit", exitScript)
+        returnMe.put("submit", submitScript)
+        return (returnMe)
+    }
+
+    /**
+     * Returns the keys associated with this program type.
+     */
+    override fun getTypeKeys(): Array<String?> {
+        val returnMe: Array<String?>? = arrayOf<String?>("enter", "exit", "submit")
+        return (returnMe!!)
+    }
+
+    /**
+     * Server a webpage to a player.
+     */
+    fun serveWebPage(MyApplicationData: ApplicationData, packetID: Int?) {
+        var PageTitle = MyComputer!!.getTitle()
+        var PageBody: String? = content
+
+        //Receive Payment.
+        var Files = MyComputer!!.getFileSystem().getWebDirectory("Store/")
+        for (i in Files!!.indices) { //Make sure we describe hardware.
+            val MyEquipmentSheet = EquipmentSheet(MyComputer)
+            if (Files[i] != null && Files[i] is HackerFile && ((Files[i] as HackerFile).getType() == HackerFile.PCI || (Files[i] as HackerFile).getType() == HackerFile.AGP)) {
+                MyEquipmentSheet.degradeEquipment(Files[i] as HackerFile?)
+                MyEquipmentSheet.describeCard(Files[i] as HackerFile?) //Testing outputting a description of the bonus.
+            }
+        }
+
+        var TempPort: Port? = null
+        if (!MyComputer!!.checkHTTP()) {
+            //if(((TempPort=(Port)MyComputer.getPorts().get(new Integer(MyComputer.getDefaultHTTP())))==null)||TempPort.getType()!=Port.HTTP||!TempPort.getOn()||TempPort.getDummy()){
+            PageTitle = "Server Not Found"
+            PageBody =
+                "<html><head><title>Hack Wars - Error report</title><style><!--H1 {font-family:Tahoma,Arial,sans-serif;color:white;background-color:#525D76;font-size:22px;color:white} H2 {font-family:Tahoma,Arial,sans-serif;color:white;background-color:#525D76;font-size:16px;} H3 {font-family:Tahoma,Arial,sans-serif;color:white;background-color:#525D76;font-size:14px;} BODY {background-color:rgb(0,0,0);font-family:Tahoma,Arial,sans-serif;color:black;background-color:white;color:white;} B {font-family:Tahoma,Arial,sans-serif;color:white;background-color:#525D76;color:white;} P {color:white;font-family:Tahoma,Arial,sans-serif;background:white;color:black;font-size:12px;}A {color : black;}A.name {color : black;}HR {color : #525D76;}--></style> </head><body><h1 style=\"width:100%\">HTTP Status 408</h1><HR size=\"1\" noshade=\"noshade\"><p style=\"background-color:black;\"><b>type</b> HTTP Error</p><p style=\"background-color:black;\"><b>message</b> <u>Resource not found.</u></p><p style=\"background-color:black\"><b>description</b> <u>The HTTP server of the player you attempted to connect to does not seem to be on.</u></p><HR size=\"1\" noshade=\"noshade\"><h3>&copy; Hack Wars</h3></body></html>"
+            Files = null
+        }
+
+        //If no banking application is found don't return the store listing.
+        if (!MyComputer!!.checkBank()) {
+            Files = null
+        }
+
+        //If the default FTP application is null don't return the store listing.
+        if ((((MyComputer!!.getPorts().get(MyComputer!!.getDefaultFTP()) as Port?).also {
+                TempPort = it
+            }) == null) || TempPort!!.getType() != Port.FTP || !TempPort.getOn()) {
+            Files = null
+        }
+
+        if (hideStore) Files = null
+
+        val O: Array<Any?>? = arrayOf<Any?>(PageTitle, PageBody, Files, packetID)
+
+        MyComputerHandler!!.addData(
+            ApplicationData("webpage", O, 0, MyComputer!!.getIP()),
+            MyApplicationData.getSourceIP()
+        )
+    }
+
+
+    /**
+     * Output the class data in XML format.
+     */
+    override fun outputXML(): String {
+        var returnMe = ""
+        if (enterScript != null) returnMe += "<enter><![CDATA[" + enterScript!!.replace(
+            "]]>".toRegex(),
+            "]]&gt;"
+        ) + "]]></enter>\n"
+        else returnMe += "<enter><![CDATA[" + enterScript + "]]></enter>\n"
+
+        if (exitScript != null) returnMe += "<exit><![CDATA[" + exitScript!!.replace(
+            "]]>".toRegex(),
+            "]]&gt;"
+        ) + "]]></exit>\n"
+        else returnMe += "<exit><![CDATA[" + exitScript + "]]></exit>\n"
+
+        if (submitScript != null) returnMe += "<submit><![CDATA[" + submitScript!!.replace(
+            "]]>".toRegex(),
+            "]]&gt;"
+        ) + "]]></submit>\n"
+        else returnMe += "<submit><![CDATA[" + submitScript + "]]></submit>\n"
+
+        return (returnMe)
+    }
+}
