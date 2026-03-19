@@ -22,6 +22,7 @@ import org.slf4j.LoggerFactory;
 import util.Time;
 import util.UserHandler;
 import util.PlayFabTokenVerifier;
+import util.SessionTokenVerifiers;
 
 public class ChatServer extends IParty implements Runnable {
     private static final Logger Logger = LoggerFactory.getLogger(ChatServer.class);
@@ -141,7 +142,7 @@ public class ChatServer extends IParty implements Runnable {
                 String accessToken = MyLoginAssignment.getAccessToken();
                 PlayFabTokenVerifier.AuthResult authResult = null;
                 try {
-                    authResult = PlayFabTokenVerifier.verify(accessToken);
+                    authResult = SessionTokenVerifiers.active().verify(accessToken);
                 } catch (Exception authError) {
                     Logger.error("ChatServer: PlayFab authentication failed", authError);
                 }

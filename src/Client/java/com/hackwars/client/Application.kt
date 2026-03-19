@@ -11,8 +11,18 @@ import javax.swing.SwingUtilities
 import javax.swing.UIManager
 import javax.swing.border.EmptyBorder
 
-class ApplicationWindow : JFrame() {
-    private val activePanel = LoginScene()
+object ClientUiBootstrap {
+    @JvmStatic
+    fun installLookAndFeel() {
+        runCatching { UIManager.setLookAndFeel("com.hackwars.gui.HackWarsLookAndFeel") }
+            .onFailure { println("Warning: Unable to set Hack Wars look and feel: ${it.message}") }
+    }
+}
+
+class ApplicationWindow(
+    private val authGateway: ClientAuthGateway = PlayFabClientAuthGateway(),
+) : JFrame() {
+    private val activePanel = LoginScene(authGateway)
     private var gameState: GameState? = null
 
     init {
@@ -74,11 +84,15 @@ class ApplicationWindow : JFrame() {
             .replace(Regex("<[^>]+>"), "")
             .trim()
     }
+
+    fun currentLoginScene(): LoginScene = activePanel
+
+    fun currentGameState(): GameState? = gameState
 }
 
 fun main() {
 //    This breaks normal copy/paste functionality. Hopefully we can switch between native and cross platform when we switch to the app view
-    runCatching { UIManager.setLookAndFeel("com.hackwars.gui.HackWarsLookAndFeel") }.onFailure { println("Warning: Unable to set system look and feel: ${it.message}") }
+    ClientUiBootstrap.installLookAndFeel()
     SwingUtilities.invokeLater(object : Runnable {
         override fun run() {
             ApplicationWindow()

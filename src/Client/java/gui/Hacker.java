@@ -31,6 +31,7 @@ import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.HashMap;
 import java.util.Vector;
+import util.Time;
 
 public class Hacker implements ActionListener, WindowListener, ComponentListener {
     //data
@@ -1668,6 +1669,16 @@ public class Hacker implements ActionListener, WindowListener, ComponentListener
      */
     public GameState getView() {
         return (myGameState);
+    }
+
+    public void shutdownForTests() {
+        if (statList != null) {
+            statList.shutdown();
+        }
+        Time.getInstance().clean();
+        if (frame != null) {
+            frame.dispose();
+        }
     }
 
     /**

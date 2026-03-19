@@ -14,13 +14,20 @@ public class Time implements Runnable {
     private long currentTime;
     private Thread MyThread;
     private static Time MyTime = null;
+    boolean run = true;
 
     /**
      Constructor.
      */
     public Time() {
-        MyThread = new Thread(this);
+        run = true;
+        MyThread = new Thread(this, "Time");
         MyThread.start();
+    }
+
+    public void clean() {
+        run = false;
+        MyTime = null;
     }
 
     /**
@@ -47,7 +54,7 @@ public class Time implements Runnable {
      Run this thread, contantly updating time.
      */
     public void run() {
-        while (true) {
+        while (run) {
             Calendar time = Calendar.getInstance();
             currentTime = time.getTimeInMillis();
             try {
@@ -56,6 +63,7 @@ public class Time implements Runnable {
                 e.printStackTrace();
             }
         }
+        MyTime = null;
     }
 
     //Testing main.

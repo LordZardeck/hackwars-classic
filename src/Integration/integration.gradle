@@ -1,0 +1,112 @@
+repositories {
+    ivy {
+        name = 'PlayFabGitHubRaw'
+        url = uri('https://raw.githubusercontent.com/PlayFab/JavaSDK')
+        patternLayout {
+            artifact '/versioned/builds/[artifact]-[revision].[ext]'
+        }
+        metadataSources {
+            artifact()
+        }
+        content {
+            includeModule('com.playfab', 'client-sdk')
+        }
+    }
+}
+
+dependencies {
+    implementation project(':Client')
+    implementation project(':GameServer')
+    implementation project(':ChatServer')
+    implementation project(':HackWars')
+    implementation project(':Networking')
+    implementation 'junit:junit:4.13.2'
+
+    testImplementation "org.jetbrains.kotlin:kotlin-test-junit:2.1.21"
+    testImplementation 'junit:junit:4.13.2'
+}
+
+sourceSets {
+    main {
+        java.setSrcDirs(['java'])
+        kotlin.setSrcDirs(['java'])
+        resources.setSrcDirs(['resources'])
+    }
+    test {
+        java.setSrcDirs([])
+        kotlin.setSrcDirs([])
+        resources.setSrcDirs([])
+    }
+    integrationTest {
+        java.setSrcDirs(['integrationTest'])
+        kotlin.setSrcDirs(['integrationTest'])
+        resources.setSrcDirs(['integrationTestResources'])
+        compileClasspath += sourceSets.main.output + configurations.testRuntimeClasspath
+        runtimeClasspath += output + compileClasspath
+    }
+    clientUiTest {
+        java.setSrcDirs(['clientUiTest'])
+        kotlin.setSrcDirs(['clientUiTest'])
+        resources.setSrcDirs(['clientUiTestResources'])
+        compileClasspath += sourceSets.main.output + configurations.testRuntimeClasspath
+        runtimeClasspath += output + compileClasspath
+    }
+}
+
+configurations {
+    integrationTestImplementation.extendsFrom(testImplementation)
+    integrationTestRuntimeOnly.extendsFrom(testRuntimeOnly)
+    clientUiTestImplementation.extendsFrom(testImplementation)
+    clientUiTestRuntimeOnly.extendsFrom(testRuntimeOnly)
+}
+
+tasks.register('integrationTest', Test) {
+    group = 'verification'
+    description = 'Runs offline protocol and service integration tests.'
+    testClassesDirs = sourceSets.integrationTest.output.classesDirs
+    classpath = sourceSets.integrationTest.runtimeClasspath
+    shouldRunAfter(tasks.named('test'))
+}
+
+tasks.register('clientUiTest', Test) {
+    group = 'verification'
+    description = 'Runs deterministic client UI workflow tests.'
+    testClassesDirs = sourceSets.clientUiTest.output.classesDirs
+    classpath = sourceSets.clientUiTest.runtimeClasspath
+    shouldRunAfter(tasks.named('integrationTest'))
+    systemProperty 'java.awt.headless', 'false'
+
+    def expectedFailuresFile = layout.buildDirectory.file('reports/client-ui/expected-failures.tsv')
+    inputs.property('expectedFailuresFile', expectedFailuresFile.get().asFile.absolutePath)
+    systemProperty 'hackwars.clientUi.expectedFailuresFile', expectedFailuresFile.get().asFile.absolutePath
+    doFirst {
+        def file = expectedFailuresFile.get().asFile
+        file.parentFile.mkdirs()
+        if (file.exists()) {
+            file.delete()
+        }
+    }
+    doLast {
+        def file = expectedFailuresFile.get().asFile
+        if (!file.exists()) {
+            logger.lifecycle('clientUiTest expected failures: none recorded')
+            return
+        }
+
+        def expectedFailures = 0
+        def unexpectedPasses = 0
+        file.eachLine { line ->
+            if (line.startsWith('EXPECTED_FAILURE\t')) {
+                expectedFailures++
+            } else if (line.startsWith('UNEXPECTED_PASS\t')) {
+                unexpectedPasses++
+            }
+        }
+        logger.lifecycle("clientUiTest expected failures: ${expectedFailures}, unexpected passes: ${unexpectedPasses}")
+    }
+}
+
+tasks.named('check') {
+    dependsOn(tasks.named('integrationTest'))
+    dependsOn(tasks.named('clientUiTest'))
+}

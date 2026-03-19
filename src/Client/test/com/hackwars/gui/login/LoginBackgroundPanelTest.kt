@@ -61,6 +61,7 @@ class LoginBackgroundPanelTest {
     fun paint_rendersExpectedSplitGradientColors_atTopEdge_forDynamicSplit() {
         val panel = LoginBackgroundPanel()
         val componentSize = Dimension(640, 400)
+        panel.setCentered(false, animate = false)
         panel.size = componentSize
 
         val image = BufferedImage(640, 400, BufferedImage.TYPE_INT_ARGB)
@@ -87,6 +88,7 @@ class LoginBackgroundPanelTest {
     @Test
     fun paint_splitPosition_scalesWithPanelWidth() {
         val panel = LoginBackgroundPanel()
+        panel.setCentered(false, animate = false)
 
         val smallSize = Dimension(640, 400)
         val largeSize = Dimension(960, 400)
@@ -111,6 +113,7 @@ class LoginBackgroundPanelTest {
     @Test
     fun paint_splitPosition_capsAtMaximumWidth() {
         val panel = LoginBackgroundPanel()
+        panel.setCentered(false, animate = false)
         val componentSize = Dimension(2000, 400)
         val splitX = getSplitX(componentSize.width)
         val image = renderPanel(panel, componentSize)
@@ -127,7 +130,7 @@ class LoginBackgroundPanelTest {
     fun paint_splitPosition_movesToCenter_whenCenteredIsTrue() {
         val panel = LoginBackgroundPanel()
         val componentSize = Dimension(640, 400)
-        panel.centered = true
+        panel.setCentered(true, animate = false)
         val splitX = getCenteredSplitX(componentSize.width)
         val image = renderPanel(panel, componentSize)
 

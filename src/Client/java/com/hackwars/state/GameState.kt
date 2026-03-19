@@ -24,7 +24,7 @@ import javax.swing.event.EventListenerList
  * The main controller for Coezilla.
  */
 
-class GameState : DataHandler, Runnable {
+open class GameState : DataHandler, Runnable {
     companion object {
         private val LOGIN_FALLBACK_START =
             !"false".equals(System.getProperty("hackwars.loginFallbackStart", "true"), ignoreCase = true)
@@ -147,7 +147,7 @@ class GameState : DataHandler, Runnable {
         else hackerState!!.update(this, username, ip, npc, encryptedIP)
     }
 
-    fun setFunction(function: String?) {
+    open fun setFunction(function: String?) {
         this.function = function
     }
 
@@ -306,11 +306,15 @@ class GameState : DataHandler, Runnable {
         chatServerReporter!!.addFinishedAssignment(MyChatLoginAssignment)
     }
 
-    fun addFunctionCall(remoteFunctionCall: RemoteFunctionCall?) {
+    open fun addFunctionCall(remoteFunctionCall: RemoteFunctionCall?) {
         synchronized(Tasks) {
             Tasks.add(remoteFunctionCall)
         }
     }
+
+    fun currentHacker(): Hacker? = hackerState
+
+    fun currentUser(): String? = user
 
     fun exitProgram() {
         fireExitProgramEvent()

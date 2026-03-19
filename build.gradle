@@ -72,3 +72,25 @@ subprojects {
         jvmTargetValidationMode.set(JvmTargetValidationMode.WARNING)
     }
 }
+
+tasks.register('testFast') {
+    group = 'verification'
+    description = 'Runs the fast unit and component test suites across the main modules.'
+    dependsOn(
+            ':Networking:test',
+            ':GameServer:test',
+            ':Client:test'
+    )
+}
+
+tasks.register('integrationTest') {
+    group = 'verification'
+    description = 'Runs the offline protocol and service integration test suite.'
+    dependsOn(':Integration:integrationTest')
+}
+
+tasks.register('clientUiTest') {
+    group = 'verification'
+    description = 'Runs the deterministic client UI workflow suite.'
+    dependsOn(':Integration:clientUiTest')
+}

@@ -16,16 +16,27 @@ public class StatsList implements Runnable {
     private Hacker MyHacker;
     private Thread MyThread = null;
     private final Semaphore available = new Semaphore(1, true);
+    private volatile boolean running = true;
 
     public StatsList(Hacker MyHacker) {
         this.MyHacker = MyHacker;
-        MyThread = new Thread(this);
+        MyThread = new Thread(this, "StatsList");
         MyThread.start();
 
     }
 
     public void add(String message) {
+        if (!running) {
+            return;
+        }
         tasks.add(new StatTask(message));
+    }
+
+    public void shutdown() {
+        running = false;
+        if (MyThread != null) {
+            MyThread.interrupt();
+        }
     }
 
     class StatTask implements Task, Runnable {
@@ -83,7 +94,7 @@ public class StatsList implements Runnable {
     }
 
     public void run() {
-        while (true) {
+        while (running) {
             try {
                 available.acquire();
                 Iterator MyIterator = tasks.iterator();

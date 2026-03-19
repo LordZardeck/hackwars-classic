@@ -18,8 +18,8 @@ import org.slf4j.LoggerFactory
 import server.remote.RemoteCallContext
 import server.remote.invokeOnServer
 import util.Encryption
-import util.PlayFabTokenVerifier
 import util.PlayFabTokenVerifier.AuthResult
+import util.SessionTokenVerifiers
 import util.Time
 import java.util.*
 
@@ -87,7 +87,7 @@ class HackerServer(e: Editor, serverID: String) : IParty(e), HackerServerBridge 
 
         val clientKey = assignment.hash
         val accessToken = assignment.accessToken
-        val authResult: AuthResult = runCatching { PlayFabTokenVerifier.verify(accessToken) }
+        val authResult: AuthResult = runCatching { SessionTokenVerifiers.active().verify(accessToken) }
             .onFailure {
                 Logger.error("HackerServer: PlayFab authentication failed", it)
             }

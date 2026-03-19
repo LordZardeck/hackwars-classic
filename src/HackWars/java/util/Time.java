@@ -31,6 +31,12 @@ public class Time implements Runnable {
         MyTime = null;
     }
 
+    public static void shutdownInstance() {
+        if (MyTime != null) {
+            MyTime.clean();
+        }
+    }
+
     /**
      Singleton approach.
      */
