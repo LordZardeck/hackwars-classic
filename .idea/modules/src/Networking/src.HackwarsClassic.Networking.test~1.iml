@@ -44,7 +44,7 @@
     </content>
     <orderEntry type="jdk" jdkName="openjdk-25" jdkType="JavaSDK" />
     <orderEntry type="sourceFolder" forTests="false" />
-    <orderEntry type="module" module-name="src.HackwarsClassic.Networking.main" />
+    <orderEntry type="module" module-name="src.HackwarsClassic.Networking.main~1" />
     <orderEntry type="library" name="Gradle: com.google.protobuf:protobuf-java:3.25.5" level="project" />
     <orderEntry type="library" name="Gradle: org.jetbrains.kotlin:kotlin-reflect:2.1.21" level="project" />
     <orderEntry type="library" name="Gradle: org.jetbrains.kotlin:kotlin-stdlib:2.1.21" level="project" />

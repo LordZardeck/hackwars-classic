@@ -12,19 +12,19 @@
       <element id="directory" name="META-INF">
         <element id="file-copy" path="$PROJECT_DIR$/build/libs/exploded/hackwars.war/META-INF/MANIFEST.MF" />
       </element>
-      <element id="javaee-facet-resources" facet="src.HackwarsClassic.Tomcat.main/web/Web Gradle : hackwars.war" />
+      <element id="javaee-facet-resources" facet="src.HackwarsClassic.Tomcat.main~1/web/Web Gradle : hackwars.war" />
       <element id="directory" name="WEB-INF">
         <element id="directory" name="classes">
-          <element id="module-output" name="src.HackwarsClassic.Tomcat.main" />
+          <element id="module-output" name="src.HackwarsClassic.Tomcat.main~1" />
           <element id="dir-copy" path="$PROJECT_DIR$/src/Tomcat/build/resources/main" />
         </element>
         <element id="directory" name="lib">
           <element id="archive" name="HackwarsClassic-HackWars.jar">
-            <element id="module-output" name="src.HackwarsClassic.HackWars.main" />
+            <element id="module-output" name="src.HackwarsClassic.HackWars.main~1" />
             <element id="dir-copy" path="$PROJECT_DIR$/src/HackWars/build/resources/main" />
           </element>
           <element id="archive" name="HackwarsClassic-Networking.jar">
-            <element id="module-output" name="src.HackwarsClassic.Networking.main" />
+            <element id="module-output" name="src.HackwarsClassic.Networking.main~1" />
             <element id="dir-copy" path="$PROJECT_DIR$/src/Networking/build/resources/main" />
           </element>
           <element id="library" level="project" name="Gradle: com.google.protobuf:protobuf-java:3.25.5" />
@@ -45,7 +45,7 @@
           <element id="library" level="project" name="Gradle: junit:junit:3.8.1" />
           <element id="library" level="project" name="Gradle: xml-apis:xml-apis:1.0.b2" />
           <element id="archive" name="HackwarsClassic-GameServer.jar">
-            <element id="module-output" name="src.HackwarsClassic.GameServer.main" />
+            <element id="module-output" name="src.HackwarsClassic.GameServer.main~1" />
             <element id="dir-copy" path="$PROJECT_DIR$/src/GameServer/build/resources/main" />
           </element>
           <element id="archive" name="HackwarsClassic-RpcDispatchAnnotations.jar">
