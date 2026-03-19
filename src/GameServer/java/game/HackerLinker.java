@@ -2626,11 +2626,4 @@ public class HackerLinker extends Linker {
 
         return (null);
     }
-
-    //Testing main.
-    public static void main(String args[]) {
-        HackerLinker HL = new HackerLinker(null, null);
-        System.out.println(HL.regexEscape("// . $ ^ { [ ( | ) * + ? \\"));
-
-    }
 }
