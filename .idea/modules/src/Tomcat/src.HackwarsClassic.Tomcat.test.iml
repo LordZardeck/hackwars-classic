@@ -1,22 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<module external.linked.project.id=":Tomcat:main" external.linked.project.path="$MODULE_DIR$/../../../../src/Tomcat" external.root.project.path="$MODULE_DIR$/../../../.." external.system.id="GRADLE" external.system.module.group="HackwarsClassic" external.system.module.type="sourceSet" external.system.module.version="unspecified" type="JAVA_MODULE" version="4">
+<module external.linked.project.id=":Tomcat:test" external.linked.project.path="$MODULE_DIR$/../../../../src/Tomcat" external.root.project.path="$MODULE_DIR$/../../../.." external.system.id="GRADLE" external.system.module.group="HackwarsClassic" external.system.module.type="sourceSet" external.system.module.version="unspecified" type="JAVA_MODULE" version="4">
   <component name="FacetManager">
-    <facet external-system-id="GRADLE" type="web" name="Web Gradle : hackwars.war">
-      <configuration>
-        <webroots>
-          <root url="file://$MODULE_DIR$/../../../../src/Tomcat/src/main/webapp" relative="/" />
-          <root url="file://$MODULE_DIR$/../../../../src/ChatServer/build/classes/java/main/assignments" relative="/WEB-INF/classes/chatServer/assignments" />
-          <root url="file://$MODULE_DIR$/../../../../src/ChatServer/build/classes/java/main/chat" relative="/WEB-INF/classes/chatServer/chat" />
-          <root url="file://$MODULE_DIR$/../../../../src/ChatServer/build/classes/java/main/util" relative="/WEB-INF/classes/chatServer/util" />
-          <root url="file://$MODULE_DIR$/../../../../src/ChatServer/build/classes/java/main/server" relative="/WEB-INF/classes/chatServer/server" />
-          <root url="file://$MODULE_DIR$/../../../../src/ChatServer/build/classes/java/main/com" relative="/WEB-INF/classes/chatServer/com" />
-          <root url="file://$MODULE_DIR$/../../../../src/ChatServer/build/resources/main/com" relative="/WEB-INF/classes/chatServer/com" />
-          <root url="file://$MODULE_DIR$/../../../../src/Tomcat/build/generated/webapp" relative="" />
-        </webroots>
-      </configuration>
-    </facet>
     <facet external-system-id="GRADLE" type="kotlin-language" name="Kotlin">
       <configuration version="5" platform="JVM 23" allPlatforms="JVM [23]" useProjectSettings="false" pureKotlinSourceFolders="$MODULE_DIR$/../../../../src/Tomcat/src/test/kotlin">
+        <additionalVisibleModuleNames>:Tomcat:main</additionalVisibleModuleNames>
         <compilerSettings>
           <option name="additionalArguments" value="-Xwhen-guards" />
         </compilerSettings>
@@ -27,9 +14,9 @@
             <flagArg name="noStdlib" arg="true" />
           </flagArguments>
           <stringArguments>
-            <stringArg name="destination" arg="$MODULE_DIR$/../../../../src/Tomcat/build/classes/kotlin/main" />
+            <stringArg name="destination" arg="$MODULE_DIR$/../../../../src/Tomcat/build/classes/kotlin/test" />
             <stringArg name="jvmTarget" arg="23" />
-            <stringArg name="moduleName" arg="Tomcat" />
+            <stringArg name="moduleName" arg="Tomcat_test" />
             <stringArg name="apiVersion" arg="2.1" />
             <stringArg name="languageVersion" arg="2.1" />
           </stringArguments>
@@ -50,18 +37,16 @@
     </facet>
   </component>
   <component name="NewModuleRootManager">
-    <output url="file://$MODULE_DIR$/../../../../src/Tomcat/build/classes/java/main" />
+    <output-test url="file://$MODULE_DIR$/../../../../src/Tomcat/build/classes/java/test" />
     <exclude-output />
-    <content url="file://$MODULE_DIR$/../../../../src/Tomcat/java">
-      <sourceFolder url="file://$MODULE_DIR$/../../../../src/Tomcat/java" isTestSource="false" />
-    </content>
+    <content url="file://$MODULE_DIR$/../../../../src/Tomcat/src/test" />
     <orderEntry type="jdk" jdkName="openjdk-25" jdkType="JavaSDK" />
     <orderEntry type="sourceFolder" forTests="false" />
-    <orderEntry type="module" module-name="src.HackwarsClassic.HackWars.main~1" />
-    <orderEntry type="module" module-name="src.HackwarsClassic.GameServer.main~1" />
-    <orderEntry type="module" module-name="src.HackwarsClassic.Networking.main~1" />
+    <orderEntry type="module" module-name="src.HackwarsClassic.Tomcat.main" />
+    <orderEntry type="module" module-name="src.HackwarsClassic.HackWars.main" />
+    <orderEntry type="module" module-name="src.HackwarsClassic.GameServer.main" />
+    <orderEntry type="module" module-name="src.HackwarsClassic.Networking.main" />
     <orderEntry type="library" scope="PROVIDED" name="Gradle: org.jetbrains.kotlin:kotlin-stdlib:2.1.20" level="project" />
-    <orderEntry type="library" scope="PROVIDED" name="Gradle: org.apache.tomcat:servlet-api:6.0.53" level="project" />
     <orderEntry type="library" name="Gradle: ch.qos.logback:logback-classic:1.5.18" level="project" />
     <orderEntry type="library" name="Gradle: com.google.protobuf:protobuf-java:3.25.5" level="project" />
     <orderEntry type="library" scope="PROVIDED" name="Gradle: org.jetbrains:annotations:13.0" level="project" />
@@ -84,4 +69,5 @@
     <orderEntry type="library" scope="RUNTIME" name="Gradle: junit:junit:3.8.1" level="project" />
     <orderEntry type="library" scope="RUNTIME" name="Gradle: xml-apis:xml-apis:1.0.b2" level="project" />
   </component>
+  <component name="TestModuleProperties" production-module="HackwarsClassic.Tomcat.main" />
 </module>
