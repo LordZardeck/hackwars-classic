@@ -44,7 +44,7 @@ public class LegacyEconomyWebSocialCommands implements LegacyApplicationDataHand
                 if (computer.pettyCash >= 100.0f) {
                     try {
                         Object[] params = new Object[]{computer.ip, message};
-                        computer.getSessionService().executeRemote("http://www.hackwars.net/xmlrpc/mail.php", "sendEmail", params);
+                        computer.sessionService.executeRemote("http://www.hackwars.net/xmlrpc/mail.php", "sendEmail", params);
                     } catch (Exception ignored) {
                     }
                     computer.getComputerHandler().addData(new ApplicationData("pettycash", -100.0f, 0, computer.ip), computer.ip);
@@ -56,7 +56,7 @@ public class LegacyEconomyWebSocialCommands implements LegacyApplicationDataHand
             String targetIP = (String) ((Object[]) applicationData.getParameters())[1];
             try {
                 Object[] params = new Object[]{computer.ip, targetIP, message};
-                computer.getSessionService().executeRemote("http://www.hackwars.net/xmlrpc/facebook.php", "sendFacebook", params);
+                computer.sessionService.executeRemote("http://www.hackwars.net/xmlrpc/facebook.php", "sendFacebook", params);
             } catch (Exception e) {
                 e.printStackTrace();
             }
@@ -70,7 +70,7 @@ public class LegacyEconomyWebSocialCommands implements LegacyApplicationDataHand
                     Double.valueOf(computer.bankMoney),
                     Integer.valueOf(computer.defaultBank)
                 };
-                computer.getSessionService().executeRemote("http://www.hackwars.net/xmlrpc/facebook.php", "updateFacebook", params);
+                computer.sessionService.executeRemote("http://www.hackwars.net/xmlrpc/facebook.php", "updateFacebook", params);
             } catch (Exception e) {
                 e.printStackTrace();
             }

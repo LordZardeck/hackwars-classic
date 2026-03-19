@@ -25,17 +25,17 @@ class LaunchNetworkAttack(computer: Computer) : Function(computer) {
         val npcIp = getPositionalParameter<String>(applicationData, 0)
         val triggerParameters = HashMap<String, Variable>()
 
-        triggerParameters["playerip"] = TypeString(computer.ip)
-        triggerParameters["defaultattack"] = TypeInteger(computer.defaultAttack)
-        triggerParameters["defaultbank"] = TypeInteger(computer.defaultBank)
-        triggerParameters["defaulthttp"] = TypeInteger(computer.defaultHTTP)
-        triggerParameters["defaultredirecting"] = TypeInteger(computer.defaultShipping)
+        triggerParameters["playerip"] = TypeString(computer.getIP())
+        triggerParameters["defaultattack"] = TypeInteger(computer.getDefaultAttack())
+        triggerParameters["defaultbank"] = TypeInteger(computer.getDefaultBank())
+        triggerParameters["defaulthttp"] = TypeInteger(computer.getDefaultHTTP())
+        triggerParameters["defaultredirecting"] = TypeInteger(computer.getDefaultShipping())
 
-        val parameters = arrayOf("netbomb", triggerParameters, computer.ip)
+        val parameters = arrayOf("netbomb", triggerParameters, computer.getIP())
 
         println("Launching attack with NPC $npcIp against ${parameters[2]}.")
         computer.computerHandler.addData(
-            ApplicationData("requesttriggernote", parameters, 0, computer.ip),
+            ApplicationData("requesttriggernote", parameters, 0, computer.getIP()),
             npcIp
         )
     }

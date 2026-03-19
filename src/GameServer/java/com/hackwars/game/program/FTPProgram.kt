@@ -131,7 +131,7 @@ class FTPProgram(
             if (this@FTPProgram.computer!!.getType() != Computer.NPC) {
                 if (name == null) { //Steal the first file found.
                     name = ""
-                    val O = this@FTPProgram.computer!!.getFileSystem().getWebDirectory("Public/")
+                    val O = this@FTPProgram.computer!!.fileSystem.getWebDirectory("Public/")
                     for (i in O!!.indices) {
                         if (O[i] is HackerFile) {
                             name = (O[i] as HackerFile).getName()
@@ -225,9 +225,9 @@ class FTPProgram(
 
             script = getScript
 
-            if (targetIP != this@FTPProgram.computer!!.getIP()) this@FTPProgram.computer!!.getComputerHandler()
+            if (targetIP != this@FTPProgram.computer!!.getIP()) this@FTPProgram.computer!!.computerHandler
                 .addData(ApplicationData("requestftpupdate", null, 0, this@FTPProgram.computer!!.getIP()), targetIP)
-            this@FTPProgram.computer!!.getComputerHandler()
+            this@FTPProgram.computer!!.computerHandler
                 .addData(ApplicationData("requestftpupdate", null, 0, this@FTPProgram.computer!!.getIP()), this@FTPProgram.computer!!.getIP())
         } else  //Prepare the put message.
             if (applicationData.getFunction() == "put") {
@@ -296,7 +296,7 @@ class FTPProgram(
                 HF = (applicationData.getParameters() as Array<Any?>?)!![5] as HackerFile?
 
                 //Check whether you have permission to peform this action.
-                if (this@FTPProgram.computer!!.getFileSystem().getSpaceLeft() <= 0) {
+                if (this@FTPProgram.computer!!.fileSystem.getSpaceLeft() <= 0) {
                     this@FTPProgram.computerHandler!!.addData(
                         ApplicationData(
                             "message", MessageHandler.FTP_PUT_FAIL_HD_FULL, 0,

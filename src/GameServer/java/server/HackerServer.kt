@@ -103,15 +103,18 @@ class HackerServer(e: Editor, serverID: String) : IParty(e), HackerServerBridge 
             return
         }
 
+        val computerHandler = MyComputerHandler ?: return dispatchPacket(LoginFailedAssignment(0), assignment.reporterID)
+        val time = MyTime ?: return dispatchPacket(LoginFailedAssignment(0), assignment.reporterID)
+
         val computer = Computer(
             authResult.playFabId,
             authResult.playerIp,
-            MyComputerHandler,
-            MyTime,
+            computerHandler,
+            time,
             assignment.reporterID,
             this,
             true
-        ).also { MyComputerHandler?.addComputer(it) }
+        ).also { computerHandler.addComputer(it) }
 
         computer.setClientHash(clientKey)
         computer.setPublicKey(assignment.publicKey)

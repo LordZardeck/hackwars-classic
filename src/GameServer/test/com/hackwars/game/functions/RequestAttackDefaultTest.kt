@@ -13,7 +13,7 @@ class RequestAttackDefaultTest {
     fun execute_dispatchesRequestattackWithDefaultBankPort() {
         val computer = FunctionTestSupport.baseComputer("4.4.4.4")
         val networkSwitch = computer.computerHandler
-        whenever(computer.defaultBank).thenReturn(33)
+        whenever(computer.getDefaultBank()).thenReturn(33)
 
         RequestAttackDefault(computer).execute(
             ApplicationData("requestattackdefault", arrayOf<Any>("ignored", "Bank"), 12, "7.7.7.7")

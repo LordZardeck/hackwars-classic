@@ -25,16 +25,16 @@ class RequestZombieAttack(computer: Computer) : Function(computer) {
     override fun execute(applicationData: ApplicationData) {
         if (!computer.checkBank()) return
 
-        if (computer.pettyCash >= ZOMBIE_ATTACK_COST) {
+        if (computer.getPettyCash() >= ZOMBIE_ATTACK_COST) {
             val computerHandler = computer.computerHandler
             computerHandler.addData(
-                ApplicationData("pettycash", -ZOMBIE_ATTACK_COST, 0, computer.ip),
-                computer.ip
+                ApplicationData("pettycash", -ZOMBIE_ATTACK_COST, 0, computer.getIP()),
+                computer.getIP()
             )
 
             val targetIp = getPositionalParameter<String>(applicationData, 5)
             computerHandler.addData(
-                ApplicationData("zombieattack", applicationData.parameters, applicationData.port, computer.ip),
+                ApplicationData("zombieattack", applicationData.parameters, applicationData.port, computer.getIP()),
                 targetIp
             )
             return

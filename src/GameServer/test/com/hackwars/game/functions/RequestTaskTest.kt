@@ -9,7 +9,7 @@ class RequestTaskTest {
     @Test
     fun execute_whenQuestNotComplete_createsTaskEntry() {
         val computer = FunctionTestSupport.baseComputer()
-        val quests = hashMapOf<Any, Any>(7 to arrayOf<Any?>(null, "QuestLabel"))
+        val quests = hashMapOf<Any?, Any?>(7 to arrayOf<Any?>(null, "QuestLabel"))
         whenever(computer.currentQuests).thenReturn(quests)
         whenever(computer.checkQuest(7)).thenReturn(false)
 

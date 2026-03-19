@@ -117,13 +117,13 @@ class ShippingProgram(computer: Computer?, computerHandler: NetworkSwitch?, priv
         /**
          * Get the CPU load on the computer that this attack is associated with.
          */
-        get() = (computer!!.getCPULoad())
+        get() = computer!!.cpuLoad
 
     val maximumCPULoad: Float
         /**
          * Get the maximum CPU load of the current CPU installed
          */
-        get() = (computer!!.getMaximumCPULoad())
+        get() = computer!!.maximumCPULoad
 
     var attacking: Boolean
         /**
@@ -194,7 +194,7 @@ class ShippingProgram(computer: Computer?, computerHandler: NetworkSwitch?, priv
     }
 
     override fun execute(applicationData: ApplicationData) {
-        if (this.attacking && computer!!.getCurrentTime() - attackStart > ATTACK_TIMEOUT) { //Attacks can only take up to 5 minutes.
+        if (this.attacking && computer!!.currentTime - attackStart > ATTACK_TIMEOUT) { //Attacks can only take up to 5 minutes.
 
             computerHandler!!.addData(
                 ApplicationData("cancelattack", null, this.getTargetPort(), this.iP),
@@ -225,7 +225,7 @@ class ShippingProgram(computer: Computer?, computerHandler: NetworkSwitch?, priv
 
             if (dealDamage) { //Should the port deal damage this iteration.
                 val O: Array<Any?>? = arrayOf<Any?>(
-                    damage + computer!!.getEquipmentSheet().getMiningBonus(),
+                    damage + computer!!.equipmentSheet.getMiningBonus(),
                     parentPort!!.getIP(),
                     parentPort!!.getNumber(),
                     false,
@@ -246,7 +246,7 @@ class ShippingProgram(computer: Computer?, computerHandler: NetworkSwitch?, priv
                 computer!!.getIP()
             )
             choicesShown = false
-            attackStart = computer!!.getCurrentTime()
+            attackStart = computer!!.currentTime
 
             iterations = 0
 
@@ -298,12 +298,12 @@ class ShippingProgram(computer: Computer?, computerHandler: NetworkSwitch?, priv
             }
 
             computer!!.addMessage(
-                MessageHandler.REDIRECT_FINISHED, arrayOf<Any>(this.port), arrayOf<Any?>(
+                MessageHandler.REDIRECT_FINISHED, arrayOf<Any?>(this.port), arrayOf<Any?>(
                     windowHandle,
                     this.iP
                 )
             )
-            computer!!.addMessage(MessageHandler.REDIRECT_FINISHED_GAME, arrayOf<Any>(this.port))
+            computer!!.addMessage(MessageHandler.REDIRECT_FINISHED_GAME, arrayOf<Any?>(this.port))
 
             computerHandler!!.addData(
                 ApplicationData("cancelattack", null, this.getTargetPort(), this.iP),
@@ -410,8 +410,8 @@ class ShippingProgram(computer: Computer?, computerHandler: NetworkSwitch?, priv
     fun getMaliciousCode(): HashMap<*, *>? {
         if (MaliciousCode!![targetPortType] == null) return (null)
 
-        val HF = computer!!.getFileSystem()
-            .getFile(MaliciousCode!![targetPortType]!![0], MaliciousCode!![targetPortType]!![1])
+        val HF = computer!!.fileSystem
+            .getFile(MaliciousCode!![targetPortType]!![0], MaliciousCode!![targetPortType]!![1]) as? HackerFile
 
         if (HF == null) return (null)
 
@@ -419,7 +419,7 @@ class ShippingProgram(computer: Computer?, computerHandler: NetworkSwitch?, priv
 
         HF.setQuantity(HF.getQuantity() - 1)
         if (HF.getQuantity() <= 0) {
-            computer!!.getFileSystem()
+            computer!!.fileSystem
                 .deleteFile(MaliciousCode!![targetPortType]!![0], MaliciousCode!![targetPortType]!![1])
         }
 

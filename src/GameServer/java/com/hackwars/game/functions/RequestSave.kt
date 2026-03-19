@@ -63,6 +63,6 @@ class RequestSave(computer: Computer) : Function(computer) {
         newFile.name = "$fileName.save"
 
         val payload = arrayOf("", newFile)
-        computer.computerHandler.addData(ApplicationData("savefile", payload, 0, computer.ip), computer.ip)
+        computer.computerHandler.addData(ApplicationData("savefile", payload, 0, computer.getIP()), computer.getIP())
     }
 }

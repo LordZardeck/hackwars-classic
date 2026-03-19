@@ -24,8 +24,8 @@ class ChangeWatchPort(computer: Computer) : Function(computer) {
         if (targetWatch < computer.watchHandler.watches.size) {
             computer.watchHandler.getWatch(targetWatch).port = newPort
             computer.computerHandler.addData(
-                ApplicationData(FetchWatches.FUNCTION, null, 0, computer.ip),
-                computer.ip
+                ApplicationData(FetchWatches.FUNCTION, null, 0, computer.getIP()),
+                computer.getIP()
             )
         }
     }

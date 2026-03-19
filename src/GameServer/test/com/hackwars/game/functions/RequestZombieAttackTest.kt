@@ -16,7 +16,7 @@ class RequestZombieAttackTest {
         val computer = FunctionTestSupport.baseComputer("6.6.6.6")
         val networkSwitch = computer.computerHandler
         whenever(computer.checkBank()).thenReturn(true)
-        whenever(computer.pettyCash).thenReturn(100f)
+        whenever(computer.getPettyCash()).thenReturn(100f)
         val parameters = arrayOf<Any?>(null, null, null, null, null, "8.8.8.8")
 
         RequestZombieAttack(computer).execute(

@@ -20,13 +20,13 @@ class SetDefaultPort(computer: Computer) : Function(computer) {
         val port = applicationData.port
 
         when (type) {
-            PacketPort.BANKING -> computer.defaultBank = port
-            PacketPort.ATTACK -> computer.defaultAttack = port
-            PacketPort.FTP -> computer.defaultFTP = port
-            PacketPort.HTTP -> computer.defaultHTTP = port
-            PacketPort.SHIPPING -> computer.defaultShipping = port
+            PacketPort.BANKING -> computer.setDefaultBank(port)
+            PacketPort.ATTACK -> computer.setDefaultAttack(port)
+            PacketPort.FTP -> computer.setDefaultFTP(port)
+            PacketPort.HTTP -> computer.setDefaultHTTP(port)
+            PacketPort.SHIPPING -> computer.setDefaultShipping(port)
         }
 
-        computer.computerHandler.addData(ApplicationData("fetchports", null, 0, computer.ip), computer.ip)
+        computer.computerHandler.addData(ApplicationData("fetchports", null, 0, computer.getIP()), computer.getIP())
     }
 }

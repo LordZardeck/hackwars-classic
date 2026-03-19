@@ -24,8 +24,8 @@ class RequestAttackDefault(computer: Computer) : Function(computer) {
         val attackIndices = arrayOf(0)
         val attackMetadata = arrayOfNulls<Array<String?>>(3)
         val payload: Any? = when (target) {
-            "Bank" -> arrayOf(computer.ip, computer.defaultBank, attackIndices, attackMetadata, null, 0)
-            "Attack" -> arrayOf(computer.ip, computer.defaultAttack, attackIndices, attackMetadata, null, 0)
+            "Bank" -> arrayOf(computer.getIP(), computer.getDefaultBank(), attackIndices, attackMetadata, null, 0)
+            "Attack" -> arrayOf(computer.getIP(), computer.getDefaultAttack(), attackIndices, attackMetadata, null, 0)
             else -> null
         }
 

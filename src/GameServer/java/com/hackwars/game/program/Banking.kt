@@ -130,7 +130,7 @@ class Banking(computer: Computer?, computerHandler: NetworkSwitch?, ParentPort: 
          * Set the amount of money in the computer's petty cash.
          */
         set(bankMoney) {
-            this@Banking.computer!!.setBank(bankMoney)
+            this@Banking.computer!!.bank = bankMoney
         }
 
     val bankMoney: Float

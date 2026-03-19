@@ -28,7 +28,7 @@ class HttpXP(computer: Computer) : Function(computer) {
     }
 
     override fun execute(applicationData: ApplicationData) {
-        if (computer.type == Computer.NPC) return
+        if (computer.getType() == Computer.NPC) return
 
         var grantXp = true
         var amount = applicationData.parameters as? Float ?: return
@@ -36,7 +36,7 @@ class HttpXP(computer: Computer) : Function(computer) {
         if (amount == VOTE_SENTINEL) {
             if (computer.checkHTTP()) {
                 amount = VOTE_REWARD
-                computer.voteCount = computer.voteCount + 1
+                computer.setVoteCount(computer.getVoteCount() + 1)
             } else {
                 grantXp = false
                 computer.addMessage(MessageHandler.VOTE_FAIL_HTTP_NOT_ON)

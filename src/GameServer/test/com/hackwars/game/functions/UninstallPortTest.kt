@@ -22,7 +22,7 @@ class UninstallPortTest {
         whenever(port.accessing).thenReturn("")
         whenever(port.attacking).thenReturn(false)
         whenever(port.overHeated).thenReturn(false)
-        val ports = hashMapOf<Any, Any>(12 to port)
+        val ports = hashMapOf<Any?, Any?>(12 to port)
         whenever(computer.ports).thenReturn(ports)
 
         UninstallPort(computer).execute(ApplicationData("uninstallport", 12, 0, "source"))

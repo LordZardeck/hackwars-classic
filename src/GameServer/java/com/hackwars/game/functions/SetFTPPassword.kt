@@ -15,6 +15,6 @@ import game.Computer
  */
 class SetFTPPassword(computer: Computer) : Function(computer) {
     override fun execute(applicationData: ApplicationData) {
-        computer.password = applicationData.parameters as? String
+        computer.setPassword(applicationData.parameters as? String)
     }
 }

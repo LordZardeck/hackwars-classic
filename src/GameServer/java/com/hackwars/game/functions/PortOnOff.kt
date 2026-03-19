@@ -77,6 +77,6 @@ class PortOnOff(computer: Computer) : Function(computer) {
             }
         }
 
-        computer.computerHandler.addData(ApplicationData("fetchports", null, 0, computer.ip), computer.ip)
+        computer.computerHandler.addData(ApplicationData("fetchports", null, 0, computer.getIP()), computer.getIP())
     }
 }

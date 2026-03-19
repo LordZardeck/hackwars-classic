@@ -237,7 +237,7 @@ class LegacyComputerPersistenceSupport(
             computer.commodityRespawn[index] = value
         }
 
-        val preferenceMap = HashMap<String, String>()
+        val preferenceMap = HashMap<Any?, Any?>()
         preferenceMap.putAll(snapshot.preferences)
         computer.preferences = preferenceMap
         computer.LOG_UPDATE = true
