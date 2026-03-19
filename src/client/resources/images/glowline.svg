@@ -1,8 +1,0 @@
-<svg width="620" height="560" viewBox="0 0 620 560" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <linearGradient id="lineGlow" x1="130" y1="0" x2="490" y2="0" gradientUnits="userSpaceOnUse">
-        <stop offset="0" stop-color="#2D5E8B" stop-opacity="0"/>
-        <stop offset="0.5" stop-color="#49C7FF" stop-opacity="0.65"/>
-        <stop offset="1" stop-color="#2D5E8B" stop-opacity="0"/>
-    </linearGradient>
-    <line x1="104" y1="135.5" x2="516" y2="135.5" stroke="url(#lineGlow)" stroke-width="1"/>
-</svg>
