@@ -18,7 +18,7 @@ class ChangeWatchPortTest {
         val watchHandler = computer.watchHandler
         val networkSwitch = computer.computerHandler
         val watch = mock<Watch>()
-        whenever(watchHandler.watches).thenReturn(arrayListOf<Any>(Any()))
+        whenever(watchHandler.watches).thenReturn(arrayListOf(Any()))
         whenever(watchHandler.getWatch(0)).thenReturn(watch)
 
         ChangeWatchPort(computer).execute(

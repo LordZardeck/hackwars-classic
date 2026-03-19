@@ -177,7 +177,7 @@ class LegacyWatchEquipmentCommands : LegacyApplicationDataHandler {
                 val cpuCheck = computer.cPULoad + watch.getActualCPUCost()
                 val maxCpu = computer.maximumCPULoad
                 if (state) {
-                    if (computer.MyWatchHandler.getWatchCount() < computer.maximumWatches) {
+                    if (computer.MyWatchHandler.watchCount < computer.maximumWatches) {
                         if (cpuCheck <= maxCpu) {
                             watch.setOn(state)
                         }

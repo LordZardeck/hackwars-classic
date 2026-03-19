@@ -1,299 +1,291 @@
-package game;
+package game
+
 /**
  * Handles all the watches currently installed.
  */
 
-import java.util.*;
+class WatchHandler(private val computer: Computer?, private val computerHandler: ComputerHandler?) {
+    companion object {
+        //Types of watches.
+        const val HEALTH: Int = 0
+        const val PETTY_CASH: Int = 1
+        const val SCAN: Int = 2
+    }
 
-public class WatchHandler {
-    //Types of watches.
-    public static final int HEALTH = 0;
-    public static final int PETTY_CASH = 1;
-    public static final int SCAN = 2;
-
-    private ArrayList Watches = new ArrayList();//Array of watches currently installed.
-    private Computer MyComputer = null;//The parent computer with these watches installed.
-    private ComputerHandler MyComputerHandler = null;//The watch handler for message dispatching.
+    val watches = ArrayList<Any?>() //Array of watches currently installed.
 
     /**
-     Check for a watch at the given port number.
+     * Check for a watch at the given port number.
      */
-    public boolean checkForWatch(int port) {
-        for (int i = 0; i < Watches.size(); i++) {
-            if (((Watch) Watches.get(i)).getPort() == port)
-                return (true);
-        }
-        return (false);
+    fun checkForWatch(port: Int): Boolean {
+        return watches.find { (it as? Watch)?.port == port }?.let { true } ?: false
     }
 
     /**
-     Automatically trigger a watch.
+     * Automatically trigger a watch.
      */
-    public void triggerWatch(int index, String sourceIP, HashMap TriggerParam) {
-        if (index < Watches.size()) {
-            Watch TempWatch = (Watch) Watches.get(index);
-            if (TempWatch != null && TempWatch.getOn()) {
-                TempWatch.setTargetIP(sourceIP);
-                TempWatch.setTargetPort(0);
-                TempWatch.setExternal(true);
-                Port TempPort = (Port) MyComputer.getPorts().get(new Integer(TempWatch.getPort()));
-                TempWatch.setPort(TempPort);
-                Object O[] = new Object[]{new Float(0.0f), sourceIP, 0, new Boolean(false), sourceIP, 0, -1};
-                ApplicationData AD = new ApplicationData("damage", O, 0, sourceIP);
-                TempWatch.setTriggerParam(TriggerParam);
-                TempWatch.setTriggered(true);
-                TempWatch.execute(AD);
-            }
+    fun triggerWatch(index: Int, sourceIP: String?, parameters: HashMap<*, *>?) {
+        (watches.getOrNull(index) as? Watch)?.takeIf { it.on }?.let { watch ->
+            watch.targetIP = sourceIP
+            watch.targetPort = 0
+            watch.external = true
+            watch.setPort(computer?.ports[watch.port] as? Port)
+            watch.setTriggerParam(parameters)
+            watch.setTriggered(true)
+            watch.execute(
+                ApplicationData(
+                    "damage",
+                    arrayOf<Any?>(0.0f, sourceIP, 0, false, sourceIP, 0, -1),
+                    0,
+                    sourceIP
+                )
+            )
         }
     }
 
 
     /**
-     Automatically trigger a watch.
+     * Automatically trigger a watch.
      */
-    public void triggerWatch(String note, String sourceIP, HashMap TriggerParam) {
-        Watch TempWatch = null;
-        for (int i = 0; i < Watches.size(); i++) {
-            Watch Temp = (Watch) Watches.get(i);
-            if (Temp != null && Temp.getNote().equals(note)) {
-                TempWatch = Temp;
-                break;
+    fun triggerWatch(note: String?, sourceIP: String?, TriggerParam: HashMap<*, *>?) {
+        var TempWatch: Watch? = null
+        for (i in watches.indices) {
+            val Temp = watches.get(i) as Watch?
+            if (Temp != null && Temp.note == note) {
+                TempWatch = Temp
+                break
             }
         }
 
-        if (TempWatch != null && TempWatch.getOn()) {
-            TempWatch.setTargetIP(sourceIP);
-            TempWatch.setTargetPort(0);
-            Port TempPort = (Port) MyComputer.getPorts().get(new Integer(TempWatch.getPort()));
-            TempWatch.setPort(TempPort);
-            Object O[] = new Object[]{new Float(0.0f), sourceIP, 0, new Boolean(false), sourceIP, 0, -1};
-            ApplicationData AD = new ApplicationData("damage", O, 0, sourceIP);
-            TempWatch.setTriggerParam(TriggerParam);
-            TempWatch.setTriggered(true);
+        if (TempWatch != null && TempWatch.on) {
+            TempWatch.targetIP = sourceIP
+            TempWatch.targetPort = 0
+            val TempPort = computer!!.ports.get(TempWatch.port) as Port?
+            TempWatch.setPort(TempPort)
+            val O: Array<Any?>? = arrayOf<Any?>(0.0f, sourceIP, 0, false, sourceIP, 0, -1)
+            val AD = ApplicationData("damage", O, 0, sourceIP)
+            TempWatch.setTriggerParam(TriggerParam)
+            TempWatch.setTriggered(true)
 
             //System.out.println("About to execute watch based on the note found.");
+            TempWatch.execute(AD)
+        }
+    }
 
-            TempWatch.execute(AD);
+    /**
+     * Add a new watch to the list of watches.
+     */
+    fun addWatch(W: Watch?) {
+        watches.add(W)
+    }
+
+    /**
+     * Remove a watch from the Watches list.
+     */
+    fun removeWatch(index: Int) {
+        watches.removeAt(index)
+    }
+
+    /**
+     * Get a watch.
+     */
+    fun getWatch(index: Int): Watch? {
+        return watches.getOrNull(index) as? Watch
+    }
+
+    /**
+     * Destroy all the watches installed on the given port number.
+     */
+    fun destroyWatches(port: Int) {
+        val watchIterator = watches.iterator()
+        while (watchIterator.hasNext()) {
+            (watchIterator.next() as? Watch)
+                ?.takeIf { watch -> watch.port == port && watch.type != SCAN && watch.on }
+                ?.let {
+                    watchIterator.remove()
+                }
+        }
+    }
+
+    /**
+     * Update the initial health quanity for a given port.
+     */
+    fun updateInitialHealthQuantity(port: Int, quantity: Float) {
+        val watchIterator = watches.iterator()
+        while (watchIterator.hasNext()) {
+            (watchIterator.next() as? Watch)
+                ?.takeIf { watch -> watch.port == port && watch.type == HEALTH }
+                ?.apply {
+                    initialQuantity = quantity
+                }
         }
     }
 
 
     /**
-     Constructor.
+     * Get the number of watches that are currently on.
      */
-    public WatchHandler(ComputerHandler MyComputerHandler, Computer MyComputer) {
-        this.MyComputer = MyComputer;
-        this.MyComputerHandler = MyComputerHandler;
-    }
+    val watchCount get() = watches.filter { (it as? Watch)?.on == true }.size
 
     /**
-     Add a new watch to the list of watches.
+     * Check the watches, and return the current CPU load.
      */
-    public void addWatch(Watch W) {
-        Watches.add(W);
-    }
-
-    /**
-     Return the array list of watches.
-     */
-    public ArrayList getWatches() {
-        return (Watches);
-    }
-
-    /**
-     Remove a watch from the Watches list.
-     */
-    public void removeWatch(int index) {
-        Watches.remove(index);
-    }
-
-    /**
-     Get a watch.
-     */
-    public Watch getWatch(int index) {
-        return ((Watch) Watches.get(index));
-    }
-
-    /**
-     Destroy all the watches installed on the given port number.
-     */
-    public void destroyWatches(int port) {
-        Iterator MyIterator = Watches.iterator();
+    fun checkWatches(applicationData: ApplicationData, ports: HashMap<*, *>, pettyCash: Float): Float {
+        var gainedXP = false
+        var watchCost = 0.0f
+        val MyIterator = watches.iterator()
+        var TempWatch: Watch? = null
         while (MyIterator.hasNext()) {
-            Watch twatch = (Watch) MyIterator.next();
-            if (twatch.getPort() == port && twatch.getType() != SCAN && twatch.getOn())
-                MyIterator.remove();
-        }
-    }
+            TempWatch = MyIterator.next() as Watch?
+            if (TempWatch!!.on) {
+                val TempPort = ports.get(TempWatch.port) as Port?
+                var overheated = false
+                if (TempPort != null) overheated = TempPort.getOverHeated()
 
-    /**
-     Update the initial health quanity for a given port.
-     */
-    public void updateInitialHealthQuanity(int port, float quantity) {
-        Iterator MyIterator = Watches.iterator();
-        while (MyIterator.hasNext()) {
-            Watch twatch = (Watch) MyIterator.next();
-            if (twatch.getPort() == port && twatch.getType() == HEALTH)
-                twatch.setInitialQuantity(quantity);
-        }
-    }
+                if (!overheated || applicationData.function == "scansuccess") { //Make sure our port isn't overheated.
 
-    /**
-     Get the number of watches that are currently on.
-     */
-    public int getWatchCount() {
-        int count = 0;
-        for (int i = 0; i < Watches.size(); i++) {
-            if (((Watch) Watches.get(i)).getOn())
-                count++;
-        }
-        return (count);
-    }
-
-    /**
-     Check the watches, and return the current CPU load.
-     */
-    public float checkWatches(ApplicationData MyApplicationData, HashMap Ports, float pettyCash) {
-        boolean gainedXP = false;
-        float watchCost = 0.0f;
-        Iterator MyIterator = Watches.iterator();
-        Watch TempWatch = null;
-        while (MyIterator.hasNext()) {
-            TempWatch = (Watch) MyIterator.next();
-            if (TempWatch.getOn()) {
-
-                Port TempPort = (Port) Ports.get(new Integer(TempWatch.getPort()));
-                boolean overheated = false;
-                if (TempPort != null)
-                    overheated = TempPort.getOverHeated();
-
-                if (!overheated || MyApplicationData.getFunction().equals("scansuccess")) {//Make sure our port isn't overheated.
-
-                    if (MyApplicationData.getFunction().equals("damage")) {
-                        Object[] parameters = (Object[]) MyApplicationData.getParameters();
-                        boolean zombieDamage = false;//Is the damge being dealt by a port that has been maliciously taken over?
-                        String zombieSource = (String) parameters[4];
+                    if (applicationData.function == "damage") {
+                        val parameters = applicationData.parameters as Array<Any?>
+                        var zombieDamage =
+                            false //Is the damge being dealt by a port that has been maliciously taken over?
+                        val zombieSource = parameters[4] as String?
                         if (zombieSource != null) {
-                            zombieDamage = true;
+                            zombieDamage = true
                         }
 
-                        String targetIP = (String) parameters[1];
+                        var targetIP = parameters[1] as String?
                         if (zombieDamage) {
-                            targetIP = zombieSource;
+                            targetIP = zombieSource
                         }
-                        int targetPort = (Integer) parameters[2];
+                        val targetPort = parameters[2] as Int
 
-                        if (TempWatch.getType() == HEALTH) {//Fired when health reaches a certain quanity.
+                        if (TempWatch.type == HEALTH) { //Fired when health reaches a certain quanity.
 
-                            if (TempPort != null && MyApplicationData.getPort() == TempPort.getNumber()) {
-
-                                float value = TempPort.getHealth();
-                                if ((TempWatch.getInitialQuantity() >= TempWatch.getQuantity()) && (value < TempWatch.getQuantity())) {
+                            if (TempPort != null && applicationData.port == TempPort.getNumber()) {
+                                val value = TempPort.getHealth()
+                                if ((TempWatch.initialQuantity >= TempWatch.quantity) && (value < TempWatch.quantity)) {
                                     //Set the source of the watch to internal or external.
-                                    if (MyApplicationData.getSource() == ApplicationData.INSIDE)
-                                        TempWatch.setExternal(false);
-                                    else
-                                        TempWatch.setExternal(true);
+                                    if (applicationData.source == ApplicationData.INSIDE) TempWatch.external =
+                                        false
+                                    else TempWatch.external = true
 
-                                    TempWatch.setTargetIP(targetIP);
-                                    TempWatch.setTargetPort(targetPort);
-                                    TempWatch.setPort(TempPort);
-                                    TempWatch.execute(MyApplicationData);
+                                    TempWatch.targetIP = targetIP
+                                    TempWatch.targetPort = targetPort
+                                    TempWatch.setPort(TempPort)
+                                    TempWatch.execute(applicationData)
                                     if (!gainedXP) {
-                                        MyComputerHandler.addData(new ApplicationData("watchxp", new Float((float) MyComputer.getWatchLevel()), 0, MyComputer.getIP()), MyComputer.getIP());
-                                        gainedXP = true;
+                                        computerHandler!!.addData(
+                                            ApplicationData(
+                                                "watchxp",
+                                                computer!!.watchLevel,
+                                                0,
+                                                computer!!.getIP()
+                                            ), computer!!.getIP()
+                                        )
+                                        gainedXP = true
                                     }
                                 }
-                                TempWatch.setInitialQuantity(value);
+                                TempWatch.initialQuantity = value
                             }
                         }
                     }
 
                     //Make sure the initial quantity value remains valid.
-                    if (MyApplicationData.getFunction().equals("bank")) {
-                        if (TempWatch.getType() == PETTY_CASH) {
-                            TempWatch.setInitialQuantity(pettyCash);
+                    if (applicationData.function == "bank") {
+                        if (TempWatch.type == PETTY_CASH) {
+                            TempWatch.initialQuantity = pettyCash
                         }
                     }
 
                     //Fired when petty cash reaches a certain amount.
-                    if (MyApplicationData.getFunction().equals("pettycash")) {
+                    if (applicationData.function == "pettycash") {
+                        val value = pettyCash
 
-                        float value = pettyCash;
-
-                        if (TempWatch.getType() == PETTY_CASH) {
-                            if (((TempWatch.getInitialQuantity() < TempWatch.getQuantity()) && (value >= TempWatch.getQuantity()))) {
+                        if (TempWatch.type == PETTY_CASH) {
+                            if (((TempWatch.initialQuantity < TempWatch.quantity) && (value >= TempWatch.quantity))) {
                                 if (TempPort != null && TempPort.getOn() && !TempPort.getDummy()) {
-                                    if (TempPort.getType() == Port.BANKING) {//Make sure this is installed on banking.
+                                    if (TempPort.getType() == Port.BANKING) { //Make sure this is installed on banking.
 
                                         //Set the source of the watch to internal or external.
-                                        if (MyApplicationData.getSource() == ApplicationData.INSIDE)
-                                            TempWatch.setExternal(false);
-                                        else
-                                            TempWatch.setExternal(true);
 
-                                        float amount = value - TempWatch.getInitialQuantity();
+                                        if (applicationData.source == ApplicationData.INSIDE) TempWatch.external =
+                                            false
+                                        else TempWatch.external = true
+
+                                        val amount = value - TempWatch.initialQuantity
                                         //float deposit=(Float)MyApplicationData.getParameters();
-                                        float deposit = 0.0f;
-                                        if (MyApplicationData.getParameters() instanceof Float)
-                                            deposit = (Float) MyApplicationData.getParameters();
+                                        var deposit = 0.0f
+                                        if (applicationData.parameters is Float) deposit =
+                                            (applicationData.parameters as kotlin.Float?)!!
                                         else {
-                                            Object[] oD = (Object[]) MyApplicationData.getParameters();
-                                            deposit = (Float) oD[0];
+                                            val oD = applicationData.parameters as Array<Any?>
+                                            deposit = (oD[0] as kotlin.Float?)!!
                                         }
 
-                                        TempWatch.setDepositAmount(deposit);
-                                        TempWatch.setTargetIP(MyApplicationData.getSourceIP());
-                                        TempWatch.setTargetPort(TempPort.getNumber());
-                                        TempWatch.setPort(TempPort);
-                                        TempWatch.execute(MyApplicationData);
+                                        TempWatch.depositAmount = deposit
+                                        TempWatch.targetIP = applicationData.sourceIP
+                                        TempWatch.targetPort = TempPort.getNumber()
+                                        TempWatch.setPort(TempPort)
+                                        TempWatch.execute(applicationData)
                                         if (!gainedXP) {
-                                            MyComputerHandler.addData(new ApplicationData("watchxp", new Float((float) amount / 50.0f), 0, MyComputer.getIP()), MyComputer.getIP());
-                                            gainedXP = true;
+                                            computerHandler!!.addData(
+                                                ApplicationData(
+                                                    "watchxp",
+                                                    amount / 50.0f,
+                                                    0,
+                                                    computer!!.getIP()
+                                                ), computer!!.getIP()
+                                            )
+                                            gainedXP = true
                                         }
                                     }
                                 }
                             }
-                            TempWatch.setInitialQuantity(value);
+                            TempWatch.initialQuantity = value
                         }
                     }
 
                     //Fired when petty cash reaches a certain amount.
-                    if (MyApplicationData.getFunction().equals("scansuccess")) {
-                        float value = pettyCash;
-                        if (TempWatch.getType() == SCAN) {
-
+                    if (applicationData.function == "scansuccess") {
+                        val value = pettyCash
+                        if (TempWatch.type == SCAN) {
                             //Set the source of the watch to internal or external.
-                            if (MyApplicationData.getSource() == ApplicationData.INSIDE)
-                                TempWatch.setExternal(false);
-                            else
-                                TempWatch.setExternal(true);
 
-                            TempWatch.setTargetIP(MyApplicationData.getSourceIP());
-                            TempWatch.setTargetPort(0);
-                            TempWatch.execute(MyApplicationData);
+                            if (applicationData.source == ApplicationData.INSIDE) TempWatch.external = false
+                            else TempWatch.external = true
+
+                            TempWatch.targetIP = applicationData.sourceIP
+                            TempWatch.targetPort = 0
+                            TempWatch.execute(applicationData)
                             if (!gainedXP) {
-                                MyComputerHandler.addData(new ApplicationData("watchxp", new Float((float) MyComputer.getWatchLevel() / 4.0f), 0, MyComputer.getIP()), MyComputer.getIP());
-                                gainedXP = true;
+                                computerHandler!!.addData(
+                                    ApplicationData(
+                                        "watchxp",
+                                        computer!!.watchLevel / 4.0f,
+                                        0,
+                                        computer!!.getIP()
+                                    ), computer!!.getIP()
+                                )
+                                gainedXP = true
                             }
                         }
                     }
                 }
-                watchCost += TempWatch.getCPUCost();
+                watchCost += TempWatch.getCPUCost()
             }
         }
-        return (watchCost);
+        return (watchCost)
     }
 
     /**
-     Output the contents of this class as an XML string.
+     * Output the contents of this class as an XML string.
      */
-    public String outputXML() {
-        String returnMe = "<watches>\n";
-        for (int i = 0; i < Watches.size(); i++) {
-            returnMe += ((Watch) Watches.get(i)).outputXML();
+    fun outputXML(): String {
+        var returnMe = "<watches>\n"
+        for (i in watches.indices) {
+            returnMe += (watches.get(i) as Watch).outputXML()
         }
-        returnMe += "</watches>\n";
-        return (returnMe);
+        returnMe += "</watches>\n"
+        return (returnMe)
     }
 }

@@ -5,6 +5,8 @@
       <root url="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/org.mockito/mockito-core/5.12.0/22f8bbaf478e6789164787fa411a3b5ed986e110/mockito-core-5.12.0.jar!/" />
     </CLASSES>
     <JAVADOC />
-    <SOURCES />
+    <SOURCES>
+      <root url="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/org.mockito/mockito-core/5.12.0/cb49b9c44c44126329cf94e2092255bc311620d6/mockito-core-5.12.0-sources.jar!/" />
+    </SOURCES>
   </library>
 </component>

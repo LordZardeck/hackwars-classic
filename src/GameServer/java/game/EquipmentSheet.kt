@@ -182,7 +182,7 @@ class EquipmentSheet(private val MyComputer: Computer) {
                 WatchBonus += BD.getWatchBonus()
             }
         }
-        val spaceLeft = MyComputer.maximumWatchesNoBonus - MyComputer.watchHandler.getWatchCount()
+        val spaceLeft = MyComputer.maximumWatchesNoBonus - MyComputer.watchHandler.watchCount
         if (spaceLeft + WatchBonus < 0) {
             WatchBonus += Math.abs(spaceLeft + WatchBonus.toDouble()).toInt()
         }
@@ -308,7 +308,7 @@ class EquipmentSheet(private val MyComputer: Computer) {
             return false
         }
 
-        val watchSpaceLeft = MyComputer.getMaximumWatches() - MyComputer.watchHandler.getWatchCount()
+        val watchSpaceLeft = MyComputer.getMaximumWatches() - MyComputer.watchHandler.watchCount
         val watchBonus = getWatchBonus(card)
         if (watchSpaceLeft - watchBonus < 0) {
             MyComputer.addMessage(MessageHandler.UNEQUIP_FAIL_WATCH_RESTRICTIONS)
@@ -354,7 +354,7 @@ class EquipmentSheet(private val MyComputer: Computer) {
                 return false
             }
 
-            val watchSpaceLeft = MyComputer.getMaximumWatches() - MyComputer.watchHandler.getWatchCount()
+            val watchSpaceLeft = MyComputer.getMaximumWatches() - MyComputer.watchHandler.watchCount
             var watchBonus = 0
             watchBonus += bd1.getWatchBonus()
             watchBonus += bd2.getWatchBonus()

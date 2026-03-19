@@ -1228,7 +1228,7 @@ open class Computer : Runnable {
         this.connectionID = connectionID
         this.MyHackerServer = MyHackerServer
 
-        MyWatchHandler = WatchHandler(MyComputerHandler, self)
+        MyWatchHandler = WatchHandler(self, MyComputerHandler)
 
         while (lastAccessed == 0L) this.lastAccessed = MyTime.getCurrentTime()
         MyThread = Thread(this, "Computer - " + ip)
@@ -1274,7 +1274,7 @@ open class Computer : Runnable {
         this.connectionID = connectionID
         this.MyHackerServer = MyHackerServer
 
-        MyWatchHandler = WatchHandler(MyComputerHandler, self)
+        MyWatchHandler = WatchHandler(self, MyComputerHandler)
 
         while (lastAccessed == 0L) this.lastAccessed = MyTime.getCurrentTime()
         MyThread = Thread(this, "Computer - " + ip)
@@ -2113,7 +2113,7 @@ open class Computer : Runnable {
     }
 
     private fun finalizeProcessedApplicationData(
-        applicationData: ApplicationData?,
+        applicationData: ApplicationData,
         function: String,
         startTime: Long,
         checkedWatch: Boolean
@@ -2520,7 +2520,7 @@ open class Computer : Runnable {
             if (newHealth != oldHealth) {
                 if (tempPort.damagePort(oldHealth - newHealth)) {
                     healthChange = true
-                    MyWatchHandler!!.updateInitialHealthQuanity(tempPort.getNumber(), tempPort.getHealth())
+                    MyWatchHandler!!.updateInitialHealthQuantity(tempPort.getNumber(), tempPort.getHealth())
                 }
             }
 
@@ -2737,7 +2737,7 @@ open class Computer : Runnable {
                 if (heal) {
                     if (TempPort.damagePort(-1.0f)) {
                         healthChange = true
-                        MyWatchHandler!!.updateInitialHealthQuanity(TempPort.getNumber(), TempPort.getHealth())
+                        MyWatchHandler!!.updateInitialHealthQuantity(TempPort.getNumber(), TempPort.getHealth())
                     }
                 }
                 //Put the ports into over-heat mode.

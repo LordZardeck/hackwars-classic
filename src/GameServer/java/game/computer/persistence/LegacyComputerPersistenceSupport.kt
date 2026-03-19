@@ -310,7 +310,7 @@ class LegacyComputerPersistenceSupport(
         }
         computer.MyFileSystem = FileSystem(computer)
         computer.MyMakeBounty = MakeBounty(computer.MyFileSystem)
-        computer.MyWatchHandler = WatchHandler(computer.RawComputerHandler, computer)
+        computer.MyWatchHandler = WatchHandler(computer, computer.RawComputerHandler)
         computer.MyEquipmentSheet = EquipmentSheet(computer)
         computer.MyDropTable = null
         computer.currentCPU = 0f

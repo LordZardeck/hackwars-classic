@@ -507,7 +507,7 @@ class Port(
                         myComputerHandler.addData(ApplicationData("pettycash", java.lang.Float(cost * -1.0f), 0, ip), ip)
                         health = maximumHealth
                         myComputer.sendDamagePacket()
-                        myComputer.watchHandler.updateInitialHealthQuanity(number, _health)
+                        myComputer.watchHandler.updateInitialHealthQuantity(number, _health)
                         myComputerHandler.addData(
                             ApplicationData("message", arrayOf(MessageHandler.HEAL_SUCCESS, arrayOf(number, NumberFormat.getCurrencyInstance().format(cost))), 0, ip),
                             ip
