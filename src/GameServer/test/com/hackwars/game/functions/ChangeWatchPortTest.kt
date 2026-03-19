@@ -9,7 +9,7 @@ import org.mockito.kotlin.eq
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
-import rpc.FetchWatches
+import com.hackwars.rpc.FetchWatches
 
 class ChangeWatchPortTest {
     @Test

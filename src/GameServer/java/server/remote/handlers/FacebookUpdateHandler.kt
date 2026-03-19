@@ -2,7 +2,7 @@ package server.remote.handlers
 
 import assignments.RemoteFunctionCall
 import game.ApplicationData
-import rpc.*
+import com.hackwars.rpc.*
 import server.remote.RemoteCallContext
 import server.remote.RemoteCallHandler
 import server.remote.RpcHandler
