@@ -30,13 +30,13 @@ class LegacyWatchEquipmentCommandsTest {
         val fixture = TestFixture()
         try {
             val watch = Watch(fixture.computer)
-            watch.setType(Watch.PETTY_CASH)
-            watch.setOn(true)
-            watch.setNote("alarm")
-            watch.setCPUCost(2.5f)
-            watch.setSearchFireWall(3)
-            watch.setQuantity(125.0f)
-            watch.setPort(9)
+            watch.type = (Watch.PETTY_CASH)
+            watch.on = (true)
+            watch.note = ("alarm")
+            watch.actualCpuCost = (2.5f)
+            watch.searchFireWall = (3)
+            watch.quantity = (125.0f)
+            watch.port = (9)
             fixture.computer.MyWatchHandler.addWatch(watch)
             fixture.computer.systemChange = false
 
@@ -64,7 +64,7 @@ class LegacyWatchEquipmentCommandsTest {
         val fixture = TestFixture()
         try {
             val watch = Watch(fixture.computer)
-            watch.setType(Watch.HEALTH)
+            watch.type = (Watch.HEALTH)
             fixture.computer.MyWatchHandler.addWatch(watch)
             fixture.computer.Tasks.clear()
 
@@ -75,7 +75,7 @@ class LegacyWatchEquipmentCommandsTest {
             )
 
             assertTrue(handled)
-            assertEquals(Watch.SCAN, watch.getType())
+            assertEquals(Watch.SCAN, watch.type)
             assertQueuedFetchWatches(fixture)
         } finally {
             fixture.close()
@@ -87,9 +87,9 @@ class LegacyWatchEquipmentCommandsTest {
         val fixture = TestFixture()
         try {
             val watch = Watch(fixture.computer)
-            watch.setType(Watch.PETTY_CASH)
-            watch.setCPUCost(3.0f)
-            watch.setOn(false)
+            watch.type = (Watch.PETTY_CASH)
+            watch.actualCpuCost = (3.0f)
+            watch.on = (false)
             fixture.computer.MyWatchHandler.addWatch(watch)
             fixture.computer.Tasks.clear()
 
@@ -100,7 +100,7 @@ class LegacyWatchEquipmentCommandsTest {
             )
 
             assertTrue(handled)
-            assertTrue(watch.getOn())
+            assertTrue(watch.on)
             assertQueuedFetchWatches(fixture)
         } finally {
             fixture.close()
@@ -122,10 +122,10 @@ class LegacyWatchEquipmentCommandsTest {
             )
 
             assertTrue(handled)
-            assertEquals(3, watch.getObservedPorts().size)
-            assertEquals(3, watch.getObservedPorts()[0])
-            assertEquals(7, watch.getObservedPorts()[1])
-            assertEquals(9, watch.getObservedPorts()[2])
+            assertEquals(3, watch.observedPorts.size)
+            assertEquals(3, watch.observedPorts[0])
+            assertEquals(7, watch.observedPorts[1])
+            assertEquals(9, watch.observedPorts[2])
             assertQueuedFetchWatches(fixture)
         } finally {
             fixture.close()

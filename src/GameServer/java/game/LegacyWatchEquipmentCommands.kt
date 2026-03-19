@@ -19,7 +19,7 @@ class LegacyWatchEquipmentCommands : LegacyApplicationDataHandler {
 
             if (targetWatch < computer.MyWatchHandler.watches.size) {
                 val myWatch = computer.MyWatchHandler.getWatch(targetWatch) as Watch
-                myWatch.setType(newType)
+                myWatch.type = newType
                 queueFetchWatches(computer)
             }
             return true
@@ -32,35 +32,35 @@ class LegacyWatchEquipmentCommands : LegacyApplicationDataHandler {
             val hackerFile = computer.fileSystem.getFile(path, name)
 
             if (computer.MyWatchHandler.watches.size < 21) {
-                if (hackerFile != null && hackerFile.getType() == HackerFile.WATCH_COMPILED) {
-                    val cpuCheck = computer.cPULoad + hackerFile.getCPUCost()
+                if (hackerFile != null && hackerFile.type == HackerFile.WATCH_COMPILED) {
+                    val cpuCheck = computer.cPULoad + hackerFile.cpuCost
                     val maxCpu = computer.maximumCPULoad
                     if (cpuCheck <= maxCpu) {
-                        hackerFile.setQuantity(hackerFile.getQuantity() - 1)
-                        if (hackerFile.getQuantity() <= 0) {
+                        hackerFile.quantity = hackerFile.quantity - 1
+                        if (hackerFile.quantity <= 0) {
                             computer.fileSystem.deleteFile(path, name)
                         }
 
                         val watch = Watch(computer)
-                        watch.setType(type)
-                        watch.setSearchFireWall(0)
-                        watch.setCPUCost(hackerFile.getCPUCost())
-                        watch.setNote(name)
-                        watch.setOn(false)
-                        watch.setQuantity(0.0f)
+                        watch.type = type
+                        watch.searchFireWall = 0
+                        watch.actualCpuCost = hackerFile.cpuCost
+                        watch.note = name
+                        watch.on = false
+                        watch.quantity = 0.0f
 
-                        if (watch.getType() == Watch.PETTY_CASH) {
-                            watch.setInitialQuantity(computer.getPettyCash())
-                        } else if (watch.getType() == Watch.HEALTH) {
-                            watch.setInitialQuantity(100.0f)
+                        if (watch.type == Watch.PETTY_CASH) {
+                            watch.initialQuantity = computer.getPettyCash()
+                        } else if (watch.type == Watch.HEALTH) {
+                            watch.initialQuantity = 100.0f
                         }
 
-                        watch.setPort(applicationData.port)
+                        watch.port = applicationData.port
                         val script = hackerFile.content as HashMap<*, *>
                         val program: Program = WatchProgram(computer, computer.MyComputerHandler, watch)
                         program.computerHandler = computer.MyComputerHandler
                         program.installScript(script)
-                        watch.setProgram(program)
+                        watch.program = program
                         computer.MyWatchHandler.addWatch(watch)
                     } else {
                         computer.addMessage(MessageHandler.CPU_TOO_HIGH)
@@ -85,7 +85,7 @@ class LegacyWatchEquipmentCommands : LegacyApplicationDataHandler {
                 temp[i + 1] = equipment[i]
             }
             equipment = temp
-            computer.PA.setDirectory(equipment)
+            computer.PA.directory = equipment
 
             equipment = computer.MyEquipmentSheet.getEquipment()
             temp = arrayOfNulls(equipment.size + 1)
@@ -98,7 +98,7 @@ class LegacyWatchEquipmentCommands : LegacyApplicationDataHandler {
             }
             equipment = temp
 
-            computer.PA.setSecondaryDirectory(equipment)
+            computer.PA.secondaryDirectory = equipment
             computer.systemChange = true
             return true
         } else if (function == "installequipment") {
@@ -114,7 +114,7 @@ class LegacyWatchEquipmentCommands : LegacyApplicationDataHandler {
                 temp[i + 1] = equipment[i]
             }
             equipment = temp
-            computer.PA.setDirectory(equipment)
+            computer.PA.directory = equipment
 
             equipment = computer.MyEquipmentSheet.getEquipment()
             temp = arrayOfNulls(equipment.size + 1)
@@ -124,7 +124,7 @@ class LegacyWatchEquipmentCommands : LegacyApplicationDataHandler {
             }
             equipment = temp
 
-            computer.PA.setSecondaryDirectory(equipment)
+            computer.PA.secondaryDirectory = equipment
             computer.systemChange = true
             return true
         } else if (function == "repairequipment") {
@@ -155,7 +155,7 @@ class LegacyWatchEquipmentCommands : LegacyApplicationDataHandler {
                 packetWatches[index] = tempWatch.packetWatch
                 index++
             }
-            computer.PA.setPacketWatches(packetWatches.requireNoNulls())
+            computer.PA.packetWatches = packetWatches.requireNoNulls()
             computer.systemChange = true
             return true
         } else if (function == "setwatchquantity") {
@@ -163,9 +163,7 @@ class LegacyWatchEquipmentCommands : LegacyApplicationDataHandler {
             val watchId = parameters[0] as Int
             val quantity = parameters[1] as Float
             val watch = computer.MyWatchHandler.watches[watchId] as Watch?
-            if (watch != null) {
-                watch.setQuantity(quantity)
-            }
+            watch?.quantity= quantity
             queueFetchWatches(computer)
             return true
         } else if (function == "setwatchonoff") {
@@ -174,18 +172,18 @@ class LegacyWatchEquipmentCommands : LegacyApplicationDataHandler {
             val state = parameters[1] as Boolean
             val watch = computer.MyWatchHandler.watches[watchId] as Watch?
             if (watch != null) {
-                val cpuCheck = computer.cPULoad + watch.getActualCPUCost()
+                val cpuCheck = computer.cPULoad + watch.actualCpuCost
                 val maxCpu = computer.maximumCPULoad
                 if (state) {
                     if (computer.MyWatchHandler.watchCount < computer.maximumWatches) {
                         if (cpuCheck <= maxCpu) {
-                            watch.setOn(state)
+                            watch.on = state
                         }
                     } else {
                         computer.addMessage(MessageHandler.WATCH_ON_FAIL)
                     }
                 } else if (computer.cPULoad <= maxCpu) {
-                    watch.setOn(state)
+                    watch.on = state
                 }
             }
             queueFetchWatches(computer)
@@ -196,7 +194,7 @@ class LegacyWatchEquipmentCommands : LegacyApplicationDataHandler {
             val searchFireWall = parameters[1] as Int
             val watch = computer.MyWatchHandler.watches[watchId] as Watch?
             if (watch != null) {
-                watch.setSearchFireWall(searchFireWall)
+                watch.searchFireWall = searchFireWall
             }
             queueFetchWatches(computer)
             return true
@@ -206,7 +204,7 @@ class LegacyWatchEquipmentCommands : LegacyApplicationDataHandler {
             val note = parameters[1] as String
             val watch = computer.MyWatchHandler.watches[watchId] as Watch?
             if (watch != null) {
-                watch.setNote(note)
+                watch.note = note
             }
             queueFetchWatches(computer)
             return true

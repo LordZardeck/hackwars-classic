@@ -8,7 +8,8 @@ import hackscript.model.RunFactory
  * A watch program is executed by the watch handler when a specific event has fired.
  */
 
-class WatchProgram(computer: Computer?, computerHandler: NetworkSwitch?, parentWatch: Watch?) : Program(computer, computerHandler) {
+class WatchProgram(computer: Computer?, computerHandler: NetworkSwitch?, parentWatch: Watch?) :
+    Program(computer, computerHandler) {
     private var fireScript: String? = "" //Script that runs when watch fires.
 
     var triggered = false
@@ -72,15 +73,15 @@ class WatchProgram(computer: Computer?, computerHandler: NetworkSwitch?, parentW
     /**
      * Check the array of observed fire walls for the fire wall with the given name.
      */
-    fun checkForFireWall(FireWallName: String?): Int {
-        return (parentWatch!!.checkForFireWall(FireWallName))
+    fun checkForFireWall(fireWallName: String): Int {
+        return parentWatch!!.checkForFireWall(fireWallName)
     }
 
     /**
      * Check whether the given fire wall is present on the port this program is installed on.
      */
-    fun checkFireWall(FireWallName: String?): Boolean {
-        return (parentWatch!!.checkFireWall(FireWallName))
+    fun checkFireWall(fireWallName: String): Boolean {
+        return (parentWatch!!.checkFireWall(fireWallName))
     }
 
     val defaultBank: Int
@@ -125,17 +126,15 @@ class WatchProgram(computer: Computer?, computerHandler: NetworkSwitch?, parentW
          */
         get() = (computer!!.ip)
 
-    val number: Int
-        /**
-         * Get the port number associated with this program.
-         */
-        get() = (parentWatch!!.getNumber())
+    /**
+     * Get the port number associated with this program.
+     */
+    val number get() = (parentWatch!!.number)
 
-    val searchFireWall: String?
-        /**
-         * Get the fire wall that should be searched for based on initial setup.
-         */
-        get() = (NewFireWall.FireWallNames[parentWatch!!.searchFireWall])
+    /**
+     * Get the fire wall that should be searched for based on initial setup.
+     */
+    val searchFireWall: String? get() = (NewFireWall.FireWallNames[parentWatch!!.searchFireWall])
 
     /**
      * installScript(HashMap Script);

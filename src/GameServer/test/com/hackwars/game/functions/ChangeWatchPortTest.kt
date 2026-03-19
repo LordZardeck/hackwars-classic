@@ -25,7 +25,7 @@ class ChangeWatchPortTest {
             ApplicationData("changewatchport", arrayOf<Any>(0, 443), 0, "source")
         )
 
-        verify(watch).setPort(443)
+        verify(watch).port = 443
         val appCaptor = argumentCaptor<ApplicationData>()
         verify(networkSwitch).addData(appCaptor.capture(), eq("1.2.3.4"))
         assertEquals(FetchWatches.FUNCTION, appCaptor.firstValue.function)

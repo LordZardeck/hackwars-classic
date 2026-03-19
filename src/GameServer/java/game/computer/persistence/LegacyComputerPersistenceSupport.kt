@@ -190,17 +190,17 @@ class LegacyComputerPersistenceSupport(
         }
 
         if (computer.lastPaid == 0L) {
-            computer.lastPaid = computer.MyTime.getCurrentTime()
+            computer.lastPaid = computer.MyTime.currentTime
         }
 
-        computer.Stats.put("Attack", snapshot.stats.attackXp)
-        computer.Stats.put("Bank", snapshot.stats.merchantingXp)
-        computer.Stats.put("FireWall", snapshot.stats.firewallXp)
-        computer.Stats.put("Watch", snapshot.stats.watchXp)
-        computer.Stats.put("Scanning", snapshot.stats.scanningXp)
-        computer.Stats.put("Webdesign", snapshot.stats.webDesignXp)
-        computer.Stats.put("Redirecting", snapshot.stats.redirectingXp)
-        computer.Stats.put("Repair", snapshot.stats.repairXp)
+        computer.Stats["Attack"] = snapshot.stats.attackXp
+        computer.Stats["Bank"] = snapshot.stats.merchantingXp
+        computer.Stats["FireWall"] = snapshot.stats.firewallXp
+        computer.Stats["Watch"] = snapshot.stats.watchXp
+        computer.Stats["Scanning"] = snapshot.stats.scanningXp
+        computer.Stats["Webdesign"] = snapshot.stats.webDesignXp
+        computer.Stats["Redirecting"] = snapshot.stats.redirectingXp
+        computer.Stats["Repair"] = snapshot.stats.repairXp
 
         snapshot.currentQuests.forEach { quest ->
             val currentTasks = HashMap<String, Array<Any>>()
@@ -252,12 +252,12 @@ class LegacyComputerPersistenceSupport(
         val type = text(loadXml.findNode(node, "type", 0), loadXml)?.toIntOrNull() ?: 0
         val file = HackerFile(type)
 
-        file.setName(text(loadXml.findNode(node, "name", 0), loadXml) ?: "CORRUPT(DELETE)")
+        file.name = text(loadXml.findNode(node, "name", 0), loadXml) ?: "CORRUPT(DELETE)"
         text(loadXml.findNode(node, "location", 0), loadXml)?.let(file::setLocation)
         text(loadXml.findNode(node, "description", 0), loadXml)?.let(file::setDescription)
-        file.setPrice(text(loadXml.findNode(node, "price", 0), loadXml)?.toFloatOrNull() ?: 0f)
-        file.setQuantity(text(loadXml.findNode(node, "quantity", 0), loadXml)?.toIntOrNull() ?: 0)
-        file.setCPUCost(text(loadXml.findNode(node, "cpu", 0), loadXml)?.toFloatOrNull() ?: 0f)
+        file.price = text(loadXml.findNode(node, "price", 0), loadXml)?.toFloatOrNull() ?: 0f
+        file.quantity = text(loadXml.findNode(node, "quantity", 0), loadXml)?.toIntOrNull() ?: 0
+        file.cpuCost = text(loadXml.findNode(node, "cpu", 0), loadXml)?.toFloatOrNull() ?: 0f
         text(loadXml.findNode(node, "maker", 0), loadXml)?.let(file::setMaker)
 
         val content = HashMap<String, Any>()
@@ -279,7 +279,7 @@ class LegacyComputerPersistenceSupport(
                     content[key] = text(keyNode, loadXml) ?: ""
                 }
             }
-            file.setContent(content)
+            file.content = content
         }
 
         return file
@@ -366,7 +366,7 @@ class LegacyComputerPersistenceSupport(
                     if (generatedName.isEmpty()) {
                         generatedName = generated.name
                     } else {
-                        generated.setName(generatedName + offset)
+                        generated.name = generatedName + offset
                     }
                     computer.MyFileSystem.addFile(generated, false)
                 }
@@ -437,7 +437,7 @@ class LegacyComputerPersistenceSupport(
                 port.setProgram(program)
             }
 
-            computer.Ports.put(number, port)
+            computer.Ports[number] = port
             index += 1
             portNode = loadXml.findNode(portsNode, "port", index)
         }
@@ -453,12 +453,12 @@ class LegacyComputerPersistenceSupport(
         while (watchNode != null) {
             val watch = Watch(computer)
             val type = text(loadXml.findNode(watchNode, "type", 0), loadXml)?.toIntOrNull() ?: 0
-            watch.setType(type)
-            watch.setSearchFireWall(text(loadXml.findNode(watchNode, "searchfirewall", 0), loadXml)?.toIntOrNull() ?: 0)
-            watch.setCPUCost(text(loadXml.findNode(watchNode, "cpu", 0), loadXml)?.toFloatOrNull() ?: 0f)
-            text(loadXml.findNode(watchNode, "installport", 0), loadXml)?.toIntOrNull()?.let(watch::setPort)
-            text(loadXml.findNode(watchNode, "note", 0), loadXml)?.let(watch::setNote)
-            watch.setOn(text(loadXml.findNode(watchNode, "on", 0), loadXml)?.toIntOrNull() == 1)
+            watch.type = type
+            watch.searchFireWall = (text(loadXml.findNode(watchNode, "searchfirewall", 0), loadXml)?.toIntOrNull() ?: 0)
+            watch.actualCpuCost = (text(loadXml.findNode(watchNode, "cpu", 0), loadXml)?.toFloatOrNull() ?: 0f)
+            text(loadXml.findNode(watchNode, "installport", 0), loadXml)?.toIntOrNull()?.let { watch.port = it }
+            text(loadXml.findNode(watchNode, "note", 0), loadXml)?.let { watch.note = it }
+            watch.on = (text(loadXml.findNode(watchNode, "on", 0), loadXml)?.toIntOrNull() == 1)
 
             var observedIndex = 0
             var observedNode = loadXml.findNode(watchNode, "observedport", observedIndex)
@@ -468,10 +468,10 @@ class LegacyComputerPersistenceSupport(
                 observedNode = loadXml.findNode(watchNode, "observedport", observedIndex)
             }
 
-            watch.setQuantity(text(loadXml.findNode(watchNode, "quantity", 0), loadXml)?.toFloatOrNull() ?: 0f)
+            watch.quantity = (text(loadXml.findNode(watchNode, "quantity", 0), loadXml)?.toFloatOrNull() ?: 0f)
             when (type) {
-                Watch.PETTY_CASH -> watch.setInitialQuantity(computer.pettyCash)
-                Watch.HEALTH -> watch.setInitialQuantity(100f)
+                Watch.PETTY_CASH -> watch.initialQuantity = (computer.pettyCash)
+                Watch.HEALTH -> watch.initialQuantity = (100f)
             }
 
             val script = HashMap<String, String>()
@@ -479,7 +479,7 @@ class LegacyComputerPersistenceSupport(
             val program = WatchProgram(computer, computer.MyComputerHandler, watch)
             program.computerHandler = computer.MyComputerHandler
             program.installScript(script)
-            watch.setProgram(program)
+            watch.program = (program)
 
             computer.MyWatchHandler.addWatch(watch)
             index += 1
@@ -490,7 +490,14 @@ class LegacyComputerPersistenceSupport(
     private fun createProgram(computer: Computer, port: Port, type: Int): Program? {
         return when (type) {
             Port.BANKING -> Banking(computer, computer.MyComputerHandler, port)
-            Port.ATTACK -> AttackProgram(computer, computer.MyComputerHandler, port, computer.Choices, computer.MyMakeBounty)
+            Port.ATTACK -> AttackProgram(
+                computer,
+                computer.MyComputerHandler,
+                port,
+                computer.Choices,
+                computer.MyMakeBounty
+            )
+
             Port.SHIPPING -> ShippingProgram(computer, computer.MyComputerHandler, port)
             Port.FTP -> FTPProgram(computer, computer.MyComputerHandler, computer.MyFileSystem, port)
             Port.HTTP -> HTTPProgram(computer, computer.MyComputerHandler)

@@ -271,7 +271,7 @@ class WatchHandler(private val computer: Computer?, private val computerHandler:
                         }
                     }
                 }
-                watchCost += TempWatch.getCPUCost()
+                watchCost += TempWatch.currentCpuCost
             }
         }
         return (watchCost)
