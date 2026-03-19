@@ -1,266 +1,240 @@
-package game;
+package game
 
-import assignments.PacketWatch;
-import com.hackwars.game.program.Program;
-import com.hackwars.game.program.WatchProgram;
-
-import java.util.HashMap;
-import java.util.Iterator;
+import assignments.PacketWatch
+import com.hackwars.game.program.Program
+import com.hackwars.game.program.WatchProgram
+import java.util.HashMap
 
 /**
- * Legacy watch/equipment command extraction from {@link Computer#processQueuedItem}.
+ * Legacy watch/equipment command extraction from [Computer.processQueuedItem].
  */
-public class LegacyWatchEquipmentCommands implements LegacyApplicationDataHandler {
-    @Override
-    public boolean dispatch(Computer computer, ApplicationData applicationData, int resolvedPort) {
-        String function = applicationData.getFunction();
+class LegacyWatchEquipmentCommands : LegacyApplicationDataHandler {
+    override fun dispatch(computer: Computer, applicationData: ApplicationData, resolvedPort: Int): Boolean {
+        val function = applicationData.function
 
-        // changes watch type
-        if (function.equals("changewatchtype")) {
-            int target_watch = (Integer) ((Integer[]) applicationData.getParameters())[0];
-            int new_type = (Integer) ((Integer[]) applicationData.getParameters())[1];
+        if (function == "changewatchtype") {
+            val parameters = applicationData.parameters as Array<Int>
+            val targetWatch = parameters[0]
+            val newType = parameters[1]
 
-            if (target_watch < computer.MyWatchHandler.getWatches().size()) {
-                Watch MyWatch = (Watch) computer.MyWatchHandler.getWatch(target_watch);
-                MyWatch.setType(new_type);
-                queueFetchWatches(computer);
+            if (targetWatch < computer.MyWatchHandler.watches.size) {
+                val myWatch = computer.MyWatchHandler.getWatch(targetWatch) as Watch
+                myWatch.setType(newType)
+                queueFetchWatches(computer)
             }
-            return true;
-        } else
+            return true
+        } else if (function == "installwatch") {
+            val parameters = applicationData.parameters as Array<Any?>
+            val path = parameters[0] as String
+            val name = parameters[1] as String
+            val type = parameters[2] as Int
 
-        // INSTALL A WATCH.
-        if (function.equals("installwatch")) {
-            Object Parameter[] = (Object[]) applicationData.getParameters();
-            String path = (String) ((Object[]) applicationData.getParameters())[0];
-            String name = (String) ((Object[]) applicationData.getParameters())[1];
-            int type = (Integer) ((Object[]) applicationData.getParameters())[2];
+            val hackerFile = computer.fileSystem.getFile(path, name)
 
-            HackerFile HF = computer.getFileSystem().getFile(path, name);
-
-            if (computer.MyWatchHandler.getWatches().size() < 21) {
-                if (HF != null && HF.getType() == HF.WATCH_COMPILED) {
-
-                    float cpuCheck = computer.getCPULoad() + HF.getCPUCost();
-                    float maxCPU = Computer.CPU_CHART[computer.cputype] + computer.MyEquipmentSheet.getCPUBonus();
-                    if (cpuCheck <= maxCPU) {
-
-                        HF.setQuantity(HF.getQuantity() - 1);
-                        if (HF.getQuantity() <= 0) {
-                            computer.getFileSystem().deleteFile(path, name);
+            if (computer.MyWatchHandler.watches.size < 21) {
+                if (hackerFile != null && hackerFile.getType() == HackerFile.WATCH_COMPILED) {
+                    val cpuCheck = computer.cPULoad + hackerFile.getCPUCost()
+                    val maxCpu = computer.maximumCPULoad
+                    if (cpuCheck <= maxCpu) {
+                        hackerFile.setQuantity(hackerFile.getQuantity() - 1)
+                        if (hackerFile.getQuantity() <= 0) {
+                            computer.fileSystem.deleteFile(path, name)
                         }
 
+                        val watch = Watch(computer)
+                        watch.setType(type)
+                        watch.setSearchFireWall(0)
+                        watch.setCPUCost(hackerFile.getCPUCost())
+                        watch.setNote(name)
+                        watch.setOn(false)
+                        watch.setQuantity(0.0f)
 
-                        Watch twatch = new Watch(computer);
-                        twatch.setType(type);
-
-
-                        twatch.setSearchFireWall(0);
-                        twatch.setCPUCost(HF.getCPUCost());
-                        // set the watch note to be the filename by default.
-                        twatch.setNote(name);
-                        twatch.setOn(false);
-                        twatch.setQuantity(0.0f);
-
-                        if (twatch.getType() == Watch.PETTY_CASH) {//Make sure initial quantities are correct.
-                            twatch.setInitialQuantity(computer.getPettyCash());
-                        } else if (twatch.getType() == Watch.HEALTH) {
-                            twatch.setInitialQuantity(100.0f);
+                        if (watch.getType() == Watch.PETTY_CASH) {
+                            watch.setInitialQuantity(computer.getPettyCash())
+                        } else if (watch.getType() == Watch.HEALTH) {
+                            watch.setInitialQuantity(100.0f)
                         }
 
-                        twatch.setPort(applicationData.getPort());
-                        HashMap Script = HF.getContent();
-                        Program MyProgram = new WatchProgram(computer, computer.MyComputerHandler, twatch);
-                        MyProgram.setComputerHandler(computer.MyComputerHandler);
-                        MyProgram.installScript(Script);
-                        twatch.setProgram(MyProgram);
-                        computer.MyWatchHandler.addWatch(twatch);
-                    } else
-                        computer.addMessage(MessageHandler.CPU_TOO_HIGH);
-                } else
-                    computer.addMessage(MessageHandler.FILE_NOT_FOUND);
-            } else {
-                computer.addMessage(MessageHandler.MAX_WATCHES_REACHED);
-            }
-
-            queueFetchWatches(computer);
-            return true;
-        } else
-
-        // REQUEST AN EQUIPMENT UPDATE
-        if (function.equals("requestequipment")) {//Request a directory listing.
-            Object O[] = computer.MyFileSystem.getEquipment("");//Update the value to take into account ID.
-            Object Temp[] = new Object[O.length + 1];
-            Temp[0] = applicationData.getParameters();
-            for (int i = 0; i < O.length; i++) {
-                if (O[i] != null)
-                    computer.MyEquipmentSheet.describeCard((HackerFile) O[i]);//Testing outputting a description of the bonus.
-                Temp[i + 1] = O[i];
-            }
-            O = Temp;
-            computer.PA.setDirectory(O);
-
-            O = computer.MyEquipmentSheet.getEquipment();//Update the value to take into account ID.
-            Temp = new Object[O.length + 1];
-            Temp[0] = applicationData.getParameters();
-            for (int i = 0; i < O.length; i++) {
-                if (O[i] != null)
-                    computer.MyEquipmentSheet.describeCard((HackerFile) O[i]);//Testing outputting a description of the bonus.
-                Temp[i + 1] = O[i];
-            }
-            O = Temp;
-
-            computer.PA.setSecondaryDirectory(O);
-            computer.systemChange = true;
-            return true;
-        } else
-
-        // Install equipment.
-        if (function.equals("installequipment")) {//Request a directory listing.
-            int position = (Integer) ((Object[]) applicationData.getParameters())[0];
-            String name = (String) ((Object[]) applicationData.getParameters())[1];
-            computer.MyEquipmentSheet.equip(position, name);
-
-            Object O[] = computer.MyFileSystem.getEquipment("");//Update the value to take into account ID.
-            Object Temp[] = new Object[O.length + 1];
-            Temp[0] = (Integer) ((Object[]) applicationData.getParameters())[2];
-            for (int i = 0; i < O.length; i++)
-                Temp[i + 1] = O[i];
-            O = Temp;
-            computer.PA.setDirectory(O);
-
-            O = computer.MyEquipmentSheet.getEquipment();//Update the value to take into account ID.
-            Temp = new Object[O.length + 1];
-            Temp[0] = (Integer) ((Object[]) applicationData.getParameters())[2];
-            for (int i = 0; i < O.length; i++)
-                Temp[i + 1] = O[i];
-            O = Temp;
-
-            computer.PA.setSecondaryDirectory(O);
-            computer.systemChange = true;
-            return true;
-        } else
-
-        // Repair equipment.
-        if (function.equals("repairequipment")) {//Request a directory listing.
-
-            int position = (Integer) ((Object[]) applicationData.getParameters())[0];
-            String name = (String) ((Object[]) applicationData.getParameters())[1];
-
-            if (position != -1)
-                computer.MyEquipmentSheet.repair(position);
-            else {
-                HackerFile Equipment = computer.MyFileSystem.getFile("", name);
-                if (Equipment != null)
-                    computer.MyEquipmentSheet.repair(Equipment);
-            }
-
-            computer.MyComputerHandler.addData(new ApplicationData("requestequipment", new Integer(13), 0, computer.ip), computer.ip);
-            return true;
-        } else
-
-        // RETURNS AN ARRAY OF THE WATCHES THAT ARE CURRENTLY INSTALLED ON THIS PROGRAM.
-        if (function.equals("fetchwatches")) {
-            PacketWatch PacketWatches[] = new PacketWatch[computer.MyWatchHandler.getWatches().size()];
-            Iterator WatchIterator = computer.MyWatchHandler.getWatches().iterator();
-            int ii = 0;
-            while (WatchIterator.hasNext()) {
-                Watch TempWatch = (Watch) WatchIterator.next();
-                PacketWatches[ii] = TempWatch.getPacketWatch();
-                ii++;
-            }
-            computer.PA.setPacketWatches(PacketWatches);
-            computer.systemChange = true;
-            return true;
-        } else
-
-        // SET THE QUANTITY ASSOCIATED WITH THE WATCH.
-        if (function.equals("setwatchquantity")) {
-            int watchID = (Integer) ((Object[]) applicationData.getParameters())[0];
-            float quantity = (Float) ((Object[]) applicationData.getParameters())[1];
-            Watch twatch = (Watch) computer.MyWatchHandler.getWatches().get(watchID);
-            if (twatch != null) {
-                twatch.setQuantity(quantity);
-            }
-            queueFetchWatches(computer);
-            return true;
-        } else
-
-        // SeT WHETHER THE GIVEN WATCH IS ON OR OFF.
-        if (function.equals("setwatchonoff")) {
-            int watchID = (Integer) ((Object[]) applicationData.getParameters())[0];
-            boolean state = (Boolean) ((Object[]) applicationData.getParameters())[1];
-            Watch twatch = (Watch) computer.MyWatchHandler.getWatches().get(watchID);
-            if (twatch != null) {
-                float cpuCheck = computer.getCPULoad() + twatch.getActualCPUCost();
-                float maxCPU = Computer.CPU_CHART[computer.cputype] + computer.MyEquipmentSheet.getCPUBonus();
-                if (state) {
-                    if (computer.MyWatchHandler.getWatchCount() < Computer.WATCH_CHART[computer.memorytype] + computer.MyEquipmentSheet.getWatchBonus()) {
-                        if (cpuCheck <= maxCPU) {
-                            twatch.setOn(state);
-                        }
+                        watch.setPort(applicationData.port)
+                        val script = hackerFile.content as HashMap<*, *>
+                        val program: Program = WatchProgram(computer, computer.MyComputerHandler, watch)
+                        program.computerHandler = computer.MyComputerHandler
+                        program.installScript(script)
+                        watch.setProgram(program)
+                        computer.MyWatchHandler.addWatch(watch)
                     } else {
-                        computer.addMessage(MessageHandler.WATCH_ON_FAIL);
+                        computer.addMessage(MessageHandler.CPU_TOO_HIGH)
                     }
                 } else {
-                    if (computer.getCPULoad() <= maxCPU)
-                        twatch.setOn(state);
+                    computer.addMessage(MessageHandler.FILE_NOT_FOUND)
+                }
+            } else {
+                computer.addMessage(MessageHandler.MAX_WATCHES_REACHED)
+            }
+
+            queueFetchWatches(computer)
+            return true
+        } else if (function == "requestequipment") {
+            var equipment = computer.MyFileSystem.getEquipment("")
+            var temp = arrayOfNulls<Any?>(equipment.size + 1)
+            temp[0] = applicationData.parameters
+            for (i in equipment.indices) {
+                if (equipment[i] != null) {
+                    computer.MyEquipmentSheet.describeCard(equipment[i] as HackerFile)
+                }
+                temp[i + 1] = equipment[i]
+            }
+            equipment = temp
+            computer.PA.setDirectory(equipment)
+
+            equipment = computer.MyEquipmentSheet.getEquipment()
+            temp = arrayOfNulls(equipment.size + 1)
+            temp[0] = applicationData.parameters
+            for (i in equipment.indices) {
+                if (equipment[i] != null) {
+                    computer.MyEquipmentSheet.describeCard(equipment[i] as HackerFile)
+                }
+                temp[i + 1] = equipment[i]
+            }
+            equipment = temp
+
+            computer.PA.setSecondaryDirectory(equipment)
+            computer.systemChange = true
+            return true
+        } else if (function == "installequipment") {
+            val parameters = applicationData.parameters as Array<Any?>
+            val position = parameters[0] as Int
+            val name = parameters[1] as String
+            computer.MyEquipmentSheet.equip(position, name)
+
+            var equipment = computer.MyFileSystem.getEquipment("")
+            var temp = arrayOfNulls<Any?>(equipment.size + 1)
+            temp[0] = parameters[2] as Int
+            for (i in equipment.indices) {
+                temp[i + 1] = equipment[i]
+            }
+            equipment = temp
+            computer.PA.setDirectory(equipment)
+
+            equipment = computer.MyEquipmentSheet.getEquipment()
+            temp = arrayOfNulls(equipment.size + 1)
+            temp[0] = parameters[2] as Int
+            for (i in equipment.indices) {
+                temp[i + 1] = equipment[i]
+            }
+            equipment = temp
+
+            computer.PA.setSecondaryDirectory(equipment)
+            computer.systemChange = true
+            return true
+        } else if (function == "repairequipment") {
+            val parameters = applicationData.parameters as Array<Any?>
+            val position = parameters[0] as Int
+            val name = parameters[1] as String
+
+            if (position != -1) {
+                computer.MyEquipmentSheet.repair(position)
+            } else {
+                val equipment = computer.MyFileSystem.getFile("", name)
+                if (equipment != null) {
+                    computer.MyEquipmentSheet.repair(equipment)
                 }
             }
-            queueFetchWatches(computer);
-            return true;
-        } else
 
-        // SET THE FIRE WALL THAT SHOULD BE SEARCHED FOR BY THE WATCH.
-        if (function.equals("setwatchsearchfirewall")) {
-            int watchID = (Integer) ((Object[]) applicationData.getParameters())[0];
-            Integer searchFireWall = (Integer) ((Object[]) applicationData.getParameters())[1];
-            Watch twatch = (Watch) computer.MyWatchHandler.getWatches().get(watchID);
-            if (twatch != null) {
-                twatch.setSearchFireWall(searchFireWall);
+            computer.MyComputerHandler.addData(
+                ApplicationData("requestequipment", Integer.valueOf(13), 0, computer.ip),
+                computer.ip
+            )
+            return true
+        } else if (function == "fetchwatches") {
+            val packetWatches = arrayOfNulls<PacketWatch>(computer.MyWatchHandler.watches.size)
+            val watchIterator = computer.MyWatchHandler.watches.iterator()
+            var index = 0
+            while (watchIterator.hasNext()) {
+                val tempWatch = watchIterator.next() as Watch
+                packetWatches[index] = tempWatch.packetWatch
+                index++
             }
-            queueFetchWatches(computer);
-            return true;
-        } else
-
-        // SET THE NOTE ASSOCIATED WITH THIS WATCH.
-        if (function.equals("setwatchnote")) {
-            int watchID = (Integer) ((Object[]) applicationData.getParameters())[0];
-            String note = (String) ((Object[]) applicationData.getParameters())[1];
-            Watch twatch = (Watch) computer.MyWatchHandler.getWatches().get(watchID);
-            if (twatch != null) {
-                twatch.setNote(note);
+            computer.PA.setPacketWatches(packetWatches.requireNoNulls())
+            computer.systemChange = true
+            return true
+        } else if (function == "setwatchquantity") {
+            val parameters = applicationData.parameters as Array<Any?>
+            val watchId = parameters[0] as Int
+            val quantity = parameters[1] as Float
+            val watch = computer.MyWatchHandler.watches[watchId] as Watch?
+            if (watch != null) {
+                watch.setQuantity(quantity)
             }
-            queueFetchWatches(computer);
-            return true;
-        } else
-
-        // DELETE A WATCH FROM THE WATCH HANDLER.
-        if (function.equals("deletewatch")) {
-            float maxCPU = Computer.CPU_CHART[computer.cputype] + computer.MyEquipmentSheet.getCPUBonus();
-            if (computer.getCPULoad() <= maxCPU) {
-                int watchID = (Integer) ((Object[]) applicationData.getParameters())[0];
-                computer.MyWatchHandler.removeWatch(watchID);
-                queueFetchWatches(computer);
+            queueFetchWatches(computer)
+            return true
+        } else if (function == "setwatchonoff") {
+            val parameters = applicationData.parameters as Array<Any?>
+            val watchId = parameters[0] as Int
+            val state = parameters[1] as Boolean
+            val watch = computer.MyWatchHandler.watches[watchId] as Watch?
+            if (watch != null) {
+                val cpuCheck = computer.cPULoad + watch.getActualCPUCost()
+                val maxCpu = computer.maximumCPULoad
+                if (state) {
+                    if (computer.MyWatchHandler.getWatchCount() < computer.maximumWatches) {
+                        if (cpuCheck <= maxCpu) {
+                            watch.setOn(state)
+                        }
+                    } else {
+                        computer.addMessage(MessageHandler.WATCH_ON_FAIL)
+                    }
+                } else if (computer.cPULoad <= maxCpu) {
+                    watch.setOn(state)
+                }
             }
-            return true;
-        } else
-
-        // SET THE PORTS BEING OBSERVED BY THIS WATCH.
-        if (function.equals("setwatchobservedports")) {
-            int watchID = (Integer) ((Object[]) applicationData.getParameters())[0];
-            Integer ObservedPorts[] = (Integer[]) ((Object[]) applicationData.getParameters())[1];
-            Watch twatch = (Watch) computer.MyWatchHandler.getWatches().get(watchID);
-            if (twatch != null) {
-                twatch.setObservedPorts(ObservedPorts);
+            queueFetchWatches(computer)
+            return true
+        } else if (function == "setwatchsearchfirewall") {
+            val parameters = applicationData.parameters as Array<Any?>
+            val watchId = parameters[0] as Int
+            val searchFireWall = parameters[1] as Int
+            val watch = computer.MyWatchHandler.watches[watchId] as Watch?
+            if (watch != null) {
+                watch.setSearchFireWall(searchFireWall)
             }
-            queueFetchWatches(computer);
-            return true;
+            queueFetchWatches(computer)
+            return true
+        } else if (function == "setwatchnote") {
+            val parameters = applicationData.parameters as Array<Any?>
+            val watchId = parameters[0] as Int
+            val note = parameters[1] as String
+            val watch = computer.MyWatchHandler.watches[watchId] as Watch?
+            if (watch != null) {
+                watch.setNote(note)
+            }
+            queueFetchWatches(computer)
+            return true
+        } else if (function == "deletewatch") {
+            val maxCpu = computer.maximumCPULoad
+            if (computer.cPULoad <= maxCpu) {
+                val parameters = applicationData.parameters as Array<Any?>
+                val watchId = parameters[0] as Int
+                computer.MyWatchHandler.removeWatch(watchId)
+                queueFetchWatches(computer)
+            }
+            return true
+        } else if (function == "setwatchobservedports") {
+            val parameters = applicationData.parameters as Array<Any?>
+            val watchId = parameters[0] as Int
+            val observedPorts = parameters[1] as Array<Int>
+            val watch = computer.MyWatchHandler.watches[watchId] as Watch?
+            if (watch != null) {
+                watch.setObservedPorts(observedPorts)
+            }
+            queueFetchWatches(computer)
+            return true
         }
 
-        return false;
+        return false
     }
 
-    private void queueFetchWatches(Computer computer) {
-        computer.MyComputerHandler.addData(new ApplicationData("fetchwatches", null, 0, computer.ip), computer.ip);
+    private fun queueFetchWatches(computer: Computer) {
+        computer.MyComputerHandler.addData(ApplicationData("fetchwatches", null, 0, computer.ip), computer.ip)
     }
 }

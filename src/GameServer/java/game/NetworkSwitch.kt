@@ -1,58 +1,48 @@
-package game;
-import org.apache.xmlrpc.client.XmlRpcClient;
-import org.apache.xmlrpc.client.XmlRpcClientConfigImpl;
-import java.net.URL;
-import util.LocalWebConfig;
-import util.zip;
+package game
+
+import org.apache.xmlrpc.client.XmlRpcClient
+import org.apache.xmlrpc.client.XmlRpcClientConfigImpl
+import util.LocalWebConfig
+import util.zip
+import java.net.URL
+
 /**
-NetworkSwitch.java
-
-Used to distribute function calls to the computers in the computer handling system.
-*/
-
-import java.util.*;
-
-public class NetworkSwitch {
-	private Computer MyComputer=null;
-	private ComputerHandler MyComputerHandler=null;
-
-	//Constructor.
-	public NetworkSwitch(Computer MyComputer,ComputerHandler MyComputerHandler){
-		this.MyComputerHandler=MyComputerHandler;
-		this.MyComputer=MyComputer;
-	}
-	
-    public ComputerHandler getMyComputerHandler() {
-        return MyComputerHandler;
+ * NetworkSwitch.java
+ *
+ * Used to distribute function calls to the computers in the computer handling system.
+ */
+open class NetworkSwitch(
+    private val myComputer: Computer?,
+    private val myComputerHandler: ComputerHandler?
+) {
+    open fun getMyComputerHandler(): ComputerHandler {
+        return myComputerHandler!!
     }
-    
-	/*
-	The switch.
-	*/
-	public void addData(ApplicationData AD,String ip){
-		if(ip.equals("062.153.7.142")){//This is a reserved IP used for linking in external networking.
-			//Has a website been served for a front-end client?
-			if(AD.getFunction().equals("webpage")){
-				System.out.println("Attempting to return site.");
-									
-				Object O[]=(Object[])AD.getParameters();
-				try{
-					XmlRpcClientConfigImpl config = new XmlRpcClientConfigImpl();
-					config.setServerURL(new URL(LocalWebConfig.getXmlRpcUrl()));
-					XmlRpcClient client = new XmlRpcClient();
-					client.setConfig(config);
-					Object[] params=null;
-					params = new Object[]{(String)O[0],zip.zipString((String)O[1]),(Integer)O[3]};
-					String result = (String) client.execute("hackerRPC.returnWebsite", params);
-				}catch(Exception e){
-					e.printStackTrace();
-				}
-						
-			}
-		}else if(MyComputer!=null&&MyComputer.getIP().equals(ip)){
-			MyComputer.addData(AD);
-		}else{
-			MyComputerHandler.addData(AD,ip);
-		}
-	}
+
+    /*
+    The switch.
+    */
+    open fun addData(AD: ApplicationData, ip: String?) {
+        if (ip == "062.153.7.142") {
+            if (AD.getFunction() == "webpage") {
+                println("Attempting to return site.")
+
+                val o = AD.getParameters() as Array<*>
+                try {
+                    val config = XmlRpcClientConfigImpl()
+                    config.serverURL = URL(LocalWebConfig.getXmlRpcUrl())
+                    val client = XmlRpcClient()
+                    client.setConfig(config)
+                    val params = arrayOf(o[0] as String, zip.zipString(o[1] as String), o[3] as Integer)
+                    client.execute("hackerRPC.returnWebsite", params) as String
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
+        } else if (myComputer != null && myComputer.getIP() == ip) {
+            myComputer.addData(AD)
+        } else {
+            myComputerHandler!!.addData(AD, ip)
+        }
+    }
 }

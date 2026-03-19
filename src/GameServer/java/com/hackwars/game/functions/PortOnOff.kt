@@ -36,7 +36,7 @@ class PortOnOff(computer: Computer) : Function(computer) {
                 port.on = true
 
                 val cpuCheck = computer.cpuLoad + port.cpuCost
-                val maxCpu = Computer.CPU_CHART[computer.cpuType] + computer.equipmentSheet.cpuBonus
+                val maxCpu = Computer.CPU_CHART[computer.cpuType] + computer.equipmentSheet.getCPUBonus()
 
                 if (cpuCheck > maxCpu) {
                     allow = false

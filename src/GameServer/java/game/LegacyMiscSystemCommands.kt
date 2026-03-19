@@ -1,37 +1,36 @@
-package game;
+package game
 
 /**
  * Small legacy run-loop commands that mutate Computer state directly and do not
  * belong in port fallback dispatch.
  */
-public class LegacyMiscSystemCommands implements LegacyApplicationDataHandler {
-    @Override
-    public boolean dispatch(Computer computer, ApplicationData applicationData, int resolvedPort) {
-        String function = applicationData.getFunction();
+class LegacyMiscSystemCommands : LegacyApplicationDataHandler {
+    override fun dispatch(computer: Computer, applicationData: ApplicationData, resolvedPort: Int): Boolean {
+        val function = applicationData.function
 
-        if (function.equals("cluedata")) {
-            return true;
-        } else if (function.equals("bountyhttp")) {
-            computer.lastBountyHTTP = (String) applicationData.getParameters();
-            return true;
-        } else if (function.equals("unlock")) {
-            String code = (String) applicationData.getParameters();
-            if (code.equals(computer.unlockKey)) {
-                computer.lockCount = 0;
-                computer.locked = false;
+        if (function == "cluedata") {
+            return true
+        } else if (function == "bountyhttp") {
+            computer.lastBountyHTTP = applicationData.parameters as String
+            return true
+        } else if (function == "unlock") {
+            val code = applicationData.parameters as String
+            if (code == computer.unlockKey) {
+                computer.lockCount = 0
+                computer.locked = false
             } else {
-                computer.RESEND_CAPTCHA = true;
+                computer.RESEND_CAPTCHA = true
             }
-            return true;
-        } else if (function.equals("ping")) {
-            return true;
-        } else if (function.equals("hacktendoTarget")) {
-            return true;
-        } else if (function.equals("hacktendoActivate")) {
-            System.out.println("Attempting to activate an object.");
-            return true;
+            return true
+        } else if (function == "ping") {
+            return true
+        } else if (function == "hacktendoTarget") {
+            return true
+        } else if (function == "hacktendoActivate") {
+            println("Attempting to activate an object.")
+            return true
         }
 
-        return false;
+        return false
     }
 }

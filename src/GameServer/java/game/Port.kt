@@ -1,1081 +1,1022 @@
-package game;
+package game
 
-/**
- * Port.java
- * <p>
- * A port which can be installed on the computer. Has an application which
- * can be overwritten by attacks, and performs a various array of functions.
- */
+import assignments.PacketAssignment
+import assignments.PacketPort
+import com.hackwars.game.program.AttackProgram
+import com.hackwars.game.program.Banking
+import com.hackwars.game.program.Program
+import com.hackwars.game.program.ShippingProgram
+import java.text.NumberFormat
+import kotlin.jvm.JvmName
 
-import java.util.*;
+class Port(
+    @get:JvmName("getMyComputerProperty")
+    val myComputer: Computer,
+    private val myComputerHandler: NetworkSwitch
+) {
+    private var currentRedirectXP = 0.0f
+    private var currentRedirectIP = ""
 
-import assignments.*;
-import com.hackwars.game.program.AttackProgram;
-import com.hackwars.game.program.Banking;
-import com.hackwars.game.program.Program;
-import com.hackwars.game.program.ShippingProgram;
-
-import java.text.*;
-
-public class Port {
-
-    //Types of Ports.
-    public static final int BANKING = 0;
-    public static final int FTP = 1;
-    public static final int ATTACK = 2;
-    public static final int HTTP = 3;
-    public static final int REDIRECT = 4;
-    public static final int SHIPPING = REDIRECT;
-    static {
-        if (BANKING != PortType.BANKING.getCode()
-                || FTP != PortType.FTP.getCode()
-                || ATTACK != PortType.ATTACK.getCode()
-                || HTTP != PortType.HTTP.getCode()
-                || REDIRECT != PortType.REDIRECT.getCode()
-                || SHIPPING != PortType.SHIPPING.getCode()) {
-            throw new IllegalStateException("Port constants are out of sync with PortType codes");
-        }
-    }
-    public static final float MAX_REDIRECT_XP = 2000.0f;//The max redirect XP that can be gained in a single round of redirecting.
-    private float currentRedirectXP = 0.0f;//The amount of redirecting XP that has been gained from this single target.
-    private String currentRedirectIP = "";//The IP of the individual currently redirecting off this port.
-
-    //Settings.
-    private int type = 0;//What type of port.
-    private int number;//What port number.
-    private String note = "";//Notes about port.
-    private String maliciousTarget = "";//Some malicious programs need a target to deliver perks to.
-
-    //Port modes.
-    private boolean on = false;//Is the port on or off.
-    private boolean attacking = false;//Is the port currently attacking.
-    private boolean overHeated = false;//Is the port overheated.
-    private boolean freeze = false;//Is this port currently frozen.
-    private long freezeStart = 0;//When did the freeze start?
-    private static final long FREEZE_TIME = 10000;//How long does a port get frozen for?
-    private boolean weakened = false;//Is the port in a weakened state (can we do something malicious?)
-    private boolean dummy = false;//Is this port a dummy.
-
-    private Program MyProgram = null;//The program which will be activated when ApplicationData is place on this port.
-    private NewFireWall MyFireWall = null;//The FireWall that damage will be filtered through.
-    private NetworkSwitch MyComputerHandler = null;//Used to dispatch messages between computers.
-    private Computer MyComputer = null;//The computer this port is attached to.
-
-    //Port Health.
-    private float health = 100.0f;
-    private float maximumHealth = 100.0f;
-
-    //Port CPU cost.
-    private float cpuCost = 0.0f;
-
-    //Under Attack specific.
-    public static final long timeOut = 30000;//How long before connection to port resets.
-    public static final long fullTimeOut = 45000;//10000;//How long before connection to port resets.
-    private String accessing = "";//What IP is currently accessing the port.
-    private int accessingPort = 0;//What port is accessing the port.
-    private long lastAccessed = 0;//When was the port last accessed.
-
-    //Attacking specific.
-    private float targetHP = 100.0f;//Hit points of port being attacked.
-    private float targetPortPettyCash = 0.0f;//Amount in petty cash of port being attacked.
-    private float targetCPUCost = 0.0f;//CPU cost of port being attacked.
-    private boolean targetWatch = false;//Is there a watch on the port being targeted.
-    private PacketAssignment PA = null;
-    private int healCount = 0;
-
-    private int lastDamageWindowHandle = 0;
-    private String lastDamageIP = "";
-
-    /**
-     Constructor.
-     */
-    public Port(Computer MyComputer, NetworkSwitch MyComputerHandler) {
-        this.MyComputer = MyComputer;
-        this.MyComputerHandler = MyComputerHandler;
-    }
-
-    /**
-     Set whether or not the port being targeted with an attack has a watch installed.
-     */
-    public void setTargetWatch(boolean targetWatch) {
-        this.targetWatch = targetWatch;
-    }
-
-    /**
-     Get whether or not the port being targeted with an attack has a watch installed.
-     */
-    public boolean getTargetWatch() {
-        return (targetWatch);
-    }
-
-    /**
-     Get the IP address of the computer this port is attached to.
-     */
-    public String getIP() {
-        return (MyComputer.getIP());
-    }
-
-    public Computer getMyComputer() {
-        return (MyComputer);
-    }
-
-    /**
-     Return the hit points of the port that is being attacked with this port.
-     */
-    public float getTargetHP() {
-        return (targetHP);
-    }
-
-    /**
-     Set the current value for target HP the hit points of the computer being attacked.
-     */
-    public void setTargetHP(float targetHP) {
-        this.targetHP = targetHP;
-    }
-
-    /**
-     Set the note associated with this port.
-     */
-    public void setNote(String note) {
-        this.note = note;
-    }
-
-    /**
-     Get the note associated with this port.
-     */
-    public String getNote() {
-        return (note);
-    }
-
-    /**
-     Set the port number associated with this port.
-     */
-    public void setNumber(int number) {
-        this.number = number;
-    }
-
-    /**
-     Get the port number associated with this port.
-     */
-    public int getNumber() {
-        return (number);
-    }
-
-    /**
-     Return the value of the petty cash in the target port.
-     */
-    public float getTargetPettyCash() {
-        return (targetPortPettyCash);
-    }
-
-    /**
-     Set the petty cash value of the port being attacked.
-     */
-    public void setTargetPettyCash(float targetPortPettyCash) {
-        this.targetPortPettyCash = targetPortPettyCash;
-    }
-
-    /**
-     Set the current CPU cost of the port being attacked.
-     */
-    public void setTargetCPUCost(float targetCPUCost) {
-        this.targetCPUCost = targetCPUCost;
-    }
-
-    /**
-     Get the current CPU cost of the port being attacked.
-     */
-    public float getTargetCPUCost() {
-        return (targetCPUCost);
-    }
-
-    /**
-     Get whether this port is in a weakened state.
-     */
-    public boolean getWeakened() {
-        return (weakened);
-    }
-
-    /**
-     Set whether this port is a dummy port (used as a dummy).
-     */
-    public void setDummy(boolean dummy) {
-        this.dummy = dummy;
-    }
-
-    /**
-     Get whether this port is a dummy port (used as a dummy).
-     */
-    public boolean getDummy() {
-        return (dummy);
-    }
-
-    /**
-     Set whether the port is overheated (makes it  not functional).
-     */
-    public void setOverHeated(boolean overHeated) {
-        if (this.overHeated == false && overHeated && attacking) {
-            cancelAttack(false);
-        } else if (this.overHeated == true && overHeated == false) {
-
-            resetPort(true, false);
-        }
-        this.overHeated = overHeated;
-    }
-
-    /**
-     Get whether this port has overheated.
-     */
-    public boolean getOverHeated() {
-		/*if(health>=maximumHealth){
-			if(MyComputer.getOverheatStart()==-1)
-				overHeated=false;
-		}*/
-        return (overHeated);
-    }
-
-    /**
-     Get the amount of heals done to the port already.
-     */
-    public int getHealCount() {
-        return (healCount);
-    }
-
-    /**
-     getProgram()
-     returns the program installed on the port.
-     */
-    public Program getProgram() {
-        return (this.MyProgram);
-    }
-
-    /**
-     setProgram(Program MyProgram)
-     installs the program on the port.
-     */
-    public void setProgram(Program MyProgram) {
-        this.MyProgram = MyProgram;
-    }
-
-    /**
-     getFireWall()
-     returns the firewall installed on the port.
-     */
-    public NewFireWall getFireWall() {
-        return (this.MyFireWall);
-    }
-
-    /**
-     setFireWall(FireWall MyFireWall)
-     installs the firewall on the port.
-     */
-    public void setFireWall(HackerFile NewFireWall) {
-        MyFireWall.loadHackerFile(NewFireWall);
-    }
-
-    public void setFireWall(NewFireWall MyFireWall) {
-        this.MyFireWall = MyFireWall;
-    }
-
-    /**
-     getHealth()
-     returns the health of the port.
-     */
-    public float getHealth() {
-        return (this.health);
-    }
-
-    /**
-     setHealth(int health)
-     sets the current health of the port.
-     */
-    private boolean healthSet = false;
-
-    public void setHealth(float health) {
-        this.health = health;
-        healthSet = true;
-    }
-
-    /**
-     setMaximumHealth(int health)
-     Sets the maximum health of this port.
-     */
-    public void setMaximumHealth(float maximumHealth) {
-        this.maximumHealth = maximumHealth;
-    }
-
-    /**
-     damagePort(int damage)
-     damages the port by given amount.
-     */
-    public boolean damagePort(float damage) {
-        boolean returnMe = false;
-        if (this.health < 100.0f)
-            returnMe = true;
-        this.health -= damage;
-        if (health < 0.0f)
-            health = 0.0f;
-        if (health >= maximumHealth) {
-            health = maximumHealth;
+    private var _type = 0
+    @get:JvmName("getTypeProperty")
+    @set:JvmName("setTypeProperty")
+    var type: Int
+        get() = _type
+        set(value) {
+            _type = value
         }
 
-        if (MyComputer.getCurrentTime() - freezeStart > FREEZE_TIME) {
-            freeze = false;
+    private var _number = 0
+    @get:JvmName("getNumberProperty")
+    @set:JvmName("setNumberProperty")
+    var number: Int
+        get() = _number
+        set(value) {
+            _number = value
         }
 
-        if (this.healthSet) {
-            healthSet = false;
-            returnMe = true;
+    private var _note: String? = ""
+    @get:JvmName("getNoteProperty")
+    @set:JvmName("setNoteProperty")
+    var note: String?
+        get() = _note
+        set(value) {
+            _note = value
         }
 
-        return (returnMe);
+    private var _maliciousTarget: String? = ""
+    @get:JvmName("getMaliciousTargetProperty")
+    @set:JvmName("setMaliciousTargetProperty")
+    var maliciousTarget: String?
+        get() = _maliciousTarget
+        set(value) {
+            _maliciousTarget = value
+        }
+
+    private var _on = false
+    @get:JvmName("getOnProperty")
+    @set:JvmName("setOnProperty")
+    var on: Boolean
+        get() = _on
+        set(value) {
+            _on = value
+        }
+
+    private var _attacking = false
+    @get:JvmName("getAttackingProperty")
+    @set:JvmName("setAttackingProperty")
+    var attacking: Boolean
+        get() = _attacking
+        set(value) {
+            _attacking = value
+            myComputer.getDamage().add(arrayOf(windowHandle, value))
+            myComputer.sendDamagePacket()
+        }
+
+    private var _overHeated = false
+    @get:JvmName("getOverHeatedProperty")
+    @set:JvmName("setOverHeatedProperty")
+    var overHeated: Boolean
+        get() = _overHeated
+        set(value) {
+            if (!_overHeated && value && attacking) {
+                cancelAttack(false)
+            } else if (_overHeated && !value) {
+                resetPort(true, false)
+            }
+            _overHeated = value
+        }
+
+    private var freeze = false
+    private var freezeStart = 0L
+    private var _weakened = false
+
+    @get:JvmName("getWeakenedProperty")
+    val weakened: Boolean
+        get() = _weakened
+
+    private var _dummy = false
+    @get:JvmName("getDummyProperty")
+    @set:JvmName("setDummyProperty")
+    var dummy: Boolean
+        get() = _dummy
+        set(value) {
+            _dummy = value
+        }
+
+    private var _program: Program? = null
+    @get:JvmName("getProgramProperty")
+    @set:JvmName("setProgramProperty")
+    var program: Program?
+        get() = _program
+        set(value) {
+            _program = value
+        }
+
+    private var _fireWall: NewFireWall? = null
+    @get:JvmName("getFireWallProperty")
+    @set:JvmName("setFireWallProperty")
+    var fireWall: NewFireWall?
+        get() = _fireWall
+        set(value) {
+            _fireWall = value
+        }
+
+    private var _health = 100.0f
+    private var healthSet = false
+    @get:JvmName("getHealthProperty")
+    @set:JvmName("setHealthProperty")
+    var health: Float
+        get() = _health
+        set(value) {
+            _health = value
+            healthSet = true
+        }
+
+    private var maximumHealth = 100.0f
+
+    private var _cpuCost = 0.0f
+    @get:JvmName("getCpuCostProperty")
+    @set:JvmName("setCpuCostProperty")
+    var cpuCost: Float
+        get() = getCPUCost()
+        set(value) {
+            setCPUCost(value)
+        }
+
+    private var _accessing = ""
+    @get:JvmName("getAccessingProperty")
+    val accessing: String
+        get() = _accessing
+    private var accessingPort = 0
+    private var lastAccessed = 0L
+
+    private var _targetHP = 100.0f
+    @get:JvmName("getTargetHPProperty")
+    @set:JvmName("setTargetHPProperty")
+    var targetHP: Float
+        get() = _targetHP
+        set(value) {
+            _targetHP = value
+        }
+
+    private var _targetPettyCash = 0.0f
+    @get:JvmName("getTargetPettyCashProperty")
+    @set:JvmName("setTargetPettyCashProperty")
+    var targetPettyCash: Float
+        get() = _targetPettyCash
+        set(value) {
+            _targetPettyCash = value
+        }
+
+    private var _targetCPUCost = 0.0f
+    @get:JvmName("getTargetCPUCostProperty")
+    @set:JvmName("setTargetCPUCostProperty")
+    var targetCPUCost: Float
+        get() = _targetCPUCost
+        set(value) {
+            _targetCPUCost = value
+        }
+
+    private var _targetWatch = false
+    @get:JvmName("getTargetWatchProperty")
+    @set:JvmName("setTargetWatchProperty")
+    var targetWatch: Boolean
+        get() = _targetWatch
+        set(value) {
+            _targetWatch = value
+        }
+
+    private var _currentPacket: PacketAssignment? = null
+    @get:JvmName("getCurrentPacketProperty")
+    @set:JvmName("setCurrentPacketProperty")
+    var currentPacket: PacketAssignment?
+        get() = _currentPacket
+        set(value) {
+            _currentPacket = value
+        }
+
+    private var healCount = 0
+
+    private var _lastDamageWindowHandle = 0
+    @get:JvmName("getLastDamageWindowHandleProperty")
+    val lastDamageWindowHandle: Int
+        get() = _lastDamageWindowHandle
+
+    private var _lastDamageIP = ""
+    @get:JvmName("getLastDamageIPProperty")
+    val lastDamageIP: String
+        get() = _lastDamageIP
+
+    @get:JvmName("getIpProperty")
+    val ip: String
+        get() = myComputer.ip
+
+    @get:JvmName("getIPProperty")
+    val IP: String
+        get() = ip
+
+    @get:JvmName("getActualCPUCostProperty")
+    val actualCPUCost: Float
+        get() = getActualCPUCost()
+
+    init {
+        if (BANKING != PortType.BANKING.getCode() ||
+            FTP != PortType.FTP.getCode() ||
+            ATTACK != PortType.ATTACK.getCode() ||
+            HTTP != PortType.HTTP.getCode() ||
+            REDIRECT != PortType.REDIRECT.getCode() ||
+            SHIPPING != PortType.SHIPPING.getCode()
+        ) {
+            throw IllegalStateException("Port constants are out of sync with PortType codes")
+        }
     }
 
-    /**
-     getType()
-     gets the type for this port.
-     */
-    public int getType() {
-        return (this.type);
+    fun getMyComputer(): Computer = myComputer
+    fun getIP(): String = ip
+    fun getNumber(): Int = number
+    fun setNumber(number: Int) {
+        this.number = number
+    }
+    fun getType(): Int = type
+    fun setType(type: Int) {
+        this.type = type
+    }
+    fun getNote(): String? = note
+    fun setNote(note: String?) {
+        this.note = note
+    }
+    fun getMaliciousTarget(): String? = maliciousTarget
+    fun setMaliciousTarget(maliciousTarget: String?) {
+        this.maliciousTarget = maliciousTarget
+    }
+    fun getOn(): Boolean = on
+    fun setOn(on: Boolean) {
+        this.on = on
+    }
+    fun getAttacking(): Boolean = attacking
+    fun setAttacking(attacking: Boolean) {
+        this.attacking = attacking
+    }
+    fun getOverHeated(): Boolean = overHeated
+    fun setOverHeated(overHeated: Boolean) {
+        this.overHeated = overHeated
+    }
+    fun getDummy(): Boolean = dummy
+    fun setDummy(dummy: Boolean) {
+        this.dummy = dummy
+    }
+    fun getProgram(): Program? = program
+    fun setProgram(program: Program?) {
+        this.program = program
+    }
+    fun getFireWall(): NewFireWall = fireWall!!
+    fun setFireWall(fireWall: NewFireWall?) {
+        this.fireWall = fireWall
+    }
+    fun setFireWall(newFireWall: HackerFile?) {
+        fireWall!!.loadHackerFile(newFireWall)
+    }
+    fun getHealth(): Float = health
+    fun setHealth(health: Float) {
+        this.health = health
+    }
+    fun getAccessing(): String = accessing
+    fun getAccessingPort(): Int = accessingPort
+    fun getWeakened(): Boolean = weakened
+    fun getTargetHP(): Float = targetHP
+    fun setTargetHP(targetHP: Float) {
+        this.targetHP = targetHP
+    }
+    fun getTargetPettyCash(): Float = targetPettyCash
+    fun setTargetPettyCash(targetPettyCash: Float) {
+        this.targetPettyCash = targetPettyCash
+    }
+    fun getTargetCPUCost(): Float = targetCPUCost
+    fun setTargetCPUCost(targetCPUCost: Float) {
+        this.targetCPUCost = targetCPUCost
+    }
+    fun getTargetWatch(): Boolean = targetWatch
+    fun setTargetWatch(targetWatch: Boolean) {
+        this.targetWatch = targetWatch
+    }
+    fun getCurrentPacket(): PacketAssignment = currentPacket!!
+    fun setCurrentPacket(PA: PacketAssignment?) {
+        currentPacket = PA
+    }
+    fun getHealCount(): Int = healCount
+    fun getLastDamageWindowHandle(): Int = lastDamageWindowHandle
+    fun getLastDamageIP(): String = lastDamageIP
+
+    fun setMaximumHealth(maximumHealth: Float) {
+        this.maximumHealth = maximumHealth
     }
 
-    /**
-     setType(int type)
-     sets the type of the port.
-     */
-    public void setType(int type) {
-        this.type = type;
+    fun damagePort(damage: Float): Boolean {
+        var returnMe = false
+        if (_health < 100.0f) {
+            returnMe = true
+        }
+        _health -= damage
+        if (_health < 0.0f) {
+            _health = 0.0f
+        }
+        if (_health >= maximumHealth) {
+            _health = maximumHealth
+        }
+
+        if (myComputer.currentTime - freezeStart > FREEZE_TIME) {
+            freeze = false
+        }
+
+        if (healthSet) {
+            healthSet = false
+            returnMe = true
+        }
+
+        return returnMe
     }
 
-    /**
-     getOn()
-     Gets whether this port is currently on.
-     */
-    public boolean getOn() {
-        return (on);
-    }
+    fun getBaseCPUCost(): Float = _cpuCost
 
-    /**
-     setOn()
-     Set whether this port is currently on.
-     */
-    public void setOn(boolean on) {
-        this.on = on;
-    }
+    fun getCPUCost(): Float {
+        if (!on) {
+            return 0.0f
+        }
 
-    /**
-     Set the packet that is currently getting filled in.
-     */
-    public void setCurrentPacket(PacketAssignment PA) {
-        this.PA = PA;
-    }
-
-    /**
-     Get the packet that is currently being filled.
-     */
-    public PacketAssignment getCurrentPacket() {
-        return (PA);
-    }
-
-    /**
-     getAttacking()
-     Gets whether this port is currently attacking.
-     */
-    public boolean getAttacking() {
-        return (attacking);
-    }
-
-    /**
-     Set whether the port is currently attacking.
-     */
-    public void setAttacking(boolean attacking) {
-        this.attacking = attacking;
-        MyComputer.getDamage().add(new Object[]{getWindowHandle(), attacking});
-        MyComputer.sendDamagePacket();
-    }
-
-    /**
-     Get the base CPU cost of this port sans firewall.
-     */
-    public float getBaseCPUCost() {
-        return (cpuCost);
-    }
-
-    /**
-     Get the CPU cost associated with this port.
-     */
-    public float getCPUCost() {
-        if (!on)
-            return (0.0f);
-
-        float returnMe = cpuCost;
-        float mult = 0.0f;
+        var mult = 0.0f
         if ((type == ATTACK || type == REDIRECT) && (attacking || overHeated)) {
-            mult += (maximumHealth - health) * (MyComputer.getMaximumCPULoad() / 100.0f);
+            mult += (maximumHealth - _health) * (myComputer.maximumCPULoad / 100.0f)
         }
 
-        if (dummy)//If it's a dummy port it costs half as much to run.
-            return ((cpuCost + mult + MyFireWall.getCPUCost()) / 2.0f);
-        else//Otherwise it has the full CPU cost.
-            return (cpuCost + mult + MyFireWall.getCPUCost());
+        return if (dummy) {
+            (_cpuCost + mult + fireWall!!.getCPUCost()) / 2.0f
+        } else {
+            _cpuCost + mult + fireWall!!.getCPUCost()
+        }
     }
 
-    /**
-     Get the true CPU cost of this port.
-     */
-    public float getBaseCPUCostTotal() {
-        if (!on)
-            return (0.0f);
+    fun getBaseCPUCostTotal(): Float {
+        if (!on) {
+            return 0.0f
+        }
 
-        if (dummy)//If it's a dummy port it costs half as much to run.
-            return ((cpuCost + MyFireWall.getCPUCost()) / 2.0f);
-        else//Otherwise it has the full CPU cost.
-            return (cpuCost + MyFireWall.getCPUCost());
+        return if (dummy) {
+            (_cpuCost + fireWall!!.getCPUCost()) / 2.0f
+        } else {
+            _cpuCost + fireWall!!.getCPUCost()
+        }
     }
 
-    public float getBaseCPUCostAndFirewall() {
-
-        if (dummy)//If it's a dummy port it costs half as much to run.
-            return ((cpuCost + MyFireWall.getCPUCost()) / 2.0f);
-        else//Otherwise it has the full CPU cost.
-            return (cpuCost + MyFireWall.getCPUCost());
+    fun getBaseCPUCostAndFirewall(): Float {
+        return if (dummy) {
+            (_cpuCost + fireWall!!.getCPUCost()) / 2.0f
+        } else {
+            _cpuCost + fireWall!!.getCPUCost()
+        }
     }
 
-    /**
-     Get the actual CPU cost regardless of whether this port is on.
-     */
-    public float getActualCPUCost() {
-        float returnMe = cpuCost;
-        float mult = 0.0f;
+    fun getActualCPUCost(): Float {
+        var mult = 0.0f
         if ((type == ATTACK || type == REDIRECT) && (attacking || overHeated)) {
-            mult += (maximumHealth - health) * (MyComputer.getMaximumCPULoad() / 100.0f);
+            mult += (maximumHealth - _health) * (myComputer.maximumCPULoad / 100.0f)
         }
 
-        if (dummy)//If it's a dummy port it costs half as much to run.
-            return ((cpuCost + mult + MyFireWall.getCPUCost()) / 2.0f);
-        else//Otherwise it has the full CPU cost.
-            return (cpuCost + mult + MyFireWall.getCPUCost());
+        return if (dummy) {
+            (_cpuCost + mult + fireWall!!.getCPUCost()) / 2.0f
+        } else {
+            _cpuCost + mult + fireWall!!.getCPUCost()
+        }
     }
 
-    /**
-     Set the CPU cost associated with this port.
-     */
-    public void setCPUCost(float cpuCost) {
-        this.cpuCost = cpuCost;
+    fun setCPUCost(cpuCost: Float) {
+        this._cpuCost = cpuCost
     }
 
-    /**
-     Get whether someone is currently accessing this port.
-     */
-    public String getAccessing() {
-        return (accessing);
-    }
-
-    /**
-     Get the port of the program currently accessing this port.
-     */
-    public int getAccessingPort() {
-        return (accessingPort);
-    }
-
-    /**
-     Set the malicious target associated with this port used in various APIs.
-     */
-    public void setMaliciousTarget(String maliciousTarget) {
-        this.maliciousTarget = maliciousTarget;
-    }
-
-    /**
-     Get the malicious target associated with this port.
-     */
-    public String getMaliciousTarget() {
-        return (maliciousTarget);
-    }
-
-    /**
-     Cancel's an attack on an opponent by this port (if it is an attack port).
-     */
-    public void cancelAttack(boolean overHeated) {
-        if (MyProgram != null) {
-            if (MyProgram instanceof AttackProgram) {
-                ((AttackProgram) MyProgram).cancelAttack(overHeated);
-            } else if (MyProgram instanceof ShippingProgram) {
-                ((ShippingProgram) MyProgram).cancelAttack(overHeated);
+    fun cancelAttack(overHeated: Boolean) {
+        if (program != null) {
+            if (program is AttackProgram) {
+                (program as AttackProgram).cancelAttack(overHeated)
+            } else if (program is ShippingProgram) {
+                (program as ShippingProgram).cancelAttack(overHeated)
             }
         }
     }
 
-    /**
-     Make sure an attack on a port times out in the appropriate amount of time.
-     */
-    public void checkTimeOut(long currentTime) {
-        //THE ATTACK HAS TIMED OUT ALLOW ANOTHER ATTACKER.
-
-        //if(weakened||!accessing.equals("")||health<maximumHealth)
+    fun checkTimeOut(currentTime: Long) {
         if (currentTime - lastAccessed > timeOut && weakened) {
-            resetPort(true, true);
+            resetPort(true, true)
         } else if (currentTime - lastAccessed > fullTimeOut) {
-            resetPort(true, true);
+            resetPort(true, true)
         }
     }
 
-    /**
-     Set the last access time of this application.
-     */
-    public void setLastAccessed(long lastAccessed) {
-        this.lastAccessed = lastAccessed;
+    fun setLastAccessed(lastAccessed: Long) {
+        this.lastAccessed = lastAccessed
     }
 
-    /**
-     Check whether a finalize is currently allowed and dispatch a packet otherwise.
-     */
-    public boolean finalizeAllowed(ApplicationData MyApplicationData) {
-        boolean allowed = true;
+    fun finalizeAllowed(MyApplicationData: ApplicationData): Boolean {
+        var allowed = true
         if (weakened) {
-            if (!getDummy()) {
-
+            if (!dummy) {
             } else {
-                allowed = false;
-                MyComputerHandler.addData(new ApplicationData("message", new Object[]{MessageHandler.PORT_WAS_DUMMY, new Object[]{number, MyComputer.getIP()}, new Object[]{MyApplicationData.getSourcePort(), MyApplicationData.getSourceIP()}}, 0, MyComputer.getIP()), MyApplicationData.getSourceIP());
+                allowed = false
+                myComputerHandler.addData(
+                    ApplicationData(
+                        "message",
+                        arrayOf(
+                            MessageHandler.PORT_WAS_DUMMY,
+                            arrayOf(number, ip),
+                            arrayOf(MyApplicationData.getSourcePort(), MyApplicationData.getSourceIP())
+                        ),
+                        0,
+                        ip
+                    ),
+                    MyApplicationData.getSourceIP()
+                )
             }
         } else {
-            allowed = false;
-            MyComputerHandler.addData(new ApplicationData("message", new Object[]{MessageHandler.PORT_WAS_NOT_WEAKENED, new Object[]{number, MyComputer.getIP()}, new Object[]{MyApplicationData.getSourcePort(), MyApplicationData.getSourceIP()}}, 0, MyComputer.getIP()), MyApplicationData.getSourceIP());
+            allowed = false
+            myComputerHandler.addData(
+                ApplicationData(
+                    "message",
+                    arrayOf(
+                        MessageHandler.PORT_WAS_NOT_WEAKENED,
+                        arrayOf(number, ip),
+                        arrayOf(MyApplicationData.getSourcePort(), MyApplicationData.getSourceIP())
+                    ),
+                    0,
+                    ip
+                ),
+                MyApplicationData.getSourceIP()
+            )
         }
-        return (allowed);
+        return allowed
     }
 
-    /**
-     Reset the port to an unweakened state.
-     */
-    public void resetPort(boolean heal, boolean setAccessed) {
+    fun resetPort(heal: Boolean, setAccessed: Boolean) {
         if (heal) {
-            this.setHealth(maximumHealth);
+            health = maximumHealth
         }
-        lastAccessed = MyComputer.getCurrentTime();
-        weakened = false;
+        lastAccessed = myComputer.currentTime
+        _weakened = false
         if (setAccessed) {
-            accessing = "";
+            _accessing = ""
         }
-        healCount = 0;
+        healCount = 0
     }
 
-    /**
-     Reset the heal counter on the attack.
-     */
-    public void resetHealCounter() {
-        healCount = 0;
+    fun resetHealCounter() {
+        healCount = 0
     }
 
-    public int getLastDamageWindowHandle() {
-        return (lastDamageWindowHandle);
-    }
-
-    public String getLastDamageIP() {
-        return (lastDamageIP);
-    }
-
-    public int getWindowHandle() {
-        int windowHandle = 0;
-        if (MyProgram instanceof AttackProgram) {
-            windowHandle = ((AttackProgram) MyProgram).getWindowHandle();
-        } else if (MyProgram instanceof ShippingProgram) {
-            windowHandle = ((ShippingProgram) MyProgram).getWindowHandle();
+    val windowHandle: Int
+        get() {
+            var windowHandle = 0
+            if (program is AttackProgram) {
+                windowHandle = (program as AttackProgram).getWindowHandle()
+            } else if (program is ShippingProgram) {
+                windowHandle = (program as ShippingProgram).getWindowHandle()
+            }
+            return windowHandle
         }
-        return (windowHandle);
-    }
 
-    /**
-     Execute a remote function call.
-     */
-    public void addApplicationData(ApplicationData MyApplicationData, long currentTime) {
-        currentTime = MyComputer.getCurrentTime();
-        if (on) {//ONLY PERFORM OPERATIONS ON PORT IF IT IS ON.
-            //Heal this port.
-            if (MyApplicationData.getFunction().equals("heal")) {
-
-                if (!MyComputer.checkBank()) {//Check whether a banking port is installed.
-                    MyComputerHandler.addData(new ApplicationData("message", MessageHandler.ACTIVE_BANK_NOT_FOUND, 0, MyComputer.getIP()), MyApplicationData.getSourceIP());
+    fun addApplicationData(MyApplicationData: ApplicationData, currentTime: Long) {
+        val now = myComputer.currentTime
+        if (on) {
+            if (MyApplicationData.getFunction() == "heal") {
+                if (!myComputer.checkBank()) {
+                    myComputerHandler.addData(
+                        ApplicationData("message", MessageHandler.ACTIVE_BANK_NOT_FOUND, 0, ip),
+                        MyApplicationData.getSourceIP()
+                    )
                 } else if (overHeated) {
-                    MyComputerHandler.addData(new ApplicationData("message", MessageHandler.HEAL_FAIL_OVERHEATED, 0, MyComputer.getIP()), MyApplicationData.getSourceIP());
-                } else if (healCount > MyComputer.HEAL_LIMIT) {
-                    MyComputerHandler.addData(new ApplicationData("message", new Object[]{MessageHandler.HEAL_FAIL_LIMIT, new Object[]{MyComputer.HEAL_LIMIT + 1}}, 0, MyComputer.getIP()), MyApplicationData.getSourceIP());
+                    myComputerHandler.addData(
+                        ApplicationData("message", MessageHandler.HEAL_FAIL_OVERHEATED, 0, ip),
+                        MyApplicationData.getSourceIP()
+                    )
+                } else if (healCount > myComputer.HEAL_LIMIT) {
+                    myComputerHandler.addData(
+                        ApplicationData("message", arrayOf(MessageHandler.HEAL_FAIL_LIMIT, arrayOf(myComputer.HEAL_LIMIT + 1)), 0, ip),
+                        MyApplicationData.getSourceIP()
+                    )
                 } else if (!weakened) {
-                    float cost = (maximumHealth - getHealth()) * 2.0f * MyComputer.getEquipmentSheet().getHealBonus();//Costs $2 per HP healed.
-
-                    if (MyComputer.getPettyCash() >= cost) {
-
-                        healCount++;//Increment the heal counter.
-
-                        MyComputerHandler.addData(new ApplicationData("pettycash", new Float(cost * -1.0f), 0, MyComputer.getIP()), MyComputer.getIP());
-                        this.setHealth(maximumHealth);
-                        MyComputer.sendDamagePacket();
-                        MyComputer.getWatchHandler().updateInitialHealthQuanity(number, health);
-                        MyComputerHandler.addData(new ApplicationData("message", new Object[]{MessageHandler.HEAL_SUCCESS, new Object[]{number, NumberFormat.getCurrencyInstance().format(cost)}}, 0, MyComputer.getIP()), MyComputer.getIP());
+                    val cost = (maximumHealth - health) * 2.0f * myComputer.equipmentSheet.getHealBonus()
+                    if (myComputer.getPettyCash() >= cost) {
+                        healCount++
+                        myComputerHandler.addData(ApplicationData("pettycash", java.lang.Float(cost * -1.0f), 0, ip), ip)
+                        health = maximumHealth
+                        myComputer.sendDamagePacket()
+                        myComputer.watchHandler.updateInitialHealthQuanity(number, _health)
+                        myComputerHandler.addData(
+                            ApplicationData("message", arrayOf(MessageHandler.HEAL_SUCCESS, arrayOf(number, NumberFormat.getCurrencyInstance().format(cost))), 0, ip),
+                            ip
+                        )
                     }
                 } else {
-                    MyComputerHandler.addData(new ApplicationData("message", new Object[]{MessageHandler.HEAL_FAIL_WEAKENED, new Object[]{number}}, 0, MyComputer.getIP()), MyApplicationData.getSourceIP());
+                    myComputerHandler.addData(
+                        ApplicationData("message", arrayOf(MessageHandler.HEAL_FAIL_WEAKENED, arrayOf(number)), 0, ip),
+                        MyApplicationData.getSourceIP()
+                    )
                 }
-
-                return;
+                return
             }
-            //EMPTYING PETTY CASH IS ONE OPTION UPON COMPLETING AN ATTACK.
-            //if(type==BANKING){
-            if (MyApplicationData.getFunction().equals("emptyPettyCash") && accessing.equals(MyApplicationData.getSourceIP())) {
-                NumberFormat nf = NumberFormat.getCurrencyInstance();
-                int windowHandle = (Integer) MyApplicationData.getParameters();
-                if (type != BANKING) {
-                    MyComputerHandler.addData(new ApplicationData("message", new Object[]{MessageHandler.EMPTY_PETTY_FAIL_WRONG_TYPE, new Object[]{}, new Object[]{windowHandle, MyComputer.getIP()}}, 0, MyComputer.getIP()), MyApplicationData.getSourceIP());
-                } else if (!MyFireWall.getPettyCashFail(MyApplicationData.getSourceIP())) {//Has the firewall caused the redirect of money to fail.
-                    if (finalizeAllowed(MyApplicationData)) {
-                        float amount = MyComputer.getPettyCash() * MyFireWall.getPettyCashReduction(MyApplicationData.getSourceIP());
-                        // check to make sure they have an active non-dummy bank port
-                        if (MyComputerHandler.getMyComputerHandler().getComputer(MyApplicationData.getSourceIP()).checkBank()) {
 
-                            MyComputerHandler.addData(new ApplicationData("pettycash", new Float(-1.0 * amount), 0, MyComputer.getIP()), MyComputer.getIP());
-                            MyComputerHandler.addData(new ApplicationData("pettycash", new Float(amount), 0, MyApplicationData.getSourceIP()), MyApplicationData.getSourceIP());//Changed to originate from the attacker.
-                            MyComputerHandler.addData(new ApplicationData("message", new Object[]{MessageHandler.EMPTY_PETTY_SUCCESS_GAME, new Object[]{nf.format(amount), MyComputer.getIP()}}, 0, MyComputer.getIP()), MyApplicationData.getSourceIP());
-                            MyComputerHandler.addData(new ApplicationData("message", new Object[]{MessageHandler.EMPTY_PETTY_SUCCESS, new Object[]{nf.format(amount)}, new Object[]{windowHandle, MyApplicationData.getSourceIP()}}, 0, MyComputer.getIP()), MyApplicationData.getSourceIP());
+            if (MyApplicationData.getFunction() == "emptyPettyCash" && accessing == MyApplicationData.getSourceIP()) {
+                val nf = NumberFormat.getCurrencyInstance()
+                val windowHandle = MyApplicationData.getParameters() as Int
+                if (type != BANKING) {
+                    myComputerHandler.addData(
+                        ApplicationData("message", arrayOf(MessageHandler.EMPTY_PETTY_FAIL_WRONG_TYPE, arrayOf<Any?>(), arrayOf(windowHandle, ip)), 0, ip),
+                        MyApplicationData.getSourceIP()
+                    )
+                } else if (!fireWall!!.getPettyCashFail(MyApplicationData.getSourceIP())) {
+                    if (finalizeAllowed(MyApplicationData)) {
+                        val amount = myComputer.getPettyCash() * fireWall!!.getPettyCashReduction(MyApplicationData.getSourceIP())
+                        if (myComputerHandler.getMyComputerHandler().getComputer(MyApplicationData.getSourceIP()).checkBank()) {
+                            myComputerHandler.addData(ApplicationData("pettycash", java.lang.Float(-1.0 * amount), 0, ip), ip)
+                            myComputerHandler.addData(ApplicationData("pettycash", java.lang.Float(amount), 0, MyApplicationData.getSourceIP()), MyApplicationData.getSourceIP())
+                            myComputerHandler.addData(
+                                ApplicationData("message", arrayOf(MessageHandler.EMPTY_PETTY_SUCCESS_GAME, arrayOf(nf.format(amount), ip)), 0, ip),
+                                MyApplicationData.getSourceIP()
+                            )
+                            myComputerHandler.addData(
+                                ApplicationData("message", arrayOf(MessageHandler.EMPTY_PETTY_SUCCESS, arrayOf(nf.format(amount)), arrayOf(windowHandle, MyApplicationData.getSourceIP())), 0, ip),
+                                MyApplicationData.getSourceIP()
+                            )
                         } else {
-                            MyComputerHandler.addData(new ApplicationData("message", new Object[]{MessageHandler.EMPTY_PETTY_FAIL_NO_ACTIVE_BANK, new Object[]{MyComputer.getIP()}}, 0, MyComputer.getIP()), MyApplicationData.getSourceIP());
+                            myComputerHandler.addData(
+                                ApplicationData("message", arrayOf(MessageHandler.EMPTY_PETTY_FAIL_NO_ACTIVE_BANK, arrayOf(ip)), 0, ip),
+                                MyApplicationData.getSourceIP()
+                            )
                         }
                     }
                 } else {
-                    MyComputerHandler.addData(new ApplicationData("message", new Object[]{MessageHandler.EMPTY_PETTY_SUCCESS, new Object[]{nf.format(0)}}, 0, MyComputer.getIP()), MyApplicationData.getSourceIP());
-                    MyComputerHandler.addData(new ApplicationData("message", new Object[]{MessageHandler.EMPTY_PETTY_SUCCESS_GAME, new Object[]{nf.format(0), MyComputer.getIP()}, new Object[]{windowHandle, MyApplicationData.getSourceIP()}}, 0, MyComputer.getIP()), MyApplicationData.getSourceIP());
+                    myComputerHandler.addData(
+                        ApplicationData("message", arrayOf(MessageHandler.EMPTY_PETTY_SUCCESS, arrayOf(nf.format(0))), 0, ip),
+                        MyApplicationData.getSourceIP()
+                    )
+                    myComputerHandler.addData(
+                        ApplicationData("message", arrayOf(MessageHandler.EMPTY_PETTY_SUCCESS_GAME, arrayOf(nf.format(0), ip), arrayOf(windowHandle, MyApplicationData.getSourceIP())), 0, ip),
+                        MyApplicationData.getSourceIP()
+                    )
                 }
-                resetPort(true, true);
-                return;
-
-            } else if (MyApplicationData.getFunction().equals("finalizecancelled") && accessing.equals(MyApplicationData.getSourceIP())) {
+                resetPort(true, true)
+                return
+            } else if (MyApplicationData.getFunction() == "finalizecancelled" && accessing == MyApplicationData.getSourceIP()) {
                 if (finalizeAllowed(MyApplicationData)) {
-                    resetPort(true, true);
-                    return;
+                    resetPort(true, true)
+                    return
                 }
             }
 
-            //}
-            //Allow for the malicious stealing of files.
-//		if(type==FTP){
-            if (MyApplicationData.getFunction().equals("malget") && accessing.equals(MyApplicationData.getSourceIP())) {
-
+            if (MyApplicationData.getFunction() == "malget" && accessing == MyApplicationData.getSourceIP()) {
                 if (type != FTP) {
-                    MyComputerHandler.addData(new ApplicationData("message", new Object[]{MessageHandler.STEAL_FILE_FAIL_WRONG_TYPE, new Object[]{}, new Object[]{lastDamageWindowHandle, MyComputer.getIP()}}, 0, MyComputer.getIP()), MyApplicationData.getSourceIP());
-                } else if (!MyFireWall.getStealFileFail(MyApplicationData.getSourceIP())) {//Can we steal a file based on firewall.
+                    myComputerHandler.addData(
+                        ApplicationData("message", arrayOf(MessageHandler.STEAL_FILE_FAIL_WRONG_TYPE, arrayOf<Any?>(), arrayOf(lastDamageWindowHandle, ip)), 0, ip),
+                        MyApplicationData.getSourceIP()
+                    )
+                } else if (!fireWall!!.getStealFileFail(MyApplicationData.getSourceIP())) {
                     if (finalizeAllowed(MyApplicationData)) {
-                        MyProgram.execute(MyApplicationData);
+                        program!!.execute(MyApplicationData)
                     }
                 }
-                resetPort(true, true);
-                return;
+                resetPort(true, true)
+                return
             }
 
-            //}
-            //Delete an opponent's logs as a finalize step.
-            if (MyApplicationData.getFunction().equals("deletelog") && accessing.equals(MyApplicationData.getSourceIP())) {
+            if (MyApplicationData.getFunction() == "deletelog" && accessing == MyApplicationData.getSourceIP()) {
                 if (finalizeAllowed(MyApplicationData)) {
-                    //DELETE A SINGLE PLAYER'S ENTRY FROM THE LOG.
                     if (MyApplicationData.getParameters() != null) {
-                        MyComputer.deleteLogs((String) MyApplicationData.getParameters());
-                        MyComputerHandler.addData(new ApplicationData("message", MessageHandler.DELETE_LOGS_SUCCESS, 0, MyComputer.getIP()), MyApplicationData.getSourceIP());
-                        MyComputer.sendPacket();
+                        myComputer.deleteLogs(MyApplicationData.getParameters() as String)
+                        myComputerHandler.addData(ApplicationData("message", MessageHandler.DELETE_LOGS_SUCCESS, 0, ip), MyApplicationData.getSourceIP())
+                        myComputer.sendPacket()
                     }
                 }
-                resetPort(true, true);
-                return;
-            }
-            //Look at the opponent's code on the port attacked, upon finalizing an attack.
-            if (MyApplicationData.getFunction().equals("peekcode") && accessing.equals(MyApplicationData.getSourceIP())) {
-                if (finalizeAllowed(MyApplicationData)) {
-                    if (MyProgram != null) {
-                        if (MyComputer.getType() != MyComputer.NPC)
-                            MyComputerHandler.addData(new ApplicationData("code", MyProgram.getContent(), 0, MyComputer.getIP()), MyApplicationData.getSourceIP());
-                        else
-                            MyComputerHandler.addData(new ApplicationData("code", "[Encrypted Data.]", 0, MyComputer.getIP()), MyApplicationData.getSourceIP());
-
-                    }
-                }
-                resetPort(true, true);
-                return;
-            }
-            //Look at the opponent's code on the port attacked, upon finalizing an attack.
-            if (MyApplicationData.getFunction().equals("peeklogs") && accessing.equals(MyApplicationData.getSourceIP())) {
-                if (finalizeAllowed(MyApplicationData)) {
-                    if (MyProgram != null) {
-                        HashMap Logs = new HashMap();
-                        Logs.put("logs", MyComputer.getLogs());
-                        MyComputerHandler.addData(new ApplicationData("code", Logs, 0, MyComputer.getIP()), MyApplicationData.getSourceIP());
-                    }
-                }
-                resetPort(true, true);
-                return;
-            }
-            //Look at the opponent's code on the port attacked, upon finalizing an attack.
-            if (MyApplicationData.getFunction().equals("editLogs") && accessing.equals(MyApplicationData.getSourceIP())) {
-                if (finalizeAllowed(MyApplicationData)) {
-                    if (MyProgram != null) {
-                        String data = (String) ((Object[]) MyApplicationData.getParameters())[0];
-                        String replace = (String) ((Object[]) MyApplicationData.getParameters())[1];
-                        MyComputer.editLogs(data, replace);
-                        MyComputerHandler.addData(new ApplicationData("message", MessageHandler.EDIT_LOGS_SUCCESS, 0, MyComputer.getIP()), MyApplicationData.getSourceIP());
-                    }
-                }
-                resetPort(true, true);
-                return;
+                resetPort(true, true)
+                return
             }
 
-            //Change the IP address that daily pay should be transferred to.
-            //if(type==HTTP)
-            if (MyApplicationData.getFunction().equals("changedailypay") && accessing.equals(MyApplicationData.getSourceIP())) {
-                Object[] parameters = (Object[]) MyApplicationData.getParameters();
-                String targetIP = (String) parameters[0];
-                int port = (Integer) parameters[1];
-                if (!MyFireWall.getChangeDailyPayFail(targetIP)) {
-                    MyComputer.setDailyPayReduction(MyFireWall.getChangeDailyPayReduction(MyApplicationData.getSourceIP()));
+            if (MyApplicationData.getFunction() == "peekcode" && accessing == MyApplicationData.getSourceIP()) {
+                if (finalizeAllowed(MyApplicationData)) {
+                    if (program != null) {
+                        if (myComputer.getType() != Computer.NPC) {
+                            myComputerHandler.addData(ApplicationData("code", program!!.getContent(), 0, ip), MyApplicationData.getSourceIP())
+                        } else {
+                            myComputerHandler.addData(ApplicationData("code", "[Encrypted Data.]", 0, ip), MyApplicationData.getSourceIP())
+                        }
+                    }
+                }
+                resetPort(true, true)
+                return
+            }
+
+            if (MyApplicationData.getFunction() == "peeklogs" && accessing == MyApplicationData.getSourceIP()) {
+                if (finalizeAllowed(MyApplicationData)) {
+                    if (program != null) {
+                        val Logs = HashMap<Any?, Any?>()
+                        Logs["logs"] = myComputer.logs
+                        myComputerHandler.addData(ApplicationData("code", Logs, 0, ip), MyApplicationData.getSourceIP())
+                    }
+                }
+                resetPort(true, true)
+                return
+            }
+
+            if (MyApplicationData.getFunction() == "editLogs" && accessing == MyApplicationData.getSourceIP()) {
+                if (finalizeAllowed(MyApplicationData)) {
+                    if (program != null) {
+                        val data = (MyApplicationData.getParameters() as Array<Any?>)[0] as String
+                        val replace = (MyApplicationData.getParameters() as Array<Any?>)[1] as String
+                        myComputer.editLogs(data, replace)
+                        myComputerHandler.addData(ApplicationData("message", MessageHandler.EDIT_LOGS_SUCCESS, 0, ip), MyApplicationData.getSourceIP())
+                    }
+                }
+                resetPort(true, true)
+                return
+            }
+
+            if (MyApplicationData.getFunction() == "changedailypay" && accessing == MyApplicationData.getSourceIP()) {
+                val parameters = MyApplicationData.getParameters() as Array<Any?>
+                val targetIP = parameters[0] as String
+                val port = parameters[1] as Int
+                if (!fireWall!!.getChangeDailyPayFail(targetIP)) {
+                    myComputer.setDailyPayReduction(fireWall!!.getChangeDailyPayReduction(MyApplicationData.getSourceIP()))
                     if (type != HTTP) {
-                        MyComputerHandler.addData(new ApplicationData("message", new Object[]{MessageHandler.CHANGE_DAILY_PAY_FAIL_WRONG_TYPE, new Object[]{}, new Object[]{lastDamageWindowHandle, MyComputer.getIP()}}, 0, MyComputer.getIP()), MyApplicationData.getSourceIP());
+                        myComputerHandler.addData(
+                            ApplicationData("message", arrayOf(MessageHandler.CHANGE_DAILY_PAY_FAIL_WRONG_TYPE, arrayOf<Any?>(), arrayOf(lastDamageWindowHandle, ip)), 0, ip),
+                            MyApplicationData.getSourceIP()
+                        )
                     } else if (finalizeAllowed(MyApplicationData)) {
-                        if (MyComputer.getLastBountyHTTPIP().equals(MyApplicationData.getSourceIP())) {
-                            MyComputerHandler.addData(new ApplicationData("message", MessageHandler.CHANGE_DAILY_PAY_FAIL_BOUNTY, 0, MyComputer.getIP()), MyApplicationData.getSourceIP());
-                            return;
-                        } else if (!MyComputer.getAdRevenueTarget().equals(targetIP)) {//give http xp.
-                            if (MyComputer.getType() == MyComputer.NPC)
-                                MyComputerHandler.addData(new ApplicationData("httpxp", new Float(10.0f), MyApplicationData.getSourcePort(), MyComputer.getIP()), MyApplicationData.getSourceIP());
-                            else//We give extra XP based on the level of the player.
-                                MyComputerHandler.addData(new ApplicationData("httpxp", new Float(10.0f) + MyComputer.getHTTPLevel() * 10.0f, MyApplicationData.getSourcePort(), MyComputer.getIP()), MyApplicationData.getSourceIP());
-
-
-                            if (MyComputer.getType() != MyComputer.NPC) {
-                                MyComputerHandler.addData(new ApplicationData("dailypayset", targetIP, 0, MyComputer.getIP()), MyApplicationData.getSourceIP());
+                        if (myComputer.lastBountyHTTPIP == MyApplicationData.getSourceIP()) {
+                            myComputerHandler.addData(ApplicationData("message", MessageHandler.CHANGE_DAILY_PAY_FAIL_BOUNTY, 0, ip), MyApplicationData.getSourceIP())
+                            return
+                        } else if (myComputer.getAdRevenueTarget() != targetIP) {
+                            if (myComputer.getType() == Computer.NPC) {
+                                myComputerHandler.addData(ApplicationData("httpxp", java.lang.Float(10.0f), MyApplicationData.getSourcePort(), ip), MyApplicationData.getSourceIP())
+                            } else {
+                                myComputerHandler.addData(
+                                    ApplicationData("httpxp", java.lang.Float(10.0f + myComputer.hTTPLevel * 10.0f), MyApplicationData.getSourcePort(), ip),
+                                    MyApplicationData.getSourceIP()
+                                )
                             }
-                            MyComputerHandler.addData(new ApplicationData("message", new Object[]{MessageHandler.CHANGE_DAILY_PAY_SUCCESS, new Object[]{}, new Object[]{port, MyComputer.getIP()}}, 0, MyComputer.getIP()), MyApplicationData.getSourceIP());
-                            MyComputerHandler.addData(new ApplicationData("message", MessageHandler.CHANGE_DAILY_PAY_SUCCESS_GAME, 0, MyComputer.getIP()), MyApplicationData.getSourceIP());
-                        } else
-                            MyComputerHandler.addData(new ApplicationData("message", new Object[]{MessageHandler.CHANGE_DAILY_PAY_FAIL_ALREADY_CONTROLLED, new Object[]{}, new Object[]{port, MyComputer.getIP()}}, 0, MyComputer.getIP()), MyApplicationData.getSourceIP());
 
-                        MyComputer.setAdRevenueTarget(targetIP);
+                            if (myComputer.getType() != Computer.NPC) {
+                                myComputerHandler.addData(ApplicationData("dailypayset", targetIP, 0, ip), MyApplicationData.getSourceIP())
+                            }
+                            myComputerHandler.addData(
+                                ApplicationData("message", arrayOf(MessageHandler.CHANGE_DAILY_PAY_SUCCESS, arrayOf<Any?>(), arrayOf(port, ip)), 0, ip),
+                                MyApplicationData.getSourceIP()
+                            )
+                            myComputerHandler.addData(ApplicationData("message", MessageHandler.CHANGE_DAILY_PAY_SUCCESS_GAME, 0, ip), MyApplicationData.getSourceIP())
+                        } else {
+                            myComputerHandler.addData(
+                                ApplicationData("message", arrayOf(MessageHandler.CHANGE_DAILY_PAY_FAIL_ALREADY_CONTROLLED, arrayOf<Any?>(), arrayOf(port, ip)), 0, ip),
+                                MyApplicationData.getSourceIP()
+                            )
+                        }
+                        myComputer.setAdRevenueTarget(targetIP)
                     }
                 } else {
-                    MyComputerHandler.addData(new ApplicationData("message", new Object[]{MessageHandler.CHANGE_DAILY_PAY_SUCCESS, new Object[]{}, new Object[]{port, MyComputer.getIP()}}, 0, MyComputer.getIP()), MyApplicationData.getSourceIP());
-                    MyComputerHandler.addData(new ApplicationData("message", MessageHandler.CHANGE_DAILY_PAY_SUCCESS_GAME, 0, MyComputer.getIP()), MyApplicationData.getSourceIP());
+                    myComputerHandler.addData(
+                        ApplicationData("message", arrayOf(MessageHandler.CHANGE_DAILY_PAY_SUCCESS, arrayOf<Any?>(), arrayOf(port, ip)), 0, ip),
+                        MyApplicationData.getSourceIP()
+                    )
+                    myComputerHandler.addData(ApplicationData("message", MessageHandler.CHANGE_DAILY_PAY_SUCCESS_GAME, 0, ip), MyApplicationData.getSourceIP())
                 }
-                resetPort(true, true);
-                return;
+                resetPort(true, true)
+                return
             }
-            //DESTROY ALL THE WATCHES ASSOCIATD WITH THIS PORT.
-            if (MyApplicationData.getFunction().equals("destroyWatch") && accessing.equals(MyApplicationData.getSourceIP())) {
-                if (!MyComputer.getEquipmentSheet().getDestroyWatchesImmune()) {
 
-                    if (MyComputer.getType() != Computer.NPC && finalizeAllowed(MyApplicationData)) {
-                        MyComputer.destroyWatches(number);
-                        MyComputerHandler.addData(new ApplicationData("message", MessageHandler.DESTROY_WATCHES_SUCCESS, 0, MyComputer.getIP()), MyApplicationData.getSourceIP());
+            if (MyApplicationData.getFunction() == "destroyWatch" && accessing == MyApplicationData.getSourceIP()) {
+                if (!myComputer.equipmentSheet.getDestroyWatchesImmune()) {
+                    if (myComputer.getType() != Computer.NPC && finalizeAllowed(MyApplicationData)) {
+                        myComputer.destroyWatches(number)
+                        myComputerHandler.addData(ApplicationData("message", MessageHandler.DESTROY_WATCHES_SUCCESS, 0, ip), MyApplicationData.getSourceIP())
                     }
-                    resetPort(true, true);
+                    resetPort(true, true)
                 }
-                return;
+                return
             }
-            //INITIALIZE AN ATTACK ON THIS PORT -- ONLY ONE INDIVIDUAL CAN ATTACK IT AT A TIME.
-            if (MyApplicationData.getFunction().equals("attack") || MyApplicationData.getFunction().equals("mine")) {//BETTER IF YOU'RE BLOCKED FOR A WHILE AFTER AN OVERHEAT.
-                if (MyApplicationData.getFunction().equals("mine") && type != REDIRECT) {
-                    MyComputerHandler.addData(new ApplicationData("message", MessageHandler.REDIRECT_FAIL_WRONG_TYPE, 0, MyComputer.getIP()), MyApplicationData.getSourceIP());
-                    return;
-                }
-                String network = "";//Make Sure the Player is on the proper network.
-                if (MyApplicationData.getParameters() instanceof String)
-                    network = (String) MyApplicationData.getParameters();
-                if (MyApplicationData.getParameters() instanceof String[])
-                    network = ((String[]) MyApplicationData.getParameters())[1];
-                if (!MyComputer.getNetwork().equals(network)) {
-                    String network2 = MyComputer.getNetwork();
-                    MyComputerHandler.addData(new ApplicationData("message", new Object[]{MessageHandler.ATTACK_FAIL_WRONG_NETWORK, new Object[]{MyComputer.getIP(), network2}}, 0, MyComputer.getIP()), MyApplicationData.getSourceIP());
-                    return;
-                }
-                if (MyComputer.getTotalLevel() < MyComputer.getNoobSafety()) {//Noob check.
-                    MyComputerHandler.addData(new ApplicationData("message", MessageHandler.ATTACK_FAIL_NOOB, 0, MyComputer.getIP()), MyApplicationData.getSourceIP());
-                    return;
-                }
-                if (accessing.length() == 0 || ((MyApplicationData.getSourceIP().equals(accessing) && MyApplicationData.getSourcePort() == accessingPort) && !weakened)) {
-                    accessing = MyApplicationData.getSourceIP();
-                    accessingPort = MyApplicationData.getSourcePort();
 
-                    //Deal with the flip-flopping of commodities that can be used to get too much XP.
-                    if (MyComputer.getType() == MyComputer.NPC || !accessing.equals(currentRedirectIP)) {
-                        currentRedirectXP = 0.0f;
-                        currentRedirectIP = accessing;
+            if (MyApplicationData.getFunction() == "attack" || MyApplicationData.getFunction() == "mine") {
+                if (MyApplicationData.getFunction() == "mine" && type != REDIRECT) {
+                    myComputerHandler.addData(ApplicationData("message", MessageHandler.REDIRECT_FAIL_WRONG_TYPE, 0, ip), MyApplicationData.getSourceIP())
+                    return
+                }
+                var network = ""
+                if (MyApplicationData.getParameters() is String) {
+                    network = MyApplicationData.getParameters() as String
+                }
+                if (MyApplicationData.getParameters() is Array<*>) {
+                    network = (MyApplicationData.getParameters() as Array<String>)[1]
+                }
+                if (myComputer.getNetwork() != network) {
+                    val network2 = myComputer.getNetwork()
+                    myComputerHandler.addData(
+                        ApplicationData("message", arrayOf(MessageHandler.ATTACK_FAIL_WRONG_NETWORK, arrayOf(ip, network2)), 0, ip),
+                        MyApplicationData.getSourceIP()
+                    )
+                    return
+                }
+                if (myComputer.getTotalLevel() < myComputer.noobSafety) {
+                    myComputerHandler.addData(ApplicationData("message", MessageHandler.ATTACK_FAIL_NOOB, 0, ip), MyApplicationData.getSourceIP())
+                    return
+                }
+                if (_accessing.isEmpty() || ((MyApplicationData.getSourceIP() == _accessing && MyApplicationData.getSourcePort() == accessingPort) && !weakened)) {
+                    _accessing = MyApplicationData.getSourceIP()
+                    accessingPort = MyApplicationData.getSourcePort()
+
+                    if (myComputer.getType() == Computer.NPC || _accessing != currentRedirectIP) {
+                        currentRedirectXP = 0.0f
+                        currentRedirectIP = _accessing
                     }
 
-                    //Send some information about this port.
-                    Float F[] = new Float[]{new Float(0.0f), new Float(health), new Float(MyComputer.getPettyCash()), new Float(getCPUCost())};
-                    Object O[] = new Object[]{F, new Boolean(MyComputer.getWatchHandler().checkForWatch(number)), new Boolean(MyComputer.getType() == MyComputer.NPC)};
-
-                    ApplicationData AD = null;
-                    if (MyApplicationData.getParameters() instanceof String) {
-                        AD = new ApplicationData("attackinitialize", O, MyApplicationData.getSourcePort(), MyComputer.getIP());
-                        AD.setSourcePort(number);
-                        MyComputerHandler.addData(AD, MyApplicationData.getSourceIP());
+                    val F = arrayOf(java.lang.Float(0.0f), java.lang.Float(_health), java.lang.Float(myComputer.getPettyCash()), java.lang.Float(getCPUCost()))
+                    val O = arrayOf<Any?>(F, java.lang.Boolean(myComputer.watchHandler.checkForWatch(number)), java.lang.Boolean(myComputer.getType() == Computer.NPC))
+                    val AD = ApplicationData("attackinitialize", O, MyApplicationData.getSourcePort(), ip)
+                    AD.sourcePort = number
+                    if (MyApplicationData.getParameters() is String) {
+                        myComputerHandler.addData(AD, MyApplicationData.getSourceIP())
                     } else {
-                        AD = new ApplicationData("attackinitialize", O, MyApplicationData.getSourcePort(), MyComputer.getIP());
-                        AD.setSourcePort(number);
-                        MyComputerHandler.addData(AD, ((String[]) MyApplicationData.getParameters())[0]);
+                        myComputerHandler.addData(AD, (MyApplicationData.getParameters() as Array<String>)[0])
                     }
-
-                    this.lastAccessed = currentTime;
+                    lastAccessed = now
                 } else {
-                    MyComputerHandler.addData(new ApplicationData("message", new Object[]{MessageHandler.PORT_ALREADY_UNDER_ATTACK, new Object[]{number, MyComputer.getIP(), accessing}, new Object[]{MyApplicationData.getSourcePort(), accessing}}, 0, MyComputer.getIP()), MyApplicationData.getSourceIP());
+                    myComputerHandler.addData(
+                        ApplicationData(
+                            "message",
+                            arrayOf(MessageHandler.PORT_ALREADY_UNDER_ATTACK, arrayOf(number, ip, _accessing), arrayOf(MyApplicationData.getSourcePort(), _accessing)),
+                            0,
+                            ip
+                        ),
+                        MyApplicationData.getSourceIP()
+                    )
                 }
-                return;
+                return
             }
-            //CANCEL THE ATTACK ON THIS PORT.
-            if (MyApplicationData.getFunction().equals("cancelattack") && accessing.equals(MyApplicationData.getSourceIP())) {
-                Object parameters = MyApplicationData.getParameters();
-                boolean heal = true;
+
+            if (MyApplicationData.getFunction() == "cancelattack" && accessing == MyApplicationData.getSourceIP()) {
+                var heal = true
+                val parameters = MyApplicationData.getParameters()
                 if (parameters != null) {
-                    heal = (boolean) (Boolean) parameters;
+                    heal = parameters as Boolean
                 }
-                resetPort(heal, true);
-                return;
+                resetPort(heal, true)
+                return
             }
 
-            //DEAL DAMAGE TO THIS PORT.
-            if (MyApplicationData.getFunction().equals("freeze")) {
-                if (!MyComputer.getEquipmentSheet().getFreezeImmune()) {
-                    if (accessing.equals(MyApplicationData.getSourceIP())) {
-                        freeze = true;
-                        freezeStart = MyComputer.getCurrentTime();
+            if (MyApplicationData.getFunction() == "freeze") {
+                if (!myComputer.equipmentSheet.getFreezeImmune()) {
+                    if (accessing == MyApplicationData.getSourceIP()) {
+                        freeze = true
+                        freezeStart = myComputer.currentTime
                     }
                 }
-                return;
+                return
             }
 
-            //DEAL DAMAGE TO THIS PORT.
-            if (MyApplicationData.getFunction().equals("damage") && !getWeakened()) {
-                float initialHealth = health;//Check initial health used by commodity NPCs.
-                Object[] parameters = (Object[]) MyApplicationData.getParameters();
-                float damage = (Float) parameters[0];//Get the amount of damage that has been dealt.
-                String sourceIP = (String) parameters[1];
-                int sourcePort = (Integer) parameters[2];
-                boolean damageFromFireWall = (Boolean) parameters[3];//Did this damage originate from an attack back fire-wall?
-                boolean zombieDamage = false;//Is the damage being dealt by a port that has been maliciously taken over?
-                String zombieSource = (String) parameters[4];
-                lastDamageWindowHandle = (Integer) parameters[5];
-                lastDamageIP = MyApplicationData.getSourceIP();
-                int currentCommodity = (Integer) parameters[6];
+            if (MyApplicationData.getFunction() == "damage" && !weakened) {
+                val initialHealth = _health
+                val parameters = MyApplicationData.getParameters() as Array<Any?>
+                val damage = parameters[0] as Float
+                val damageFromFireWall = parameters[3] as Boolean
+                var zombieDamage = false
+                val zombieSource = parameters[4] as String?
+                _lastDamageWindowHandle = parameters[5] as Int
+                _lastDamageIP = MyApplicationData.getSourceIP()
+                val currentCommodity = parameters[6] as Int
                 if (zombieSource != null) {
-                    zombieDamage = true;
-                    //zombieSource=(String)((Object[])MyApplicationData.getParameters())[5];
+                    zombieDamage = true
                 }
 
-                //Calculate XP and deal damage.
-                float modify = 0.0f;
-                if (!zombieDamage) {
-                    modify = MyFireWall.modifyDamage(damage, MyApplicationData.getSourceIP(), MyApplicationData.getSourcePort(), damageFromFireWall);
-                    damagePort(modify);
-                } else {
-                    modify = MyFireWall.modifyDamage(damage, zombieSource, MyApplicationData.getSourcePort(), damageFromFireWall);
-                    damagePort(modify);
-                }
+                val modify =
+                    if (!zombieDamage) {
+                        fireWall!!.modifyDamage(damage, MyApplicationData.getSourceIP(), MyApplicationData.getSourcePort(), damageFromFireWall)
+                    } else {
+                        fireWall!!.modifyDamage(damage, zombieSource, MyApplicationData.getSourcePort(), damageFromFireWall)
+                    }
+                damagePort(modify)
 
-                float xp = damage;//Get as much XP as damage you deal.
+                val xp = damage
+                var mining = false
+                if (currentCommodity != -1) {
+                    mining = true
+                    val currentAmount = myComputer.getCommodity(currentCommodity)
+                    var sendAmount = 1.0f
 
-                boolean mining = false;
-                if (currentCommodity != -1) {//It must be a mining attack.
-                    mining = true;
-                    //int currentCommodity=(Integer)((Object[])MyApplicationData.getParameters())[3];
-                    float currentAmount = MyComputer.getCommodity(currentCommodity);
-                    float sendAmount = 1.0f;
-
-                    if (getHealth() <= 0.0f && MyComputer.getType() == Computer.NPC) {//If this is an NPC type fork off the remaning resources after an attack.
-                        sendAmount = currentAmount;
+                    if (health <= 0.0f && myComputer.getType() == Computer.NPC) {
+                        sendAmount = currentAmount
                     }
 
-                    //Make sure NPCs respawn.
-                    if (initialHealth == 100.0 && MyComputer.getType() == MyComputer.NPC && currentAmount <= 0.0f) {
-                        MyComputer.respawnCommodity(currentCommodity);
+                    if (initialHealth == 100.0f && myComputer.getType() == Computer.NPC && currentAmount <= 0.0f) {
+                        myComputer.respawnCommodity(currentCommodity)
                     }
 
                     if (currentAmount > 0.0f) {
-                        if ((100.0f - getHealth()) >= 100.0f / currentAmount) {
-                            MyComputer.setCommodityAmount(currentCommodity, currentAmount - sendAmount);
-                            MyComputerHandler.addData(new ApplicationData("commodity", new Object[]{new Integer(currentCommodity), new Float(sendAmount), MyApplicationData.getSourcePort(), getIP()}, MyApplicationData.getSourcePort(), MyComputer.getIP()), MyApplicationData.getSourceIP());
-                            //Make sure a user can not get too much XP in one round of redirecting.
-                            currentRedirectXP += Computer.commodityXP[currentCommodity];
+                        if ((100.0f - health) >= 100.0f / currentAmount) {
+                            myComputer.setCommodityAmount(currentCommodity, currentAmount - sendAmount)
+                            myComputerHandler.addData(
+                                ApplicationData(
+                                    "commodity",
+                                    arrayOf(Integer(currentCommodity), java.lang.Float(sendAmount), MyApplicationData.getSourcePort(), IP),
+                                    MyApplicationData.getSourcePort(),
+                                    ip
+                                ),
+                                MyApplicationData.getSourceIP()
+                            )
+                            currentRedirectXP += Computer.commodityXP[currentCommodity]
                             if (currentRedirectXP < MAX_REDIRECT_XP) {
-                                MyComputerHandler.addData(new ApplicationData("redirectxp", new Float(Computer.commodityXP[currentCommodity] * sendAmount), MyApplicationData.getSourcePort(), MyComputer.getIP()), MyApplicationData.getSourceIP());
+                                myComputerHandler.addData(
+                                    ApplicationData("redirectxp", java.lang.Float(Computer.commodityXP[currentCommodity] * sendAmount), MyApplicationData.getSourcePort(), ip),
+                                    MyApplicationData.getSourceIP()
+                                )
                             } else {
-                                MyComputerHandler.addData(new ApplicationData("message", new Object[]{MessageHandler.REDIRECT_XP_MAX, new Object[]{MyComputer.getIP()}}, 0, MyComputer.getIP()), MyApplicationData.getSourceIP());
+                                myComputerHandler.addData(
+                                    ApplicationData("message", arrayOf(MessageHandler.REDIRECT_XP_MAX, arrayOf(ip)), 0, ip),
+                                    MyApplicationData.getSourceIP()
+                                )
                             }
                         }
                     }
                 }
 
-                if (xp > 0) {//Send experience to the proper recepient.
-                    Float F[] = new Float[]{new Float(xp), new Float(health), new Float(MyComputer.getPettyCash()), new Float(getCPUCost()), new Float(modify)};
-                    Object O[] = null;
-                    if (!zombieDamage)
-                        O = new Object[]{F, new Boolean(MyComputer.getWatchHandler().checkForWatch(number)), damageFromFireWall, mining};
-                    else {
-                        O = new Object[]{F, new Boolean(MyComputer.getWatchHandler().checkForWatch(number)), zombieSource, damageFromFireWall, mining};
-                        MyComputerHandler.addData(new ApplicationData("opponentupdate", O, MyApplicationData.getSourcePort(), MyComputer.getIP()), zombieSource);
+                if (xp > 0) {
+                    val F = arrayOf(java.lang.Float(xp), java.lang.Float(_health), java.lang.Float(myComputer.getPettyCash()), java.lang.Float(getCPUCost()), java.lang.Float(modify))
+                    val O =
+                        if (!zombieDamage) {
+                            arrayOf<Any?>(F, java.lang.Boolean(myComputer.watchHandler.checkForWatch(number)), damageFromFireWall, mining)
+                        } else {
+                            arrayOf<Any?>(F, java.lang.Boolean(myComputer.watchHandler.checkForWatch(number)), zombieSource, damageFromFireWall, mining)
+                        }
+                    if (zombieDamage) {
+                        myComputerHandler.addData(ApplicationData("opponentupdate", O, MyApplicationData.getSourcePort(), ip), zombieSource)
                     }
-                    if (!mining)
-                        MyComputerHandler.addData(new ApplicationData("attackxp", O, MyApplicationData.getSourcePort(), MyComputer.getIP()), MyApplicationData.getSourceIP());
-                    else//Make sure we keep seeing damage.
-                        MyComputerHandler.addData(new ApplicationData("miningdamageupdate", O, MyApplicationData.getSourcePort(), MyComputer.getIP()), MyApplicationData.getSourceIP());
-
+                    if (!mining) {
+                        myComputerHandler.addData(ApplicationData("attackxp", O, MyApplicationData.getSourcePort(), ip), MyApplicationData.getSourceIP())
+                    } else {
+                        myComputerHandler.addData(ApplicationData("miningdamageupdate", O, MyApplicationData.getSourcePort(), ip), MyApplicationData.getSourceIP())
+                    }
                 }
 
-                if (getHealth() <= 0.0f && accessing.equals(MyApplicationData.getSourceIP())) {
-                    ApplicationData AD = new ApplicationData("attackfinalize", new Integer(type), MyApplicationData.getSourcePort(), MyComputer.getIP());
-                    AD.setSourcePort(getNumber());
-                    if (!zombieDamage)
-                        MyComputerHandler.addData(AD, MyApplicationData.getSourceIP());
-                    else
-                        MyComputerHandler.addData(AD, zombieSource);
+                if (health <= 0.0f && accessing == MyApplicationData.getSourceIP()) {
+                    val AD = ApplicationData("attackfinalize", Integer(type), MyApplicationData.getSourcePort(), ip)
+                    AD.sourcePort = number
+                    if (!zombieDamage) {
+                        myComputerHandler.addData(AD, MyApplicationData.getSourceIP())
+                    } else {
+                        myComputerHandler.addData(AD, zombieSource)
+                    }
 
-                    weakened = true;
-                    resetHealCounter();
-                } else if (getHealth() <= 0) {
-                    weakened = true;
-                    resetHealCounter();
+                    _weakened = true
+                    resetHealCounter()
+                } else if (health <= 0.0f) {
+                    _weakened = true
+                    resetHealCounter()
                 }
 
-                lastAccessed = currentTime;
-                MyComputer.sendDamagePacket();
-
-                return;
+                lastAccessed = now
+                myComputer.sendDamagePacket()
+                return
             }
 
-            //INSTALL MALICOUS CODE ON THIS PORT. (ONE OPTION UPON COMPLETING ATTACK.
-            if (MyApplicationData.getFunction().equals("installScript") && accessing.equals(MyApplicationData.getSourceIP())) {
-                if (!MyFireWall.getInstallScriptFail(MyApplicationData.getSourceIP())) {//Check whether installing a script failed.
-                    if (MyComputer.getType() != Computer.NPC && finalizeAllowed(MyApplicationData)) {
-                        HashMap Script = (HashMap) ((Object[]) MyApplicationData.getParameters())[0];
-                        Object[] MaliciousParameters = (Object[]) ((Object[]) MyApplicationData.getParameters())[1];
+            if (MyApplicationData.getFunction() == "installScript" && accessing == MyApplicationData.getSourceIP()) {
+                if (!fireWall!!.getInstallScriptFail(MyApplicationData.getSourceIP())) {
+                    if (myComputer.getType() != Computer.NPC && finalizeAllowed(MyApplicationData)) {
+                        val Script = (MyApplicationData.getParameters() as Array<Any?>)[0] as HashMap<Any?, Any?>?
+                        val MaliciousParameters = (MyApplicationData.getParameters() as Array<Any?>)[1] as Array<Any?>
 
-                        //Set the parameters provided as part of this malicious program.
                         if (type == BANKING) {
-                            this.maliciousTarget = (String) MaliciousParameters[0];
-                            Banking B = (Banking) MyProgram;
-                            B.setPettyCashTarget((Float) MaliciousParameters[1]);
+                            maliciousTarget = MaliciousParameters[0] as String
+                            val B = program as Banking
+                            B.pettyCashTarget = MaliciousParameters[1] as Float
                         } else if (type == FTP) {
-                            this.maliciousTarget = (String) MaliciousParameters[0];
+                            maliciousTarget = MaliciousParameters[0] as String
                         } else if (type == ATTACK) {
-                            AttackProgram A = (AttackProgram) MyProgram;
-                            A.setPettyCashTarget((Float) MaliciousParameters[1]);
-                            this.maliciousTarget = ((String) MaliciousParameters[0]);
+                            val A = program as AttackProgram
+                            A.setPettyCashTarget(MaliciousParameters[1] as Float)
+                            maliciousTarget = MaliciousParameters[0] as String
                         }
 
-                        if (Script != null && MyProgram != null) {
-                            MyProgram.installScript(Script);
-                            MyComputerHandler.addData(new ApplicationData("message", new Object[]{MessageHandler.INSTALL_SCRIPT_SUCCESS, new Object[]{}, new Object[]{lastDamageWindowHandle, MyComputer.getIP()}}, 0, MyComputer.getIP()), MyApplicationData.getSourceIP());
-                            MyComputerHandler.addData(new ApplicationData("message", new Object[]{MessageHandler.INSTALL_SCRIPT_SUCCESS_GAME, new Object[]{}}, 0, MyComputer.getIP()), MyApplicationData.getSourceIP());
+                        if (Script != null && program != null) {
+                            program!!.installScript(Script)
+                            myComputerHandler.addData(
+                                ApplicationData("message", arrayOf(MessageHandler.INSTALL_SCRIPT_SUCCESS, arrayOf<Any?>(), arrayOf(lastDamageWindowHandle, ip)), 0, ip),
+                                MyApplicationData.getSourceIP()
+                            )
+                            myComputerHandler.addData(
+                                ApplicationData("message", arrayOf(MessageHandler.INSTALL_SCRIPT_SUCCESS_GAME, arrayOf<Any?>()), 0, ip),
+                                MyApplicationData.getSourceIP()
+                            )
                         }
                     }
-
                 }
-                resetPort(true, true);
-                return;
+                resetPort(true, true)
+                return
             }
 
             if (!dummy) {
-                if (MyApplicationData.getFunction().equals("attackfinalize")) {
-                    MyProgram.execute(MyApplicationData);
-                } else if ((!overHeated && !freeze) || (MyApplicationData.getFunction().equals("requestsecondarydirectory"))) {//Malget is a special case.
-                    if (!MyApplicationData.getFunction().equals("malget")) {
-                        MyProgram.execute(MyApplicationData);
+                if (MyApplicationData.getFunction() == "attackfinalize") {
+                    program!!.execute(MyApplicationData)
+                } else if ((!overHeated && !freeze) || (MyApplicationData.getFunction() == "requestsecondarydirectory")) {
+                    if (MyApplicationData.getFunction() != "malget") {
+                        program!!.execute(MyApplicationData)
                     }
-
                 } else {
-                    if (MyApplicationData.getFunction().equals("zombieattack"))
-                        MyComputerHandler.addData(new ApplicationData("message", new Object[]{MessageHandler.PORT_IS_OVERHEATED, new Object[]{number, MyComputer.getIP()}}, 0, MyComputer.getIP()), MyApplicationData.getSourceIP());
-                    MyComputerHandler.addData(new ApplicationData("message", new Object[]{MessageHandler.PORT_IS_OVERHEATED, new Object[]{number, MyComputer.getIP()}}, 0, MyComputer.getIP()), MyComputer.getIP());
+                    if (MyApplicationData.getFunction() == "zombieattack") {
+                        myComputerHandler.addData(
+                            ApplicationData("message", arrayOf(MessageHandler.PORT_IS_OVERHEATED, arrayOf(number, ip)), 0, ip),
+                            MyApplicationData.getSourceIP()
+                        )
+                    }
+                    myComputerHandler.addData(
+                        ApplicationData("message", arrayOf(MessageHandler.PORT_IS_OVERHEATED, arrayOf(number, ip)), 0, ip),
+                        ip
+                    )
                 }
-            } else
-                MyComputerHandler.addData(new ApplicationData("message", new Object[]{MessageHandler.PORT_WAS_DUMMY, new Object[]{number, MyComputer.getIP()}, new Object[]{MyApplicationData.getSourcePort(), MyApplicationData.getSourceIP()}}, 0, MyComputer.getIP()), MyComputer.getIP());
-
-        } else if (!MyApplicationData.getFunction().equals("logmessage")) {
-            setAttacking(false);
-            MyComputerHandler.addData(new ApplicationData("message", new Object[]{MessageHandler.COULD_NOT_EXECUTE_APPLICATION, new Object[]{number}}, 0, MyComputer.getIP()), MyComputer.getIP());
+            } else {
+                myComputerHandler.addData(
+                    ApplicationData("message", arrayOf(MessageHandler.PORT_WAS_DUMMY, arrayOf(number, ip), arrayOf(MyApplicationData.getSourcePort(), MyApplicationData.getSourceIP())), 0, ip),
+                    ip
+                )
+            }
+        } else if (MyApplicationData.getFunction() != "logmessage") {
+            attacking = false
+            myComputerHandler.addData(
+                ApplicationData("message", arrayOf(MessageHandler.COULD_NOT_EXECUTE_APPLICATION, arrayOf(number)), 0, ip),
+                ip
+            )
         }
     }
 
-    /**
-     For idiots trying to share files with other idiots, return a finalize put in this situation.
-     */
-    public void friendlyPut(ApplicationData MyApplicationData) {
-        if (MyApplicationData.getFunction().equals("finalizeput")) {
-            String name = (String) ((Object[]) MyApplicationData.getParameters())[1];
-            String fetch_path = (String) ((Object[]) MyApplicationData.getParameters())[2];
-            String password = (String) ((Object[]) MyApplicationData.getParameters())[4];
-            HackerFile HF = (HackerFile) ((Object[]) MyApplicationData.getParameters())[5];
-            MyComputerHandler.addData(new ApplicationData("message", MessageHandler.FTP_PUT_FAIL, 0, this.getIP()), MyApplicationData.getSourceIP());
-            HF.setLocation("");
-            Object Parameters[] = new Object[]{fetch_path, HF};
-            MyComputerHandler.addData(new ApplicationData("savefile", Parameters, 0, this.getIP()), MyApplicationData.getSourceIP());
+    fun friendlyPut(MyApplicationData: ApplicationData) {
+        if (MyApplicationData.getFunction() == "finalizeput") {
+            val fetch_path = (MyApplicationData.getParameters() as Array<Any?>)[2] as String
+            val HF = (MyApplicationData.getParameters() as Array<Any?>)[5] as HackerFile
+            myComputerHandler.addData(ApplicationData("message", MessageHandler.FTP_PUT_FAIL, 0, IP), MyApplicationData.getSourceIP())
+            HF.setLocation("")
+            val Parameters = arrayOf<Any?>(fetch_path, HF)
+            myComputerHandler.addData(ApplicationData("savefile", Parameters, 0, IP), MyApplicationData.getSourceIP())
         }
     }
 
-    /**
-     Get the packet representation of this port.
-     */
-    public PacketPort getPacketPort() {
-        PacketPort returnMe = new PacketPort();
-        returnMe.setNote(note);
-        returnMe.setNumber(number);
-        returnMe.setFireWall(MyFireWall.getType());
-        returnMe.setType(type);
-        returnMe.setOn(on);
-        returnMe.setAttacking(attacking);
-        returnMe.setCPUCost(getCPUCost());
-        returnMe.setMaxCPUCost(getBaseCPUCostAndFirewall());
-        returnMe.setHealth(health);
-        returnMe.setDummy(dummy);
-        returnMe.setDefault(0);
-        if (getType() == PacketPort.BANKING && getNumber() == MyComputer.getDefaultBank())
-            returnMe.setDefault(1);
-        if (getType() == PacketPort.ATTACK && getNumber() == MyComputer.getDefaultAttack())
-            returnMe.setDefault(1);
-        if (getType() == PacketPort.REDIRECT && getNumber() == MyComputer.getDefaultShipping())
-            returnMe.setDefault(1);
-        if (getType() == PacketPort.FTP && getNumber() == MyComputer.getDefaultFTP())
-            returnMe.setDefault(1);
-        if (getType() == PacketPort.HTTP && getNumber() == MyComputer.getDefaultHTTP())
-            returnMe.setDefault(1);
-        return (returnMe);
+    fun getPacketPort(): PacketPort {
+        val returnMe = PacketPort()
+        returnMe.setNote(note)
+        returnMe.setNumber(number)
+        returnMe.setFireWall(fireWall!!.getType())
+        returnMe.setType(type)
+        returnMe.setOn(on)
+        returnMe.setAttacking(attacking)
+        returnMe.setCPUCost(getCPUCost())
+        returnMe.setMaxCPUCost(getBaseCPUCostAndFirewall())
+        returnMe.setHealth(_health)
+        returnMe.setDummy(dummy)
+        returnMe.setDefault(0)
+        if (getType() == PacketPort.BANKING && getNumber() == myComputer.getDefaultBank()) returnMe.setDefault(1)
+        if (getType() == PacketPort.ATTACK && getNumber() == myComputer.getDefaultAttack()) returnMe.setDefault(1)
+        if (getType() == PacketPort.REDIRECT && getNumber() == myComputer.getDefaultShipping()) returnMe.setDefault(1)
+        if (getType() == PacketPort.FTP && getNumber() == myComputer.getDefaultFTP()) returnMe.setDefault(1)
+        if (getType() == PacketPort.HTTP && getNumber() == myComputer.getDefaultHTTP()) returnMe.setDefault(1)
+        return returnMe
     }
 
-    /**
-     Output the contents of this class as an XML string.
-     */
-    public String outputXML() {
-        String returnMe = "<port>\n";
-        returnMe += "<number>" + number + "</number>\n";
-        returnMe += "<type>" + type + "</type>\n";
-        returnMe += "<health>" + health + "</health>";
-        if (on)
-            returnMe += "<onoff>1</onoff>\n";
-        else
-            returnMe += "<onoff>0</onoff>\n";
-        returnMe += "<cpu>" + cpuCost + "</cpu>\n";
-        if (note != null)
-            returnMe += "<note><![CDATA[" + note.replaceAll("]]>", "]]&gt;") + "]]></note>\n";
-        else
-            returnMe += "<note><![CDATA[" + note + "]]></note>\n";
+    fun outputXML(): String {
+        var returnMe = "<port>\n"
+        returnMe += "<number>$number</number>\n"
+        returnMe += "<type>$type</type>\n"
+        returnMe += "<health>$_health</health>"
+        returnMe += if (on) "<onoff>1</onoff>\n" else "<onoff>0</onoff>\n"
+        returnMe += "<cpu>$_cpuCost</cpu>\n"
+        returnMe += if (note != null) {
+            "<note><![CDATA[" + note!!.replace("]]>", "]]&gt;") + "]]></note>\n"
+        } else {
+            "<note><![CDATA[$note]]></note>\n"
+        }
+        returnMe += "<firewall>" + fireWall!!.getHackerFile()!!.outputXML() + "</firewall>\n"
+        returnMe += if (dummy) "<dummy>1</dummy>\n" else "<dummy>0</dummy>\n"
+        returnMe += if (maliciousTarget != null) {
+            "<malicioustarget><![CDATA[" + maliciousTarget!!.replace("]]>", "]]&gt;") + "]]></malicioustarget>\n"
+        } else {
+            "<malicioustarget><![CDATA[$maliciousTarget]]></malicioustarget>\n"
+        }
+        if (program != null) {
+            returnMe += program!!.outputXML()
+        }
+        returnMe += "</port>\n"
+        return returnMe
+    }
 
-        returnMe += "<firewall>" + MyFireWall.getHackerFile().outputXML() + "</firewall>\n";
-        if (dummy)
-            returnMe += "<dummy>1</dummy>\n";
-        else
-            returnMe += "<dummy>0</dummy>\n";
-
-        if (maliciousTarget != null)
-            returnMe += "<malicioustarget><![CDATA[" + maliciousTarget.replaceAll("]]>", "]]&gt;") + "]]></malicioustarget>\n";
-        else
-            returnMe += "<malicioustarget><![CDATA[" + maliciousTarget + "]]></malicioustarget>\n";
-
-        if (MyProgram != null)
-            returnMe += MyProgram.outputXML();
-        returnMe += "</port>\n";
-        return (returnMe);
+    companion object {
+        const val BANKING = 0
+        const val FTP = 1
+        const val ATTACK = 2
+        const val HTTP = 3
+        const val REDIRECT = 4
+        const val SHIPPING = REDIRECT
+        const val MAX_REDIRECT_XP = 2000.0f
+        private const val FREEZE_TIME = 10000L
+        const val timeOut = 30000L
+        const val fullTimeOut = 45000L
     }
 }

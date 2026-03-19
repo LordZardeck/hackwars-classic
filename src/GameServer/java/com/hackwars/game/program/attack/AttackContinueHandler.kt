@@ -11,12 +11,12 @@ class AttackContinueHandler : AttackFunctionHandler {
         program.continueScript?.let(program::runScript)
 
         if (program.dealDamage) {
-            val payload: Array<Any?> = arrayOf(
+            val payload: Array<Any?> = arrayOf<Any?>(
                 program.computer!!.getDamage("Attack") + program.computer!!.equipmentSheet.getDamageBonus(),
-                program.parentPort!!.ip,
+                program.parentPort!!.IP,
                 program.parentPort!!.number,
                 false,
-                program.parentPort!!.ip.takeIf { program.zombie },
+                program.parentPort!!.IP.takeIf { program.zombie },
                 program.windowHandle,
                 -1
             )

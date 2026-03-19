@@ -1,62 +1,62 @@
-package game;
+package game
 
+import java.util.ArrayList
+import java.util.concurrent.Semaphore
 
-import java.util.*;
-import java.util.concurrent.Semaphore;
-
-public class MysqlHandler {
-
-    private static ArrayList work = new ArrayList();
-    private static final Semaphore available = new Semaphore(1, true);
-    private static MysqlHandler MyInstance = new MysqlHandler();
-
-
-    public MysqlHandler() {
-        for (int i = 0; i < 10; i++) {
-            CheckOutHandler c = new CheckOutHandler();
+open class MysqlHandler {
+    init {
+        for (i in 0..<10) {
+            CheckOutHandler()
         }
     }
 
-    public static Object[] getWork() {
-        try {
-            available.acquire();
+    companion object {
+        private val work = ArrayList<Array<Any?>>()
+        private val available = Semaphore(1, true)
 
-            if (work.size() == 0) {
-                available.release();
-                return (null);
-            }
-            Object O[] = (Object[]) work.remove(0);
-            available.release();
-            return (O);
+        @Suppress("unused")
+        private val MyInstance = MysqlHandler()
 
-        } catch (Exception e) {
-            available.release();
-        }
-        return (null);
-    }
+        @JvmStatic
+        fun getWork(): Array<Any?>? {
+            try {
+                available.acquire()
 
-    public static void addWork(Object[] work1) {
-        try {
-            available.acquire();
-            boolean found = false;
-            for (int i = 0; i < work.size(); i++) {
-                String ip1 = (String) work1[0];
-                String ip2 = (String) ((Object[]) work.get(i))[0];
-                if (ip2.equals(ip1)) {
-                    work.set(i, work1);
-                    found = true;
+                if (work.size == 0) {
+                    available.release()
+                    return null
                 }
+                val o = work.removeAt(0)
+                available.release()
+                return o
+            } catch (e: Exception) {
+                available.release()
             }
+            return null
+        }
 
-            if (!found) {
-                CheckOutHandler.SAVE_COUNTER++;
-                work.add(work1);
+        @JvmStatic
+        fun addWork(work1: Array<Any?>) {
+            try {
+                available.acquire()
+                var found = false
+                for (i in 0..<work.size) {
+                    val ip1 = work1[0] as String
+                    val ip2 = work[i][0] as String
+                    if (ip2 == ip1) {
+                        work[i] = work1
+                        found = true
+                    }
+                }
+
+                if (!found) {
+                    CheckOutHandler.SAVE_COUNTER++
+                    work.add(work1)
+                }
+                available.release()
+            } catch (e: Exception) {
+                available.release()
             }
-            available.release();
-        } catch (Exception e) {
-            available.release();
         }
     }
-
-
 }

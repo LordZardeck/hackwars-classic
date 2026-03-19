@@ -1,604 +1,578 @@
-package game;
+package game
+
+import java.util.ArrayList
+import java.util.HashMap
+import java.util.Iterator
+import java.util.Map
 
 /**
  * FileSystem.java<br />
  * (c) Vulgate 2007
- * <p>
+ *
  * The file system for the hacker game.
  */
-
-import java.util.*;
-import java.io.*;
-
-public class FileSystem {
-    private HashMap root = new HashMap();
-    private ArrayList FlatDirectory = new ArrayList();
-    public static final int HD_CHART[] = new int[]{20, 40, 80, 100, 150, 30, 1000};
-    private int HDType = 0;
-    private int quota = 0;
-    private Computer MyComputer = null;
+open class FileSystem(private val MyComputer: Computer) {
+    private val root = HashMap<Any?, Any?>()
+    private val FlatDirectory = ArrayList<Any?>()
+    private var HDType = 0
+    private var quota = 0
 
     /**
      Set the type of HD installed.
      */
-    public void setHDType(int HDType) {
-        this.HDType = HDType;
+    fun setHDType(HDType: Int) {
+        this.HDType = HDType
     }
 
     /**
      Check whether the current type is better than the current type.
      */
-    public boolean checkType(int type) {
-        if (HD_CHART[type] > HD_CHART[HDType])
-            return (true);
-        return (false);
+    fun checkType(type: Int): Boolean {
+        if (HD_CHART[type] > HD_CHART[HDType]) {
+            return true
+        }
+        return false
     }
 
     /**
      Get the type of HD installed.
      */
-    public int getHDType() {
-        return (HDType);
+    fun getHDType(): Int {
+        return HDType
     }
 
     /**
      Get the amount of files currently in the File System.
      */
-    public int getQuantity() {
-        return (quota);
+    fun getQuantity(): Int {
+        return quota
     }
 
     /**
      Return the maximum hard-drive space of this hard-drive.
      */
-    public int getMaximumSpace() {
-        return (HD_CHART[HDType] + (int) MyComputer.getEquipmentSheet().getHDBonus());
+    fun getMaximumSpace(): Int {
+        return HD_CHART[HDType] + MyComputer.equipmentSheet.getHDBonus().toInt()
     }
 
     /**
      Returns the amount of freespace without bonuses.
      */
-    public int getSpaceMinusBonus() {
-        return (HD_CHART[HDType] - quota + 2);
+    fun getSpaceMinusBonus(): Int {
+        return HD_CHART[HDType] - quota + 2
     }
 
     /**
      Get the space left on the HD.
      */
-    public int getSpaceLeft() {
-        // the +2 is for your Public and Shop FTP directories, which are hidden and don't count against your quota
-        return (getMaximumSpace() - quota + 2);
-        //return(HD_CHART[HDType]-quota+2+(int)MyComputer.getEquipmentSheet().getHDBonus());
-    }
-
-    //Constructor.
-    public FileSystem(Computer MyComputer) {
-        this.MyComputer = MyComputer;
+    fun getSpaceLeft(): Int {
+        return getMaximumSpace() - quota + 2
     }
 
     /**
      Check whether the directory provided exists.
      */
-    public void updateFlatDirectory(String directory) {
-
-        boolean add = true;
-        Iterator I = FlatDirectory.iterator();
+    fun updateFlatDirectory(directory: String) {
+        var add = true
+        val I = FlatDirectory.iterator()
         while (I.hasNext()) {
-            String s = (String) I.next();
+            val s = I.next() as String
             if (s.indexOf(directory) >= 0) {
-                add = false;
-                break;
-            } else if (directory.indexOf(s) >= 0)
-                I.remove();
+                add = false
+                break
+            } else if (directory.indexOf(s) >= 0) {
+                I.remove()
+            }
         }
-        if (add)
-            FlatDirectory.add(directory);
+        if (add) {
+            FlatDirectory.add(directory)
+        }
     }
 
     /**
      Remove from flat.
      */
-    public void removeFlatDirectory(String directory) {
-        String fixedDirectory = "";
-        String data[] = directory.split("/");
-        for (int i = 0; i < data.length; i++) {
-            if (!data[i].equals("")) {
-                fixedDirectory += data[i] + "/";
+    fun removeFlatDirectory(directory: String) {
+        var directoryVar = directory
+        var fixedDirectory = ""
+        var data = directoryVar.split("/".toRegex()).dropLastWhile { it.isEmpty() }.toTypedArray()
+        for (i in data.indices) {
+            if (data[i] != "") {
+                fixedDirectory += data[i] + "/"
             }
-
         }
-        directory = fixedDirectory;
+        directoryVar = fixedDirectory
 
-        Iterator I = FlatDirectory.iterator();
-        String addDirectory = "";
+        val I = FlatDirectory.iterator()
+        var addDirectory = ""
         while (I.hasNext()) {
-            String s = (String) I.next();
-            if (s.equals(directory)) {
-                I.remove();
-                data = s.split("/");
-                for (int i = 0; i < data.length - 1; i++) {
-                    if (!data[i].equals("")) {
-                        addDirectory += data[i] + "/";
+            val s = I.next() as String
+            if (s == directoryVar) {
+                I.remove()
+                data = s.split("/".toRegex()).dropLastWhile { it.isEmpty() }.toTypedArray()
+                for (i in 0..<data.size - 1) {
+                    if (data[i] != "") {
+                        addDirectory += data[i] + "/"
                     }
                 }
             }
         }
-        if (!addDirectory.equals("")) {
-            updateFlatDirectory(addDirectory);
+        if (addDirectory != "") {
+            updateFlatDirectory(addDirectory)
         }
     }
 
     /**
      Add a directory to the file system.
      */
-    public boolean addDirectory(String directory) {
-        if (directory == null || directory == "")
-            return (false);
+    fun addDirectory(directory: String?): Boolean {
+        var directoryVar = directory
+        if (directoryVar == null || directoryVar === "") {
+            return false
+        }
 
-        if (directory != null)
-            if (directory.charAt(0) == '/' && directory.length() > 1)
-                directory = directory.substring(1, directory.length());
+        if (directoryVar[0] == '/' && directoryVar.length > 1) {
+            directoryVar = directoryVar.substring(1, directoryVar.length)
+        }
 
-        //Remove the directory from the flat directory listing.
-        for (int i = 0; i < FlatDirectory.size(); i++) {
-            if (((String) FlatDirectory.get(i)).equals(directory)) {
-                return (false);
+        for (i in FlatDirectory.indices) {
+            if (FlatDirectory[i] as String == directoryVar) {
+                return false
             }
         }
 
-        if (!(quota - 2 < HD_CHART[HDType] + (int) MyComputer.getEquipmentSheet().getHDBonus()))
-            return (false);
-        quota++;
+        if (!(quota - 2 < HD_CHART[HDType] + MyComputer.equipmentSheet.getHDBonus().toInt())) {
+            return false
+        }
+        quota++
 
-        // each part of the locationPath is just a name of a directory (not the entire path)
-        // when a directory is passed in, it's passed with the entire path
-        String locationPath[] = directory.split("/");
+        val locationPath = directoryVar.split("/".toRegex()).dropLastWhile { it.isEmpty() }.toTypedArray()
+        var currentHashMap = root
+        var directoryString = ""
 
-        // currentHashMap is the current directory listing
-        HashMap currentHashMap = root;
-
-        String directoryString = "";
-
-        // go through the entire path, traversing from directory to directory
-        for (int i = 0; i < locationPath.length; i++) {
-            if (!locationPath[i].equals("")) {
-                directoryString += locationPath[i];
-                directoryString += "/";
+        for (i in locationPath.indices) {
+            if (locationPath[i] != "") {
+                directoryString += locationPath[i]
+                directoryString += "/"
             }
 
-            if (!locationPath[i].equals("")) {
-                // if the current directory doesn't contain the next directory...
-                if (currentHashMap.get(locationPath[i]) == null) {
-                    // no idea what the fuck is going on here
-                    if (i != locationPath.length - 1) {
-                        if (!(quota - 2 < HD_CHART[HDType] + (int) MyComputer.getEquipmentSheet().getHDBonus()))
-                            return (false);
-                        quota++;
+            if (locationPath[i] != "") {
+                if (currentHashMap[locationPath[i]] == null) {
+                    if (i != locationPath.size - 1) {
+                        if (!(quota - 2 < HD_CHART[HDType] + MyComputer.equipmentSheet.getHDBonus().toInt())) {
+                            return false
+                        }
+                        quota++
                     }
 
-                    // add in the new directory, with an empty hashmap into this directory
-                    HashMap NewMap = new HashMap();
-                    currentHashMap.put(locationPath[i], NewMap);
-                    currentHashMap = NewMap;
+                    val NewMap = HashMap<Any?, Any?>()
+                    currentHashMap[locationPath[i]] = NewMap
+                    currentHashMap = NewMap
                 } else {
-                    // this directory contains the next? great.  switch directories.
-                    if (currentHashMap.get(locationPath[i]) instanceof HashMap) {
-                        currentHashMap = (HashMap) currentHashMap.get(locationPath[i]);
+                    if (currentHashMap[locationPath[i]] is HashMap<*, *>) {
+                        @Suppress("UNCHECKED_CAST")
+                        val next = currentHashMap[locationPath[i]] as HashMap<Any?, Any?>
+                        currentHashMap = next
                     }
                 }
             }
         }
 
-        updateFlatDirectory(directoryString);
-
-        return (true);
+        updateFlatDirectory(directoryString)
+        return true
     }
 
     /**
      Delete a directory from the file system.
      */
-    public boolean deleteDirectory(String directory) {
-        // try and delete everything in the folder you're deleting
-        if (!deleteDirectoryRecursive(directory)) {
-            return false;
+    fun deleteDirectory(directory: String?): Boolean {
+        val directoryValue = directory!!
+        if (!deleteDirectoryRecursive(directoryValue)) {
+            return false
         }
-        removeFlatDirectory(directory);
+        removeFlatDirectory(directoryValue)
 
-        // remove this directory from it's root
-        String locationPath[] = directory.split("/");
-        HashMap currentDirectory = root;
-        for (int i = 0; i < locationPath.length - 1; i++) {
-            if (!locationPath[i].equals(""))
-                currentDirectory = (HashMap) currentDirectory.get(locationPath[i]);
+        val locationPath = directoryValue.split("/".toRegex()).dropLastWhile { it.isEmpty() }.toTypedArray()
+        var currentDirectory = root
+        for (i in 0..<locationPath.size - 1) {
+            if (locationPath[i] != "") {
+                @Suppress("UNCHECKED_CAST")
+                val next = currentDirectory[locationPath[i]] as HashMap<Any?, Any?>
+                currentDirectory = next
+            }
         }
-        if (locationPath.length > 0) {
-            currentDirectory.remove(locationPath[locationPath.length - 1]);
+        if (locationPath.isNotEmpty()) {
+            currentDirectory.remove(locationPath[locationPath.size - 1])
         }
 
-        // add one to the total available space on the HD
-        quota--;
-        if (quota < 0)//Make sure quota can't go below 0.
-            quota = 0;
-
-        return true;
+        quota--
+        if (quota < 0) {
+            quota = 0
+        }
+        return true
     }
 
-    private boolean deleteDirectoryRecursive(String directory) {
-        String locationPath[] = directory.split("/");
-        HashMap currentDirectory = root;
-        for (int i = 0; i < locationPath.length - 1; i++) {
-            if (!locationPath[i].equals(""))
-                currentDirectory = (HashMap) currentDirectory.get(locationPath[i]);
+    private fun deleteDirectoryRecursive(directory: String): Boolean {
+        val locationPath = directory.split("/".toRegex()).dropLastWhile { it.isEmpty() }.toTypedArray()
+        var currentDirectory = root
+        for (i in 0..<locationPath.size - 1) {
+            if (locationPath[i] != "") {
+                @Suppress("UNCHECKED_CAST")
+                val next = currentDirectory[locationPath[i]] as HashMap<Any?, Any?>
+                currentDirectory = next
+            }
         }
-        if (locationPath.length > 0) {
-            // get the final directory in the path that's passed in
-            Object O = currentDirectory.get(locationPath[locationPath.length - 1]);
-            if (O instanceof HashMap) {
-                HashMap directoryToDelete = (HashMap) O;
-                // remove everything in the directory recursively
-                Iterator it = (directoryToDelete.entrySet()).iterator();
+        if (locationPath.isNotEmpty()) {
+            val O = currentDirectory[locationPath[locationPath.size - 1]]
+            if (O is HashMap<*, *>) {
+                @Suppress("UNCHECKED_CAST")
+                val directoryToDelete = O as HashMap<Any?, Any?>
+                val it = directoryToDelete.entries.iterator()
                 while (it.hasNext()) {
-                    Map.Entry mapEntry = (Map.Entry) it.next();
-                    Object o = mapEntry.getKey();
-                    if (mapEntry.getValue() instanceof HashMap) {
-                        // if it's a directory, delete it recursively
-                        deleteDirectoryRecursive(directory + (String) o);
-                        //Remove the directory from the flat directory listing.
-                        removeFlatDirectory(directory + (String) o);
-                    } else {
-                        //deleted directory
+                    val mapEntry = it.next() as Map.Entry<Any?, Any?>
+                    val o = mapEntry.key
+                    if (mapEntry.value is HashMap<*, *>) {
+                        deleteDirectoryRecursive(directory + o as String)
+                        removeFlatDirectory(directory + o)
                     }
 
-                    it.remove();
-                    quota--;
-                    if (quota < 0)//Make sure quota can't go below 0.
-                        quota = 0;
+                    it.remove()
+                    quota--
+                    if (quota < 0) {
+                        quota = 0
+                    }
                 }
             }
         }
-        return (true);
-
+        return true
     }
-
 
     /**
      Add a file to the file system.
      */
-    public boolean addFile(HackerFile HF, boolean checkSpace) {
-        //Check to see whether the file has timed out.
-        if (HF.getType() == HF.BOUNTY || HF.getType() == HF.PCI || HF.getType() == HF.AGP) {
-            String STimeOut = (String) HF.getContent().get("timeout");
-            long timeOut = MyComputer.getCurrentTime();
+    fun addFile(HF: HackerFile, checkSpace: Boolean): Boolean {
+        if (HF.getType() == HackerFile.BOUNTY || HF.getType() == HackerFile.PCI || HF.getType() == HackerFile.AGP) {
+            val STimeOut = HF.getContent().get("timeout") as String?
+            var timeOut = MyComputer.currentTime
 
-            if (STimeOut == null || STimeOut.equals("")) {
-                HF.getContent().put("timeout", "" + timeOut);
+            if (STimeOut == null || STimeOut == "") {
+                HF.getContent()["timeout"] = "" + timeOut
             } else {
-                timeOut = new Long(STimeOut);
+                timeOut = java.lang.Long.valueOf(STimeOut)
             }
 
-            if (MyComputer.getCurrentTime() - timeOut > 86400000 && (HF.getType() == HF.AGP || HF.getType() == HF.PCI)) {
-                if (MyComputer.getIP().equals("900.800.7.006")) {
-                    return (true);
+            if (MyComputer.currentTime - timeOut > 86400000L && (HF.getType() == HackerFile.AGP || HF.getType() == HackerFile.PCI)) {
+                if (MyComputer.getIP() == "900.800.7.006") {
+                    return true
                 }
             }
 
-            if (MyComputer.getCurrentTime() - timeOut > 604800000) {
-                if (MyComputer.getIP().equals("900.800.7.006")) {
-                    return (true);
+            if (MyComputer.currentTime - timeOut > 604800000L) {
+                if (MyComputer.getIP() == "900.800.7.006") {
+                    return true
                 }
             }
         }
-        /////////////////////////////////////////////
 
-        String locationPath[] = HF.getLocation().split("/");
-        HashMap currentHashMap = root;
-        for (int i = 0; i < locationPath.length; i++) {
-            if (!locationPath[i].equals(""))
-                if (currentHashMap.get(locationPath[i]) != null)
-                    currentHashMap = (HashMap) currentHashMap.get(locationPath[i]);
-                else {
-                    return (false);
-                }
-        }
-        if (currentHashMap != null) {
-            boolean Exists = false;
-            if (currentHashMap.get(HF.getName()) != null)
-                Exists = true;
-
-            if (!Exists && checkSpace) {
-                if (!(quota - 2 < HD_CHART[HDType] + (int) MyComputer.getEquipmentSheet().getHDBonus())) {
-                    return (false);
+        val locationPath = HF.getLocation().split("/".toRegex()).dropLastWhile { it.isEmpty() }.toTypedArray()
+        var currentHashMap = root
+        for (i in locationPath.indices) {
+            if (locationPath[i] != "") {
+                if (currentHashMap[locationPath[i]] != null) {
+                    @Suppress("UNCHECKED_CAST")
+                    val next = currentHashMap[locationPath[i]] as HashMap<Any?, Any?>
+                    currentHashMap = next
+                } else {
+                    return false
                 }
             }
-
-            currentHashMap.put(HF.getName(), HF);
-            if (!Exists)
-                quota++;
-
-            return (true);
         }
-        return (false);
+        var Exists = false
+        if (currentHashMap[HF.getName()] != null) {
+            Exists = true
+        }
+
+        if (!Exists && checkSpace) {
+            if (!(quota - 2 < HD_CHART[HDType] + MyComputer.equipmentSheet.getHDBonus().toInt())) {
+                return false
+            }
+        }
+
+        currentHashMap[HF.getName()] = HF
+        if (!Exists) {
+            quota++
+        }
+
+        return true
     }
 
     /**
      Get a file from the file system.
      */
-    public HackerFile getFile(String path, String name) {
-
-        String locationPath[] = path.split("/");
-        HashMap currentHashMap = root;
-        for (int i = 0; i < locationPath.length; i++) {
-            if (!locationPath[i].equals("")) {
-                currentHashMap = (HashMap) currentHashMap.get(locationPath[i]);
-                if (currentHashMap == null)
-                    return (null);
+    fun getFile(path: String?, name: String?): HackerFile? {
+        val locationPath = path!!.split("/".toRegex()).dropLastWhile { it.isEmpty() }.toTypedArray()
+        var currentHashMap = root
+        for (i in locationPath.indices) {
+            if (locationPath[i] != "") {
+                @Suppress("UNCHECKED_CAST")
+                val next = currentHashMap[locationPath[i]] as HashMap<Any?, Any?>?
+                currentHashMap = next ?: return null
             }
         }
 
-        return ((HackerFile) currentHashMap.get(name));
+        return currentHashMap[name] as HackerFile?
     }
 
     /**
      Delete a file from the file system.
      */
-    public HackerFile deleteFile(String path, String name) {
-        String locationPath[] = path.split("/");
-        HashMap currentHashMap = root;
-        for (int i = 0; i < locationPath.length; i++) {
-            if (!locationPath[i].equals("")) {
-                currentHashMap = (HashMap) currentHashMap.get(locationPath[i]);
-                if (currentHashMap == null)
-                    return (null);
+    fun deleteFile(path: String?, name: String?): HackerFile? {
+        val locationPath = path!!.split("/".toRegex()).dropLastWhile { it.isEmpty() }.toTypedArray()
+        var currentHashMap = root
+        for (i in locationPath.indices) {
+            if (locationPath[i] != "") {
+                @Suppress("UNCHECKED_CAST")
+                val next = currentHashMap[locationPath[i]] as HashMap<Any?, Any?>?
+                currentHashMap = next ?: return null
             }
         }
 
-        if (currentHashMap.get(name) == null)//Make sure we found the file.
-            return (null);
+        if (currentHashMap[name] == null) {
+            return null
+        }
 
-        quota--;
-        if (quota < 0)//Make sure quota can't go below 0.
-            quota = 0;
-        return ((HackerFile) currentHashMap.remove(name));
+        quota--
+        if (quota < 0) {
+            quota = 0
+        }
+        return currentHashMap.remove(name) as HackerFile?
     }
 
     /**
      Return an array representing a single directory in the file system.
      */
-    public Object[] getDirectory(String path) {
-        String locationPath[] = path.split("/");
-        HashMap currentHashMap = root;
-        for (int i = 0; i < locationPath.length; i++) {
-            if (!locationPath[i].equals("")) {
-                currentHashMap = (HashMap) currentHashMap.get(locationPath[i]);
-                if (currentHashMap == null)
-                    return (null);
+    fun getDirectory(path: String): Array<Any?> {
+        val locationPath = path.split("/".toRegex()).dropLastWhile { it.isEmpty() }.toTypedArray()
+        var currentHashMap = root
+        for (i in locationPath.indices) {
+            if (locationPath[i] != "") {
+                @Suppress("UNCHECKED_CAST")
+                val next = currentHashMap[locationPath[i]] as HashMap<Any?, Any?>?
+                currentHashMap = next ?: return emptyArray()
             }
         }
 
-        //Place the data into an array.
-        Object ReturnMe[] = new Object[currentHashMap.size()];
-        Iterator DirectoryIterator = currentHashMap.entrySet().iterator();
-        int i = 0;
+        val ReturnMe = arrayOfNulls<Any>(currentHashMap.size)
+        val DirectoryIterator = currentHashMap.entries.iterator()
+        var i = 0
         while (DirectoryIterator.hasNext()) {
-            Map.Entry ME = (Map.Entry) DirectoryIterator.next();
-            Object o = null;
-            if (ME.getValue() instanceof HashMap)
-                o = ME.getKey();
-            else {
-                HackerFile HF = (HackerFile) ME.getValue();
-                Object O[] = new Object[9];
-                O[0] = HF.getName();
-                O[1] = new Integer(HF.getType());
-                O[2] = new Integer(HF.getQuantity());
-                O[3] = new Float(HF.getPrice());
-                O[4] = HF.getMaker();
-                O[5] = HF.getCPUCost();
-                O[6] = HF.getDescription();
+            val ME = DirectoryIterator.next() as Map.Entry<Any?, Any?>
+            val o: Any? = if (ME.value is HashMap<*, *>) {
+                ME.key
+            } else {
+                val HF = ME.value as HackerFile
+                val O = arrayOfNulls<Any>(9)
+                O[0] = HF.getName()
+                O[1] = Integer.valueOf(HF.getType())
+                O[2] = Integer.valueOf(HF.getQuantity())
+                O[3] = java.lang.Float.valueOf(HF.getPrice())
+                O[4] = HF.getMaker()
+                O[5] = HF.getCPUCost()
+                O[6] = HF.getDescription()
                 if (HF.getType() == HackerFile.NEW_FIREWALL) {
-                    HashMap content = HF.getContent();
-                    Object priceObject = content.get("store_price");
+                    val content = HF.getContent()
+                    var priceObject = content["store_price"]
                     if (priceObject == null) {
-                        O[7] = 0.0f;
+                        O[7] = 0.0f
                     } else {
-                        if (("" + priceObject).equals("") || ("" + priceObject).equals("null")) {
-                            priceObject = "0.0";
+                        if ("" + priceObject == "" || "" + priceObject == "null") {
+                            priceObject = "0.0"
                         }
-                        float price = new Float("" + priceObject);
-                        O[7] = price;
+                        val price = java.lang.Float.valueOf("" + priceObject)
+                        O[7] = price
                     }
-                    O[8] = HF.getContent();
+                    O[8] = HF.getContent()
                 } else if (Computer.makers.containsKey(HF.getMaker())) {
-                    float price = (Float) Computer.makers.get(HF.getMaker());
-                    O[7] = price;
-                    O[8] = null;
+                    val price = Computer.makers[HF.getMaker()] as Float
+                    O[7] = price
+                    O[8] = null
                 } else {
-                    O[7] = 0.0f;
-                    O[8] = null;
+                    O[7] = 0.0f
+                    O[8] = null
                 }
-                o = O;
+                O
             }
-            ReturnMe[i] = o;
-            i++;
+            ReturnMe[i] = o
+            i++
         }
-        return (ReturnMe);
+        return ReturnMe
     }
 
     /**
      Return an array representing a single directory in the file system.
      */
-    public Object[] getWebDirectory(String path) {
-        String locationPath[] = path.split("/");
-        HashMap currentHashMap = root;
-        for (int i = 0; i < locationPath.length; i++) {
-            if (!locationPath[i].equals("")) {
-                currentHashMap = (HashMap) currentHashMap.get(locationPath[i]);
-                if (currentHashMap == null)
-                    return (null);
+    fun getWebDirectory(path: String?): Array<Any?>? {
+        val locationPath = path!!.split("/".toRegex()).dropLastWhile { it.isEmpty() }.toTypedArray()
+        var currentHashMap = root
+        for (i in locationPath.indices) {
+            if (locationPath[i] != "") {
+                @Suppress("UNCHECKED_CAST")
+                val next = currentHashMap[locationPath[i]] as HashMap<Any?, Any?>?
+                currentHashMap = next ?: return null
             }
         }
 
-        //Place the data into an array.
-        Object ReturnMe[] = new Object[currentHashMap.size()];
-        Iterator DirectoryIterator = currentHashMap.entrySet().iterator();
-        int i = 0;
+        val ReturnMe = arrayOfNulls<Any>(currentHashMap.size)
+        val DirectoryIterator = currentHashMap.entries.iterator()
+        var i = 0
         while (DirectoryIterator.hasNext()) {
-            Map.Entry ME = (Map.Entry) DirectoryIterator.next();
-            Object o = null;
-            if (ME.getValue() instanceof HashMap)
-                o = ME.getKey();
-            else {
-                HackerFile HF = (HackerFile) ME.getValue();
+            val ME = DirectoryIterator.next() as Map.Entry<Any?, Any?>
+            val o: Any? = if (ME.value is HashMap<*, *>) {
+                ME.key
+            } else {
+                var HF = ME.value as HackerFile?
                 if (HF != null) {
                     if (HF.getType() != HackerFile.BOUNTY && HF.getType() != HackerFile.AGP && HF.getType() != HackerFile.PCI && HF.getType() != HackerFile.HD && HF.getType() != HackerFile.MEMORY && HF.getType() != HackerFile.CPU && HF.getType() != HackerFile.NEW_FIREWALL) {
-                        HF = HF.clone();
-                        HF.setContent(null);
+                        HF = HF.clone()
+                        HF.setContent(null)
                     }
                 }
-                o = HF;
+                HF
             }
-            ReturnMe[i] = o;
-            i++;
+            ReturnMe[i] = o
+            i++
         }
-        return (ReturnMe);
+        return ReturnMe
     }
 
     /**
      Return an array representing a single directory in the file system.
      */
-    public Object[] getScanDirectory(String path) {
-        String locationPath[] = path.split("/");
-        HashMap currentHashMap = root;
-        for (int i = 0; i < locationPath.length; i++) {
-            if (!locationPath[i].equals("")) {
-                currentHashMap = (HashMap) currentHashMap.get(locationPath[i]);
-                if (currentHashMap == null)
-                    return (null);
+    fun getScanDirectory(path: String): Array<Any?> {
+        val locationPath = path.split("/".toRegex()).dropLastWhile { it.isEmpty() }.toTypedArray()
+        var currentHashMap = root
+        for (i in locationPath.indices) {
+            if (locationPath[i] != "") {
+                @Suppress("UNCHECKED_CAST")
+                val next = currentHashMap[locationPath[i]] as HashMap<Any?, Any?>?
+                currentHashMap = next ?: return emptyArray()
             }
         }
 
-        //Place the data into an array.
-        Object ReturnMe[] = new Object[currentHashMap.size()];
-        Iterator DirectoryIterator = currentHashMap.entrySet().iterator();
-        int i = 0;
+        val ReturnMe = arrayOfNulls<Any>(currentHashMap.size)
+        val DirectoryIterator = currentHashMap.entries.iterator()
+        var i = 0
         while (DirectoryIterator.hasNext()) {
-            Map.Entry ME = (Map.Entry) DirectoryIterator.next();
-            Object o = null;
-            if (ME.getValue() instanceof HashMap)
-                o = ME.getKey();
-            else {
-                HackerFile HF = (HackerFile) ME.getValue();
-                o = HF;
-            }
-            ReturnMe[i] = o;
-            i++;
+            val ME = DirectoryIterator.next() as Map.Entry<Any?, Any?>
+            val o: Any? = if (ME.value is HashMap<*, *>) ME.key else ME.value as HackerFile
+            ReturnMe[i] = o
+            i++
         }
-        return (ReturnMe);
+        return ReturnMe
     }
-
 
     /**
      Returns an array of equipment files.
      */
-    public Object[] getEquipment(String path) {
-        String locationPath[] = path.split("/");
-        HashMap currentHashMap = root;
-        for (int i = 0; i < locationPath.length; i++) {
-            if (!locationPath[i].equals("")) {
-                currentHashMap = (HashMap) currentHashMap.get(locationPath[i]);
-                if (currentHashMap == null)
-                    return (null);
+    fun getEquipment(path: String): Array<Any?> {
+        val locationPath = path.split("/".toRegex()).dropLastWhile { it.isEmpty() }.toTypedArray()
+        var currentHashMap = root
+        for (i in locationPath.indices) {
+            if (locationPath[i] != "") {
+                @Suppress("UNCHECKED_CAST")
+                val next = currentHashMap[locationPath[i]] as HashMap<Any?, Any?>?
+                currentHashMap = next ?: return emptyArray()
             }
         }
 
-        //Place the data into an array.
-        Object ReturnMe[] = new Object[currentHashMap.size()];
-        Iterator DirectoryIterator = currentHashMap.entrySet().iterator();
-        int i = 0;
+        val ReturnMe = arrayOfNulls<Any>(currentHashMap.size)
+        val DirectoryIterator = currentHashMap.entries.iterator()
+        var i = 0
         while (DirectoryIterator.hasNext()) {
-            Map.Entry ME = (Map.Entry) DirectoryIterator.next();
-            Object o = null;
-            if (ME.getValue() instanceof HashMap)
-                o = ME.getKey();
-            else {
-                HackerFile HF = (HackerFile) ME.getValue();
-                o = HF;
+            val ME = DirectoryIterator.next() as Map.Entry<Any?, Any?>
+            val o: Any? = if (ME.value is HashMap<*, *>) ME.key else ME.value as HackerFile
+            if (o is HackerFile) {
+                if (o.getType() == HackerFile.AGP || o.getType() == HackerFile.PCI) {
+                    ReturnMe[i] = o
+                } else {
+                    ReturnMe[i] = null
+                }
             }
-            if (o instanceof HackerFile)
-                if (((HackerFile) o).getType() == HackerFile.AGP || ((HackerFile) o).getType() == HackerFile.PCI)
-                    ReturnMe[i] = o;
-                else
-                    ReturnMe[i] = null;
-            i++;
+            i++
         }
-        return (ReturnMe);
+        return ReturnMe
     }
 
     /**
      Output the file system in XML format.
      */
-    public String outputXML() {
-        String returnMe = "<files>\n";
-        ArrayList TempArrayList = new ArrayList();
-        HashMap WorkingHashMap = null;
-        TempArrayList.add(root);
+    fun outputXML(): String {
+        var returnMe = "<files>\n"
+        val TempArrayList = ArrayList<Any?>()
+        var WorkingHashMap: HashMap<Any?, Any?>
+        TempArrayList.add(root)
 
-        //Output directories.
-        for (int i = 0; i < FlatDirectory.size(); i++) {
-            if (((String) FlatDirectory.get(i)) != null)
-                returnMe += "<directory><![CDATA[" + ((String) FlatDirectory.get(i)).replaceAll("]]>", "]]&gt;") + "]]></directory>\n";
-            else
-                returnMe += "<directory><![CDATA[" + ((String) FlatDirectory.get(i)) + "]]></directory>\n";
+        for (i in FlatDirectory.indices) {
+            if (FlatDirectory[i] as String? != null) {
+                returnMe += "<directory><![CDATA[" + (FlatDirectory[i] as String).replace("]]>", "]]&gt;") + "]]></directory>\n"
+            } else {
+                returnMe += "<directory><![CDATA[" + FlatDirectory[i] as String + "]]></directory>\n"
+            }
         }
 
         do {
-            WorkingHashMap = (HashMap) TempArrayList.get(0);
-            TempArrayList.remove(0);
+            WorkingHashMap = TempArrayList[0] as HashMap<Any?, Any?>
+            TempArrayList.removeAt(0)
 
-            Iterator DirectoryIterator = WorkingHashMap.entrySet().iterator();
+            val DirectoryIterator = WorkingHashMap.entries.iterator()
             while (DirectoryIterator.hasNext()) {
-                Object o = ((Map.Entry) DirectoryIterator.next()).getValue();
-                if (o instanceof HashMap) {
-                    TempArrayList.add(o);
+                val o = (DirectoryIterator.next() as Map.Entry<Any?, Any?>).value
+                if (o is HashMap<*, *>) {
+                    TempArrayList.add(o)
                 } else {
-                    returnMe += ((HackerFile) o).outputXML();
+                    returnMe += (o as HackerFile).outputXML()
                 }
             }
+        } while (TempArrayList.size > 0)
 
-        } while (TempArrayList.size() > 0);
-
-        returnMe += "</files>\n";
-        return (returnMe);
+        returnMe += "</files>\n"
+        return returnMe
     }
 
     /**
      Returns all the files in the root directory of a given type.
      */
-    public ArrayList getFilesOfType(int FileType) {
-        ArrayList returnMe = new ArrayList();
-        Object rootFiles[] = this.getScanDirectory("");
-        for (int i = 0; i < rootFiles.length; i++) {
-            if (rootFiles[i] instanceof HackerFile) {
-                HackerFile HF = (HackerFile) rootFiles[i];
+    fun getFilesOfType(FileType: Int): ArrayList<Any?> {
+        val returnMe = ArrayList<Any?>()
+        val rootFiles = this.getScanDirectory("")
+        for (i in rootFiles.indices) {
+            if (rootFiles[i] is HackerFile) {
+                val HF = rootFiles[i] as HackerFile
                 if (HF.getType() == FileType) {
-                    returnMe.add(HF);
+                    returnMe.add(HF)
                 }
             }
         }
-        return (returnMe);
+        return returnMe
     }
 
     /**
      Returns all the files in the root directory of a given type.
      */
-    public ArrayList getFiles() {
-        ArrayList returnMe = new ArrayList();
-        Object rootFiles[] = this.getScanDirectory("");
-        for (int i = 0; i < rootFiles.length; i++) {
-            if (rootFiles[i] instanceof HackerFile) {
-                HackerFile HF = (HackerFile) rootFiles[i];
-                returnMe.add(HF);
+    fun getFiles(): ArrayList<Any?> {
+        val returnMe = ArrayList<Any?>()
+        val rootFiles = this.getScanDirectory("")
+        for (i in rootFiles.indices) {
+            if (rootFiles[i] is HackerFile) {
+                val HF = rootFiles[i] as HackerFile
+                returnMe.add(HF)
             }
         }
-        return (returnMe);
+        return returnMe
+    }
+
+    companion object {
+        @JvmField
+        val HD_CHART = intArrayOf(20, 40, 80, 100, 150, 30, 1000)
     }
 }

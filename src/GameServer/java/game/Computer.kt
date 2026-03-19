@@ -1720,7 +1720,7 @@ open class Computer : Runnable {
 
         while (PortIterator.hasNext()) {
             val TempPort = ((PortIterator.next() as MutableMap.MutableEntry<*, *>).value) as Port
-            if (TempPort.getFireWall() != null && (TempPort.getFireWall().getType().get("name") as String) != "None") {
+            if (TempPort.getFireWall() != null && (TempPort.getFireWall()!!.getType().get("name") as String) != "None") {
                 success = true
                 break
             }
@@ -2970,7 +2970,7 @@ open class Computer : Runnable {
                     tempPort.getNumber(),
                     tempPort.getHealth(),
                     tempPort.getCPUCost(),
-                    tempPort.getFireWall().getType(),
+                    tempPort.getFireWall()!!.getType(),
                     tempPort.getHealCount(),
                     tempPort.getBaseCPUCostAndFirewall(),
                     getWindowHandle(tempPort)

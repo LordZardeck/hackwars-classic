@@ -35,7 +35,7 @@ class ZombieAttackHandler : AttackFunctionHandler {
                 program.zombie = true
                 val request = ApplicationData(
                     "attack",
-                    arrayOf<String?>(program.parentPort!!.ip, program.computer!!.network),
+                    arrayOf<String?>(program.parentPort!!.IP, program.computer!!.network),
                     program.targetPort,
                     applicationData.sourceIP
                 )

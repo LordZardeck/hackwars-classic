@@ -22,7 +22,7 @@ class SavePortNote(computer: Computer) : Function(computer) {
         for (portEntry in computer.ports.values) {
             val port = portEntry as? Port ?: continue
             if (port.number == targetPort) {
-                port.note = note
+                port.setNote(note)
             }
         }
     }

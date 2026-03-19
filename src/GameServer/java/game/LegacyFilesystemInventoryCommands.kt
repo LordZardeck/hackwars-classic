@@ -1,437 +1,449 @@
-package game;
+package game
 
-import game.computer.session.ComputerSessionService;
-import hackscript.model.TypeBoolean;
-import hackscript.model.TypeFloat;
-import hackscript.model.TypeInteger;
-import hackscript.model.TypeString;
-import hackscript.model.Variable;
-import util.LocalWebConfig;
-
-import java.lang.reflect.Field;
-import java.util.HashMap;
+import game.computer.session.ComputerSessionService
+import hackscript.model.TypeBoolean
+import hackscript.model.TypeFloat
+import hackscript.model.TypeInteger
+import hackscript.model.TypeString
+import hackscript.model.Variable
+import util.LocalWebConfig
+import java.lang.reflect.Field
+import java.util.HashMap
 
 /**
  * Extracted legacy filesystem and inventory command branches from Computer.
  */
-public class LegacyFilesystemInventoryCommands implements LegacyApplicationDataHandler {
-    @Override
-    public boolean dispatch(Computer computer, ApplicationData applicationData, int resolvedPort) {
-        String function = applicationData.getFunction();
+class LegacyFilesystemInventoryCommands : LegacyApplicationDataHandler {
+    override fun dispatch(computer: Computer, applicationData: ApplicationData, resolvedPort: Int): Boolean {
+        val function = applicationData.function
 
-        if (function.equals("requestdirectory")) {
-            String path = (String) ((Object[]) applicationData.getParameters())[0];
-            Object[] directory = computer.MyFileSystem.getDirectory(path);
-            Object[] response = new Object[directory.length + 1];
-            response[0] = ((Object[]) applicationData.getParameters())[1];
-            for (int i = 0; i < directory.length; i++) {
-                response[i + 1] = directory[i];
+        if (function == "requestdirectory") {
+            val params = applicationData.parameters as Array<Any?>
+            val path = params[0] as String
+            val directory = computer.MyFileSystem.getDirectory(path)
+            val response = arrayOfNulls<Any>(directory.size + 1)
+            response[0] = params[1]
+            for (i in directory.indices) {
+                response[i + 1] = directory[i]
             }
-            computer.PA.setDirectory(response);
-            computer.systemChange = true;
-            return true;
+            computer.PA.setDirectory(response)
+            computer.systemChange = true
+            return true
         }
 
-        if (function.equals("delivereddirectory")) {
-            Object[] params = (Object[]) applicationData.getParameters();
-            Object[] directory = null;
-            if (params.length == 1) {
-                directory = (Object[]) applicationData.getParameters();
-            } else if (params.length == 2) {
-                directory = (Object[]) params[0];
-                boolean npcBool = (Boolean) params[1];
-                computer.PA.setAllowedDir(!npcBool || computer.isNPC());
+        if (function == "delivereddirectory") {
+            val params = applicationData.parameters as Array<Any?>
+            var directory: Array<Any?>? = null
+            if (params.size == 1) {
+                directory = applicationData.parameters as Array<Any?>
+            } else if (params.size == 2) {
+                @Suppress("UNCHECKED_CAST")
+                directory = params[0] as Array<Any?>
+                val npcBool = params[1] as Boolean
+                computer.PA.setAllowedDir(!npcBool || computer.isNPC())
             }
-            computer.PA.setSecondaryDirectory(directory);
-            computer.systemChange = true;
-            return true;
+            computer.PA.setSecondaryDirectory(directory)
+            computer.systemChange = true
+            return true
         }
 
-        if (function.equals("requestfile")) {
-            String path = ((String[]) applicationData.getParameters())[0];
-            String name = ((String[]) applicationData.getParameters())[1];
-            HackerFile file = computer.MyFileSystem.getFile(path, name);
-            if (file != null) {
-                if (file.getType() == HackerFile.GAME || file.getType() == HackerFile.GAME_PROJECT) {
-                    file = file.clone();
-                    file.setContent(null);
-                }
+        if (function == "requestfile") {
+            val params = applicationData.parameters as Array<String>
+            val path = params[0]
+            val name = params[1]
+            var file = computer.MyFileSystem.getFile(path, name)
+            if (file != null && (file.type == HackerFile.GAME || file.type == HackerFile.GAME_PROJECT)) {
+                file = file.clone()
+                file.setContent(null)
             }
-            computer.PA.setFile(file);
-            computer.systemChange = true;
-            return true;
+            computer.PA.setFile(file)
+            computer.systemChange = true
+            return true
         }
 
-        if (function.equals("requestgame")) {
-            String path = ((String[]) applicationData.getParameters())[0];
-            String name = ((String[]) applicationData.getParameters())[1];
-            HackerFile file = computer.MyFileSystem.getFile(path, name);
+        if (function == "requestgame") {
+            val params = applicationData.parameters as Array<String>
+            val path = params[0]
+            val name = params[1]
+            val file = computer.MyFileSystem.getFile(path, name)
 
-            HashMap loadFile = new HashMap();
-            HackerFile saveFile = computer.MyFileSystem.getFile("", name + ".save");
+            val loadFile = HashMap<Any?, Any?>()
+            val saveFile = computer.MyFileSystem.getFile("", "$name.save")
             if (saveFile != null) {
-                String data = (String) saveFile.getContent().get("data");
+                val data = saveFile.getContent()["data"] as String?
                 if (data != null) {
-                    String[] entries = data.split("\n");
+                    val entries = data.split("\n")
                     try {
-                        for (int i = 0; i < entries.length; i++) {
-                            String[] entryData = entries[i].split("\t");
-                            String key = entryData[0];
-                            String type = entryData[1];
-                            Variable variable = null;
-                            if (type.equals("string")) {
-                                variable = new TypeString(entryData[2]);
-                            } else if (type.equals("bool")) {
-                                variable = new TypeBoolean(Boolean.valueOf(entryData[2]));
-                            } else if (type.equals("int")) {
-                                variable = new TypeInteger(Integer.valueOf(entryData[2]));
-                            } else if (type.equals("float")) {
-                                variable = new TypeFloat(Float.valueOf(entryData[2]));
+                        for (entry in entries) {
+                            val entryData = entry.split("\t")
+                            val key = entryData[0]
+                            val type = entryData[1]
+                            var variable: Variable? = null
+                            if (type == "string") {
+                                variable = TypeString(entryData[2])
+                            } else if (type == "bool") {
+                                variable = TypeBoolean(java.lang.Boolean.valueOf(entryData[2]))
+                            } else if (type == "int") {
+                                variable = TypeInteger(Integer.valueOf(entryData[2]))
+                            } else if (type == "float") {
+                                variable = TypeFloat(java.lang.Float.valueOf(entryData[2]))
                             }
 
                             if (variable != null) {
-                                loadFile.put(key, variable);
+                                loadFile[key] = variable
                             }
                         }
-                    } catch (Exception ignored) {
+                    } catch (_: Exception) {
                     }
                 }
             }
-            computer.PA.setLoadFile(loadFile);
-            computer.PA.setFile(file);
-            computer.systemChange = true;
-            return true;
+            computer.PA.setLoadFile(loadFile)
+            computer.PA.setFile(file)
+            computer.systemChange = true
+            return true
         }
 
-        if (function.equals("setfiledescription")) {
-            String path = (String) ((Object[]) applicationData.getParameters())[0];
-            String name = (String) ((Object[]) applicationData.getParameters())[1];
-            String description = (String) ((Object[]) applicationData.getParameters())[2];
-            HackerFile file = computer.MyFileSystem.getFile(path, name);
-            if (file != null && file.getType() != HackerFile.CLUE) {
-                file.setDescription(description);
-                computer.PA.setFile(file);
+        if (function == "setfiledescription") {
+            val params = applicationData.parameters as Array<Any?>
+            val path = params[0] as String
+            val name = params[1] as String
+            val description = params[2] as String
+            val file = computer.MyFileSystem.getFile(path, name)
+            if (file != null && file.type != HackerFile.CLUE) {
+                file.setDescription(description)
+                computer.PA.setFile(file)
             }
-            computer.systemChange = true;
-            return true;
+            computer.systemChange = true
+            return true
         }
 
-        if (function.equals("setfileprice")) {
-            String path = (String) ((Object[]) applicationData.getParameters())[0];
-            String name = (String) ((Object[]) applicationData.getParameters())[1];
-            Float price = (Float) ((Object[]) applicationData.getParameters())[2];
-            HackerFile file = computer.MyFileSystem.getFile(path, name);
+        if (function == "setfileprice") {
+            val params = applicationData.parameters as Array<Any?>
+            val path = params[0] as String
+            val name = params[1] as String
+            val price = params[2] as Float
+            val file = computer.MyFileSystem.getFile(path, name)
             if (file != null) {
-                file.setPrice(price);
-                computer.PA.setFile(file);
+                file.setPrice(price)
+                computer.PA.setFile(file)
             }
-            computer.systemChange = true;
-            return true;
+            computer.systemChange = true
+            return true
         }
 
-        if (function.equals("deletefile")) {
-            String path = (String) ((Object[]) applicationData.getParameters())[0];
-            String name = (String) ((Object[]) applicationData.getParameters())[1];
-            computer.MyFileSystem.deleteFile(path, name);
-            computer.PA.setRequestPrimary(true, 1);
-            computer.systemChange = true;
-            return true;
+        if (function == "deletefile") {
+            val params = applicationData.parameters as Array<Any?>
+            val path = params[0] as String
+            val name = params[1] as String
+            computer.MyFileSystem.deleteFile(path, name)
+            computer.PA.setRequestPrimary(true, 1)
+            computer.systemChange = true
+            return true
         }
 
-        if (function.equals("deletemulti")) {
-            Object[] allFiles = (Object[]) ((Object[]) applicationData.getParameters())[0];
-            for (int i = 0; i < allFiles.length; i++) {
-                String[] file = (String[]) allFiles[i];
-                String path = file[0];
-                String name = file[1];
-                if (file[2].equals("directory")) {
-                    computer.MyFileSystem.deleteDirectory(path + "/" + name + "/");
+        if (function == "deletemulti") {
+            val params = applicationData.parameters as Array<Any?>
+            val allFiles = params[0] as Array<Any?>
+            for (entry in allFiles) {
+                val file = entry as Array<String>
+                val path = file[0]
+                val name = file[1]
+                if (file[2] == "directory") {
+                    computer.MyFileSystem.deleteDirectory("$path/$name/")
                 } else {
-                    computer.MyFileSystem.deleteFile(path, name);
+                    computer.MyFileSystem.deleteFile(path, name)
                 }
             }
-            computer.PA.setRequestPrimary(true, 1);
-            computer.systemChange = true;
-            return true;
+            computer.PA.setRequestPrimary(true, 1)
+            computer.systemChange = true
+            return true
         }
 
-        if (function.equals("decompilefile")) {
-            String path = (String) ((Object[]) applicationData.getParameters())[0];
-            String fileName = (String) ((Object[]) applicationData.getParameters())[1];
-            HackerFile existingFile = computer.MyFileSystem.getFile(path, fileName);
-            HackerFile file = existingFile.clone();
-            if (existingFile.getTypeString().equals("compiled") && (existingFile.getMaker().toUpperCase().equals(computer.userName.toUpperCase()))) {
-                if (existingFile != null) {
-                    float compilePrice = (Float) ((Object[]) applicationData.getParameters())[2];
-                    HashMap levels = new HashMap();
-                    levels.put("Attack", Integer.valueOf(100));
-                    levels.put("Merchanting", Integer.valueOf(100));
-                    levels.put("Watch", Integer.valueOf(100));
-                    try {
-                        HashMap result = executeCompileApplication(computer, existingFile.getType(), existingFile.getContent(), levels);
-                        if (result != null && ((String) (result.get("error"))).length() == 0) {
-                            compilePrice = (float) (double) (Double) result.get("price");
-                        }
-                    } catch (Exception ignored) {
+        if (function == "decompilefile") {
+            val params = applicationData.parameters as Array<Any?>
+            val path = params[0] as String
+            val fileName = params[1] as String
+            val existingFile = computer.MyFileSystem.getFile(path, fileName)!!
+            val file = existingFile.clone()
+            if (existingFile.typeString == "compiled" && existingFile.maker!!.uppercase() == computer.userName!!.uppercase()) {
+                var compilePrice = params[2] as Float
+                val levels = HashMap<Any?, Any?>()
+                levels["Attack"] = Integer.valueOf(100)
+                levels["Merchanting"] = Integer.valueOf(100)
+                levels["Watch"] = Integer.valueOf(100)
+                try {
+                    val result = executeCompileApplication(computer, existingFile.type, existingFile.getContent(), levels)
+                    if (result != null && (result["error"] as String).length == 0) {
+                        compilePrice = ((result["price"] as Double).toFloat())
                     }
-                    existingFile.setQuantity(existingFile.getQuantity() - 1);
-                    if (existingFile.getQuantity() <= 0) {
-                        computer.MyFileSystem.deleteFile(path, existingFile.getName());
-                    }
-
-                    float xp = compilePrice / 100.0f;
-                    String xpType = "";
-
-                    if (existingFile.getType() == HackerFile.BANKING_COMPILED) {
-                        xpType = "bankxp";
-                    } else if (existingFile.getType() == HackerFile.ATTACKING_COMPILED) {
-                        xpType = "attackxp";
-                    } else if (existingFile.getType() == HackerFile.SHIPPING_COMPILED) {
-                        xpType = "redirectxp";
-                    } else if (existingFile.getType() == HackerFile.HTTP) {
-                        xpType = "httpxp";
-                    } else if (existingFile.getType() == HackerFile.WATCH_COMPILED) {
-                        xpType = "watchxp";
-                    }
-
-                    computer.MyComputerHandler.addData(new ApplicationData(xpType, Float.valueOf((-1.0f) * xp), 0, computer.ip), computer.ip);
-
-                    if (file.getType() != HackerFile.HTTP) {
-                        file.setType(file.getType() + 1);
-                    }
-                    if (existingFile.getType() != HackerFile.HTTP_SCRIPT) {
-                        file.setType(existingFile.getType() + 1);
-                    } else {
-                        file.setType(HackerFile.HTTP_SCRIPT);
-                    }
-                    file.setName(existingFile.getName().replaceAll("\\.bin", ""));
-                    computer.MyComputerHandler.addData(new ApplicationData("pettycash", Float.valueOf(compilePrice), 0, computer.ip), computer.ip);
-                    computer.saveFile(file, file, path);
+                } catch (_: Exception) {
                 }
+                existingFile.setQuantity(existingFile.quantity - 1)
+                if (existingFile.quantity <= 0) {
+                    computer.MyFileSystem.deleteFile(path, existingFile.name)
+                }
+
+                val xp = compilePrice / 100.0f
+                var xpType = ""
+
+                if (existingFile.type == HackerFile.BANKING_COMPILED) {
+                    xpType = "bankxp"
+                } else if (existingFile.type == HackerFile.ATTACKING_COMPILED) {
+                    xpType = "attackxp"
+                } else if (existingFile.type == HackerFile.SHIPPING_COMPILED) {
+                    xpType = "redirectxp"
+                } else if (existingFile.type == HackerFile.HTTP) {
+                    xpType = "httpxp"
+                } else if (existingFile.type == HackerFile.WATCH_COMPILED) {
+                    xpType = "watchxp"
+                }
+
+                computer.MyComputerHandler.addData(ApplicationData(xpType, java.lang.Float.valueOf(-1.0f * xp), 0, computer.ip), computer.ip)
+
+                if (file.type != HackerFile.HTTP) {
+                    file.setType(file.type + 1)
+                }
+                if (existingFile.type != HackerFile.HTTP_SCRIPT) {
+                    file.setType(existingFile.type + 1)
+                } else {
+                    file.setType(HackerFile.HTTP_SCRIPT)
+                }
+                file.setName(existingFile.name.replace("\\.bin".toRegex(), ""))
+                computer.MyComputerHandler.addData(ApplicationData("pettycash", java.lang.Float.valueOf(compilePrice), 0, computer.ip), computer.ip)
+                computer.saveFile(file, file, path)
             }
-            return true;
+            return true
         }
 
-        if (function.equals("sellfilemulti")) {
-            Object[] allFiles = (Object[]) ((Object[]) applicationData.getParameters())[0];
-            String ip = (String) ((Object[]) applicationData.getParameters())[1];
-            float compileCost = 0.0f;
-            float totalPay = 0.0f;
+        if (function == "sellfilemulti") {
+            val params = applicationData.parameters as Array<Any?>
+            val allFiles = params[0] as Array<Any?>
+            val ip = params[1] as String
+            val compileCost = 0.0f
+            var totalPay = 0.0f
             if (computer.checkBank()) {
-                for (int i = 0; i < allFiles.length; i++) {
-                    Object[] fileData = (Object[]) allFiles[i];
-                    String path = (String) fileData[0];
-                    String name = (String) fileData[1];
-                    String maker = (String) fileData[2];
-                    Integer quantity = (Integer) fileData[3];
-                    HackerFile file = computer.MyFileSystem.getFile(path, name);
-                    if (file.getType() != HackerFile.NEW_FIREWALL) {
-                        totalPay += (Float) Computer.makers.get(maker) * quantity;
+                for (entry in allFiles) {
+                    val fileData = entry as Array<Any?>
+                    val path = fileData[0] as String
+                    val name = fileData[1] as String
+                    val maker = fileData[2] as String
+                    val quantity = fileData[3] as Integer
+                    val file = computer.MyFileSystem.getFile(path, name)!!
+                    if (file.type != HackerFile.NEW_FIREWALL) {
+                        totalPay += (Computer.makers[maker] as Float) * quantity.toInt()
                     } else {
-                        HashMap content = file.getContent();
-                        Object price = content.get("store_price");
+                        val content = file.getContent()
+                        val price = content["store_price"]
                         if (price != null) {
-                            totalPay += Float.parseFloat("" + price);
+                            totalPay += java.lang.Float.parseFloat("" + price)
                         }
                     }
-                    if (file != null && file.getQuantity() >= quantity) {
-                        file.setQuantity(file.getQuantity() - quantity);
-                        if (file.getQuantity() <= 0) {
-                            computer.MyFileSystem.deleteFile(path, file.getName());
+                    if (file != null && file.quantity >= quantity.toInt()) {
+                        file.setQuantity(file.quantity - quantity.toInt())
+                        if (file.quantity <= 0) {
+                            computer.MyFileSystem.deleteFile(path, file.name)
                         }
 
-                        Object[] payload = new Object[]{path, file.clone(), compileCost, ip, quantity};
-                        computer.MyComputerHandler.addData(new ApplicationData("sellfile", payload, 0, "store" + computer.getServerID()), computer.store);
+                        val payload = arrayOf(path, file.clone(), compileCost, ip, quantity)
+                        computer.MyComputerHandler.addData(ApplicationData("sellfile", payload, 0, "store" + computer.serverID), computer.store)
                     }
                 }
-                computer.pettyCash += totalPay;
+                computer.pettyCash += totalPay
             } else {
-                computer.addMessage(MessageHandler.SELL_FAIL_BANK_PORT);
+                computer.addMessage(MessageHandler.SELL_FAIL_BANK_PORT)
             }
-            computer.PA.setRequestPrimary(true, 1);
-            computer.systemChange = true;
-            return true;
+            computer.PA.setRequestPrimary(true, 1)
+            computer.systemChange = true
+            return true
         }
 
-        if (function.equals("savefile")) {
-            Object[] parameters = (Object[]) applicationData.getParameters();
-            String path = (String) parameters[0];
-            HackerFile file = (HackerFile) parameters[1];
-            HackerFile existingFile = computer.MyFileSystem.getFile(path, file.getName());
-            boolean stolenFile = false;
-            String stolenFromIP = "";
-            int stolenFromPort = -1;
-            if (parameters.length == 4) {
-                if (parameters[2] instanceof String) {
-                    stolenFile = true;
-                    stolenFromIP = (String) parameters[2];
-                    stolenFromPort = (Integer) parameters[3];
-                }
+        if (function == "savefile") {
+            val parameters = applicationData.parameters as Array<Any?>
+            val path = parameters[0] as String
+            val file = parameters[1] as HackerFile
+            val existingFile = computer.MyFileSystem.getFile(path, file.name)
+
+            var stolenFile = false
+            var stolenFromIP = ""
+            var stolenFromPort = -1
+            if (parameters.size == 4 && parameters[2] is String) {
+                stolenFile = true
+                stolenFromIP = parameters[2] as String
+                stolenFromPort = (parameters[3] as Integer).toInt()
             }
 
-            computer.saveFile(file, existingFile, path);
+            computer.saveFile(file, existingFile, path)
             if (stolenFile) {
-                computer.addMessage(MessageHandler.FILE_SUCCESSFULLY_STOLEN, new Object[]{file.getName(), stolenFromIP}, new Object[]{stolenFromPort, stolenFromIP});
-                computer.addMessage(MessageHandler.FILE_SUCCESSFULLY_STOLEN_GAME, new Object[]{file.getName(), stolenFromIP});
+                computer.addMessage(
+                    MessageHandler.FILE_SUCCESSFULLY_STOLEN,
+                    arrayOf<Any?>(file.name, stolenFromIP),
+                    arrayOf<Any?>(stolenFromPort, stolenFromIP)
+                )
+                computer.addMessage(MessageHandler.FILE_SUCCESSFULLY_STOLEN_GAME, arrayOf<Any?>(file.name, stolenFromIP))
             }
-            if (file.getType() == HackerFile.PCI || file.getType() == HackerFile.AGP) {
-                computer.PA.setRequestHardware(true);
+            if (file.type == HackerFile.PCI || file.type == HackerFile.AGP) {
+                computer.PA.setRequestHardware(true)
             }
-            return true;
+            return true
         }
 
-        if (function.equals("compilefile")) {
-            boolean success = true;
-            Object[] parameters = (Object[]) applicationData.getParameters();
-            String path = (String) parameters[0];
-            HackerFile file = (HackerFile) parameters[1];
-            HackerFile existingFile = computer.MyFileSystem.getFile(path, file.getName());
+        if (function == "compilefile") {
+            var success = true
+            val parameters = applicationData.parameters as Array<Any?>
+            val path = parameters[0] as String
+            val file = parameters[1] as HackerFile
+            val existingFile = computer.MyFileSystem.getFile(path, file.name)
 
-            float price = (Float) ((Object[]) applicationData.getParameters())[2];
+            var price = parameters[2] as Float
 
-            HashMap playerLevels = new HashMap();
-            playerLevels.put("Attack", Integer.valueOf(computer.getLevel((float) (Float) computer.Stats.get("Attack"))));
-            playerLevels.put("Merchanting", Integer.valueOf(computer.getLevel((float) (Float) computer.Stats.get("Bank"))));
-            playerLevels.put("Watch", Integer.valueOf(computer.getLevel((float) (Float) computer.Stats.get("Watch"))));
-            playerLevels.put("HTTP", Integer.valueOf(computer.getLevel((float) (Float) computer.Stats.get("Webdesign"))));
-            playerLevels.put("Redirecting", Integer.valueOf(computer.getLevel((float) (Float) computer.Stats.get("Redirecting"))));
+            val playerLevels = HashMap<Any?, Any?>()
+            playerLevels["Attack"] = Integer.valueOf(computer.getLevel(computer.Stats["Attack"] as Float))
+            playerLevels["Merchanting"] = Integer.valueOf(computer.getLevel(computer.Stats["Bank"] as Float))
+            playerLevels["Watch"] = Integer.valueOf(computer.getLevel(computer.Stats["Watch"] as Float))
+            playerLevels["HTTP"] = Integer.valueOf(computer.getLevel(computer.Stats["Webdesign"] as Float))
+            playerLevels["Redirecting"] = Integer.valueOf(computer.getLevel(computer.Stats["Redirecting"] as Float))
 
             try {
-                HashMap result = executeCompileApplication(computer, file.getType(), file.getContent(), playerLevels);
-                if (result != null && ((String) (result.get("error"))).length() == 0) {
-                    float cpuCost = (float) (double) (Double) result.get("cpucost");
-                    price = (float) (double) (Double) result.get("price");
-                    file.setCPUCost(cpuCost);
+                val result = executeCompileApplication(computer, file.type, file.getContent(), playerLevels)
+                if (result != null && (result["error"] as String).length == 0) {
+                    val cpuCost = (result["cpucost"] as Double).toFloat()
+                    price = (result["price"] as Double).toFloat()
+                    file.setCPUCost(cpuCost)
                 }
-            } catch (Exception e) {
-                success = false;
+            } catch (_: Exception) {
+                success = false
             }
 
             if (!computer.checkBank()) {
-                success = false;
-                computer.addMessage(MessageHandler.ACTIVE_BANK_NOT_FOUND);
+                success = false
+                computer.addMessage(MessageHandler.ACTIVE_BANK_NOT_FOUND)
             }
 
-            if (existingFile != null) {
-                if (file.checkSumFailed(existingFile)) {
-                    success = false;
-                    computer.addMessage(MessageHandler.FILE_CHANGED_SINCE_LAST_SAVE);
-                }
+            if (existingFile != null && file.checkSumFailed(existingFile)) {
+                success = false
+                computer.addMessage(MessageHandler.FILE_CHANGED_SINCE_LAST_SAVE)
             }
 
             if (computer.pettyCash < price) {
-                success = false;
-                computer.addMessage(MessageHandler.COMPILE_FAIL_NOT_ENOUGH_MONEY);
-            } else if ((computer.MyFileSystem.getSpaceLeft() < 1) && existingFile == null) {
-                success = false;
-                computer.addMessage(MessageHandler.COMPILE_FAIL_HD_FULL);
+                success = false
+                computer.addMessage(MessageHandler.COMPILE_FAIL_NOT_ENOUGH_MONEY)
+            } else if (computer.MyFileSystem.getSpaceLeft() < 1 && existingFile == null) {
+                success = false
+                computer.addMessage(MessageHandler.COMPILE_FAIL_HD_FULL)
             } else if (success) {
-                if (file.getType() != HackerFile.FTP_COMPILED) {
-                    float xp = price / 100.0f;
-                    String xpType = "";
+                if (file.type != HackerFile.FTP_COMPILED) {
+                    val xp = price / 100.0f
+                    var xpType = ""
 
-                    if (file.getType() == HackerFile.BANKING_COMPILED) {
-                        xpType = "bankxp";
-                    } else if (file.getType() == HackerFile.ATTACKING_COMPILED) {
-                        xpType = "attackxp";
-                    } else if (file.getType() == HackerFile.SHIPPING_COMPILED) {
-                        xpType = "redirectxp";
-                    } else if (file.getType() == HackerFile.WATCH_COMPILED) {
-                        xpType = "watchxp";
-                    } else if (file.getType() == HackerFile.HTTP) {
-                        xpType = "httpxp";
+                    if (file.type == HackerFile.BANKING_COMPILED) {
+                        xpType = "bankxp"
+                    } else if (file.type == HackerFile.ATTACKING_COMPILED) {
+                        xpType = "attackxp"
+                    } else if (file.type == HackerFile.SHIPPING_COMPILED) {
+                        xpType = "redirectxp"
+                    } else if (file.type == HackerFile.WATCH_COMPILED) {
+                        xpType = "watchxp"
+                    } else if (file.type == HackerFile.HTTP) {
+                        xpType = "httpxp"
                     }
 
-                    computer.MyComputerHandler.addData(new ApplicationData(xpType, Float.valueOf(xp), 0, computer.ip), computer.ip);
+                    computer.MyComputerHandler.addData(ApplicationData(xpType, java.lang.Float.valueOf(xp), 0, computer.ip), computer.ip)
                 }
-                computer.MyComputerHandler.addData(new ApplicationData("pettycash", Float.valueOf(price * -1.0f), 0, computer.ip), computer.ip);
-                file.setMaker(computer.userName);
-                computer.saveFile(file, existingFile, path);
+                computer.MyComputerHandler.addData(ApplicationData("pettycash", java.lang.Float.valueOf(price * -1.0f), 0, computer.ip), computer.ip)
+                file.setMaker(computer.userName)
+                computer.saveFile(file, existingFile, path)
             }
-            return true;
+            return true
         }
 
-        if (function.equals("sellfile")) {
-            boolean success = true;
-            Object[] parameters = (Object[]) applicationData.getParameters();
-            String path = (String) parameters[0];
-            HackerFile file = (HackerFile) parameters[1];
-            HackerFile existingFile = computer.MyFileSystem.getFile(path, file.getName());
+        if (function == "sellfile") {
+            var success = true
+            val parameters = applicationData.parameters as Array<Any?>
+            val path = parameters[0] as String
+            val file = parameters[1] as HackerFile
+            val existingFile = computer.MyFileSystem.getFile(path, file.name)
 
-            float sellPrice = 0.0f;
-            float minimumSellPrice = 0.0f;
-            if (file.getType() != HackerFile.NEW_FIREWALL) {
-                minimumSellPrice = (Float) Computer.makers.get(file.getMaker());
+            var sellPrice = 0.0f
+            var minimumSellPrice = 0.0f
+            if (file.type != HackerFile.NEW_FIREWALL) {
+                minimumSellPrice = Computer.makers[file.maker] as Float
             }
 
-            file.setQuantity(1);
-            float compilePrice = (Float) ((Object[]) applicationData.getParameters())[2];
-            HashMap playerLevels = new HashMap();
-            playerLevels.put("Attack", Integer.valueOf(100));
-            playerLevels.put("Merchanting", Integer.valueOf(100));
-            playerLevels.put("Watch", Integer.valueOf(100));
-            playerLevels.put("HTTP", Integer.valueOf(100));
-            playerLevels.put("Redirecting", Integer.valueOf(100));
+            file.setQuantity(1)
+            var compilePrice = parameters[2] as Float
+            val playerLevels = HashMap<Any?, Any?>()
+            playerLevels["Attack"] = Integer.valueOf(100)
+            playerLevels["Merchanting"] = Integer.valueOf(100)
+            playerLevels["Watch"] = Integer.valueOf(100)
+            playerLevels["HTTP"] = Integer.valueOf(100)
+            playerLevels["Redirecting"] = Integer.valueOf(100)
 
             try {
-                HashMap result = executeCompileApplication(computer, file.getType(), file.getContent(), playerLevels);
-                if (result != null && ((String) (result.get("error"))).length() == 0) {
-                    compilePrice = (float) (double) (Double) result.get("price");
+                val result = executeCompileApplication(computer, file.type, file.getContent(), playerLevels)
+                if (result != null && (result["error"] as String).length == 0) {
+                    compilePrice = (result["price"] as Double).toFloat()
                 }
-            } catch (Exception e) {
-                compilePrice = 0.0f;
+            } catch (_: Exception) {
+                compilePrice = 0.0f
             }
 
-            int quantity = (Integer) ((Object[]) applicationData.getParameters())[4];
-            if (file.getType() == HackerFile.AGP || file.getType() == HackerFile.PCI) {
-                if (file.getMaker().equals("Medium")) {
-                    sellPrice = 2000.0f;
-                } else if (file.getMaker().equals("High")) {
-                    sellPrice = 20000.0f;
-                } else if (file.getMaker().equals("Rare")) {
-                    sellPrice = 200000.0f;
+            val quantity = parameters[4] as Integer
+            if (file.type == HackerFile.AGP || file.type == HackerFile.PCI) {
+                if (file.maker == "Medium") {
+                    sellPrice = 2000.0f
+                } else if (file.maker == "High") {
+                    sellPrice = 20000.0f
+                } else if (file.maker == "Rare") {
+                    sellPrice = 200000.0f
                 }
+            } else if (existingFile != null) {
+                sellPrice = compilePrice * 2.0f - (compilePrice * 0.01f * (1.0f + existingFile.quantity))
             } else {
-                if (existingFile != null) {
-                    sellPrice = compilePrice * 2.0f - (compilePrice * 0.01f * (1.0f + existingFile.getQuantity()));
-                } else {
-                    sellPrice = compilePrice * 2.0f - (compilePrice * 0.01f);
-                }
+                sellPrice = compilePrice * 2.0f - (compilePrice * 0.01f)
             }
 
             if (sellPrice < minimumSellPrice) {
-                sellPrice = minimumSellPrice;
+                sellPrice = minimumSellPrice
             }
 
-            file.setPrice(sellPrice);
+            file.setPrice(sellPrice)
 
-            if (file.getType() == HackerFile.NEW_FIREWALL) {
-                success = false;
+            if (file.type == HackerFile.NEW_FIREWALL) {
+                success = false
             }
 
             if (success) {
-                file.setLocation("Store/");
-                computer.saveFile(file, existingFile, path);
+                file.setLocation("Store/")
+                computer.saveFile(file, existingFile, path)
 
-                if (file.getType() == HackerFile.PCI || file.getType() == HackerFile.AGP) {
-                    computer.PA.setRequestHardware(true);
+                if (file.type == HackerFile.PCI || file.type == HackerFile.AGP) {
+                    computer.PA.setRequestHardware(true)
                 }
             }
-            computer.systemChange = true;
-            return true;
+            computer.systemChange = true
+            return true
         }
 
-        return false;
+        return false
     }
 
-    private HashMap executeCompileApplication(Computer computer, int type, HashMap content, HashMap levels) throws Exception {
-        Object[] params = new Object[]{Integer.valueOf(type), content, levels};
-        return (HashMap) getSessionService(computer).executeRemote(LocalWebConfig.getXmlRpcUrl(), "hackerRPC.compileApplication", params);
+    private fun executeCompileApplication(
+        computer: Computer,
+        type: Int,
+        content: HashMap<*, *>,
+        levels: HashMap<*, *>
+    ): HashMap<*, *>? {
+        val params = arrayOf<Any?>(Integer.valueOf(type), content, levels)
+        return getSessionService(computer).executeRemote(
+            LocalWebConfig.getXmlRpcUrl(),
+            "hackerRPC.compileApplication",
+            params
+        ) as HashMap<*, *>?
     }
 
-    private ComputerSessionService getSessionService(Computer computer) throws Exception {
-        Field field = Computer.class.getDeclaredField("sessionService");
-        field.setAccessible(true);
-        return (ComputerSessionService) field.get(computer);
+    private fun getSessionService(computer: Computer): ComputerSessionService {
+        val field: Field = Computer::class.java.getDeclaredField("sessionService")
+        field.isAccessible = true
+        return field.get(computer) as ComputerSessionService
     }
 }

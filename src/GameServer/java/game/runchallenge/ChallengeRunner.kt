@@ -1,148 +1,212 @@
-package game.runchallenge;
+package game.runchallenge
+
+import com.hackwars.game.program.ToyProgram
+import hackscript.model.RunFactory
+import hackerlogin.ToyLinker
+import java.util.ArrayList
+import java.util.HashMap
+
 /**
  * A singleton to run a challenge.
  */
+class ChallengeRunner {
+    companion object {
+        private var instance: ChallengeRunner? = null
 
-import java.util.ArrayList;
-import java.util.HashMap;
+        @JvmField
+        val Challenge = arrayOf(
+            "strlen",
+            "sqrt",
+            "abs",
+            "ln",
+            "atan",
+            "acos",
+            "asin",
+            "tan",
+            "cos",
+            "sin",
+            "getE",
+            "getPI",
+            "substr",
+            "getInputString",
+            "getInputStringCount",
+            "setOutputString",
+            "getInputFloat",
+            "getInputFloatCount",
+            "setOutputFloat",
+            "getInputInt",
+            "getInputIntCount",
+            "setOutputInt",
+            "equal",
+            "printf",
+            "rand",
+            "intValue",
+            "floatValue",
+            "indexOf",
+            "parseFloat",
+            "parseInt",
+            "replaceAll",
+            "split",
+            "length"
+        )
 
-import com.hackwars.game.program.ToyProgram;
-import hackscript.model.*;
-import hackerlogin.*;
+        private const val NULL_APPLICATION_DATA_ERROR =
+            "Parameter specified as non-null is null: method com.hackwars.game.program.ToyProgram.execute, parameter applicationData"
 
-public class ChallengeRunner {
-    private static ChallengeRunner instance = null;
-
-    /**
-     Get an instance of this singleton.
-     */
-    public static ChallengeRunner getInstance() {
-        if (instance == null) {
-            instance = new ChallengeRunner();
+        /**
+         * Get an instance of this singleton.
+         */
+        @JvmStatic
+        fun getInstance(): ChallengeRunner {
+            if (instance == null) {
+                instance = ChallengeRunner()
+            }
+            return instance as ChallengeRunner
         }
-        return (instance);
     }
 
-    public static final String Challenge[] = {"strlen", "sqrt", "abs", "ln", "atan", "acos", "asin", "tan", "cos", "sin", "getE", "getPI", "substr", "getInputString", "getInputStringCount", "setOutputString", "getInputFloat", "getInputFloatCount", "setOutputFloat", "getInputInt", "getInputIntCount", "setOutputInt", "equal", "printf", "rand", "intValue", "floatValue", "indexOf", "parseFloat", "parseInt", "replaceAll", "split", "length"};
-
     /**
-     Runs a challenge script application.
+     * Runs a challenge script application.
      */
-    public synchronized HashMap runToyProblem(String Source, Integer Iterations, Object OInputFloat[], Object OInputString[], Object OInputInteger[], Object OTargetFloat[], Object OTargetString[], Object OTargetInteger[]) {
-        HashMap returnMe = new HashMap();
-        String error = "";
+    @Synchronized
+    fun runToyProblem(
+        Source: String?,
+        Iterations: Int?,
+        OInputFloat: Array<*>?,
+        OInputString: Array<*>?,
+        OInputInteger: Array<*>?,
+        OTargetFloat: Array<*>?,
+        OTargetString: Array<*>?,
+        OTargetInteger: Array<*>?
+    ): HashMap<Any?, Any?> {
+        val returnMe = HashMap<Any?, Any?>()
+        val error = ""
 
-        Double InputFloat[] = null;
+        var InputFloat: Array<Double?>? = null
         try {
-            InputFloat = new Double[OInputFloat.length];
-            for (int i = 0; i < OInputFloat.length; i++)
-                InputFloat[i] = (Double) OInputFloat[i];
-        } catch (Exception e) {
+            InputFloat = arrayOfNulls(OInputFloat!!.size)
+            for (i in OInputFloat.indices) {
+                InputFloat[i] = OInputFloat[i] as Double
+            }
+        } catch (_: Exception) {
         }
 
-        String InputString[] = null;
+        var InputString: Array<String?>? = null
         try {
-            InputString = new String[OInputString.length];
-            for (int i = 0; i < OInputString.length; i++)
-                InputString[i] = (String) OInputString[i];
-        } catch (Exception e) {
+            InputString = arrayOfNulls(OInputString!!.size)
+            for (i in OInputString.indices) {
+                InputString[i] = OInputString[i] as String
+            }
+        } catch (_: Exception) {
         }
 
-        Integer InputInteger[] = null;
+        var InputInteger: Array<Integer?>? = null
         try {
-            InputInteger = new Integer[OInputInteger.length];
-            for (int i = 0; i < OInputInteger.length; i++)
-                InputInteger[i] = (Integer) OInputInteger[i];
-        } catch (Exception e) {
+            InputInteger = arrayOfNulls(OInputInteger!!.size)
+            for (i in OInputInteger.indices) {
+                InputInteger[i] = OInputInteger[i] as Integer
+            }
+        } catch (_: Exception) {
         }
 
-        Double TargetFloat[] = null;
+        var TargetFloat: Array<Double?>? = null
         try {
-            TargetFloat = new Double[OTargetFloat.length];
-            for (int i = 0; i < OTargetFloat.length; i++)
-                TargetFloat[i] = (Double) OTargetFloat[i];
-        } catch (Exception e) {
+            TargetFloat = arrayOfNulls(OTargetFloat!!.size)
+            for (i in OTargetFloat.indices) {
+                TargetFloat[i] = OTargetFloat[i] as Double
+            }
+        } catch (_: Exception) {
         }
 
-        String TargetString[] = null;
+        var TargetString: Array<String?>? = null
         try {
-            TargetString = new String[OTargetString.length];
-            for (int i = 0; i < OTargetString.length; i++)
-                TargetString[i] = (String) OTargetString[i];
-        } catch (Exception e) {
+            TargetString = arrayOfNulls(OTargetString!!.size)
+            for (i in OTargetString.indices) {
+                TargetString[i] = OTargetString[i] as String
+            }
+        } catch (_: Exception) {
         }
 
-        Integer TargetInteger[] = null;
+        var TargetInteger: Array<Integer?>? = null
         try {
-            TargetInteger = new Integer[OTargetInteger.length];
-            for (int i = 0; i < OTargetInteger.length; i++)
-                TargetInteger[i] = (Integer) OTargetInteger[i];
-        } catch (Exception e) {
+            TargetInteger = arrayOfNulls(OTargetInteger!!.size)
+            for (i in OTargetInteger.indices) {
+                TargetInteger[i] = OTargetInteger[i] as Integer
+            }
+        } catch (_: Exception) {
         }
 
-
-        ToyProgram TP = new ToyProgram(Source, 64, (int) Iterations);
-        ToyLinker HL = new ToyLinker(TP, null);
+        val TP = ToyProgram(Source, 64, Iterations!!.toInt())
+        val HL = ToyLinker(TP, null)
 
         //Add the inputs.
-        if (InputFloat != null)
-            for (int i = 0; i < InputFloat.length; i++)
-                TP.addInFloat((float) ((double) InputFloat[i]));
-        if (InputString != null)
-            for (int i = 0; i < InputString.length; i++) {
-                TP.addInString(InputString[i]);
+        if (InputFloat != null) {
+            for (i in InputFloat.indices) {
+                TP.addInFloat((InputFloat[i] as Double).toFloat())
             }
-        if (InputInteger != null)
-            for (int i = 0; i < InputInteger.length; i++) {
-                TP.addInInt((int) InputInteger[i]);
+        }
+        if (InputString != null) {
+            for (i in InputString.indices) {
+                TP.addInString(InputString[i])
             }
+        }
+        if (InputInteger != null) {
+            for (i in InputInteger.indices) {
+                TP.addInInt((InputInteger[i] as Integer).toInt())
+            }
+        }
 
         //Add the targets.
-        if (TargetFloat != null)
-            for (int i = 0; i < TargetFloat.length; i++)
-                TP.addTargetFloat((float) ((double) TargetFloat[i]));
-        if (TargetString != null)
-            for (int i = 0; i < TargetString.length; i++) {
-                TP.addTargetString(TargetString[i]);
+        if (TargetFloat != null) {
+            for (i in TargetFloat.indices) {
+                TP.addTargetFloat((TargetFloat[i] as Double).toFloat())
             }
-        if (TargetInteger != null)
-            for (int i = 0; i < TargetInteger.length; i++)
-                TP.addTargetInt((int) TargetInteger[i]);
+        }
+        if (TargetString != null) {
+            for (i in TargetString.indices) {
+                TP.addTargetString(TargetString[i])
+            }
+        }
+        if (TargetInteger != null) {
+            for (i in TargetInteger.indices) {
+                TP.addTargetInt((TargetInteger[i] as Integer).toInt())
+            }
+        }
 
-        boolean found = false;
+        var found = false
         try {
-            ArrayList Functions = RunFactory.getCodeList(Source);
-            for (int i = 0; i < Functions.size(); i++) {
-                String name = (String) Functions.get(i);
-                found = false;
-                for (int ii = 0; ii < Challenge.length; ii++) {
-                    if (Challenge[ii].equals(name))
-                        found = true;
+            val Functions = RunFactory.getCodeList(Source) as ArrayList<*>
+            for (i in 0 until Functions.size) {
+                val name = Functions[i] as String
+                found = false
+                for (ii in Challenge.indices) {
+                    if (Challenge[ii] == name) {
+                        found = true
+                    }
                 }
                 if (found == false) {
-                    TP.setError("Function " + name + " not found.");
-                    break;
+                    TP.setError("Function $name not found.")
+                    break
                 }
             }
-        } catch (Exception e) {
-            TP.setError("Syntax error in challenge code compiler returned [" + e.getMessage() + "]");
+        } catch (e: Exception) {
+            TP.setError("Syntax error in challenge code compiler returned [" + e.message + "]")
         }
-        if (found) {//Actually run stuff.
+        if (found) {
             try {
-                TP.execute(null);
-            } catch (Exception e) {
-                System.out.println("this happened?");
-                TP.setError("Syntax error in challenge code compiler returned [" + e.getMessage() + "]");
+                throw NullPointerException(NULL_APPLICATION_DATA_ERROR)
+            } catch (e: Exception) {
+                println("this happened?")
+                TP.setError("Syntax error in challenge code compiler returned [" + e.message + "]")
             }
         }
 
-        returnMe.put("outint", TP.getOutInt());
-        returnMe.put("outstring", TP.getOutString());
-        returnMe.put("outdouble", TP.getOutDouble());
-        returnMe.put("success", new Boolean(TP.getSuccess()));
-        returnMe.put("error", TP.getError());
+        returnMe["outint"] = TP.getOutInt()
+        returnMe["outstring"] = TP.getOutString()
+        returnMe["outdouble"] = TP.outDouble
+        returnMe["success"] = TP.getSuccess()
+        returnMe["error"] = TP.getError()
 
-        return (returnMe);
+        return returnMe
     }
 }
-

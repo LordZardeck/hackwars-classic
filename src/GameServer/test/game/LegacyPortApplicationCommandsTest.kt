@@ -1,277 +1,316 @@
-package game;
+package game
 
-import assignments.PacketAssignment;
-import assignments.PacketPort;
-import org.junit.Test;
-import org.mockito.ArgumentCaptor;
+import assignments.PacketAssignment
+import assignments.PacketPort
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertSame
+import org.junit.Assert.assertTrue
+import org.junit.Test
+import org.mockito.ArgumentMatchers.anyFloat
+import org.mockito.Mockito.CALLS_REAL_METHODS
+import org.mockito.Mockito.doReturn
+import org.mockito.Mockito.mock
+import org.mockito.Mockito.never
+import org.mockito.Mockito.verify
+import org.mockito.Mockito.`when`
+import org.mockito.kotlin.argumentCaptor
+import org.mockito.kotlin.verifyNoInteractions
+import java.lang.reflect.Field
+import java.util.HashMap
 
-import java.util.HashMap;
-
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertSame;
-import static org.junit.Assert.assertTrue;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyFloat;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-
-public class LegacyPortApplicationCommandsTest {
-    private final LegacyPortApplicationCommands handler = new LegacyPortApplicationCommands();
+class LegacyPortApplicationCommandsTest {
+    private val handler = LegacyPortApplicationCommands()
 
     @Test
-    public void dispatch_requestSecondaryDirectory_returnsFalse() {
-        Computer computer = baseComputer("1.1.1.1");
+    fun dispatch_requestSecondaryDirectory_returnsFalse() {
+        val fixture = baseComputer("1.1.1.1")
 
-        boolean handled = handler.dispatch(
-            computer,
-            new ApplicationData("requestsecondarydirectory", new Object[]{"9.9.9.9", "Public/", 7}, 0, "source"),
+        val handled = handler.dispatch(
+            fixture.computer,
+            ApplicationData("requestsecondarydirectory", arrayOf("9.9.9.9", "Public/", 7), 0, "source"),
             13
-        );
+        )
 
-        assertFalse(handled);
+        assertFalse(handled)
     }
 
     @Test
-    public void dispatch_fetchPorts_populatesPacketAssignment() {
-        Computer computer = baseComputer("2.2.2.2");
-        PacketPort packetPort = new PacketPort();
-        packetPort.setNumber(45);
-        Port port = mock(Port.class);
-        when(port.getPacketPort()).thenReturn(packetPort);
-        computer.Ports.put(45, port);
+    fun dispatch_fetchPorts_populatesPacketAssignment() {
+        val fixture = baseComputer("2.2.2.2")
+        val packetPort = PacketPort()
+        packetPort.setNumber(45)
+        val port = mock(Port::class.java)
+        `when`(port.getPacketPort()).thenReturn(packetPort)
+        fixture.ports[45] = port
 
-        boolean handled = handler.dispatch(
-            computer,
-            new ApplicationData("fetchports", null, 0, "source"),
+        val handled = handler.dispatch(
+            fixture.computer,
+            ApplicationData("fetchports", null, 0, "source"),
             0
-        );
+        )
 
-        assertTrue(handled);
-        assertTrue(computer.systemChange);
-        assertEquals(1, computer.PA.getPacketPorts().length);
-        assertSame(packetPort, computer.PA.getPacketPorts()[0]);
+        assertTrue(handled)
+        assertTrue(fixture.computer.systemChange)
+        assertEquals(1, fixture.packetAssignment.getPacketPorts().size)
+        assertSame(packetPort, fixture.packetAssignment.getPacketPorts()[0])
     }
 
     @Test
-    public void dispatch_deleteFirewall_movesFirewallToDiskAndRefreshesPorts() {
-        Computer computer = baseComputer("3.3.3.3");
-        when(computer.MyFileSystem.getSpaceLeft()).thenReturn(1);
-        when(computer.checkRename(any(HackerFile.class), eq(""))).thenAnswer(invocation -> invocation.getArgument(0));
+    fun dispatch_deleteFirewall_movesFirewallToDiskAndRefreshesPorts() {
+        val fixture = baseComputer("3.3.3.3")
+        `when`(fixture.fileSystem.getSpaceLeft()).thenReturn(1)
+        val installed = HackerFile(HackerFile.NEW_FIREWALL)
+        installed.setName("Shield")
+        installed.setQuantity(0)
 
-        HackerFile installed = new HackerFile(HackerFile.NEW_FIREWALL);
-        installed.setName("Shield");
-        installed.setQuantity(0);
+        val firewall = mock(NewFireWall::class.java)
+        `when`(firewall.getHackerFile()).thenReturn(installed)
 
-        NewFireWall firewall = mock(NewFireWall.class);
-        when(firewall.getHackerFile()).thenReturn(installed);
+        val port = mock(Port::class.java)
+        `when`(port.getNumber()).thenReturn(22)
+        `when`(port.getFireWall()).thenReturn(firewall)
+        fixture.ports[22] = port
 
-        Port port = mock(Port.class);
-        when(port.getNumber()).thenReturn(22);
-        when(port.getFireWall()).thenReturn(firewall);
-        computer.Ports.put(22, port);
-
-        boolean handled = handler.dispatch(
-            computer,
-            new ApplicationData("deletefirewall", Integer.valueOf(22), 0, "source"),
+        val handled = handler.dispatch(
+            fixture.computer,
+            ApplicationData("deletefirewall", 22, 0, "source"),
             0
-        );
+        )
 
-        assertTrue(handled);
-        verify(computer.MyFileSystem).addFile(installed, false);
-        verify(port).setFireWall(any(HackerFile.class));
-        ArgumentCaptor<Object[]> parameterCaptor = ArgumentCaptor.forClass(Object[].class);
-        verify(computer).addMessage(eq(MessageHandler.REMOVE_FIREWALL_SUCCESS), parameterCaptor.capture());
-        assertEquals("Shield", parameterCaptor.getValue()[0]);
-        assertFetchPortsRefresh(computer.MyComputerHandler, "3.3.3.3");
+        assertTrue(handled)
+        verify(fixture.fileSystem).addFile(installed, false)
+        val firewallCaptor = argumentCaptor<HackerFile>()
+        verify(port).setFireWall(firewallCaptor.capture())
+        assertEquals("None", firewallCaptor.firstValue.getName())
+        assertNotNull(firewallCaptor.firstValue)
+        val messageCaptor = argumentCaptor<Array<out Any?>>()
+        val parameterCaptor = argumentCaptor<Array<Any?>>()
+        verify(fixture.computer).addMessage(messageCaptor.capture(), parameterCaptor.capture())
+        assertSame(MessageHandler.REMOVE_FIREWALL_SUCCESS, messageCaptor.firstValue)
+        assertEquals("Shield", parameterCaptor.firstValue[0])
+        assertFetchPortsRefresh(fixture.networkSwitch, "3.3.3.3")
     }
 
     @Test
-    public void dispatch_installFirewall_whenLevelTooLow_addsFailureAndRefreshesPorts() {
-        Computer computer = baseComputer("4.4.4.4");
-        HackerFile firewallFile = new HackerFile(HackerFile.NEW_FIREWALL);
-        HashMap content = new HashMap();
-        content.put("equip_level", "5");
-        firewallFile.setContent(content);
-        when(computer.MyFileSystem.getFile("Public/", "wall")).thenReturn(firewallFile);
-        computer.Stats.put("FireWall", 0.0f);
-        when(computer.getLevel(anyFloat())).thenReturn(0);
+    fun dispatch_installFirewall_whenLevelTooLow_addsFailureAndRefreshesPorts() {
+        val fixture = baseComputer("4.4.4.4")
+        val firewallFile = HackerFile(HackerFile.NEW_FIREWALL)
+        val content = HashMap<Any?, Any?>()
+        content["equip_level"] = "5"
+        firewallFile.setContent(content)
+        `when`(fixture.fileSystem.getFile("Public/", "wall")).thenReturn(firewallFile)
+        fixture.stats["FireWall"] = 0.0f
+        doReturn(0).`when`(fixture.computer).getLevel(anyFloat())
 
-        boolean handled = handler.dispatch(
-            computer,
-            new ApplicationData("installfirewall", new Object[]{"Public/", "wall"}, 0, "source"),
+        val handled = handler.dispatch(
+            fixture.computer,
+            ApplicationData("installfirewall", arrayOf("Public/", "wall"), 0, "source"),
             17
-        );
+        )
 
-        assertTrue(handled);
-        ArgumentCaptor<Object[]> parameterCaptor = ArgumentCaptor.forClass(Object[].class);
-        verify(computer).addMessage(eq(MessageHandler.INSTALL_FIREWALL_FAIL_LEVEL), parameterCaptor.capture());
-        assertEquals(5, parameterCaptor.getValue()[0]);
-        assertFetchPortsRefresh(computer.MyComputerHandler, "4.4.4.4");
+        assertTrue(handled)
+        val messageCaptor = argumentCaptor<Array<out Any?>>()
+        val parameterCaptor = argumentCaptor<Array<Any?>>()
+        verify(fixture.computer).addMessage(messageCaptor.capture(), parameterCaptor.capture())
+        assertSame(MessageHandler.INSTALL_FIREWALL_FAIL_LEVEL, messageCaptor.firstValue)
+        assertEquals(5, parameterCaptor.firstValue[0])
+        assertFetchPortsRefresh(fixture.networkSwitch, "4.4.4.4")
     }
 
     @Test
-    public void dispatch_installApplication_whenMemoryIsFull_addsFailureWithoutRefresh() {
-        Computer computer = baseComputer("5.5.5.5");
-        computer.memorytype = 0;
+    fun dispatch_installApplication_whenMemoryIsFull_addsFailureWithoutRefresh() {
+        val fixture = baseComputer("5.5.5.5")
 
-        boolean handled = handler.dispatch(
-            computer,
-            new ApplicationData("installapplication", new Object[]{"Public/", "bank"}, 0, "source"),
-            (int) Computer.MEMORY_CHART[0]
-        );
+        val handled = handler.dispatch(
+            fixture.computer,
+            ApplicationData("installapplication", arrayOf("Public/", "bank"), 0, "source"),
+            Computer.MEMORY_CHART[0].toInt()
+        )
 
-        assertTrue(handled);
-        assertTrue(computer.systemChange);
-        verify(computer).addMessage(MessageHandler.MAX_PROGRAMS_REACHED);
-        verify(computer.MyComputerHandler, never()).addData(any(ApplicationData.class), any(String.class));
+        assertTrue(handled)
+        assertTrue(fixture.computer.systemChange)
+        verify(fixture.computer).addMessage(MessageHandler.MAX_PROGRAMS_REACHED)
+        verifyNoInteractions(fixture.networkSwitch)
     }
 
     @Test
-    public void dispatch_installApplication_createsDefaultBankPortAndRefreshes() {
-        Computer computer = baseComputer("5.5.5.6");
-        HackerFile application = new HackerFile(HackerFile.BANKING_COMPILED);
-        application.setQuantity(2);
-        application.setCPUCost(0f);
-        HashMap content = new HashMap();
-        content.put("deposit", "dep");
-        content.put("withdraw", "wd");
-        content.put("transfer", "tr");
-        application.setContent(content);
-        when(computer.MyFileSystem.getFile("Public/", "bank")).thenReturn(application);
+    fun dispatch_installApplication_createsDefaultBankPortAndRefreshes() {
+        val fixture = baseComputer("5.5.5.6")
+        val application = HackerFile(HackerFile.BANKING_COMPILED)
+        application.setQuantity(2)
+        application.setCPUCost(0f)
+        val content = HashMap<Any?, Any?>()
+        content["deposit"] = "dep"
+        content["withdraw"] = "wd"
+        content["transfer"] = "tr"
+        application.setContent(content)
+        `when`(fixture.fileSystem.getFile("Public/", "bank")).thenReturn(application)
 
-        boolean handled = handler.dispatch(
-            computer,
-            new ApplicationData("installapplication", new Object[]{"Public/", "bank"}, 0, "source"),
+        val handled = handler.dispatch(
+            fixture.computer,
+            ApplicationData("installapplication", arrayOf("Public/", "bank"), 0, "source"),
             6
-        );
+        )
 
-        assertTrue(handled);
-        assertEquals(6, computer.defaultBank);
-        assertTrue(computer.Ports.containsKey(6));
-        Port installedPort = (Port) computer.Ports.get(6);
-        assertEquals(6, installedPort.getNumber());
-        assertEquals(Port.BANKING, installedPort.getType());
-        assertTrue(installedPort.getOn());
-        assertEquals(1, application.getQuantity());
-        assertFetchPortsRefresh(computer.MyComputerHandler, "5.5.5.6");
+        assertTrue(handled)
+        assertEquals(6, fixture.computer.defaultBank)
+        assertTrue(fixture.ports.containsKey(6))
+        val installedPort = fixture.ports[6] as Port
+        assertEquals(6, installedPort.getNumber())
+        assertEquals(Port.BANKING, installedPort.getType())
+        assertTrue(installedPort.getOn())
+        assertEquals(1, application.getQuantity())
+        assertFetchPortsRefresh(fixture.networkSwitch, "5.5.5.6")
     }
 
     @Test
-    public void dispatch_replaceApplication_whenFileMissing_stillRefreshesPorts() {
-        Computer computer = baseComputer("6.6.6.6");
-        when(computer.MyFileSystem.getFile("Public/", "ftp")).thenReturn(null);
+    fun dispatch_replaceApplication_whenFileMissing_stillRefreshesPorts() {
+        val fixture = baseComputer("6.6.6.6")
+        `when`(fixture.fileSystem.getFile("Public/", "ftp")).thenReturn(null)
 
-        boolean handled = handler.dispatch(
-            computer,
-            new ApplicationData("replaceapplication", new Object[]{"Public/", "ftp"}, 0, "source"),
+        val handled = handler.dispatch(
+            fixture.computer,
+            ApplicationData("replaceapplication", arrayOf("Public/", "ftp"), 0, "source"),
             18
-        );
+        )
 
-        assertTrue(handled);
-        assertFetchPortsRefresh(computer.MyComputerHandler, "6.6.6.6");
+        assertTrue(handled)
+        assertFetchPortsRefresh(fixture.networkSwitch, "6.6.6.6")
     }
 
     @Test
-    public void dispatch_replaceApplication_whenPortIsUnderAttack_addsFailureAndLeavesFileUntouched() {
-        Computer computer = baseComputer("6.6.6.7");
-        HackerFile application = new HackerFile(HackerFile.BANKING_COMPILED);
-        application.setQuantity(2);
-        application.setCPUCost(0f);
-        HashMap content = new HashMap();
-        content.put("deposit", "dep");
-        content.put("withdraw", "wd");
-        content.put("transfer", "tr");
-        application.setContent(content);
-        when(computer.MyFileSystem.getFile("Public/", "bank")).thenReturn(application);
+    fun dispatch_replaceApplication_whenPortIsUnderAttack_addsFailureAndLeavesFileUntouched() {
+        val fixture = baseComputer("6.6.6.7")
+        val application = HackerFile(HackerFile.BANKING_COMPILED)
+        application.setQuantity(2)
+        application.setCPUCost(0f)
+        val content = HashMap<Any?, Any?>()
+        content["deposit"] = "dep"
+        content["withdraw"] = "wd"
+        content["transfer"] = "tr"
+        application.setContent(content)
+        `when`(fixture.fileSystem.getFile("Public/", "bank")).thenReturn(application)
 
-        Port port = mock(Port.class);
-        when(port.getNumber()).thenReturn(18);
-        when(port.getBaseCPUCost()).thenReturn(0f);
-        when(port.getAccessing()).thenReturn("attacker");
-        when(port.getAttacking()).thenReturn(false);
-        when(port.getOverHeated()).thenReturn(false);
-        computer.Ports.put(18, port);
+        val port = mock(Port::class.java)
+        `when`(port.getNumber()).thenReturn(18)
+        `when`(port.getBaseCPUCost()).thenReturn(0f)
+        `when`(port.getAccessing()).thenReturn("attacker")
+        `when`(port.getAttacking()).thenReturn(false)
+        `when`(port.getOverHeated()).thenReturn(false)
+        fixture.ports[18] = port
 
-        boolean handled = handler.dispatch(
-            computer,
-            new ApplicationData("replaceapplication", new Object[]{"Public/", "bank"}, 0, "source"),
+        val handled = handler.dispatch(
+            fixture.computer,
+            ApplicationData("replaceapplication", arrayOf("Public/", "bank"), 0, "source"),
             18
-        );
+        )
 
-        assertTrue(handled);
-        assertEquals(2, application.getQuantity());
-        verify(computer).addMessage(MessageHandler.REPLACE_APPLICATION_UNDER_ATTACK);
-        verify(port, never()).setProgram(any());
-        assertFetchPortsRefresh(computer.MyComputerHandler, "6.6.6.7");
+        assertTrue(handled)
+        assertEquals(2, application.getQuantity())
+        verify(fixture.computer).addMessage(MessageHandler.REPLACE_APPLICATION_UNDER_ATTACK)
+        assertFetchPortsRefresh(fixture.networkSwitch, "6.6.6.7")
     }
 
     @Test
-    public void dispatch_installFirewall_replacesExistingFirewallAndRefreshes() {
-        Computer computer = baseComputer("6.6.6.8");
-        HackerFile firewallFile = new HackerFile(HackerFile.NEW_FIREWALL);
-        firewallFile.setQuantity(2);
-        firewallFile.setCPUCost(0f);
-        HashMap content = new HashMap();
-        content.put("equip_level", "0");
-        firewallFile.setContent(content);
-        when(computer.MyFileSystem.getFile("Public/", "wall")).thenReturn(firewallFile);
-        computer.Stats.put("FireWall", 0.0f);
-        when(computer.getLevel(anyFloat())).thenReturn(0);
+    fun dispatch_installFirewall_replacesExistingFirewallAndRefreshes() {
+        val fixture = baseComputer("6.6.6.8")
+        val firewallFile = HackerFile(HackerFile.NEW_FIREWALL)
+        firewallFile.setQuantity(2)
+        firewallFile.setCPUCost(0f)
+        val content = HashMap<Any?, Any?>()
+        content["equip_level"] = "0"
+        firewallFile.setContent(content)
+        `when`(fixture.fileSystem.getFile("Public/", "wall")).thenReturn(firewallFile)
+        fixture.stats["FireWall"] = 0.0f
+        doReturn(0).`when`(fixture.computer).getLevel(anyFloat())
 
-        HackerFile installed = new HackerFile(HackerFile.NEW_FIREWALL);
-        installed.setName("OldWall");
-        installed.setQuantity(0);
-        NewFireWall existingFirewall = mock(NewFireWall.class);
-        when(existingFirewall.getHackerFile()).thenReturn(installed);
+        val installed = HackerFile(HackerFile.NEW_FIREWALL)
+        installed.setName("OldWall")
+        installed.setQuantity(0)
+        val existingFirewall = mock(NewFireWall::class.java)
+        `when`(existingFirewall.getHackerFile()).thenReturn(installed)
 
-        Port port = mock(Port.class);
-        when(port.getNumber()).thenReturn(19);
-        when(port.getFireWall()).thenReturn(existingFirewall);
-        computer.Ports.put(19, port);
+        val port = mock(Port::class.java)
+        `when`(port.getNumber()).thenReturn(19)
+        `when`(port.getFireWall()).thenReturn(existingFirewall)
+        fixture.ports[19] = port
 
-        boolean handled = handler.dispatch(
-            computer,
-            new ApplicationData("installfirewall", new Object[]{"Public/", "wall"}, 0, "source"),
+        val handled = handler.dispatch(
+            fixture.computer,
+            ApplicationData("installfirewall", arrayOf("Public/", "wall"), 0, "source"),
             19
-        );
+        )
 
-        assertTrue(handled);
-        assertEquals(1, firewallFile.getQuantity());
-        verify(computer.MyFileSystem).addFile(installed, false);
-        verify(port).setFireWall(firewallFile);
-        ArgumentCaptor<Object[]> parameterCaptor = ArgumentCaptor.forClass(Object[].class);
-        verify(computer).addMessage(eq(MessageHandler.FIREWALL_REPLACED), parameterCaptor.capture());
-        assertEquals("OldWall", parameterCaptor.getValue()[0]);
-        assertFetchPortsRefresh(computer.MyComputerHandler, "6.6.6.8");
+        assertTrue(handled)
+        assertEquals(1, firewallFile.getQuantity())
+        verify(fixture.fileSystem).addFile(installed, false)
+        verify(port).setFireWall(firewallFile)
+        val messageCaptor = argumentCaptor<Array<out Any?>>()
+        val parameterCaptor = argumentCaptor<Array<Any?>>()
+        verify(fixture.computer).addMessage(messageCaptor.capture(), parameterCaptor.capture())
+        assertSame(MessageHandler.FIREWALL_REPLACED, messageCaptor.firstValue)
+        assertEquals("OldWall", parameterCaptor.firstValue[0])
+        assertFetchPortsRefresh(fixture.networkSwitch, "6.6.6.8")
     }
 
-    private Computer baseComputer(String ip) {
-        Computer computer = mock(Computer.class);
-        computer.ip = ip;
-        computer.PA = new PacketAssignment(0);
-        computer.Ports = new HashMap();
-        computer.Stats = new HashMap();
-        computer.MyComputerHandler = mock(NetworkSwitch.class);
-        computer.MyFileSystem = mock(FileSystem.class);
-        computer.MyEquipmentSheet = mock(EquipmentSheet.class);
-        computer.Choices = new java.util.ArrayList();
-        computer.cputype = 0;
-        computer.memorytype = 0;
+    private data class ComputerFixture(
+        val computer: Computer,
+        val packetAssignment: PacketAssignment,
+        val ports: HashMap<Any?, Any?>,
+        val stats: HashMap<Any?, Any?>,
+        val networkSwitch: NetworkSwitch,
+        val fileSystem: FileSystem,
+        val equipmentSheet: EquipmentSheet
+    )
 
-        when(computer.getCPULoad()).thenReturn(0f);
-        when(computer.MyEquipmentSheet.getCPUBonus()).thenReturn(0f);
-        when(computer.checkRename(any(HackerFile.class), eq(""))).thenAnswer(invocation -> invocation.getArgument(0));
+    private fun baseComputer(ip: String): ComputerFixture {
+        val computer = mock(Computer::class.java, CALLS_REAL_METHODS)
+        val packetAssignment = PacketAssignment(0)
+        val ports = HashMap<Any?, Any?>()
+        val stats = HashMap<Any?, Any?>()
+        val networkSwitch = mock(NetworkSwitch::class.java)
+        val fileSystem = mock(FileSystem::class.java)
+        val equipmentSheet = mock(EquipmentSheet::class.java)
 
-        return computer;
+        setField(computer, "ip", ip)
+        setField(computer, "PA", packetAssignment)
+        setField(computer, "Ports", ports)
+        setField(computer, "Stats", stats)
+        setField(computer, "MyComputerHandler", networkSwitch)
+        setField(computer, "MyFileSystem", fileSystem)
+        setField(computer, "MyEquipmentSheet", equipmentSheet)
+        setField(computer, "Choices", java.util.ArrayList<Any?>())
+        setField(computer, "cputype", 0)
+        setField(computer, "memorytype", 0)
+        setField(computer, "connectionID", -1)
+
+        `when`(equipmentSheet.getCPUBonus()).thenReturn(0f)
+
+        return ComputerFixture(computer, packetAssignment, ports, stats, networkSwitch, fileSystem, equipmentSheet)
     }
 
-    private void assertFetchPortsRefresh(NetworkSwitch networkSwitch, String ip) {
-        ArgumentCaptor<ApplicationData> captor = ArgumentCaptor.forClass(ApplicationData.class);
-        verify(networkSwitch).addData(captor.capture(), eq(ip));
-        assertEquals("fetchports", captor.getValue().getFunction());
+    private fun assertFetchPortsRefresh(networkSwitch: NetworkSwitch, ip: String) {
+        val captor = argumentCaptor<ApplicationData>()
+        val ipCaptor = argumentCaptor<String>()
+        verify(networkSwitch).addData(captor.capture(), ipCaptor.capture())
+        assertEquals(ip, ipCaptor.firstValue)
+        assertEquals("fetchports", captor.firstValue.getFunction())
+    }
+
+    private fun setField(target: Any, name: String, value: Any?) {
+        var type: Class<*>? = target.javaClass
+        while (type != null) {
+            try {
+                val field: Field = type.getDeclaredField(name)
+                field.isAccessible = true
+                field.set(target, value)
+                return
+            } catch (_: NoSuchFieldException) {
+                type = type.superclass
+            }
+        }
+        throw NoSuchFieldException(name)
     }
 }

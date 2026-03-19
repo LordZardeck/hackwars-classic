@@ -23,13 +23,13 @@ class SetDummyPort(computer: Computer) : Function(computer) {
         if (port != null && !port.attacking && port.accessing.isEmpty()) {
             if (!port.overHeated) {
                 if (!shouldBeDummy && port.dummy && port.on) {
-                    val cpuCheck = computer.cpuLoad + port.actualCPUCost
-                    val maxCpu = Computer.CPU_CHART[computer.cpuType] + computer.equipmentSheet.cpuBonus
+                    val cpuCheck = computer.cpuLoad + port.getActualCPUCost()
+                    val maxCpu = Computer.CPU_CHART[computer.cpuType] + computer.equipmentSheet.getCPUBonus()
                     if (cpuCheck <= maxCpu) {
-                        port.dummy = shouldBeDummy
+                        port.setDummy(shouldBeDummy)
                     }
                 } else {
-                    port.dummy = shouldBeDummy
+                    port.setDummy(shouldBeDummy)
                 }
             }
         }

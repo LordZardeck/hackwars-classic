@@ -157,13 +157,14 @@ class HTTPProgram(computer: Computer?, computerHandler: NetworkSwitch?) : Progra
      * Server a webpage to a player.
      */
     fun serveWebPage(MyApplicationData: ApplicationData, packetID: Int?) {
-        var PageTitle = computer!!.title
+        val activeComputer = computer ?: return
+        var PageTitle = activeComputer.title
         var PageBody: String? = content
 
         //Receive Payment.
-        var Files = computer!!.fileSystem.getWebDirectory("Store/")
+        var Files = activeComputer.fileSystem.getWebDirectory("Store/")
         for (i in Files!!.indices) { //Make sure we describe hardware.
-            val MyEquipmentSheet = EquipmentSheet(computer)
+            val MyEquipmentSheet = EquipmentSheet(activeComputer)
             if (Files[i] != null && Files[i] is HackerFile && ((Files[i] as HackerFile).type == HackerFile.PCI || (Files[i] as HackerFile).type == HackerFile.AGP)) {
                 MyEquipmentSheet.degradeEquipment(Files[i] as HackerFile?)
                 MyEquipmentSheet.describeCard(Files[i] as HackerFile?) //Testing outputting a description of the bonus.

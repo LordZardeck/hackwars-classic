@@ -1,250 +1,248 @@
-package game;
+package game
 
-import assignments.PacketAssignment;
-import hackscript.model.TypeBoolean;
-import hackscript.model.TypeInteger;
-import hackscript.model.TypeString;
-import org.junit.Test;
-import org.mockito.Answers;
-import org.mockito.Mockito;
+import assignments.PacketAssignment
+import hackscript.model.TypeBoolean
+import hackscript.model.TypeInteger
+import hackscript.model.TypeString
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Test
+import org.mockito.Answers
+import org.mockito.Mockito
+import java.util.ArrayList
+import java.util.HashMap
 
-import java.util.ArrayList;
-import java.util.HashMap;
-
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
-
-public class LegacyFilesystemInventoryCommandsTest {
-    private final LegacyFilesystemInventoryCommands handler = new LegacyFilesystemInventoryCommands();
+class LegacyFilesystemInventoryCommandsTest {
+    private val handler = LegacyFilesystemInventoryCommands()
 
     @Test
-    public void dispatch_returnsFalse_forNonOwnedCommand() {
-        Computer computer = baseComputer();
+    fun dispatch_returnsFalse_forNonOwnedCommand() {
+        val computer = baseComputer()
 
-        boolean handled = handler.dispatch(computer, new ApplicationData("requestwebpage", null, 0, "10.0.0.1"), 0);
+        val handled = handler.dispatch(computer, ApplicationData("requestwebpage", null, 0, "10.0.0.1"), 0)
 
-        assertFalse(handled);
+        assertFalse(handled)
     }
 
     @Test
-    public void dispatch_requestdirectory_setsPacketDirectory() {
-        Computer computer = baseComputer();
-        HackerFile file = textFile("notes.txt");
-        computer.MyFileSystem.addFile(file, true);
+    fun dispatch_requestdirectory_setsPacketDirectory() {
+        val computer = baseComputer()
+        val file = textFile("notes.txt")
+        computer.MyFileSystem.addFile(file, true)
 
-        boolean handled = handler.dispatch(
-                computer,
-                new ApplicationData("requestdirectory", new Object[]{"", Integer.valueOf(17)}, 0, "10.0.0.1"),
-                0
-        );
+        val handled = handler.dispatch(
+            computer,
+            ApplicationData("requestdirectory", arrayOf("", Integer.valueOf(17)), 0, "10.0.0.1"),
+            0
+        )
 
-        assertTrue(handled);
-        assertTrue(computer.systemChange);
-        Object[] directory = computer.PA.getDirectory();
-        assertNotNull(directory);
-        assertEquals(Integer.valueOf(17), directory[0]);
-        assertEquals("notes.txt", ((Object[]) directory[1])[0]);
+        assertTrue(handled)
+        assertTrue(computer.systemChange)
+        val directory = computer.PA.getDirectory()
+        assertNotNull(directory)
+        assertEquals(Integer.valueOf(17), directory[0])
+        assertEquals("notes.txt", (directory[1] as Array<*>)[0])
     }
 
     @Test
-    public void dispatch_requestfile_clonesGameFiles_withoutContent() {
-        Computer computer = baseComputer();
-        HackerFile file = gameFile("arcade");
-        computer.MyFileSystem.addFile(file, true);
+    fun dispatch_requestfile_clonesGameFiles_withoutContent() {
+        val computer = baseComputer()
+        val file = gameFile("arcade")
+        computer.MyFileSystem.addFile(file, true)
 
-        boolean handled = handler.dispatch(
-                computer,
-                new ApplicationData("requestfile", new String[]{"", "arcade"}, 0, "10.0.0.1"),
-                0
-        );
+        val handled = handler.dispatch(
+            computer,
+            ApplicationData("requestfile", arrayOf("", "arcade"), 0, "10.0.0.1"),
+            0
+        )
 
-        assertTrue(handled);
-        assertNotNull(computer.PA.getFile());
-        assertNull(computer.PA.getFile().getContent());
-        assertNotNull(file.getContent());
+        assertTrue(handled)
+        assertNotNull(computer.PA.getFile())
+        assertNull(computer.PA.getFile().getContent())
+        assertNotNull(file.getContent())
     }
 
     @Test
-    public void dispatch_requestgame_loadsSaveVariables() {
-        Computer computer = baseComputer();
-        HackerFile gameFile = gameFile("adventure");
-        computer.MyFileSystem.addFile(gameFile, true);
+    fun dispatch_requestgame_loadsSaveVariables() {
+        val computer = baseComputer()
+        val gameFile = gameFile("adventure")
+        computer.MyFileSystem.addFile(gameFile, true)
 
-        HackerFile saveFile = textFile("adventure.save");
-        HashMap saveContent = new HashMap();
-        saveContent.put("data", "name\tstring\tplayer\nalive\tbool\ttrue\nscore\tint\t7");
-        saveContent.put("level", "1");
-        saveFile.setContent(saveContent);
-        computer.MyFileSystem.addFile(saveFile, true);
+        val saveFile = textFile("adventure.save")
+        val saveContent = HashMap<Any?, Any?>()
+        saveContent["data"] = "name\tstring\tplayer\nalive\tbool\ttrue\nscore\tint\t7"
+        saveContent["level"] = "1"
+        saveFile.setContent(saveContent)
+        computer.MyFileSystem.addFile(saveFile, true)
 
-        boolean handled = handler.dispatch(
-                computer,
-                new ApplicationData("requestgame", new String[]{"", "adventure"}, 0, "10.0.0.1"),
-                0
-        );
+        val handled = handler.dispatch(
+            computer,
+            ApplicationData("requestgame", arrayOf("", "adventure"), 0, "10.0.0.1"),
+            0
+        )
 
-        assertTrue(handled);
-        HashMap loadFile = computer.PA.getLoadFile();
-        assertEquals("player", ((TypeString) loadFile.get("name")).getStringValue());
-        assertTrue(((TypeBoolean) loadFile.get("alive")).getBooleanValue());
-        assertEquals(7, ((TypeInteger) loadFile.get("score")).getIntValue());
-        assertEquals(gameFile, computer.PA.getFile());
+        assertTrue(handled)
+        val loadFile = computer.PA.getLoadFile()
+        assertEquals("player", (loadFile["name"] as TypeString).stringValue)
+        assertTrue((loadFile["alive"] as TypeBoolean).booleanValue)
+        assertEquals(7, (loadFile["score"] as TypeInteger).intValue)
+        assertEquals(gameFile, computer.PA.getFile())
     }
 
     @Test
-    public void dispatch_deletefile_removesFile_andRequestsPrimaryRefresh() {
-        Computer computer = baseComputer();
-        HackerFile file = textFile("trash.txt");
-        computer.MyFileSystem.addFile(file, true);
+    fun dispatch_deletefile_removesFile_andRequestsPrimaryRefresh() {
+        val computer = baseComputer()
+        val file = textFile("trash.txt")
+        computer.MyFileSystem.addFile(file, true)
 
-        boolean handled = handler.dispatch(
-                computer,
-                new ApplicationData("deletefile", new Object[]{"", "trash.txt"}, 0, "10.0.0.1"),
-                0
-        );
+        val handled = handler.dispatch(
+            computer,
+            ApplicationData("deletefile", arrayOf("", "trash.txt"), 0, "10.0.0.1"),
+            0
+        )
 
-        assertTrue(handled);
-        assertNull(computer.MyFileSystem.getFile("", "trash.txt"));
-        assertTrue(computer.PA.requestPrimary());
-        assertEquals(1, computer.PA.getRequestPrimaryID());
+        assertTrue(handled)
+        assertNull(computer.MyFileSystem.getFile("", "trash.txt"))
+        assertTrue(computer.PA.requestPrimary())
+        assertEquals(1, computer.PA.getRequestPrimaryID())
     }
 
     @Test
-    public void dispatch_savefile_usesComputerSaveHelper() {
-        Computer computer = baseComputer();
-        HackerFile file = textFile("draft.txt");
+    fun dispatch_savefile_usesComputerSaveHelper() {
+        val computer = baseComputer()
+        val file = textFile("draft.txt")
 
-        boolean handled = handler.dispatch(
-                computer,
-                new ApplicationData("savefile", new Object[]{"", file}, 0, "10.0.0.1"),
-                0
-        );
+        val handled = handler.dispatch(
+            computer,
+            ApplicationData("savefile", arrayOf("", file), 0, "10.0.0.1"),
+            0
+        )
 
-        assertTrue(handled);
-        assertNotNull(computer.MyFileSystem.getFile("", "draft.txt"));
-        assertTrue(computer.PA.requestPrimary());
-        assertEquals(1, computer.PA.getRequestPrimaryID());
+        assertTrue(handled)
+        assertNotNull(computer.MyFileSystem.getFile("", "draft.txt"))
+        assertTrue(computer.PA.requestPrimary())
+        assertEquals(1, computer.PA.getRequestPrimaryID())
     }
 
     @Test
-    public void dispatch_delivereddirectory_updatesSecondaryDirectory_andNpcAccessFlag() {
-        Computer computer = baseComputer();
-        Object[] delivered = new Object[]{"remote-file"};
+    fun dispatch_delivereddirectory_updatesSecondaryDirectory_andNpcAccessFlag() {
+        val computer = baseComputer()
+        val delivered = arrayOf<Any?>("remote-file")
 
-        boolean handled = handler.dispatch(
-                computer,
-                new ApplicationData("delivereddirectory", new Object[]{delivered, Boolean.TRUE}, 0, "10.0.0.1"),
-                0
-        );
+        val handled = handler.dispatch(
+            computer,
+            ApplicationData("delivereddirectory", arrayOf(delivered, java.lang.Boolean.TRUE), 0, "10.0.0.1"),
+            0
+        )
 
-        assertTrue(handled);
-        assertEquals(delivered, computer.PA.getSecondaryDirectory());
-        assertFalse(computer.PA.getAllowedDir());
-        assertTrue(computer.systemChange);
+        assertTrue(handled)
+        assertEquals(delivered, computer.PA.getSecondaryDirectory())
+        assertFalse(computer.PA.getAllowedDir())
+        assertTrue(computer.systemChange)
     }
 
     @Test
-    public void dispatch_setfiledescription_ignoresClueFiles() {
-        Computer computer = baseComputer();
-        HackerFile clue = clueFile("clue.txt", "original");
-        computer.MyFileSystem.addFile(clue, true);
+    fun dispatch_setfiledescription_ignoresClueFiles() {
+        val computer = baseComputer()
+        val clue = clueFile("clue.txt", "original")
+        computer.MyFileSystem.addFile(clue, true)
 
-        boolean handled = handler.dispatch(
-                computer,
-                new ApplicationData("setfiledescription", new Object[]{"", "clue.txt", "updated"}, 0, "10.0.0.1"),
-                0
-        );
+        val handled = handler.dispatch(
+            computer,
+            ApplicationData("setfiledescription", arrayOf("", "clue.txt", "updated"), 0, "10.0.0.1"),
+            0
+        )
 
-        assertTrue(handled);
-        assertEquals("original", clue.getDescription());
-        assertNull(computer.PA.getFile());
+        assertTrue(handled)
+        assertEquals("original", clue.description)
+        assertNull(computer.PA.getFile())
     }
 
     @Test
-    public void dispatch_savefile_withStolenMetadata_addsAttackAndGameMessages() {
-        Computer computer = baseComputer();
-        computer.connectionID = 1;
-        HackerFile file = textFile("stolen.txt");
+    fun dispatch_savefile_withStolenMetadata_addsAttackAndGameMessages() {
+        val computer = baseComputer()
+        computer.connectionID = 1
+        val file = textFile("stolen.txt")
 
-        boolean handled = handler.dispatch(
-                computer,
-                new ApplicationData("savefile", new Object[]{"", file, "9.9.9.9", Integer.valueOf(44)}, 0, "10.0.0.1"),
-                0
-        );
+        val handled = handler.dispatch(
+            computer,
+            ApplicationData("savefile", arrayOf("", file, "9.9.9.9", Integer.valueOf(44)), 0, "10.0.0.1"),
+            0
+        )
 
-        assertTrue(handled);
-        assertEquals(2, computer.Messages.size());
-        Object[] attackMessage = (Object[]) computer.Messages.get(0);
-        Object[] gameMessage = (Object[]) computer.Messages.get(1);
-        assertTrue(((String) attackMessage[0]).contains("stolen.txt"));
-        assertTrue(((String) attackMessage[0]).contains("successfully stolen"));
-        assertEquals(Integer.valueOf(44), ((Object[]) attackMessage[3])[0]);
-        assertEquals("9.9.9.9", ((Object[]) attackMessage[3])[1]);
-        assertTrue(((String) gameMessage[0]).contains("from 9.9.9.9"));
+        assertTrue(handled)
+        assertEquals(2, computer.Messages.size)
+        val attackMessage = computer.Messages[0] as Array<*>
+        val gameMessage = computer.Messages[1] as Array<*>
+        assertTrue((attackMessage[0] as String).contains("stolen.txt"))
+        assertTrue((attackMessage[0] as String).contains("successfully stolen"))
+        assertEquals(Integer.valueOf(44), (attackMessage[3] as Array<*>)[0])
+        assertEquals("9.9.9.9", (attackMessage[3] as Array<*>)[1])
+        assertTrue((gameMessage[0] as String).contains("from 9.9.9.9"))
     }
 
-    private Computer baseComputer() {
-        Computer computer = Mockito.mock(Computer.class, Answers.CALLS_REAL_METHODS);
-        computer.ip = "10.0.0.1";
-        computer.userName = "tester";
-        computer.connectionID = -1;
-        computer.systemChange = false;
-        computer.Messages = new ArrayList();
-        computer.Damage = new ArrayList();
-        computer.CurrentQuests = new HashMap();
-        computer.Stats = new HashMap();
-        computer.PA = new PacketAssignment(0);
-        computer.MyEquipmentSheet = Mockito.mock(EquipmentSheet.class);
-        computer.messageHandler = new MessageHandler(computer);
-        computer.MyFileSystem = new FileSystem(computer);
-        return computer;
+    private fun baseComputer(): Computer {
+        val computer = Mockito.mock(Computer::class.java, Answers.CALLS_REAL_METHODS)
+        computer.ip = "10.0.0.1"
+        computer.userName = "tester"
+        computer.connectionID = -1
+        computer.systemChange = false
+        computer.Messages = ArrayList()
+        computer.Damage = ArrayList()
+        computer.CurrentQuests = HashMap()
+        computer.Stats = HashMap()
+        computer.PA = PacketAssignment(0)
+        computer.MyEquipmentSheet = Mockito.mock(EquipmentSheet::class.java)
+        computer.messageHandler = MessageHandler(computer)
+        computer.MyFileSystem = FileSystem(computer)
+        return computer
     }
 
-    private HackerFile textFile(String name) {
-        HackerFile file = new HackerFile(HackerFile.TEXT);
-        file.setName(name);
-        file.setLocation("");
-        file.setDescription("text");
-        file.setQuantity(1);
-        HashMap content = new HashMap();
-        content.put("data", "hello");
-        content.put("level", "1");
-        file.setContent(content);
-        return file;
+    private fun textFile(name: String): HackerFile {
+        val file = HackerFile(HackerFile.TEXT)
+        file.setName(name)
+        file.setLocation("")
+        file.setDescription("text")
+        file.setQuantity(1)
+        val content = HashMap<Any?, Any?>()
+        content["data"] = "hello"
+        content["level"] = "1"
+        file.setContent(content)
+        return file
     }
 
-    private HackerFile gameFile(String name) {
-        HackerFile file = new HackerFile(HackerFile.GAME);
-        file.setName(name);
-        file.setLocation("");
-        file.setDescription("game");
-        file.setQuantity(1);
-        HashMap content = new HashMap();
-        content.put("data", "payload");
-        content.put("level", "1");
-        file.setContent(content);
-        return file;
+    private fun gameFile(name: String): HackerFile {
+        val file = HackerFile(HackerFile.GAME)
+        file.setName(name)
+        file.setLocation("")
+        file.setDescription("game")
+        file.setQuantity(1)
+        val content = HashMap<Any?, Any?>()
+        content["data"] = "payload"
+        content["level"] = "1"
+        file.setContent(content)
+        return file
     }
 
-    private HackerFile clueFile(String name, String description) {
-        HackerFile file = new HackerFile(HackerFile.CLUE);
-        file.setName(name);
-        file.setLocation("");
-        file.setDescription(description);
-        file.setQuantity(1);
-        HashMap content = new HashMap();
-        content.put("currentstep", "1");
-        content.put("cluelevel", "1");
-        content.put("step0", "a");
-        content.put("step1", "b");
-        content.put("step2", "c");
-        content.put("step3", "d");
-        content.put("step4", "e");
-        content.put("step5", "f");
-        file.setContent(content);
-        return file;
+    private fun clueFile(name: String, description: String): HackerFile {
+        val file = HackerFile(HackerFile.CLUE)
+        file.setName(name)
+        file.setLocation("")
+        file.setDescription(description)
+        file.setQuantity(1)
+        val content = HashMap<Any?, Any?>()
+        content["currentstep"] = "1"
+        content["cluelevel"] = "1"
+        content["step0"] = "a"
+        content["step1"] = "b"
+        content["step2"] = "c"
+        content["step3"] = "d"
+        content["step4"] = "e"
+        content["step5"] = "f"
+        file.setContent(content)
+        return file
     }
 }

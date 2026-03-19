@@ -1,11 +1,11 @@
 package game
 
+import com.hackwars.game.functions.FunctionTestSupport
 import game.computer.dispatch.CommandDispatcher
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import org.mockito.kotlin.mock
 
 class LegacyRunLoopApplicationDataRouterTest {
     @Test
@@ -17,13 +17,13 @@ class LegacyRunLoopApplicationDataRouterTest {
                 return applicationData.function == "handled"
             }
         }
-        val legacyHandler = LegacyApplicationDataHandler { _, _, _ ->
+        val legacyHandler = legacyHandler { _, _, _ ->
             calls += "legacy"
             true
         }
 
         val handled = LegacyRunLoopApplicationDataRouter.dispatch(
-            mock<Computer>(),
+            computer(),
             ApplicationData("handled", null, 0, "10.0.0.1"),
             0,
             dispatcher,
@@ -43,21 +43,21 @@ class LegacyRunLoopApplicationDataRouterTest {
                 return false
             }
         }
-        val first = LegacyApplicationDataHandler { _, applicationData, resolvedPort ->
+        val first = legacyHandler { _, applicationData, resolvedPort ->
             calls += "first:${applicationData.function}:$resolvedPort"
             false
         }
-        val second = LegacyApplicationDataHandler { _, applicationData, resolvedPort ->
+        val second = legacyHandler { _, applicationData, resolvedPort ->
             calls += "second:${applicationData.function}:$resolvedPort"
             true
         }
-        val third = LegacyApplicationDataHandler { _, _, _ ->
+        val third = legacyHandler { _, _, _ ->
             calls += "third"
             true
         }
 
         val handled = LegacyRunLoopApplicationDataRouter.dispatch(
-            mock<Computer>(),
+            computer(),
             ApplicationData("legacy", null, 0, "10.0.0.1"),
             22,
             dispatcher,
@@ -84,17 +84,17 @@ class LegacyRunLoopApplicationDataRouterTest {
                 return false
             }
         }
-        val first = LegacyApplicationDataHandler { _, applicationData, resolvedPort ->
+        val first = legacyHandler { _, applicationData, resolvedPort ->
             calls += "first:${applicationData.function}:$resolvedPort"
             false
         }
-        val second = LegacyApplicationDataHandler { _, applicationData, resolvedPort ->
+        val second = legacyHandler { _, applicationData, resolvedPort ->
             calls += "second:${applicationData.function}:$resolvedPort"
             false
         }
 
         val handled = LegacyRunLoopApplicationDataRouter.dispatch(
-            mock<Computer>(),
+            computer(),
             ApplicationData("unhandled", null, 0, "10.0.0.1"),
             11,
             dispatcher,
@@ -110,5 +110,19 @@ class LegacyRunLoopApplicationDataRouterTest {
             ),
             calls
         )
+    }
+
+    private fun computer(): Computer = FunctionTestSupport.baseComputer()
+
+    private fun legacyHandler(
+        block: (Computer, ApplicationData, Int) -> Boolean
+    ): LegacyApplicationDataHandler {
+        return object : LegacyApplicationDataHandler {
+            override fun dispatch(
+                computer: Computer,
+                applicationData: ApplicationData,
+                resolvedPort: Int
+            ): Boolean = block(computer, applicationData, resolvedPort)
+        }
     }
 }

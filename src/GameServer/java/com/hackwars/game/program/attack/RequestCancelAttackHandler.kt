@@ -8,10 +8,10 @@ class RequestCancelAttackHandler : AttackFunctionHandler {
     override val functionName: String = "requestcancelattack"
 
     override fun execute(program: AttackProgram, applicationData: ApplicationData) {
-        val isAuthorizedSource = applicationData.getSourceIP() == program.parentPort!!.getIP() ||
+        val isAuthorizedSource = applicationData.getSourceIP() == program.parentPort!!.IP ||
             (program.zombie && program.maliciousIP == applicationData.getSourceIP())
 
-        if (!program.parentPort!!.getAttacking() || !isAuthorizedSource) {
+        if (!program.parentPort!!.attacking || !isAuthorizedSource) {
             return
         }
 

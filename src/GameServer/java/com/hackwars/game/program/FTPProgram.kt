@@ -170,12 +170,12 @@ class FTPProgram(
                 }
             }
 
-            val PA = ParentPort!!.getCurrentPacket()
-            PA.setRequestPrimary(true, 8)
-            PA.setRequestSecondary(true, 8)
+            val packetAssignment = ParentPort!!.currentPacket!!
+            packetAssignment.setRequestPrimary(true, 8)
+            packetAssignment.setRequestSecondary(true, 8)
             this@FTPProgram.computer!!.setDrop(null)
             val Parameter: Array<Any?>? =
-                arrayOf<Any?>("", HF, this@FTPProgram.computer!!.getIP(), ParentPort!!.getLastDamageWindowHandle())
+                arrayOf<Any?>("", HF, this@FTPProgram.computer!!.getIP(), ParentPort!!.lastDamageWindowHandle)
             this@FTPProgram.computerHandler!!.addData(ApplicationData("savefile", Parameter, 0, this@FTPProgram.computer!!.getIP()), targetIP)
 
 

@@ -1,58 +1,31 @@
-/*
- * MakeBountry.java
- *
- * Created on March 10, 2007, 10:40 AM
- *
- * The main linker for Hack Wars.
- *
- */
+package game
 
-package game;
-
-import java.util.ArrayList;
-
-import hackscript.model.*;
-
-import java.util.HashMap;
+import java.util.HashMap
 
 /**
  * By Alexander Morrison
  */
-public class MakeBounty {
-    //Events that can trigger a clue.
-    public static final int SCAN = 0;
-    public static final int KILL = 1;
-    public static final int INSTALL = 2;
-    public static final int VOTE = 3;
-    public static final int CHANGE = 4;
-    public static final int DESTROY_WATCH = 5;
-    private static String TypeNames[] = new String[]{"Scan", "Kill", "Install", "Vote", "Change HTTP", "Destroy Watch"};
-
-    FileSystem MyFileSystem = null;//The file system used to check for clues.
-
-    public MakeBounty(FileSystem MyFileSystem) {
-        this.MyFileSystem = MyFileSystem;
-    }
-
-    /**
-     * Get the name associated with the bounty type.
-     */
-    public static String getTypeName(int type) {
-        return (TypeNames[type]);
-    }
-
+open class MakeBounty(private val MyFileSystem: FileSystem) {
     /**
      * Check to see whether a condition has been met for a given clue,
      */
-    public void checkBounty(Computer MyComputer, HackerFile InstallFile, int BountyType, String target, boolean npc, String setIP) {
+    fun checkBounty(
+        MyComputer: Computer?,
+        InstallFile: HackerFile?,
+        BountyType: Int,
+        target: String?,
+        npc: Boolean,
+        setIP: String
+    ) {
         if (!npc) {
-            Object RootFiles[] = MyFileSystem.getWebDirectory("");
-            for (int i = 0; i < RootFiles.length; i++) {
-                if (RootFiles[i] instanceof HackerFile) {
-                    HackerFile HF = (HackerFile) RootFiles[i];
-                    if (HF.getType() == HF.BOUNTY) {
-                        if (checkFile(HF, MyComputer, InstallFile, BountyType, target, setIP))
-                            return;
+            val RootFiles = MyFileSystem.getWebDirectory("")
+            for (i in RootFiles!!.indices) {
+                if (RootFiles[i] is HackerFile) {
+                    val HF = RootFiles[i] as HackerFile
+                    if (HF.getType() == HackerFile.BOUNTY) {
+                        if (checkFile(HF, MyComputer, InstallFile, BountyType, target, setIP)) {
+                            return
+                        }
                     }
                 }
             }
@@ -62,76 +35,109 @@ public class MakeBounty {
     /**
      * Check a specific file for the given result.
      */
-    public boolean checkFile(HackerFile HF, Computer MyComputer, HackerFile InstallFile, int BountyType, String target, String setIP) {
-        HashMap Content = null;
-        if (HF != null)
-            Content = HF.getContent();
+    fun checkFile(
+        HF: HackerFile?,
+        MyComputer: Computer?,
+        InstallFile: HackerFile?,
+        BountyType: Int,
+        target: String?,
+        setIP: String
+    ): Boolean {
+        var Content: HashMap<Any?, Any?>? = null
+        if (HF != null) {
+            Content = HF.getContent()
+        }
 
         if (Content != null) {
-            int count = new Integer((String) Content.get("count"));
-            int CheckBountyType = new Integer((String) Content.get("type"));
-            float reward = new Float((String) Content.get("reward"));
-            String checkTarget = (String) Content.get("target");
-            String scriptName = (String) Content.get("script");
-            String maker = (String) Content.get("maker");
-            String bountyip = (String) Content.get("bountyip");
-            boolean success = true;
+            var count = Integer.valueOf(Content["count"] as String)
+            val CheckBountyType = Integer.valueOf(Content["type"] as String)
+            val reward = java.lang.Float.valueOf(Content["reward"] as String)
+            val checkTarget = Content["target"] as String
+            val scriptName = Content["script"] as String
+            val maker = Content["maker"] as String
+            val bountyip = Content["bountyip"] as String
+            var success = true
 
             try {
-                if (HF.getType() == HackerFile.BOUNTY) {
-
+                if (HF!!.getType() == HackerFile.BOUNTY) {
                     if (BountyType == SCAN && BountyType == CheckBountyType) {
-                        if (!checkTarget.equals(target) && !checkTarget.equals("*"))
-                            success = false;
+                        if (checkTarget != target && checkTarget != "*") {
+                            success = false
+                        }
                     } else if (BountyType == KILL && BountyType == CheckBountyType) {
-                        if (!checkTarget.equals(target) && !checkTarget.equals("*"))
-                            success = false;
+                        if (checkTarget != target && checkTarget != "*") {
+                            success = false
+                        }
                     } else if (BountyType == INSTALL && BountyType == CheckBountyType) {
-                        if (!checkTarget.equals(target) && !checkTarget.equals("*"))
-                            success = false;
+                        if (checkTarget != target && checkTarget != "*") {
+                            success = false
+                        }
                         if (InstallFile != null) {
-                            if (!scriptName.equals(InstallFile.getName()) || !maker.equals(InstallFile.getMaker()))
-                                success = false;
+                            if (scriptName != InstallFile.getName() || maker != InstallFile.getMaker()) {
+                                success = false
+                            }
                         }
                     } else if (BountyType == VOTE && BountyType == CheckBountyType) {
-                        if (!checkTarget.equals(target) && !checkTarget.equals("*"))
-                            success = false;
-                    } else if (BountyType == CHANGE && BountyType == CheckBountyType && bountyip.equals(setIP)) {
-                        if (!checkTarget.equals(target) && !checkTarget.equals("*"))
-                            success = false;
-                        else
-                            MyComputer.getComputerHandler().addData(new ApplicationData("bountyhttp", MyComputer.getIP(), 0, MyComputer.getIP()), target);
+                        if (checkTarget != target && checkTarget != "*") {
+                            success = false
+                        }
+                    } else if (BountyType == CHANGE && BountyType == CheckBountyType && bountyip == setIP) {
+                        if (checkTarget != target && checkTarget != "*") {
+                            success = false
+                        } else {
+                            MyComputer!!.computerHandler
+                                .addData(ApplicationData("bountyhttp", MyComputer.getIP(), 0, MyComputer.getIP()), target)
+                        }
                     } else if (BountyType == DESTROY_WATCH && BountyType == CheckBountyType) {
-                        if (!checkTarget.equals(target) && !checkTarget.equals("*"))
-                            success = false;
+                        if (checkTarget != target && checkTarget != "*") {
+                            success = false
+                        }
                     } else {
-                        success = false;
+                        success = false
                     }
                 }
 
                 if (success) {
-                    MyComputer.addMessage(MessageHandler.BOUNTY_STEP_COMPLETED);
+                    MyComputer!!.addMessage(MessageHandler.BOUNTY_STEP_COMPLETED)
 
-                    count -= 1;
-                    Content.put("count", "" + count);
+                    count -= 1
+                    Content["count"] = "" + count
                     if (count <= 0) {
-                        Object O[] = new Object[]{"Store/", HF.getName()};
-                        MyFileSystem.deleteFile(HF.getLocation(), HF.getName());
-                        MyComputer.getComputerHandler().addData(new ApplicationData("checkbounty", HF.getName(), 0, MyComputer.getIP()), MyComputer.getStoreIP());
-                        MyComputer.getComputerHandler().addData(new ApplicationData("deletefile", O, 0, MyComputer.getIP()), MyComputer.getStoreIP());
+                        val O = arrayOf<Any?>("Store/", HF.getName())
+                        MyFileSystem.deleteFile(HF.getLocation(), HF.getName())
+                        MyComputer.computerHandler
+                            .addData(ApplicationData("checkbounty", HF.getName(), 0, MyComputer.getIP()), MyComputer.storeIP)
+                        MyComputer.computerHandler
+                            .addData(ApplicationData("deletefile", O, 0, MyComputer.getIP()), MyComputer.storeIP)
                     }
 
-                    return (true);
+                    return true
                 }
-
-
-            } catch (Exception e) {
-                e.printStackTrace();
+            } catch (e: Exception) {
+                e.printStackTrace()
             }
-
         }
 
-        return (false);
+        return false
     }
 
+    companion object {
+        //Events that can trigger a clue.
+        const val SCAN = 0
+        const val KILL = 1
+        const val INSTALL = 2
+        const val VOTE = 3
+        const val CHANGE = 4
+        const val DESTROY_WATCH = 5
+
+        private val TypeNames = arrayOf("Scan", "Kill", "Install", "Vote", "Change HTTP", "Destroy Watch")
+
+        /**
+         * Get the name associated with the bounty type.
+         */
+        @JvmStatic
+        fun getTypeName(type: Int): String {
+            return TypeNames[type]
+        }
+    }
 }
