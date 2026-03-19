@@ -430,7 +430,7 @@ public class LegacyCombatNetworkQuestCommandsTest {
     }
 
     private Network swapNetworkSingleton(Network replacement) throws Exception {
-        Field field = Network.class.getDeclaredField("myNetworkSingleton");
+        Field field = Network.class.getDeclaredField("networkSingleton");
         field.setAccessible(true);
         Network previous = (Network) field.get(null);
         field.set(null, replacement);
@@ -438,7 +438,7 @@ public class LegacyCombatNetworkQuestCommandsTest {
     }
 
     private void restoreNetworkSingleton(Network previous) throws Exception {
-        Field field = Network.class.getDeclaredField("myNetworkSingleton");
+        Field field = Network.class.getDeclaredField("networkSingleton");
         field.setAccessible(true);
         field.set(null, previous);
     }

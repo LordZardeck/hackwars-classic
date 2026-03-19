@@ -1,341 +1,332 @@
-package game;
+package game
+
+import assignments.PacketNetwork
+import util.sql
 
 /**
  * Description: This is the Network singleton.  It loads all the networks into existence.  Sometimes it blows boiling hot lava all over your keyboard, forcing upgrades.
  */
 
-import java.util.*;
+class Network private constructor(private var computerHandler: NetworkSwitch?) : Runnable, Cloneable {
+    companion object {
+        //The root network.
+        const val ROOT_NETWORK: String = "UGOPNet"
+        const val JAIL_NETWORK: String = "JuniperPenetentiary"
+        const val ATTACK_SLEEP: Long = 180000
+        private var networkSingleton: Network? = null
 
-import util.*;
-import assignments.*;
+        @JvmStatic
+        @Synchronized
+        fun getInstance(computerHandler: NetworkSwitch?): Network {
+            if (networkSingleton == null) {
+                networkSingleton = Network(computerHandler)
+            }
+            return networkSingleton!!
+        }
+    }
 
-public class Network implements Runnable {
-    //The root network.
-    public static final String ROOT_NETWORK = "UGOPNet";
-    public static final String JAIL_NETWORK = "JuniperPenetentiary";
-    public static final long ATTACK_SLEEP = 180000;
     //private Thread
-    private Thread MyThread = null;
+    private var MyThread: Thread? = null
 
     //MYSQL INFO.
-    private String Connection = "localhost";
-    private String DB = "hackwars";
-    private String Username = "root";
-    private String Password = "";
+    private val Connection = "localhost"
+    private val DB = "hackwars"
+    private val Username = "root"
+    private val Password = ""
 
-    private static Network myNetworkSingleton;
-    private NetworkSwitch MyComputerHandler = null;
-    private HashMap networkNodes = new HashMap();
+    private val networkNodes = HashMap<Any?, Any?>()
 
     /**
-     Add a player to a certain network. (Used primarily when logging on to set a player to root.)
+     * Add a player to a certain network. (Used primarily when logging on to set a player to root.)
      */
-    public synchronized void addToNetwork(String networkName, String playerIP) {
-        HashMap Node = (HashMap) networkNodes.get(networkName);
+    @Synchronized
+    fun addToNetwork(networkName: String?, playerIP: String?) {
+        val node = networkNodes[networkName] as HashMap<Any?, Any?>?
+        if (node != null) {
+            val players = (node["players"] as HashMap<Any?, Any?>?) ?: HashMap()
+            players[playerIP] = playerIP
+            node["players"] = players
+        }
+    }
+
+    /**
+     * Add a player to a certain network. (Used primarily when logging on to set a player to root.)
+     */
+    @Synchronized
+    fun removeFromNetwork(networkName: String?, playerIP: String?) {
+        val Node = networkNodes[networkName] as HashMap<*, *>?
         if (Node != null) {
-            HashMap Players = (HashMap) Node.get("players");
+            val Players = Node["players"] as HashMap<*, *>?
             if (Players != null) {
-                Players.put(playerIP, playerIP);
-            } else {
-                Players = new HashMap();
-                Players.put(playerIP, playerIP);
-                Node.put("players", Players);
+                Players.remove(playerIP)
             }
         }
     }
 
     /**
-     Add a player to a certain network. (Used primarily when logging on to set a player to root.)
+     * Fetch the network information for this network.
      */
-    public synchronized void removeFromNetwork(String networkName, String playerIP) {
-        HashMap Node = (HashMap) networkNodes.get(networkName);
-        if (Node != null) {
-            HashMap Players = (HashMap) Node.get("players");
-            if (Players != null) {
-                Players.remove(playerIP);
-            }
-        }
+    @Synchronized
+    fun getNetworkInformation(networkName: String?): PacketNetwork {
+        val networkNode = networkNodes[networkName] as HashMap<*, *>? ?: networkNodes[ROOT_NETWORK] as HashMap<*, *>?
+
+        val packetNetwork = PacketNetwork()
+        packetNetwork.name = networkName
+        packetNetwork.setAttackNPCs(networkNode?.get("attackNPCs") as ArrayList<*>? ?: ArrayList<Any?>())
+        packetNetwork.questNPCs = networkNode?.get("questNPCs") as ArrayList<*>? ?: ArrayList<Any?>()
+        packetNetwork.miningNPCs = networkNode?.get("miningNPCs") as ArrayList<*>? ?: ArrayList<Any?>()
+        packetNetwork.storeNPCs = networkNode?.get("storeNPCs") as ArrayList<*>? ?: ArrayList<Any?>()
+        packetNetwork.storeIP = networkNode?.get("storeNPC") as String? ?: ""
+        return (packetNetwork)
     }
 
     /**
-     Fetch the network information for this network.
+     * Request that a player be switched to another network.
      */
-    public synchronized PacketNetwork getNetworkInformation(String networkName) {
-        HashMap Node = (HashMap) networkNodes.get(networkName);
-        if (Node == null) {
-            Node = (HashMap) networkNodes.get(ROOT_NETWORK);
-        }
-        PacketNetwork MyNetworkPacket = new PacketNetwork();
-        MyNetworkPacket.setName(networkName);
-        if (Node != null) {
-            ArrayList AttackNPCs = (ArrayList) Node.get("attackNPCs");
-            ArrayList QuestNPCs = (ArrayList) Node.get("questNPCs");
-            ArrayList MineNPCs = (ArrayList) Node.get("miningNPCs");
-            ArrayList StoreNPCs = (ArrayList) Node.get("storeNPCs");
-            String storeIP = (String) Node.get("storeNPC");
-            if (AttackNPCs == null)
-                AttackNPCs = new ArrayList();
-            if (QuestNPCs == null)
-                QuestNPCs = new ArrayList();
-            if (MineNPCs == null)
-                MineNPCs = new ArrayList();
-            if (StoreNPCs == null)
-                StoreNPCs = new ArrayList();
-            if (storeIP == null)
-                storeIP = "";
-
-            MyNetworkPacket.setAttackNPCs(AttackNPCs);
-            MyNetworkPacket.setQuestNPCs(QuestNPCs);
-            MyNetworkPacket.setMiningNPCs(MineNPCs);
-            MyNetworkPacket.setStoreNPCs(StoreNPCs);
-            MyNetworkPacket.setStoreIP(storeIP);
-        } else {
-            MyNetworkPacket.setAttackNPCs(new ArrayList());
-            MyNetworkPacket.setQuestNPCs(new ArrayList());
-            MyNetworkPacket.setMiningNPCs(new ArrayList());
-            MyNetworkPacket.setStoreNPCs(new ArrayList());
-            MyNetworkPacket.setStoreIP("");
-        }
-        return (MyNetworkPacket);
-    }
-
-    /**
-     Request that a player be switched to another network.
-     */
-    public synchronized String switchNetwork(String startNetwork, String endNetwork, String playerIP) {
+    @Synchronized
+    fun switchNetwork(startNetwork: String, endNetwork: String?, playerIP: String?): String? {
         // this should never happen as the check now happens in Computer.java
-        if (startNetwork.equals(endNetwork))//Check whether you are trying to switch to the same network.
-            return ("You are already on " + startNetwork + ".");
+        if (startNetwork == endNetwork)  //Check whether you are trying to switch to the same network.
+            return ("You are already on $startNetwork.")
 
-        String message = "There is no connection between " + startNetwork + " and " + endNetwork + ".";
-        HashMap StartNetwork = (HashMap) networkNodes.get(startNetwork);
-        HashMap AttachedNetworks = (HashMap) StartNetwork.get("attachedNetworks");
-        if (AttachedNetworks.get(endNetwork) != null) {
-            message = (String) AttachedNetworks.get(endNetwork);
+        var message: String? = "There is no connection between $startNetwork and $endNetwork."
+        val StartNetwork = networkNodes[startNetwork] as HashMap<*, *>
+        val AttachedNetworks = StartNetwork["attachedNetworks"] as HashMap<*, *>
+        if (AttachedNetworks[endNetwork] != null) {
+            message = AttachedNetworks[endNetwork] as String?
         }
-        return (message);
+        return (message)
     }
 
-    private Network(NetworkSwitch MyComputerHandler) {
-        this.MyComputerHandler = MyComputerHandler;
-        loadNetworks();
+    init {
+        loadNetworks()
 
-        MyThread = new Thread(this);
-        MyThread.start();
+        MyThread = Thread(this)
+        MyThread!!.start()
     }
 
-    public Object clone() throws CloneNotSupportedException {
-        throw new CloneNotSupportedException();
+    @Throws(CloneNotSupportedException::class)
+    public override fun clone(): Any {
+        throw CloneNotSupportedException()
     }
 
-    public static synchronized Network getInstance(NetworkSwitch MyComputerHandler) {
-        if (myNetworkSingleton == null) {
-            myNetworkSingleton = new Network(MyComputerHandler);
-        }
-        return myNetworkSingleton;
-    }
-
-    public HashMap loadNetworks() {
-
+    fun loadNetworks(): HashMap<*, *> {
         try {
             // load all the network nodes from the database
-            sql C = new sql(Connection, DB, Username, Password);
+            val C = sql(Connection, DB, Username, Password)
 
-            ArrayList result = null;
-            ArrayList result1 = null;
+            var result: ArrayList<*>? = null
+            var result1: ArrayList<*>? = null
 
-            String Q = "SELECT id, name, attack_probability FROM network";
-            result = C.process(Q);
-            if (result != null && result.size() > 0) {
-                for (int i = 0; i < result.size(); i += 3) {
+            val Q = "SELECT id, name, attack_probability FROM network"
+            result = C.process(Q)
+            if (result != null && result.size > 0) {
+                var i = 0
+                while (i < result.size) {
                     // networkInfo is the value of the networks hashmap, for a given network
                     // "storeNPC" returns a string ip
                     // "attackNPCs" returns an arraList of attack NPCs
                     // "miningNPCs" returns an arrayList (p, resource)
                     // "questNPCs" returns an arrayList of quest NPCs
                     // "attachedNetworks" returns an HashMap ( attached network name, entrance message)
+                    val networkInfo = HashMap<Any?, Any?>()
 
-                    HashMap networkInfo = new HashMap();
-
-                    String networkId = (String) result.get(i);
-                    String networkName = (String) result.get(i + 1);
-                    float attackProbability = (float) (new Float((String) result.get(i + 2)));
+                    val networkId = result[i] as String
+                    val networkName = result[i + 1] as String?
+                    val attackProbability = (result[i + 2] as String?) as Float
 
                     //String networkStoreIP = (String)result.get(i+2);
                     //networkInfo.put("storeNPC", networkStoreIP);
 
                     //get the attached networks and their entrance criteria
-                    String Q1 = "SELECT n.name,an.entranceMessage FROM network n INNER JOIN attached_networks an ON n.id = an.attached_network_id WHERE an.network_id = " + networkId;
-                    result1 = C.process(Q1);
-                    HashMap attachedNetworksArray = new HashMap();
-                    if (result1 != null && result1.size() > 0) {
-                        for (int j = 0; j < result1.size(); j += 2) {
+                    val Q1 =
+                        "SELECT n.name,an.entranceMessage FROM network n INNER JOIN attached_networks an ON n.id = an.attached_network_id WHERE an.network_id = $networkId"
+                    result1 = C.process(Q1)
+                    val attachedNetworksArray = HashMap<Any?, Any?>()
+                    if (result1 != null && result1.size > 0) {
+                        var j = 0
+                        while (j < result1.size) {
                             //  j = attachedNetworkName
                             //  j+1 = entranceMessage
-                            attachedNetworksArray.put((String) result1.get(j), (String) result1.get(j + 1));
+                            attachedNetworksArray.put(result1[j] as String?, result1[j + 1] as String?)
+                            j += 2
                         }
-                        networkInfo.put("attachedNetworks", attachedNetworksArray);
+                        networkInfo.put("attachedNetworks", attachedNetworksArray)
                     }
 
                     // variables used in creating the arrayLists & HashMaps for the network NPCs
-                    String npcIP = "";
-                    String resource = "";
-                    String npcName = "";
-                    String npcTitle = "";
+                    var npcIP: String? = ""
+                    var resource: String? = ""
+                    var npcName: String? = ""
+                    var npcTitle: String? = ""
 
                     // get the Store NPCs
-                    String Qstore = "SELECT npc_ip, name, title FROM network_npc WHERE npc_type = 'store' AND network_id = " + networkId;
-                    result1 = C.process(Qstore);
-                    ArrayList storeHashArray = new ArrayList();
-                    if (result1 != null && result1.size() > 0) {
-                        for (int j = 0; j < result1.size(); j += 3) {
-                            HashMap storeNPCs = new HashMap();
-                            npcIP = (String) result1.get(j);
-                            npcName = (String) result1.get(j + 1);
-                            npcTitle = (String) result1.get(j + 2);
-                            storeNPCs.put("ip", npcIP);
-                            storeNPCs.put("name", npcName);
-                            storeNPCs.put("title", npcTitle);
-                            storeHashArray.add(storeNPCs);
+                    val Qstore =
+                        "SELECT npc_ip, name, title FROM network_npc WHERE npc_type = 'store' AND network_id = $networkId"
+                    result1 = C.process(Qstore)
+                    val storeHashArray = ArrayList<Any?>()
+                    if (result1 != null && result1.size > 0) {
+                        var j = 0
+                        while (j < result1.size) {
+                            val storeNPCs = HashMap<Any?, Any?>()
+                            npcIP = result1[j] as String?
+                            npcName = result1[j + 1] as String?
+                            npcTitle = result1[j + 2] as String?
+                            storeNPCs.put("ip", npcIP)
+                            storeNPCs.put("name", npcName)
+                            storeNPCs.put("title", npcTitle)
+                            storeHashArray.add(storeNPCs)
+                            j += 3
                         }
                     }
-                    networkInfo.put("storeNPCs", storeHashArray);
+                    networkInfo.put("storeNPCs", storeHashArray)
                     // because we have a link to the "Store" from the web browser, we need to set the storeIP
-                    String networkStoreIP = "";
-                    if (storeHashArray.size() > 0) {
-                        networkStoreIP = (String) ((HashMap) (storeHashArray.get(0))).get("ip");
+                    var networkStoreIP: String? = ""
+                    if (storeHashArray.size > 0) {
+                        networkStoreIP = ((storeHashArray[0]) as HashMap<*, *>)["ip"] as String?
                     }
-                    System.out.println("network = " + networkName + ", storeNPC = " + networkStoreIP);
-                    networkInfo.put("storeNPC", networkStoreIP);
+                    println("network = $networkName, storeNPC = $networkStoreIP")
+                    networkInfo.put("storeNPC", networkStoreIP)
 
                     // get all the mining NPCs for this network
-                    String Qmining = "SELECT npc_ip, resource, name, title FROM network_npc WHERE npc_type = 'mining' AND network_id = " + networkId;
-                    result1 = C.process(Qmining);
-                    ArrayList miningHashArray = new ArrayList();
-                    if (result1 != null && result1.size() > 0) {
-                        for (int j = 0; j < result1.size(); j += 4) {
-                            HashMap miningNPCs = new HashMap();
-                            npcIP = (String) result1.get(j);
-                            resource = (String) result1.get(j + 1);
-                            npcName = (String) result1.get(j + 2);
-                            npcTitle = (String) result1.get(j + 3);
-                            miningNPCs.put("ip", npcIP);
-                            miningNPCs.put("commodity", resource);
-                            miningNPCs.put("name", npcName);
-                            miningNPCs.put("title", npcTitle);
-                            miningHashArray.add(miningNPCs);
+                    val Qmining =
+                        "SELECT npc_ip, resource, name, title FROM network_npc WHERE npc_type = 'mining' AND network_id = $networkId"
+                    result1 = C.process(Qmining)
+                    val miningHashArray = ArrayList<Any?>()
+                    if (result1 != null && result1.size > 0) {
+                        var j = 0
+                        while (j < result1.size) {
+                            val miningNPCs = HashMap<Any?, Any?>()
+                            npcIP = result1[j] as String?
+                            resource = result1[j + 1] as String?
+                            npcName = result1[j + 2] as String?
+                            npcTitle = result1[j + 3] as String?
+                            miningNPCs.put("ip", npcIP)
+                            miningNPCs.put("commodity", resource)
+                            miningNPCs.put("name", npcName)
+                            miningNPCs.put("title", npcTitle)
+                            miningHashArray.add(miningNPCs)
+                            j += 4
                         }
                     }
-                    networkInfo.put("miningNPCs", miningHashArray);
+                    networkInfo.put("miningNPCs", miningHashArray)
 
                     // get all the attack NPCs for this network
-                    String Qattack = "SELECT npc_ip, name, title FROM network_npc WHERE npc_type = 'attack' AND network_id = " + networkId;
-                    result1 = C.process(Qattack);
-                    ArrayList attackHashArray = new ArrayList();
-                    if (result1 != null && result1.size() > 0) {
-                        for (int j = 0; j < result1.size(); j += 3) {
-                            HashMap attackNPCs = new HashMap();
-                            npcIP = (String) result1.get(j);
-                            npcName = (String) result1.get(j + 1);
-                            npcTitle = (String) result1.get(j + 2);
-                            attackNPCs.put("ip", npcIP);
-                            attackNPCs.put("name", npcName);
-                            attackNPCs.put("title", npcTitle);
-                            attackHashArray.add(attackNPCs);
+                    val Qattack =
+                        "SELECT npc_ip, name, title FROM network_npc WHERE npc_type = 'attack' AND network_id = $networkId"
+                    result1 = C.process(Qattack)
+                    val attackHashArray = ArrayList<Any?>()
+                    if (result1 != null && result1.size > 0) {
+                        var j = 0
+                        while (j < result1.size) {
+                            val attackNPCs = HashMap<Any?, Any?>()
+                            npcIP = result1[j] as String?
+                            npcName = result1[j + 1] as String?
+                            npcTitle = result1[j + 2] as String?
+                            attackNPCs.put("ip", npcIP)
+                            attackNPCs.put("name", npcName)
+                            attackNPCs.put("title", npcTitle)
+                            attackHashArray.add(attackNPCs)
+                            j += 3
                         }
                     }
-                    networkInfo.put("attackNPCs", attackHashArray);
+                    networkInfo.put("attackNPCs", attackHashArray)
 
                     // get all the quest NPCs for this network
-                    String Qquest = "SELECT npc_ip, name, title FROM network_npc WHERE npc_type = 'quest' AND network_id = " + networkId;
-                    result1 = C.process(Qquest);
-                    ArrayList questHashArray = new ArrayList();
-                    if (result1 != null && result1.size() > 0) {
-                        for (int j = 0; j < result1.size(); j += 3) {
-                            HashMap questNPCs = new HashMap();
-                            npcIP = (String) result1.get(j);
-                            npcName = (String) result1.get(j + 1);
-                            npcTitle = (String) result1.get(j + 2);
-                            questNPCs.put("ip", npcIP);
-                            questNPCs.put("name", npcName);
-                            questNPCs.put("title", npcTitle);
-                            questHashArray.add(questNPCs);
+                    val Qquest =
+                        "SELECT npc_ip, name, title FROM network_npc WHERE npc_type = 'quest' AND network_id = $networkId"
+                    result1 = C.process(Qquest)
+                    val questHashArray = ArrayList<Any?>()
+                    if (result1 != null && result1.size > 0) {
+                        var j = 0
+                        while (j < result1.size) {
+                            val questNPCs = HashMap<Any?, Any?>()
+                            npcIP = result1[j] as String?
+                            npcName = result1[j + 1] as String?
+                            npcTitle = result1[j + 2] as String?
+                            questNPCs.put("ip", npcIP)
+                            questNPCs.put("name", npcName)
+                            questNPCs.put("title", npcTitle)
+                            questHashArray.add(questNPCs)
+                            j += 3
                         }
                     }
-                    networkInfo.put("questNPCs", questHashArray);
-                    networkInfo.put("attackProbability", attackProbability);
-                    networkNodes.put(networkName, networkInfo);
-                } //for each network
-
+                    networkInfo.put("questNPCs", questHashArray)
+                    networkInfo.put("attackProbability", attackProbability)
+                    networkNodes.put(networkName, networkInfo)
+                    i += 3
+                }
             }
-            if (networkNodes.get(ROOT_NETWORK) == null) {
-                HashMap networkInfo = new HashMap();
-                networkInfo.put("attachedNetworks", new HashMap());
-                networkInfo.put("storeNPCs", new ArrayList());
-                networkInfo.put("miningNPCs", new ArrayList());
-                networkInfo.put("attackNPCs", new ArrayList());
-                networkInfo.put("questNPCs", new ArrayList());
-                networkInfo.put("attackProbability", new Float(0));
-                networkInfo.put("storeNPC", "");
-                networkNodes.put(ROOT_NETWORK, networkInfo);
+            if (networkNodes[ROOT_NETWORK] == null) {
+                val networkInfo = HashMap<Any?, Any?>()
+                networkInfo.put("attachedNetworks", HashMap<Any?, Any?>())
+                networkInfo.put("storeNPCs", ArrayList<Any?>())
+                networkInfo.put("miningNPCs", ArrayList<Any?>())
+                networkInfo.put("attackNPCs", ArrayList<Any?>())
+                networkInfo.put("questNPCs", ArrayList<Any?>())
+                networkInfo.put("attackProbability", 0)
+                networkInfo.put("storeNPC", "")
+                networkNodes.put(ROOT_NETWORK, networkInfo)
             }
-
-        } catch (Exception e) {
-            e.printStackTrace();
+        } catch (e: Exception) {
+            e.printStackTrace()
         }
 
-        return networkNodes;
+        return networkNodes
         // create a class for each
         // stuff them in the hashmap, name is the key, values are the arrayLists of the NPCs
     }
 
     //The thread for the network.
-    public void run() {
+    override fun run() {
         while (true) {
-
             try {
-                Collection c = networkNodes.values();
-                Iterator itr = c.iterator();
-                float attackRandomize = (float) Math.random();
+                val c = networkNodes.values
+                val itr: MutableIterator<*> = c.iterator()
+                val attackRandomize = Math.random().toFloat()
                 while (itr.hasNext()) {
-                    HashMap H = (HashMap) itr.next();
-                    float attackProbability = (Float) H.get("attackProbability");
+                    val H = itr.next() as HashMap<*, *>
+                    val attackProbability = H["attackProbability"] as Float
                     if (attackRandomize < attackProbability) {
-
-                        Object P[] = null;
-                        if (((HashMap) H.get("players")) != null) {
-                            P = ((HashMap) H.get("players")).values().toArray();
+                        var P: Array<Any?>? = null
+                        if ((H["players"] as HashMap<*, *>?) != null) {
+                            P = (H["players"] as HashMap<*, *>).values.toTypedArray()
                         }
 
-                        Object NPC[] = null;
-                        if (((ArrayList) H.get("attackNPCs")) != null) {
-                            NPC = ((ArrayList) H.get("attackNPCs")).toArray();
+                        var NPC: Array<Any?>? = null
+                        if ((H["attackNPCs"] as ArrayList<*>?) != null) {
+                            NPC = (H["attackNPCs"] as ArrayList<*>).toTypedArray()
                         }
 
                         if (P != null) {
-                            int attackMe = (int) (Math.random() * P.length);
-                            int attackWithMe = (int) (Math.random() * NPC.length);
+                            val attackMe = (Math.random() * P.size).toInt()
+                            val attackWithMe = (Math.random() * NPC!!.size).toInt()
 
-                            Object Parameter[] = new Object[]{(String) ((HashMap) NPC[attackWithMe]).get("ip")};
+                            val Parameter: Array<Any?>? =
+                                arrayOf<Any?>((NPC[attackWithMe] as HashMap<*, *>)["ip"] as String?)
 
                             try {
-                                MyComputerHandler.addData(new ApplicationData("launchNetworkAttack", Parameter, 0, (String) P[attackMe]), (String) P[attackMe]);
-                            } catch (Exception e) {
+                                computerHandler!!.addData(
+                                    ApplicationData(
+                                        "launchNetworkAttack",
+                                        Parameter,
+                                        0,
+                                        P[attackMe] as String?
+                                    ), P[attackMe] as String?
+                                )
+                            } catch (e: Exception) {
                                 //No reason to print this.
                             }
                         }
-
                     }
                 }
-
-            } catch (Exception e) {
-                e.printStackTrace();
+            } catch (e: Exception) {
+                e.printStackTrace()
             }
 
             try {
-                Thread.sleep(ATTACK_SLEEP);
-            } catch (Exception e) {
-
+                Thread.sleep(ATTACK_SLEEP)
+            } catch (e: Exception) {
             }
         }
     }
