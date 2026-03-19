@@ -10,6 +10,7 @@
             <option value="$PROJECT_DIR$" />
             <option value="$PROJECT_DIR$/src/ChatServer" />
             <option value="$PROJECT_DIR$/src/Client" />
+            <option value="$PROJECT_DIR$/src/Data" />
             <option value="$PROJECT_DIR$/src/GameServer" />
             <option value="$PROJECT_DIR$/src/HackWars" />
             <option value="$PROJECT_DIR$/src/Networking" />

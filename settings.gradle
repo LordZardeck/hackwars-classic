@@ -31,3 +31,7 @@ project(':Networking').buildFileName = 'networking.gradle'
 include ':ChatServer'
 project(':ChatServer').projectDir = file('src/ChatServer')
 project(':ChatServer').buildFileName = 'chatServer.gradle'
+
+include ':Data'
+project(':Data').projectDir = file('src/Data')
+project(':Data').buildFileName = 'data.gradle'
