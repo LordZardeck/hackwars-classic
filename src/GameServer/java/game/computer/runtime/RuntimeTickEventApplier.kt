@@ -4,10 +4,11 @@ object RuntimeTickEventApplier {
     fun apply(events: Iterable<RuntimeTickEvent>, sink: RuntimeTickEventSink) {
         events.forEach { event ->
             when (event) {
-                RuntimeTickEvent.PersistRequested -> sink.persistRequested()
+                is RuntimeTickEvent.PersistRequested -> sink.persistRequested(event.autoSave)
                 RuntimeTickEvent.UnloadRequested -> sink.unloadRequested()
                 RuntimeTickEvent.PlayerCountDecrementRequested -> sink.playerCountDecrementRequested()
-                is RuntimeTickEvent.DeferredTaskRetried -> sink.deferredTaskRetried(event.function, event.sourceIp)
+                is RuntimeTickEvent.ApplicationDataDispatchRequested ->
+                    sink.applicationDataDispatchRequested(event.applicationData, event.targetIp)
                 is RuntimeTickEvent.LogEntry -> sink.logEntry(event.message, event.ip, event.timestamp)
                 is RuntimeTickEvent.PlaySessionRecorded -> sink.playSessionRecorded(event.ip, event.startedAt, event.endedAt)
                 is RuntimeTickEvent.DailyPayIssued -> sink.dailyPayIssued(event.amount, event.targetIp)

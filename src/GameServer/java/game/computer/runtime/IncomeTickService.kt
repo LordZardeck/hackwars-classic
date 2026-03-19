@@ -8,68 +8,71 @@ class IncomeTickService {
             state.lastPaid = state.now
         }
 
-        if (state.now - state.lastPaid <= state.payPeriodMs) {
-            if (state.inactive) {
-                state.inactive = false
-            }
-            return events
-        }
+        if (state.now - state.lastPaid > state.payPeriodMs && state.loaded && !state.inactive) {
+            state.myVotes = minOf(4, state.myVotes + 1)
 
-        if (!state.loaded || state.inactive) {
-            if (state.inactive) {
+            if (!state.httpActive) {
                 events += RuntimeTickEvent.LogEntry(
-                    "Did not receive income because you were inactive.",
+                    "Did not receive income from website because HTTP is not installed.",
                     state.ip,
-                    state.now
+                    state.lastPaid + state.payPeriodMs
                 )
                 state.lastPaid = state.now
-                state.inactive = false
+                return events
             }
+
+            val mod = if (state.npc) 0f else (state.httpLevel - 1.0f) * 50.0f
+            val totalPay = state.dailyPaySize + mod
+            val amount = totalPay * 0.75f * state.dailyPayReduction
+            val extra = totalPay * 0.75f - amount
+            if (extra > 0f) {
+                state.pettyCash += extra
+                events += RuntimeTickEvent.PettyCashAdded(extra)
+                events += RuntimeTickEvent.LogEntry(
+                    "Transferred ${java.text.NumberFormat.getCurrencyInstance().format(extra)} of daily pay from ${state.ip}.",
+                    state.ip,
+                    state.lastPaid + state.payPeriodMs
+                )
+            }
+
+            events += RuntimeTickEvent.DailyPayIssued(amount, state.adRevenueTarget)
+            events += RuntimeTickEvent.HttpXpIssued(state.httpLevel * 10.0f, state.adRevenueTarget)
+            events += RuntimeTickEvent.ApplicationDataDispatchRequested(
+                RuntimeApplicationDataDispatch(
+                    function = "logmessage",
+                    parameters = arrayOf<Any>(
+                        "Transferred ${java.text.NumberFormat.getCurrencyInstance().format(amount)} of daily pay from ${state.ip}.",
+                        state.ip,
+                        state.lastPaid + state.payPeriodMs
+                    ),
+                    sourceIp = state.ip,
+                ),
+                state.adRevenueTarget
+            )
+
+            val guaranteedBankAmount = totalPay * 0.25f
+            events += RuntimeTickEvent.LogEntry(
+                "Received $$guaranteedBankAmount in guaranteed income to bank.",
+                state.ip,
+                state.lastPaid + state.payPeriodMs
+            )
+            events += RuntimeTickEvent.BankMoneyAdded(guaranteedBankAmount)
+            state.bankMoney += guaranteedBankAmount
+            state.lastPaid += state.payPeriodMs
             return events
         }
 
-        state.myVotes = minOf(4, state.myVotes + 1)
-
-        if (!state.httpActive) {
+        if (state.inactive) {
             events += RuntimeTickEvent.LogEntry(
-                "Did not receive income from website because HTTP is not installed.",
+                "Did not receive income because you were inactive.",
                 state.ip,
-                state.lastPaid + state.payPeriodMs
+                state.now
             )
             state.lastPaid = state.now
+            state.inactive = false
             return events
         }
 
-        val mod = if (state.npc) 0f else (state.httpLevel - 1.0f) * 50.0f
-        val baseAmount = (state.dailyPaySize + mod) * 0.75f
-        val amount = baseAmount * state.dailyPayReduction
-        val extra = baseAmount - amount
-
-        if (extra > 0f) {
-            state.pettyCash += extra
-            events += RuntimeTickEvent.PettyCashAdded(extra)
-            events += RuntimeTickEvent.LogEntry(
-                "Transferred ${java.text.NumberFormat.getCurrencyInstance().format(extra)} of daily pay from ${state.ip}.",
-                state.ip,
-                state.lastPaid + state.payPeriodMs
-            )
-        }
-
-        events += RuntimeTickEvent.DailyPayIssued(amount, state.adRevenueTarget)
-        events += RuntimeTickEvent.HttpXpIssued(state.httpLevel * 10.0f, state.adRevenueTarget)
-        events += RuntimeTickEvent.LogEntry(
-            "Transferred ${java.text.NumberFormat.getCurrencyInstance().format(amount)} of daily pay from ${state.ip}.",
-            state.ip,
-            state.lastPaid + state.payPeriodMs
-        )
-        events += RuntimeTickEvent.LogEntry(
-            "Received \$$amount in guaranteed income to bank.",
-            state.ip,
-            state.lastPaid + state.payPeriodMs
-        )
-        events += RuntimeTickEvent.BankMoneyAdded(amount)
-        state.bankMoney += amount
-        state.lastPaid += state.payPeriodMs
         return events
     }
 }

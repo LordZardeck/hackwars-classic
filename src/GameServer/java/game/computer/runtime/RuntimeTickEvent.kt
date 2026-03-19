@@ -1,10 +1,22 @@
 package game.computer.runtime
 
+data class RuntimeApplicationDataDispatch(
+    val function: String,
+    val parameters: Any? = null,
+    val port: Int = 0,
+    val sourceIp: String = "",
+    val sourcePort: Int = 0,
+    val source: Int = 0,
+)
+
 sealed interface RuntimeTickEvent {
-    data object PersistRequested : RuntimeTickEvent
+    data class PersistRequested(val autoSave: Boolean = false) : RuntimeTickEvent
     data object UnloadRequested : RuntimeTickEvent
     data object PlayerCountDecrementRequested : RuntimeTickEvent
-    data class DeferredTaskRetried(val function: String, val sourceIp: String) : RuntimeTickEvent
+    data class ApplicationDataDispatchRequested(
+        val applicationData: RuntimeApplicationDataDispatch,
+        val targetIp: String,
+    ) : RuntimeTickEvent
     data class LogEntry(val message: String, val ip: String, val timestamp: Long) : RuntimeTickEvent
     data class PlaySessionRecorded(val ip: String, val startedAt: Long, val endedAt: Long) : RuntimeTickEvent
     data class DailyPayIssued(val amount: Float, val targetIp: String) : RuntimeTickEvent

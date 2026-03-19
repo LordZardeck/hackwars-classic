@@ -1,18 +1,18 @@
 package game.computer.runtime
 
+import game.Port
+
 class CombatCpuOverheatTickService {
     fun tick(state: RuntimeTickState): List<RuntimeTickEvent> {
         val events = mutableListOf<RuntimeTickEvent>()
 
         if (!state.loaded || state.loading) {
-            state.currentCPU = state.ports.sumOf { it.cpuCost.toDouble() }.toFloat() + state.currentWatchCost
-            state.reportCPU = if (state.currentCPU <= state.cpuMaximum) state.currentCPU else state.cpuMaximum + 1
+            updateCpuWithoutAttackTick(state)
             return events
         }
 
         if (state.now - state.lastAttack <= state.attackRateMs) {
-            state.currentCPU = state.ports.sumOf { it.cpuCost.toDouble() }.toFloat() + state.currentWatchCost
-            state.reportCPU = if (state.currentCPU <= state.cpuMaximum) state.currentCPU else state.cpuMaximum + 1
+            updateCpuWithoutAttackTick(state)
             return events
         }
 
@@ -100,9 +100,19 @@ class CombatCpuOverheatTickService {
 
         return events
     }
+
+    private fun updateCpuWithoutAttackTick(state: RuntimeTickState) {
+        state.currentCPU = state.ports.sumOf { it.cpuCost.toDouble() }.toFloat() + state.currentWatchCost
+        val overheated = state.ports.any { it.overHeated }
+        state.reportCPU = if (overheated && state.currentCPU <= state.cpuMaximum) {
+            state.cpuMaximum + 1
+        } else {
+            state.currentCPU
+        }
+    }
 }
 
 private object PortType {
-    const val ATTACK = 0
-    const val SHIPPING = 1
+    const val ATTACK = Port.ATTACK
+    const val SHIPPING = Port.SHIPPING
 }

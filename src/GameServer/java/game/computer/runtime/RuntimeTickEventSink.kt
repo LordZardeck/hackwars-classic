@@ -1,10 +1,10 @@
 package game.computer.runtime
 
 interface RuntimeTickEventSink {
-    fun persistRequested()
+    fun persistRequested(autoSave: Boolean)
     fun unloadRequested()
     fun playerCountDecrementRequested()
-    fun deferredTaskRetried(function: String, sourceIp: String)
+    fun applicationDataDispatchRequested(applicationData: RuntimeApplicationDataDispatch, targetIp: String)
     fun logEntry(message: String, ip: String, timestamp: Long)
     fun playSessionRecorded(ip: String, startedAt: Long, endedAt: Long)
     fun dailyPayIssued(amount: Float, targetIp: String)

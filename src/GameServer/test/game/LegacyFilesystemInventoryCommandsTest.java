@@ -129,6 +129,63 @@ public class LegacyFilesystemInventoryCommandsTest {
         assertEquals(1, computer.PA.getRequestPrimaryID());
     }
 
+    @Test
+    public void dispatch_delivereddirectory_updatesSecondaryDirectory_andNpcAccessFlag() {
+        Computer computer = baseComputer();
+        Object[] delivered = new Object[]{"remote-file"};
+
+        boolean handled = handler.dispatch(
+                computer,
+                new ApplicationData("delivereddirectory", new Object[]{delivered, Boolean.TRUE}, 0, "10.0.0.1"),
+                0
+        );
+
+        assertTrue(handled);
+        assertEquals(delivered, computer.PA.getSecondaryDirectory());
+        assertFalse(computer.PA.getAllowedDir());
+        assertTrue(computer.systemChange);
+    }
+
+    @Test
+    public void dispatch_setfiledescription_ignoresClueFiles() {
+        Computer computer = baseComputer();
+        HackerFile clue = clueFile("clue.txt", "original");
+        computer.MyFileSystem.addFile(clue, true);
+
+        boolean handled = handler.dispatch(
+                computer,
+                new ApplicationData("setfiledescription", new Object[]{"", "clue.txt", "updated"}, 0, "10.0.0.1"),
+                0
+        );
+
+        assertTrue(handled);
+        assertEquals("original", clue.getDescription());
+        assertNull(computer.PA.getFile());
+    }
+
+    @Test
+    public void dispatch_savefile_withStolenMetadata_addsAttackAndGameMessages() {
+        Computer computer = baseComputer();
+        computer.connectionID = 1;
+        HackerFile file = textFile("stolen.txt");
+
+        boolean handled = handler.dispatch(
+                computer,
+                new ApplicationData("savefile", new Object[]{"", file, "9.9.9.9", Integer.valueOf(44)}, 0, "10.0.0.1"),
+                0
+        );
+
+        assertTrue(handled);
+        assertEquals(2, computer.Messages.size());
+        Object[] attackMessage = (Object[]) computer.Messages.get(0);
+        Object[] gameMessage = (Object[]) computer.Messages.get(1);
+        assertTrue(((String) attackMessage[0]).contains("stolen.txt"));
+        assertTrue(((String) attackMessage[0]).contains("successfully stolen"));
+        assertEquals(Integer.valueOf(44), ((Object[]) attackMessage[3])[0]);
+        assertEquals("9.9.9.9", ((Object[]) attackMessage[3])[1]);
+        assertTrue(((String) gameMessage[0]).contains("from 9.9.9.9"));
+    }
+
     private Computer baseComputer() {
         Computer computer = Mockito.mock(Computer.class, Answers.CALLS_REAL_METHODS);
         computer.ip = "10.0.0.1";
@@ -168,6 +225,25 @@ public class LegacyFilesystemInventoryCommandsTest {
         HashMap content = new HashMap();
         content.put("data", "payload");
         content.put("level", "1");
+        file.setContent(content);
+        return file;
+    }
+
+    private HackerFile clueFile(String name, String description) {
+        HackerFile file = new HackerFile(HackerFile.CLUE);
+        file.setName(name);
+        file.setLocation("");
+        file.setDescription(description);
+        file.setQuantity(1);
+        HashMap content = new HashMap();
+        content.put("currentstep", "1");
+        content.put("cluelevel", "1");
+        content.put("step0", "a");
+        content.put("step1", "b");
+        content.put("step2", "c");
+        content.put("step3", "d");
+        content.put("step4", "e");
+        content.put("step5", "f");
         file.setContent(content);
         return file;
     }

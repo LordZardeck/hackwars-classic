@@ -1,6 +1,7 @@
 package game
 
 import game.computer.dispatch.CommandDispatcher
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -8,14 +9,17 @@ import org.mockito.kotlin.mock
 
 class LegacyRunLoopApplicationDataRouterTest {
     @Test
-    fun dispatch_usesExactDispatcherBeforeLegacyHandlers() {
+    fun dispatch_invokesExactDispatcherBeforeAnyLegacyHandlers() {
+        val calls = mutableListOf<String>()
         val dispatcher = object : CommandDispatcher {
             override fun dispatch(applicationData: ApplicationData): Boolean {
+                calls += "dispatcher:${applicationData.function}"
                 return applicationData.function == "handled"
             }
         }
         val legacyHandler = LegacyApplicationDataHandler { _, _, _ ->
-            throw AssertionError("legacy handler should not run when exact dispatcher handles the command")
+            calls += "legacy"
+            true
         }
 
         val handled = LegacyRunLoopApplicationDataRouter.dispatch(
@@ -27,21 +31,28 @@ class LegacyRunLoopApplicationDataRouterTest {
         )
 
         assertTrue(handled)
+        assertEquals(listOf("dispatcher:handled"), calls)
     }
 
     @Test
-    fun dispatch_usesFirstMatchingLegacyHandlerInOrder() {
+    fun dispatch_usesLegacyHandlersInOrderAndStopsAfterFirstMatch() {
+        val calls = mutableListOf<String>()
         val dispatcher = object : CommandDispatcher {
-            override fun dispatch(applicationData: ApplicationData): Boolean = false
+            override fun dispatch(applicationData: ApplicationData): Boolean {
+                calls += "dispatcher:${applicationData.function}"
+                return false
+            }
         }
-        var firstCalled = false
-        var secondCalled = false
-        val first = LegacyApplicationDataHandler { _, applicationData, _ ->
-            firstCalled = true
-            applicationData.function == "legacy"
+        val first = LegacyApplicationDataHandler { _, applicationData, resolvedPort ->
+            calls += "first:${applicationData.function}:$resolvedPort"
+            false
         }
-        val second = LegacyApplicationDataHandler { _, _, _ ->
-            secondCalled = true
+        val second = LegacyApplicationDataHandler { _, applicationData, resolvedPort ->
+            calls += "second:${applicationData.function}:$resolvedPort"
+            true
+        }
+        val third = LegacyApplicationDataHandler { _, _, _ ->
+            calls += "third"
             true
         }
 
@@ -50,18 +61,36 @@ class LegacyRunLoopApplicationDataRouterTest {
             ApplicationData("legacy", null, 0, "10.0.0.1"),
             22,
             dispatcher,
-            listOf(first, second)
+            listOf(first, second, third)
         )
 
         assertTrue(handled)
-        assertTrue(firstCalled)
-        assertFalse(secondCalled)
+        assertEquals(
+            listOf(
+                "dispatcher:legacy",
+                "first:legacy:22",
+                "second:legacy:22"
+            ),
+            calls
+        )
     }
 
     @Test
-    fun dispatch_returnsFalseWhenNothingHandlesCommand() {
+    fun dispatch_fallsThroughAllLegacyHandlersBeforeReturningFalse() {
+        val calls = mutableListOf<String>()
         val dispatcher = object : CommandDispatcher {
-            override fun dispatch(applicationData: ApplicationData): Boolean = false
+            override fun dispatch(applicationData: ApplicationData): Boolean {
+                calls += "dispatcher:${applicationData.function}"
+                return false
+            }
+        }
+        val first = LegacyApplicationDataHandler { _, applicationData, resolvedPort ->
+            calls += "first:${applicationData.function}:$resolvedPort"
+            false
+        }
+        val second = LegacyApplicationDataHandler { _, applicationData, resolvedPort ->
+            calls += "second:${applicationData.function}:$resolvedPort"
+            false
         }
 
         val handled = LegacyRunLoopApplicationDataRouter.dispatch(
@@ -69,9 +98,17 @@ class LegacyRunLoopApplicationDataRouterTest {
             ApplicationData("unhandled", null, 0, "10.0.0.1"),
             11,
             dispatcher,
-            emptyList()
+            listOf(first, second)
         )
 
         assertFalse(handled)
+        assertEquals(
+            listOf(
+                "dispatcher:unhandled",
+                "first:unhandled:11",
+                "second:unhandled:11"
+            ),
+            calls
+        )
     }
 }

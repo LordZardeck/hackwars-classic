@@ -8,8 +8,13 @@ import game.computer.dispatch.CommandDispatcher
  */
 object LegacyRunLoopApplicationDataRouter {
     private val defaultLegacyHandlers: List<LegacyApplicationDataHandler> = listOf(
+        LegacyFilesystemInventoryCommands(),
+        LegacyPortApplicationCommands(),
+        LegacyWatchEquipmentCommands(),
         LegacyEconomyWebSocialCommands(),
-        LegacyCombatNetworkQuestCommands()
+        LegacyCombatNetworkQuestCommands(),
+        LegacyMiscSystemCommands(),
+        LegacyScriptInstallCommands()
     )
 
     @JvmStatic

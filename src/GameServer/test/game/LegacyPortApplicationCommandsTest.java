@@ -131,6 +131,36 @@ public class LegacyPortApplicationCommandsTest {
     }
 
     @Test
+    public void dispatch_installApplication_createsDefaultBankPortAndRefreshes() {
+        Computer computer = baseComputer("5.5.5.6");
+        HackerFile application = new HackerFile(HackerFile.BANKING_COMPILED);
+        application.setQuantity(2);
+        application.setCPUCost(0f);
+        HashMap content = new HashMap();
+        content.put("deposit", "dep");
+        content.put("withdraw", "wd");
+        content.put("transfer", "tr");
+        application.setContent(content);
+        when(computer.MyFileSystem.getFile("Public/", "bank")).thenReturn(application);
+
+        boolean handled = handler.dispatch(
+            computer,
+            new ApplicationData("installapplication", new Object[]{"Public/", "bank"}, 0, "source"),
+            6
+        );
+
+        assertTrue(handled);
+        assertEquals(6, computer.defaultBank);
+        assertTrue(computer.Ports.containsKey(6));
+        Port installedPort = (Port) computer.Ports.get(6);
+        assertEquals(6, installedPort.getNumber());
+        assertEquals(Port.BANKING, installedPort.getType());
+        assertTrue(installedPort.getOn());
+        assertEquals(1, application.getQuantity());
+        assertFetchPortsRefresh(computer.MyComputerHandler, "5.5.5.6");
+    }
+
+    @Test
     public void dispatch_replaceApplication_whenFileMissing_stillRefreshesPorts() {
         Computer computer = baseComputer("6.6.6.6");
         when(computer.MyFileSystem.getFile("Public/", "ftp")).thenReturn(null);
@@ -143,6 +173,80 @@ public class LegacyPortApplicationCommandsTest {
 
         assertTrue(handled);
         assertFetchPortsRefresh(computer.MyComputerHandler, "6.6.6.6");
+    }
+
+    @Test
+    public void dispatch_replaceApplication_whenPortIsUnderAttack_addsFailureAndLeavesFileUntouched() {
+        Computer computer = baseComputer("6.6.6.7");
+        HackerFile application = new HackerFile(HackerFile.BANKING_COMPILED);
+        application.setQuantity(2);
+        application.setCPUCost(0f);
+        HashMap content = new HashMap();
+        content.put("deposit", "dep");
+        content.put("withdraw", "wd");
+        content.put("transfer", "tr");
+        application.setContent(content);
+        when(computer.MyFileSystem.getFile("Public/", "bank")).thenReturn(application);
+
+        Port port = mock(Port.class);
+        when(port.getNumber()).thenReturn(18);
+        when(port.getBaseCPUCost()).thenReturn(0f);
+        when(port.getAccessing()).thenReturn("attacker");
+        when(port.getAttacking()).thenReturn(false);
+        when(port.getOverHeated()).thenReturn(false);
+        computer.Ports.put(18, port);
+
+        boolean handled = handler.dispatch(
+            computer,
+            new ApplicationData("replaceapplication", new Object[]{"Public/", "bank"}, 0, "source"),
+            18
+        );
+
+        assertTrue(handled);
+        assertEquals(2, application.getQuantity());
+        verify(computer).addMessage(MessageHandler.REPLACE_APPLICATION_UNDER_ATTACK);
+        verify(port, never()).setProgram(any());
+        assertFetchPortsRefresh(computer.MyComputerHandler, "6.6.6.7");
+    }
+
+    @Test
+    public void dispatch_installFirewall_replacesExistingFirewallAndRefreshes() {
+        Computer computer = baseComputer("6.6.6.8");
+        HackerFile firewallFile = new HackerFile(HackerFile.NEW_FIREWALL);
+        firewallFile.setQuantity(2);
+        firewallFile.setCPUCost(0f);
+        HashMap content = new HashMap();
+        content.put("equip_level", "0");
+        firewallFile.setContent(content);
+        when(computer.MyFileSystem.getFile("Public/", "wall")).thenReturn(firewallFile);
+        computer.Stats.put("FireWall", 0.0f);
+        when(computer.getLevel(anyFloat())).thenReturn(0);
+
+        HackerFile installed = new HackerFile(HackerFile.NEW_FIREWALL);
+        installed.setName("OldWall");
+        installed.setQuantity(0);
+        NewFireWall existingFirewall = mock(NewFireWall.class);
+        when(existingFirewall.getHackerFile()).thenReturn(installed);
+
+        Port port = mock(Port.class);
+        when(port.getNumber()).thenReturn(19);
+        when(port.getFireWall()).thenReturn(existingFirewall);
+        computer.Ports.put(19, port);
+
+        boolean handled = handler.dispatch(
+            computer,
+            new ApplicationData("installfirewall", new Object[]{"Public/", "wall"}, 0, "source"),
+            19
+        );
+
+        assertTrue(handled);
+        assertEquals(1, firewallFile.getQuantity());
+        verify(computer.MyFileSystem).addFile(installed, false);
+        verify(port).setFireWall(firewallFile);
+        ArgumentCaptor<Object[]> parameterCaptor = ArgumentCaptor.forClass(Object[].class);
+        verify(computer).addMessage(eq(MessageHandler.FIREWALL_REPLACED), parameterCaptor.capture());
+        assertEquals("OldWall", parameterCaptor.getValue()[0]);
+        assertFetchPortsRefresh(computer.MyComputerHandler, "6.6.6.8");
     }
 
     private Computer baseComputer(String ip) {

@@ -1,5 +1,7 @@
 package game.computer.runtime
 
+import game.Port
+
 fun baseRuntimeState(now: Long = 1_000L): RuntimeTickState {
     return RuntimeTickState(
         now = now,
@@ -17,6 +19,7 @@ fun baseRuntimeState(now: Long = 1_000L): RuntimeTickState {
         lastSave = 0,
         autoSaveMs = 1_000L,
         loadRequester = "",
+        errorMessage = "load failed",
         pendingTasks = mutableListOf(),
         lastPingTime = 0,
         logInTime = 100L,
@@ -59,5 +62,39 @@ fun baseRuntimeState(now: Long = 1_000L): RuntimeTickState {
         grantFilesCounter = 0,
         captchaGenerator = { RuntimeCaptchaPayload("12345", intArrayOf(1, 2, 3)) },
         watchCostSupplier = { 5f }
+    )
+}
+
+fun runtimePort(
+    number: Int,
+    type: Int = Port.ATTACK,
+    on: Boolean = true,
+    attacking: Boolean = false,
+    overHeated: Boolean = false,
+    health: Float = 100f,
+    cpuCost: Float = 0f,
+    baseCpuCostTotal: Float = 0f,
+    lastDamageWindowHandle: Int = 0,
+    accessing: String = "",
+    targetPort: Int = -1,
+    targetIp: String = "",
+    maliciousTarget: String = "",
+    isZombie: Boolean = false
+): RuntimePortSnapshot {
+    return RuntimePortSnapshot(
+        number = number,
+        type = type,
+        on = on,
+        attacking = attacking,
+        overHeated = overHeated,
+        health = health,
+        cpuCost = cpuCost,
+        baseCpuCostTotal = baseCpuCostTotal,
+        lastDamageWindowHandle = lastDamageWindowHandle,
+        accessing = accessing,
+        targetPort = targetPort,
+        targetIp = targetIp,
+        maliciousTarget = maliciousTarget,
+        isZombie = isZombie
     )
 }

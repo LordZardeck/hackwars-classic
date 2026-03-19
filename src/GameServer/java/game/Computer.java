@@ -26,13 +26,13 @@ import game.computer.packet.ComputerDamagePacketSnapshot;
 import game.computer.packet.ComputerPacketBuilder;
 import game.computer.packet.ComputerStandardPacketSnapshot;
 import game.computer.packet.PortHealthSnapshot;
-import game.computer.persistence.ComputerSnapshot;
 import game.computer.persistence.XmlComputerPersistence;
 import game.computer.runtime.ComputerRuntimeCoordinator;
 import game.computer.runtime.RuntimeCaptchaPayload;
+import game.computer.runtime.RuntimeTickEventApplier;
+import game.computer.runtime.RuntimeTickEventSink;
 import game.computer.runtime.RuntimePortSnapshot;
 import game.computer.runtime.RuntimeQueuedTask;
-import game.computer.runtime.RuntimeTickEvent;
 import game.computer.runtime.RuntimeTickState;
 import game.computer.session.CaptchaChallenge;
 import game.computer.session.ComputerSessionService;
@@ -41,6 +41,7 @@ import game.computer.session.PlayStatisticsRequest;
 import game.computer.session.RemoteFunctionPackResult;
 import org.w3c.dom.Node;
 import java.util.concurrent.Semaphore;
+import kotlin.jvm.functions.Function0;
 import com.hackwars.game.functions.AddShowChoices;
 import com.hackwars.game.functions.BankXP;
 import com.hackwars.game.functions.ChangeWatchPort;
@@ -479,6 +480,7 @@ public class Computer implements Runnable{//Runnable is an interface that allows
 	private final ComputerSessionService sessionService = new ComputerSessionService();
 	private final XmlComputerPersistence xmlComputerPersistence = new XmlComputerPersistence();
 	private final LegacyComputerPersistenceSupport persistenceSupport = new LegacyComputerPersistenceSupport(xmlComputerPersistence);
+	private final ComputerLoadCoordinator loadCoordinator = new ComputerLoadCoordinator(sessionService,xmlComputerPersistence,persistenceSupport);
 	private final ComputerPacketBuilder standardPacketBuilder = new ComputerPacketBuilder();
 	private final ComputerDamagePacketBuilder damagePacketBuilder = new ComputerDamagePacketBuilder();
 	private final ComputerRuntimeCoordinator runtimeCoordinator = new ComputerRuntimeCoordinator();
@@ -849,6 +851,9 @@ public class Computer implements Runnable{//Runnable is an interface that allows
 	public void setClientHash(String clientHash){
 		this.clientHash=clientHash;
 	}
+	String getClientHash(){
+		return(clientHash);
+	}
 	
 	/**
 	Set the player's public key.
@@ -944,56 +949,65 @@ public class Computer implements Runnable{//Runnable is an interface that allows
 	Get the watch level of the player.
 	*/
 	public float getWatchLevel(){
-		return(getLevel((float)((Float)Stats.get("Watch"))));
+		return(getLevel(getStatXP("Watch")));
 	}
 	
 	/**
 	Get the attack level of the player.
 	*/
 	public float getAttackLevel(){
-		return(getLevel((float)((Float)Stats.get("Attack"))));
+		return(getLevel(getStatXP("Attack")));
 	}
 	
 	/**
 	Get the attack level of the player.
 	*/
 	public float getBankLevel(){
-		return(getLevel((float)((Float)Stats.get("Bank"))));
+		return(getLevel(getStatXP("Bank")));
 	}
 	
 	/**
 	Get the attack level of the player.
 	*/
 	public float getScanningLevel(){
-		return(getLevel((float)((Float)Stats.get("Scanning"))));
+		return(getLevel(getStatXP("Scanning")));
 	}
 	
 	/**
 	Get the attack level of the player.
 	*/
 	public float getFireWallLevel(){
-		return(getLevel((float)((Float)Stats.get("FireWall"))));
+		return(getLevel(getStatXP("FireWall")));
 	}
 		
 	/**
 	Get the HTTP level of the player.
 	*/
 	public float getHTTPLevel(){
-		return(getLevel((float)((Float)Stats.get("Webdesign"))));
+		return(getLevel(getStatXP("Webdesign")));
 	}
 	
 	/**
 	Get the Redirecting level of the player.
 	*/
 	public float getRedirectingLevel(){
-		return(getLevel((float)((Float)Stats.get("Redirecting"))));
+		return(getLevel(getStatXP("Redirecting")));
 	}
 	
 	/**
 	Get the repair level of the player.
 	*/
 	public float getRepairLevel(){
-		return(getLevel((float)((Float)Stats.get("Repair"))));
+		return(getLevel(getStatXP("Repair")));
+	}
+
+	private float getStatXP(String statName){
+		Object value=Stats.get(statName);
+		if(value instanceof Float)
+			return((Float)value);
+		if(value instanceof Number)
+			return(((Number)value).floatValue());
+		return(0.0f);
 	}
 	
 	/**
@@ -1356,7 +1370,7 @@ public class Computer implements Runnable{//Runnable is an interface that allows
 	*/
 	public float getDamage(String type){
 		float damage=2.0f;
-		float attackXP=(Float)Stats.get(type);
+		float attackXP=getStatXP(type);
 		int i=0;
 		try {
 			while( ((int)attackXP > xpTable[i]) && i < 99) {
@@ -1695,14 +1709,14 @@ public class Computer implements Runnable{//Runnable is an interface that allows
 	*/
 	public int getTotalLevel(){
 		int totalLevel=0;
-		totalLevel+=getLevel((float)(Float)Stats.get("Attack"));
-		totalLevel+=getLevel((float)(Float)Stats.get("Bank"));
-		totalLevel+=getLevel((float)(Float)Stats.get("Watch"));
-		totalLevel+=getLevel((float)(Float)Stats.get("Scanning"));
-		totalLevel+=getLevel((float)(Float)Stats.get("FireWall"));
-		totalLevel+=getLevel((float)(Float)Stats.get("Webdesign"));
-		totalLevel+=getLevel((float)(Float)Stats.get("Redirecting"));
-		totalLevel+=getLevel((float)(Float)Stats.get("Repair"));
+		totalLevel+=getLevel(getStatXP("Attack"));
+		totalLevel+=getLevel(getStatXP("Bank"));
+		totalLevel+=getLevel(getStatXP("Watch"));
+		totalLevel+=getLevel(getStatXP("Scanning"));
+		totalLevel+=getLevel(getStatXP("FireWall"));
+		totalLevel+=getLevel(getStatXP("Webdesign"));
+		totalLevel+=getLevel(getStatXP("Redirecting"));
+		totalLevel+=getLevel(getStatXP("Repair"));
 
 
 		return(totalLevel);
@@ -2187,2465 +2201,30 @@ public class Computer implements Runnable{//Runnable is an interface that allows
 	
 
 	private void processQueuedItem(Object o,long startTime){
-					//IF THIS IS A TASK EXECUTE IT.
-					if(o instanceof Task){
-						Task T=(Task)o;
-						T.execute();
-					}else//IT MUST BE A REMOTE FUNCTION CALL.
-										
-					//This is some class of remotely delivered function call.
-					if(o instanceof ApplicationData&&Loaded){	
-					
-														
-						boolean checkedWatch=false;
-						ApplicationData MyApplicationData=(ApplicationData)o;
-						String function=MyApplicationData.getFunction();//Get function name.
-						int port=MyApplicationData.getPort();//Get target port.
-						
-						updateApplicationActivity(MyApplicationData,function);
-						port=normalizeTransferPort(MyApplicationData,function,port);
-						maybeLogIncomingMessage(MyApplicationData,function);
-						
-							if(commandDispatcher==null)
-								buildFunctionHash();
-							
-							boolean handledByDispatcher=commandDispatcher!=null&&LegacyRunLoopApplicationDataRouter.dispatch(this,MyApplicationData,port,commandDispatcher);
-							
-							if(handledByDispatcher){
-							}else
-						
-					
-						//changes watch type
-						if(function.equals("changewatchtype")){
-							int target_watch=(Integer)((Integer[])MyApplicationData.getParameters())[0];
-							int new_type=(Integer)((Integer[])MyApplicationData.getParameters())[1];
-								
-							if(target_watch<MyWatchHandler.getWatches().size()){
-								Watch MyWatch=(Watch)MyWatchHandler.getWatch(target_watch);
-								MyWatch.setType(new_type);
-								MyComputerHandler.addData(new ApplicationData("fetchwatches",null,0,ip),ip);
-							}
-						}else
-						
-						//Removes a fire wall from a port.
-						if(function.equals("deletefirewall")){
-							float maxCPU=CPU_CHART[cputype]+MyEquipmentSheet.getCPUBonus();
-							if(getCPULoad()<=maxCPU){
-							
-								int target_port=(Integer)(MyApplicationData.getParameters());
-								
-								Iterator PortIterator=Ports.entrySet().iterator();
-								while(PortIterator.hasNext()){
-									Port TempPort=(Port)(((Map.Entry)PortIterator.next()).getValue());
-									if(TempPort.getNumber()==target_port){
-									/*	FireWall NoFireWall=new FireWall(MyComputerHandler);
-										NoFireWall.setType(0);
-										NoFireWall.setParentPort(TempPort);*/
-										
-										if(MyFileSystem.getSpaceLeft()>0){
-											HackerFile installedAlready = TempPort.getFireWall().getHackerFile();
-											installedAlready = checkRename(installedAlready,"");
-											installedAlready.setLocation("");
-											if(installedAlready.getQuantity()==0){
-												installedAlready.setQuantity(1);
-											}
-											MyFileSystem.addFile(installedAlready,false);
-											TempPort.setFireWall(NewFireWall.createNoneFirewall());
-											addMessage(MessageHandler.REMOVE_FIREWALL_SUCCESS,new Object[]{installedAlready.getName()});
-										}else{
-											addMessage(MessageHandler.REMOVE_FIREWALL_FAIL_HD_FULL);
-										}
-										break;
-									}
-								}
+		if(o instanceof Task){
+			Task T=(Task)o;
+			T.execute();
+		}else if(o instanceof ApplicationData&&Loaded){
+			boolean checkedWatch=false;
+			ApplicationData MyApplicationData=(ApplicationData)o;
+			String function=MyApplicationData.getFunction();
+			int port=MyApplicationData.getPort();
 
-								MyComputerHandler.addData(new ApplicationData("fetchports",null,0,ip),ip);
-							}
-						}else
-						
-						//INSTALL A FIRE WALL.
-						if(function.equals("installfirewall")){
-							String path=(String)((Object[])MyApplicationData.getParameters())[0];
-							String name=(String)((Object[])MyApplicationData.getParameters())[1];
-							//System.out.println("Installing Firewall "+name);
-							HackerFile HF=this.getFileSystem().getFile(path,name);
-		
-							if(HF!=null){
-								int equipLevel = Integer.parseInt((String)HF.getContent().get("equip_level"));
-								if(getLevel((float)(Float)Stats.get("FireWall"))>=equipLevel){
-									float cpuCheck=getCPULoad()+HF.getCPUCost();
-									float maxCPU=CPU_CHART[cputype]+MyEquipmentSheet.getCPUBonus();
-									if(cpuCheck<=maxCPU){
-									
-										//int FireWallType=new Integer(((String)HF.getContent().get("data")));
-										
-										Port P=null;
-									
-										Iterator PortIterator=Ports.entrySet().iterator();
-										while(PortIterator.hasNext()){
-											Port TempPort=(Port)(((Map.Entry)PortIterator.next()).getValue());
-											if(TempPort.getNumber()==port){
-												P=TempPort;
-												break;
-											}
-										}
-										
-										if(P!=null){
-											
-											HF.setQuantity(HF.getQuantity()-1);
-											if(HF.getQuantity()<=0){
-												this.getFileSystem().deleteFile(path,name);
-											}
-											HackerFile installedAlready = P.getFireWall().getHackerFile();
-											if(!installedAlready.getName().equals("None")){
-												installedAlready = checkRename(installedAlready,"");
-												installedAlready.setLocation("");
-												if(installedAlready.getQuantity()==0){
-													installedAlready.setQuantity(1);
-												}
-												MyFileSystem.addFile(installedAlready,false);
-												P.setFireWall(HF);
-												addMessage(MessageHandler.FIREWALL_REPLACED,new Object[]{installedAlready.getName()});
-											}
-											else{
-												P.setFireWall(HF);
-											}
-										}
-									}
-									else{
-										addMessage(MessageHandler.CPU_TOO_HIGH);
-										
-									}
-								}else{
-									addMessage(MessageHandler.INSTALL_FIREWALL_FAIL_LEVEL,new Object[]{equipLevel});
-								}
-							}
-							MyComputerHandler.addData(new ApplicationData("fetchports",null,0,ip),ip);
-						}else
-						//CHECK IN-COMMING CLUE DATA.
-						if(function.equals("cluedata")){
-							String data=(String)MyApplicationData.getParameters();
-					//		MyMakeClue.checkClue(this,data,MakeClue.READ);
-						}else
-						
-						//CONFIRM HTTP SET FOR BOUNTY.
-						if(function.equals("bountyhttp")){
-							lastBountyHTTP=(String)MyApplicationData.getParameters();
-						}else
-						
-						//RE-INSTALL APPLICATION (create port)
-						if(function.equals("replaceapplication")){
-							String path=(String)((Object[])MyApplicationData.getParameters())[0];
-							String name=(String)((Object[])MyApplicationData.getParameters())[1];
-						
-							HackerFile HF=this.getFileSystem().getFile(path,name);
-		
-							if(HF!=null){
-							
-								Port P=null;
-							
-								Iterator PortIterator=Ports.entrySet().iterator();
-								while(PortIterator.hasNext()){
-									Port TempPort=(Port)(((Map.Entry)PortIterator.next()).getValue());
-									if(TempPort.getNumber()==port){
-										P=TempPort;
-										break;
-									}
-								}
+			updateApplicationActivity(MyApplicationData,function);
+			port=normalizeTransferPort(MyApplicationData,function,port);
+			maybeLogIncomingMessage(MyApplicationData,function);
 
-								float cpuCheck=getCPULoad()+HF.getCPUCost()-P.getBaseCPUCost();
-								float maxCPU=CPU_CHART[cputype]+MyEquipmentSheet.getCPUBonus();
-								if(cpuCheck<=maxCPU){
-								
-									if(P!=null){//Make sure the player is allowed to remove the port at this time.
-										boolean allow=true;
-										Object[] Message = null;
-										
-										if(!P.getAccessing().equals("")){
-											allow=false;
-											Message=MessageHandler.REPLACE_APPLICATION_UNDER_ATTACK;
-										}if(P.getAttacking()){
-											allow=false;
-											Message=MessageHandler.REPLACE_APPLICATION_ATTACKING;
-										}if(P.getOverHeated()){
-											allow=false;
-											Message=MessageHandler.REPLACE_APPLICATION_OVERHEATED;
-										}
-										
-										if(!allow){
-											addMessage(Message);
-											P=null;
-										}							
-									}
-									
-									if(P!=null){
-										
-										HF.setQuantity(HF.getQuantity()-1);
-										if(HF.getQuantity()<=0){
-											this.getFileSystem().deleteFile(path,name);
-										}
-										
-										//File Acquired.
-										int PortType=HF.getPortType();
-										if(PortType>=0){
-											P.setType(PortType);
-                                            P.setMaliciousTarget(ip);
-											HashMap Script=HF.getContent();
-											Program NewProgram=null;
-											P.setCPUCost(HF.getCPUCost());
-											
-											if(PortType==Port.ATTACK){
-												NewProgram=new AttackProgram(this, MyComputerHandler, P, Choices,MyMakeBounty);
-											}else
-											
-											if(PortType==Port.SHIPPING){
-												NewProgram=new ShippingProgram(this, MyComputerHandler, P);
-											}else
-											
-											if(PortType==Port.BANKING){
-												NewProgram=new Banking(this, MyComputerHandler, P);
-											}else
-											
-											if(PortType==Port.FTP){
-												NewProgram=new FTPProgram(this, MyComputerHandler, MyFileSystem,P);
-											}else
-																						
-											if(PortType==Port.HTTP){
-												adRevenueTarget=ip;//Target that daily pay should be placed in (may be malicious).
-												storeRevenueTarget=ip;//Target that daily store revenue should be placed in (may be malicious).
-												NewProgram=new HTTPProgram(this,MyComputerHandler);
-												dailyPayReduction=1.0f;
-											}
-											
-											//if(PortType!=Port.HTTP){
-												NewProgram.installScript(Script);
-												P.setProgram(NewProgram);
-											//}
-											
-											addMessage(MessageHandler.REPLACE_APPLICATION_SUCCESS);
-										}
-									}
-								}else
-									addMessage(MessageHandler.CPU_TOO_HIGH);
-							}
-							MyComputerHandler.addData(new ApplicationData("fetchports",null,0,ip),ip);
-						}else
-						
-						//INSTALL A WATCH.
-						if(function.equals("installwatch")){
-							Object Parameter[]=(Object[])MyApplicationData.getParameters();
-							String path=(String)((Object[])MyApplicationData.getParameters())[0];
-							String name=(String)((Object[])MyApplicationData.getParameters())[1];
-							int type=(Integer)((Object[])MyApplicationData.getParameters())[2];
-						
-							HackerFile HF=this.getFileSystem().getFile(path,name);
-							
-							if(MyWatchHandler.getWatches().size()<21){
-								if(HF!=null&&HF.getType()==HF.WATCH_COMPILED){
-								
+			if(commandDispatcher==null)
+				buildFunctionHash();
 
-									float cpuCheck=getCPULoad()+HF.getCPUCost();
-									float maxCPU=CPU_CHART[cputype]+MyEquipmentSheet.getCPUBonus();
-									if(cpuCheck<=maxCPU){
-										
-										HF.setQuantity(HF.getQuantity()-1);
-										if(HF.getQuantity()<=0){
-											this.getFileSystem().deleteFile(path,name);
-										}
-										
-										
-										Watch twatch=new Watch(this);
-										twatch.setType(type);
-										
-										
-										twatch.setSearchFireWall(0);
-										twatch.setCPUCost(HF.getCPUCost());
-                                        // set the watch note to be the filename by default.
-										twatch.setNote(name);
-										twatch.setOn(false);
-										twatch.setQuantity(0.0f);
-						
-										if(twatch.getType()==Watch.PETTY_CASH){//Make sure initial quantities are correct.
-											twatch.setInitialQuantity(getPettyCash());
-										}else if(twatch.getType()==Watch.HEALTH){
-											twatch.setInitialQuantity(100.0f);
-										}
-										
-										twatch.setPort(MyApplicationData.getPort());
-										HashMap Script=HF.getContent();
-										Program MyProgram=new WatchProgram(this,MyComputerHandler,twatch);
-										MyProgram.setComputerHandler(MyComputerHandler);
-										MyProgram.installScript(Script);
-										twatch.setProgram(MyProgram);
-										MyWatchHandler.addWatch(twatch);
-									}else
-										addMessage(MessageHandler.CPU_TOO_HIGH);
-								}else
-									addMessage(MessageHandler.FILE_NOT_FOUND);
-							}else{
-								addMessage(MessageHandler.MAX_WATCHES_REACHED);
-							}
-							
-							MyComputerHandler.addData(new ApplicationData("fetchwatches",null,0,ip),ip);
-						}else
-						
-						//INSTALL APPLICATION (create port)
-						if(function.equals("installapplication")){
-						
-						
-							if(port<MEMORY_CHART[memorytype]){
-						
-								String path=(String)((Object[])MyApplicationData.getParameters())[0];
-								String name=(String)((Object[])MyApplicationData.getParameters())[1];
-							
-								HackerFile HF=this.getFileSystem().getFile(path,name);
-																
-								if(HF!=null){
-						
-									float cpuCheck=getCPULoad()+HF.getCPUCost();
-									float maxCPU=CPU_CHART[cputype]+MyEquipmentSheet.getCPUBonus();
-									
-									if(cpuCheck<=maxCPU){
-											
-										HF.setQuantity(HF.getQuantity()-1);
-										if(HF.getQuantity()<=0){
-											this.getFileSystem().deleteFile(path,name);
-										}
-										
-										//File Acquired.
-										int PortType=HF.getPortType();
-										if(PortType>=0){
-											Port P=new Port(this,MyComputerHandler);
-											P.setNumber(port);
-											P.setType(PortType);
-											P.setHealth(100.0f);
-											P.setCPUCost(HF.getCPUCost());
-											P.setNote("");
-											NewFireWall F=new NewFireWall(MyComputerHandler);
-                                            F.loadHackerFile(NewFireWall.createNoneFirewall());
-                                            
-                                  
-											F.setParentPort(P);
-											P.setFireWall(F);
-											P.setDummy(false);
-											P.setOn(true);
-											P.setMaliciousTarget(ip);
-											HashMap Script=HF.getContent();
-											Program NewProgram=null;
-											if(PortType==Port.ATTACK){
-												if(defaultAttack==0)
-													defaultAttack=port;
-												NewProgram=new AttackProgram(this, MyComputerHandler, P, Choices,MyMakeBounty);
-											}else
-											
-											if(PortType==Port.SHIPPING){
-												if(defaultShipping==0)
-													defaultShipping=port;
-												NewProgram=new ShippingProgram(this, MyComputerHandler, P);
-											}else
-											
-											if(PortType==Port.BANKING){
-												if(defaultBank==0)
-													defaultBank=port;
-												NewProgram=new Banking(this, MyComputerHandler, P);
-											}else
-											
-											if(PortType==Port.FTP){
-												if(defaultFTP==0)
-													defaultFTP=port;
-												NewProgram=new FTPProgram(this, MyComputerHandler, MyFileSystem,P);
-											}
-											
-											if(PortType==Port.HTTP){
-												if(defaultHTTP==0)
-													defaultHTTP=port;
-												adRevenueTarget=ip;//Target that daily pay should be placed in (may be malicious).
-												storeRevenueTarget=ip;//Target that daily store revenue should be placed in (may be malicious).
-												NewProgram=new HTTPProgram(this,MyComputerHandler);
-											}
-											
-											if(NewProgram!=null){
-												NewProgram.installScript(Script);
-												P.setProgram(NewProgram);
-											}
-											Ports.put(new Integer(port),P);
-										}
-									}else
-										addMessage(MessageHandler.CPU_TOO_HIGH);
-								}else
-									addMessage(MessageHandler.APPLICATION_NOT_FOUND);
-									
-								MyComputerHandler.addData(new ApplicationData("fetchports",null,0,ip),ip);
-							}else{
-								systemChange=true;
-								addMessage(MessageHandler.MAX_PROGRAMS_REACHED);
-							}
-						}else
-						
-						//COMPUTER RECEIVED FIREWALL XP.
-						if(function.equals("firewallxp")){
-							healthChange=true;
-							float mult = 1.0f;
-							Float amount=(Float)MyApplicationData.getParameters();
-							if(amount > 110.0f) amount = 110.0f;
-							amount *= mult;
-							amount+=(Float)Stats.get("FireWall");
-							if(amount < 300.0f) amount = 300.0f;
-							Stats.put("FireWall",amount);
-						}else
-						
-						//Sent when an opponent has been dealt damage to provide information about their current state.
-						if(function.equals("opponentupdate")){
-							Float F[]=(Float[])(((Object[])MyApplicationData.getParameters())[0]);
-							boolean targetWatch=(Boolean)(((Object[])MyApplicationData.getParameters())[1]);
-							boolean damageFromFireWall = (Boolean)(((Object[])MyApplicationData.getParameters())[3]);
-							boolean mining = (Boolean)(((Object[])MyApplicationData.getParameters())[4]);
-							Float amount=F[0];
-							Port P=(Port)Ports.get(new Integer(port));
-							if(connectionID!=-1){
-								//System.out.println("Adding Damage from opponentupdate");
-								Damage.add(new Object[]{getWindowHandle(P),new Float((float)amount),damageFromFireWall,mining});
-							}
-							healthChange=true;
+			boolean handledByDispatcher=commandDispatcher!=null&&LegacyRunLoopApplicationDataRouter.dispatch(this,MyApplicationData,port,commandDispatcher);
 
-							//PACKET INCLUDES CURRENT HP/PETTY CASH OF PORT BEING ATTACKED.
-							
-							if(P!=null){
-								P.setTargetHP(F[1]);
-								P.setTargetPettyCash(F[2]);
-								P.setTargetCPUCost(F[3]);
-								P.setTargetWatch(targetWatch);
-							}
-						}else
-						
-						//COMPUTER HAS RECEIVED SOME ATTACK XP.
-						if(function.equals("attackxp")){
-							if(MyApplicationData.getParameters() instanceof Object[]){
-								Float F[]=(Float[])(((Object[])MyApplicationData.getParameters())[0]);
-								boolean targetWatch=(Boolean)(((Object[])MyApplicationData.getParameters())[1]);
-								Float amount=F[0];
-								float CastMe=(float)F[0];
-								float mult = 1.0f;
-								amount *= mult;
-								amount+=(Float)Stats.get("Attack");
-								if(amount < 300.0f && mult < 0) amount = 300.0f;
-								Port P=(Port)Ports.get(new Integer(port));
-								if(((Object[])MyApplicationData.getParameters()).length==4){
-									
-									if(connectionID!=-1){
-										boolean firewall = (Boolean)(((Object[])MyApplicationData.getParameters())[2]);
-										boolean mining = (Boolean)(((Object[])MyApplicationData.getParameters())[3]);
-										//System.out.println("Adding Damage from attackxp");
-										Damage.add(new Object[]{getWindowHandle(P),new Float((float)F[4]),firewall,mining});
-									}
-									//PACKET INCLUDES CURRENT HP/PETTY CASH OF PORT BEING ATTACKED.
-									
-									if(P!=null){
-										P.setTargetHP(F[1]);
-										P.setTargetPettyCash(F[2]);
-										P.setTargetCPUCost(F[3]);
-										P.setTargetWatch(targetWatch);
-									}
-								}else if(connectionID!=-1){
-									boolean firewall = (Boolean)(((Object[])MyApplicationData.getParameters())[3]);
-									//System.out.println("Adding Damage from attackxp else");
-									Damage.add(new Object[]{getWindowHandle(P),new Float((float)F[4]),(String)(((Object[])MyApplicationData.getParameters())[2]),firewall,false});
-								}
-								
-								if(type!=NPC)
-									Stats.put("Attack",amount);
-							
-							}else{
-								Float amount=(Float)MyApplicationData.getParameters();
-								float mult = 1.0f;
-								amount *= mult;
-								amount+=(Float)Stats.get("Attack");
-								if(amount < 300.0f && mult < 0) amount = 300.0f;
-								if(type!=NPC)
-									Stats.put("Attack",amount);
-							}
-							healthChange=true;
-						}else
-						
-						//COMPUTER HAS RECEIVED COMMODITY XP.
-						if(function.equals("miningdamageupdate")){//We have been given banking XP.
-							if(MyApplicationData.getParameters() instanceof Object[]){
-								Float F[]=(Float[])(((Object[])MyApplicationData.getParameters())[0]);
-								boolean targetWatch=(Boolean)(((Object[])MyApplicationData.getParameters())[1]);
-								Float amount=F[4];
-								Port P=(Port)Ports.get(new Integer(port));
-								if(((Object[])MyApplicationData.getParameters()).length==4){
-									if(connectionID!=-1){
-										boolean firewall = (Boolean)(((Object[])MyApplicationData.getParameters())[2]);
-										//System.out.println("Adding Damage from miningdamageupdate");
-										Damage.add(new Object[]{getWindowHandle(P),amount,firewall,true});
-									}
-									//PACKET INCLUDES CURRENT HP/PETTY CASH OF PORT BEING ATTACKED.
-									if(P!=null){
-										P.setTargetHP(F[1]);
-										P.setTargetPettyCash(F[2]);
-										P.setTargetCPUCost(F[3]);
-										P.setTargetWatch(targetWatch);
-									}
-								}else if(connectionID!=-1){
-									boolean firewall = (Boolean)(((Object[])MyApplicationData.getParameters())[2]);
-									//System.out.println("Adding Damage from miningdamageupdate else");
-									Damage.add(new Object[]{getWindowHandle(P),amount,(String)(((Object[])MyApplicationData.getParameters())[2]),firewall,true});
-								}
-							
-							}
-							healthChange=true;
-						}else
-						
-						//A DIRECTORY LISTING HAS BEEN REQUESTED FROM THE FILE SYSTEM.
-						if(function.equals("requestdirectory")){//Request a directory listing.
-							String path=(String)((Object[])MyApplicationData.getParameters())[0];
-							//System.out.println("Path is: "+path);
-							Object O[]=MyFileSystem.getDirectory(path);//Update the value to take into account ID.
-							Object Temp[]=new Object[O.length+1];
-							Temp[0]=(Integer)((Object[])MyApplicationData.getParameters())[1];
-							for(int i=0;i<O.length;i++)
-								Temp[i+1]=O[i];
-							O=Temp;
-						
-							PA.setDirectory(O);
-							
-							systemChange=true;
-						}else
-						
-						//REQUEST AN EQUIPMENT UPDATE
-						if(function.equals("requestequipment")){//Request a directory listing.
-							Object O[]=MyFileSystem.getEquipment("");//Update the value to take into account ID.
-							Object Temp[]=new Object[O.length+1];
-							Temp[0]=MyApplicationData.getParameters();
-							for(int i=0;i<O.length;i++){
-								if(O[i]!=null)
-									MyEquipmentSheet.describeCard((HackerFile)O[i]);//Testing outputting a description of the bonus.
-								Temp[i+1]=O[i];
-							}
-							O=Temp;
-							PA.setDirectory(O);
-							
-							O=MyEquipmentSheet.getEquipment();//Update the value to take into account ID.
-							Temp=new Object[O.length+1];
-							Temp[0]=MyApplicationData.getParameters();
-							for(int i=0;i<O.length;i++){
-								if(O[i]!=null)
-									MyEquipmentSheet.describeCard((HackerFile)O[i]);//Testing outputting a description of the bonus.
-								Temp[i+1]=O[i];
-							}
-							O=Temp;
-							
-							PA.setSecondaryDirectory(O);
-							systemChange=true;
-						}else
-						
-						//Install equipment.
-						if(function.equals("installequipment")){//Request a directory listing.
-							int position=(Integer)((Object[])MyApplicationData.getParameters())[0];
-							String name=(String)((Object[])MyApplicationData.getParameters())[1];
-							MyEquipmentSheet.equip(position,name);
-							
-							Object O[]=MyFileSystem.getEquipment("");//Update the value to take into account ID.
-							Object Temp[]=new Object[O.length+1];
-							Temp[0]=(Integer)((Object[])MyApplicationData.getParameters())[2];
-							for(int i=0;i<O.length;i++)
-								Temp[i+1]=O[i];
-							O=Temp;
-							PA.setDirectory(O);
-							
-							O=MyEquipmentSheet.getEquipment();//Update the value to take into account ID.
-							Temp=new Object[O.length+1];
-							Temp[0]=(Integer)((Object[])MyApplicationData.getParameters())[2];
-							for(int i=0;i<O.length;i++)
-								Temp[i+1]=O[i];
-							O=Temp;
-							
-							PA.setSecondaryDirectory(O);
-							systemChange=true;
-						}else
-						
-						//Repair equipment.
-						if(function.equals("repairequipment")){//Request a directory listing.
-						
-							int position=(Integer)((Object[])MyApplicationData.getParameters())[0];
-							String name=(String)((Object[])MyApplicationData.getParameters())[1];
-							
-							if(position!=-1)
-								MyEquipmentSheet.repair(position);
-							else{
-								HackerFile Equipment=MyFileSystem.getFile("",name);
-								if(Equipment!=null)
-									MyEquipmentSheet.repair(Equipment);
-							}
-							
-							MyComputerHandler.addData(new ApplicationData("requestequipment",new Integer(13),0,ip),ip);
-						}else
-						
-						//FINALIZE THE REMOTE DIRECTORY REQUEST.
-						if(function.equals("delivereddirectory")){
-							Object[] paramss = (Object[])MyApplicationData.getParameters();
-							Object Directory[] = null;
-							if(paramss.length==1) {
-								Directory=(Object[])MyApplicationData.getParameters();
-							}
-							else if(paramss.length==2) {
-								Directory=(Object[])paramss[0];
-								boolean npcBool = (Boolean)paramss[1];
-								PA.setAllowedDir(!npcBool || isNPC());
-							}
-							PA.setSecondaryDirectory(Directory);
-							systemChange=true;
-						}else
-						
-						//A FILE HAS BEEN REQUESTED FROM THE FILE SYSTEM.
-						if(function.equals("requestfile")){//Request a file.
-							String path=((String[])MyApplicationData.getParameters())[0];
-							String name=((String[])MyApplicationData.getParameters())[1];
-							HackerFile HF=MyFileSystem.getFile(path,name);
-							if(HF!=null){
-								if(HF.getType()==HackerFile.GAME||HF.getType()==HackerFile.GAME_PROJECT){
-									HF=HF.clone();
-									HF.setContent(null);
-								}
-							}
-							PA.setFile(HF);
-							systemChange=true;
-						}else
-						
-						//A FILE HAS BEEN REQUESTED FROM THE FILE SYSTEM.
-						if(function.equals("requestgame")){//Request a file.
-							String path=((String[])MyApplicationData.getParameters())[0];
-							String name=((String[])MyApplicationData.getParameters())[1];
-							HackerFile HF=MyFileSystem.getFile(path,name);
-							
-							HashMap LoadFile=new HashMap();
-							HackerFile SaveFile=MyFileSystem.getFile("",name+".save");
-							if(SaveFile!=null){
-								String data=(String)SaveFile.getContent().get("data");
-								if(data!=null){
-									String Entries[]=data.split("\n");
-									try{
-										for(int i=0;i<Entries.length;i++){
-											String Data[]=Entries[i].split("\t");
-											String key=Data[0];
-											String type=Data[1];
-											Variable MyVariable=null;
-											if(type.equals("string")){
-												MyVariable=new TypeString(Data[2]);
-											}else
-											
-											if(type.equals("bool")){
-												MyVariable=new TypeBoolean(new Boolean(Data[2]));
-											}else
-											
-											if(type.equals("int")){
-												MyVariable=new TypeInteger(new Integer(Data[2]));
-											}else
-											
-											if(type.equals("float")){
-												MyVariable=new TypeFloat(new Float(Data[2]));
-											}
-											
-											if(MyVariable!=null){
-												LoadFile.put(key,MyVariable);
-											}
-										}
-									}catch(Exception e){
-									
-									}
-								}
-							}
-							PA.setLoadFile(LoadFile);
-							PA.setFile(HF);
-							systemChange=true;
-						}else
-						
-						
-						//SET THE DESCRIPTION ON A FILE.
-						if(function.equals("setfiledescription")){//Request a file.
-							String path=(String)((Object[])MyApplicationData.getParameters())[0];
-							String name=(String)((Object[])MyApplicationData.getParameters())[1];
-							String description=(String)((Object[])MyApplicationData.getParameters())[2];
-							HackerFile MyFile=MyFileSystem.getFile(path,name);
-							if(MyFile!=null&&MyFile.getType()!=HackerFile.CLUE){
-								MyFile.setDescription(description);
-								PA.setFile(MyFile);
-							}
-							systemChange=true;
-						}else
-					
-						//SET THE PRICE ON A FILE.
-						if(function.equals("setfileprice")){//Request a file.
-							String path=(String)((Object[])MyApplicationData.getParameters())[0];
-							String name=(String)((Object[])MyApplicationData.getParameters())[1];
-							Float price=(Float)((Object[])MyApplicationData.getParameters())[2];
-							HackerFile MyFile=MyFileSystem.getFile(path,name);
-							if(MyFile!=null){
-								MyFile.setPrice(price);
-								PA.setFile(MyFile);
-							}
-							systemChange=true;
-						}else
-						
-						//Have we received some walking information from the 3D chat?
-						if(function.equals("hacktendoTarget")){
-							int targetX=(Integer)((Object[])MyApplicationData.getParameters())[0];
-							int targetY=(Integer)((Object[])MyApplicationData.getParameters())[1];
-							int currentX=(Integer)((Object[])MyApplicationData.getParameters())[2];
-							int currentY=(Integer)((Object[])MyApplicationData.getParameters())[3];
-							//WorldSingleton.getInstance().addTargetData("game",ip,targetX,targetY,currentX,currentY);
-						}else
-						
-						//Have we received some walking information from the 3D chat?
-						if(function.equals("hacktendoActivate")){
-							System.out.println("Attempting to activate an object.");
-							int activateID=(Integer)((Object[])MyApplicationData.getParameters())[0];
-							int activateType=(Integer)((Object[])MyApplicationData.getParameters())[1];
-							//WorldSingleton.getInstance().addActivationData("game",ip,activateID,activateType);
-						}else
-						
-						//WE HAVE BEEN ASKED TO DELETE A FILE FROM THE FILE SYSTEM.
-						if(function.equals("deletefile")){
-						
-							String path=(String)((Object[])MyApplicationData.getParameters())[0];
-							String name=(String)((Object[])MyApplicationData.getParameters())[1];
-							
-							MyFileSystem.deleteFile(path,name);
-							PA.setRequestPrimary(true,1);
-							systemChange=true;
-						}else
-                        
-                        if(function.equals("deletemulti")) {
-                            Object[] allFiles = (Object[])((Object[])MyApplicationData.getParameters())[0];
-                            String path = "";
-                            String name = "";
-                            for (int i=0; i < allFiles.length; i++) {
-                                String[] file = (String[])allFiles[i];
-                                path = file[0];
-                                name = file[1];
-                                if ( (file[2]).equals("directory") ) {
-                                    MyFileSystem.deleteDirectory(path + "/" + name + "/");
-                                } else {
-                                    MyFileSystem.deleteFile(path,name);
-                                }
-                            }
-                            PA.setRequestPrimary(true,1);
-							systemChange=true;
-                        }else
-						
-						//DECOMPILE A FILE.
-						if(function.equals("decompilefile")){
-							String path=(String)((Object[])MyApplicationData.getParameters())[0];
-							String fileName = (String)((Object[])MyApplicationData.getParameters())[1];
-							HackerFile HFCheck=MyFileSystem.getFile(path,fileName);
-                            HackerFile HF = HFCheck.clone();
-							if(HFCheck.getTypeString().equals("compiled")&&(HFCheck.getMaker().toUpperCase().equals(userName.toUpperCase()))){
-								if(HFCheck!=null){
-									float compilePrice=(Float)((Object[])MyApplicationData.getParameters())[2];
-                                    HashMap levels = new HashMap();
-                                    levels.put("Attack",new Integer(100));
-                                    levels.put("Merchanting",new Integer(100));
-                                    levels.put("Watch",new Integer(100));
-	                                    try{
-	                                    Object[] params = new Object[]{new Integer(HFCheck.getType()),HFCheck.getContent(),levels};
-	                                    HashMap result = (HashMap) sessionService.executeRemote(LocalWebConfig.getXmlRpcUrl(),"hackerRPC.compileApplication",params);
-	                                    if(result!=null&&((String)(result.get("error"))).length()==0){
-	                                        compilePrice = (float)(double)(Double)result.get("price");
-	                                    }
-	                                    }catch(Exception e){
-	                                    }
-									HFCheck.setQuantity(HFCheck.getQuantity()-1);
-									if(HFCheck.getQuantity()<=0){
-										MyFileSystem.deleteFile(path,HFCheck.getName());
-									}
+			if(!handledByDispatcher){
+				checkedWatch=dispatchToPortOrFail(MyApplicationData,port);
+			}
 
-									float xp=compilePrice/100.0f;//XP = 1/10 The Compile Price.
-									String xp_type="";
-									
-									if(HFCheck.getType()==HFCheck.BANKING_COMPILED)
-										xp_type="bankxp";
-									else
-
-									if(HFCheck.getType()==HFCheck.ATTACKING_COMPILED)
-										xp_type="attackxp";
-									else
-									
-									if(HFCheck.getType()==HFCheck.SHIPPING_COMPILED)
-										xp_type="redirectxp";
-									else
-								
-									if(HFCheck.getType()==HFCheck.HTTP)
-										xp_type="httpxp";
-									else
-									
-									if(HFCheck.getType()==HFCheck.WATCH_COMPILED)
-										xp_type="watchxp";
-										
-									MyComputerHandler.addData(new ApplicationData(xp_type,new Float((-1.0f)*xp),0,ip),ip);
-									
-									if(HF.getType()!=HF.HTTP)
-										HF.setType(HF.getType()+1);
-									if(HFCheck.getType()!=HFCheck.HTTP_SCRIPT)
-										HF.setType(HFCheck.getType()+1);
-									else
-										HF.setType(HF.HTTP_SCRIPT);
-									HF.setName(HFCheck.getName().replaceAll("\\.bin",""));
-									MyComputerHandler.addData(new ApplicationData("pettycash",new Float(compilePrice),0,ip),ip);
-									//MyComputerHandler.addData(new ApplicationData("savefile",MyApplicationData.getParameters(),0,ip),ip);
-                                    saveFile(HF,HF,path);
-								}
-							}
-						}else
-						
-                        if (function.equals("sellfilemulti")) {
-                            Object[] allFiles = (Object[])((Object[])MyApplicationData.getParameters())[0];
-                            String ip = (String)((Object[])MyApplicationData.getParameters())[1];
-                            String path = "";
-                            String name = "";
-                            String maker = "";
-                            Integer quantity = 0;
-                            float compileCost = 0.0f;
-                            float totalPay = 0.0f;
-                            HashMap levels = new HashMap();
-                            levels.put("Attack",new Integer(100));
-                            levels.put("Merchanting",new Integer(100));
-                            levels.put("Watch",new Integer(100));
-                            if(checkBank()){
-                                for (int i=0; i < allFiles.length; i++) {
-                                    Object[] file = (Object[])allFiles[i];
-                                    path = (String)file[0];
-                                    name = (String)file[1];
-                                    maker = (String)file[2];
-                                    quantity = (Integer)file[3];
-                                    // calculate the total $ to send to the player
-                                    // remove the files from their HD
-                                    // add the files to the store
-                                    // get the hacker file associated with this file
-                                    HackerFile HF = MyFileSystem.getFile(path,name);
-									if(HF.getType()!=HackerFile.NEW_FIREWALL){
-										totalPay +=  (Float)makers.get(maker)*quantity;
-									}
-									else{
-										//System.out.println("Selling a firewall");
-										HashMap content = HF.getContent();
-										Object price = content.get("store_price");
-										if(price != null){
-											float firewallPrice = new Float(""+price);
-										//	System.out.println("Sellig it for "+firewallPrice);
-											totalPay += firewallPrice;
-										}
-									}
-                                    if(HF!=null&&HF.getQuantity()>=quantity){
-                                        HF.setQuantity(HF.getQuantity()-quantity);
-                                        if(HF.getQuantity()<=0){
-                                            MyFileSystem.deleteFile(path,HF.getName());
-                                        }
-                                        
-                                        Object O[]=new Object[]{path,HF.clone(),compileCost,ip,quantity};
-                                        MyComputerHandler.addData(new ApplicationData("sellfile",O,0,"store"+getServerID()),store);
-                                    }
-                                }
-                                //MyComputerHandler.addData(new ApplicationData("pettycash",totalPay,0,ip),ip);
-                                pettyCash+=totalPay;
-                            }else{
-                                //BANK PORT MESSAGE
-                                addMessage(MessageHandler.SELL_FAIL_BANK_PORT);
-                            }
-                            PA.setRequestPrimary(true,1);
-                            systemChange=true;
-                        } else
-                        
-                        if(function.equals("savefile")){
-                            Object[] parameters = (Object[])MyApplicationData.getParameters();
-                            String path=(String)parameters[0];
-							HackerFile HF=(HackerFile)parameters[1];
-                            HackerFile HFCheck=MyFileSystem.getFile(path,HF.getName());
-                            boolean stolenFile = false;
-							String stolenFromIP = "";
-							int stolenFromPort = -1;
-							if(parameters.length==4){
-								if(parameters[2] instanceof String){
-									stolenFile = true;
-									stolenFromIP = (String)parameters[2];
-									stolenFromPort = (Integer)parameters[3];
-								}
-							}
-                            
-                            saveFile(HF,HFCheck,path);
-							if(stolenFile){
-                                addMessage(MessageHandler.FILE_SUCCESSFULLY_STOLEN,new Object[]{HF.getName(),stolenFromIP},new Object[]{stolenFromPort,stolenFromIP});
-								addMessage(MessageHandler.FILE_SUCCESSFULLY_STOLEN_GAME,new Object[]{HF.getName(),stolenFromIP});
-                            }
-							if(HF.getType()==HF.PCI||HF.getType()==HF.AGP){
-								PA.setRequestHardware(true);
-							}
-                        
-                        }else
-                        
-                        if(function.equals("compilefile")){
-                            boolean success=true;
-							Object[] parameters = (Object[])MyApplicationData.getParameters();
-							String path=(String)parameters[0];
-							HackerFile HF=(HackerFile)parameters[1];
-							HackerFile HFCheck=MyFileSystem.getFile(path,HF.getName());
-                            
-                            float price=(Float)((Object[])MyApplicationData.getParameters())[2];
-
-							//Check to make sure levels match.
-                            HashMap PlayerLevels=new HashMap();
-                            PlayerLevels.put("Attack",new Integer(getLevel((float)(Float)Stats.get("Attack"))));
-                            PlayerLevels.put("Merchanting",new Integer(getLevel((float)(Float)Stats.get("Bank"))));
-                            PlayerLevels.put("Watch",new Integer(getLevel((float)(Float)Stats.get("Watch"))));
-                            PlayerLevels.put("HTTP",new Integer(getLevel((float)(Float)Stats.get("Webdesign"))));
-                            PlayerLevels.put("Redirecting",new Integer(getLevel((float)(Float)Stats.get("Redirecting"))));
-
-
-	                            try{
-	                                Object[] params = new Object[]{new Integer(HF.getType()),HF.getContent(),PlayerLevels};
-	                                HashMap result = (HashMap) sessionService.executeRemote(LocalWebConfig.getXmlRpcUrl(),"hackerRPC.compileApplication",params);
-	                                if(result!=null&&((String)(result.get("error"))).length()==0){
-	                                    float cpuCost = (float)(double)(Double)result.get("cpucost");
-	                                    price = (float)(double)(Double)result.get("price");
-	                                    HF.setCPUCost(cpuCost);
-	                                }
-	                            }catch(Exception e){
-	                                success=false;
-	                            }
-                        
-                            //Check to make sure our bank is on.
-                            if(!checkBank()){
-                                success=false;
-                                addMessage(MessageHandler.ACTIVE_BANK_NOT_FOUND);
-                            }
-                        
-                            //Check to make sure the two files are identical.
-                            if(HFCheck!=null){
-                                if(HF.checkSumFailed(HFCheck)){
-                                    success=false;
-                                    addMessage(MessageHandler.FILE_CHANGED_SINCE_LAST_SAVE);
-                                }
-                            }
-                        
-                            if(pettyCash<price){
-                                success=false;
-                                addMessage(MessageHandler.COMPILE_FAIL_NOT_ENOUGH_MONEY);
-                            }else if((MyFileSystem.getSpaceLeft()<1)&&HFCheck==null){//Not enough disk space to compile file.
-                                success=false;
-                                addMessage(MessageHandler.COMPILE_FAIL_HD_FULL);
-                            }else if(success){
-                                if(HF.getType()!=HF.FTP_COMPILED){//Provide XP for the program that has been compiled.
-
-                                    float xp=price/100.0f;//XP = 1/10 The Compile Price.
-                                    String xp_type="";
-                                    
-                                    if(HF.getType()==HF.BANKING_COMPILED)
-                                        xp_type="bankxp";
-                                    else
-
-                                    if(HF.getType()==HF.ATTACKING_COMPILED)
-                                        xp_type="attackxp";
-                                    else
-                                    
-                                    if(HF.getType()==HF.SHIPPING_COMPILED)
-                                        xp_type="redirectxp";
-                                    else
-                                    
-                                    if(HF.getType()==HF.WATCH_COMPILED)
-                                        xp_type="watchxp";
-                                    else
-                                    
-                                    if(HF.getType()==HF.HTTP){
-                                        xp_type="httpxp";
-                                    }
-                                        
-                                    MyComputerHandler.addData(new ApplicationData(xp_type,new Float(xp),0,ip),ip);
-                                }
-                                MyComputerHandler.addData(new ApplicationData("pettycash",new Float(price*-1.0),0,ip),ip);
-				HF.setMaker(userName);
-                            
-                            	saveFile(HF,HFCheck,path);
-                            }
-                            
-                        }else
-						//WE HAVE BEEN ASKED TO SAVE A FILE TO THE FILE SYSTEM.
-						if(function.equals("sellfile")){
-
-							//Is this hardware?
-							boolean success=true;
-							Object[] parameters = (Object[])MyApplicationData.getParameters();
-							String path=(String)parameters[0];
-							HackerFile HF=(HackerFile)parameters[1];
-							HackerFile HFCheck=MyFileSystem.getFile(path,HF.getName());
-							
-							//IS THIS A FILE BEING SOLD BACK TO THE STORE.
-							int sellQuantity=1;
-							float sellPrice=0.0f;
-							float minimumSellPrice=0.0f;
-							if(HF.getType()!=HackerFile.NEW_FIREWALL){
-								minimumSellPrice =  (Float)makers.get(HF.getMaker());
-							}
-                                
-                            HF.setQuantity(1);
-                            float compilePrice=(Float)((Object[])MyApplicationData.getParameters())[2];
-                            HashMap PlayerLevels=new HashMap();
-                            PlayerLevels.put("Attack",new Integer(100));
-                            PlayerLevels.put("Merchanting",new Integer(100));
-                            PlayerLevels.put("Watch",new Integer(100));
-                            PlayerLevels.put("HTTP",new Integer(100));
-                            PlayerLevels.put("Redirecting",new Integer(100));
-
-
-	                            try{
-	                                Object[] params = new Object[]{new Integer(HF.getType()),HF.getContent(),PlayerLevels};
-	                                HashMap result = (HashMap) sessionService.executeRemote(LocalWebConfig.getXmlRpcUrl(),"hackerRPC.compileApplication",params);
-	                                if(result!=null&&((String)(result.get("error"))).length()==0){
-	                                    float cpuCost = (float)(double)(Double)result.get("cpucost");
-	                                    compilePrice = (float)(double)(Double)result.get("price");
-	                                    
-	                                }
-	                            }catch(Exception e){
-	                                compilePrice = 0.0f;
-	                            }
-                            int quantity = (Integer)((Object[])MyApplicationData.getParameters())[4];
-                            if(HF.getType()==HF.AGP||HF.getType()==HF.PCI){//Special case of hardware.
-                                if(HF.getMaker().equals("Medium"))
-                                    sellPrice=2000.0f;
-                                else if(HF.getMaker().equals("High"))
-                                    sellPrice=20000.0f;
-                                else if(HF.getMaker().equals("Rare"))
-                                    sellPrice=200000.0f;
-                            }else{
-                                if(HFCheck!=null)
-                                    sellPrice=compilePrice*2.0f-(compilePrice*0.01f*(1.0f+HFCheck.getQuantity()));
-                                else
-                                    sellPrice=compilePrice*2.0f-(compilePrice*0.01f);
-                            }
-
-                            if(sellPrice<minimumSellPrice)
-                                sellPrice=minimumSellPrice;
-                        
-    
-                            String ip=(String)((Object[])MyApplicationData.getParameters())[3];
-							HF.setPrice(sellPrice);
-                            
-                            if(HF.getType()==HackerFile.NEW_FIREWALL)
-                                success=false;
-						
-							if(success){//Make sure we don't need to rename the file.
-												
-                                HF.setLocation("Store/");
-								saveFile(HF,HFCheck,path);
-                                
-								if(HF.getType()==HF.PCI||HF.getType()==HF.AGP){
-									PA.setRequestHardware(true);
-								}
-								
-								
-								
-							}
-							systemChange=true;
-						}
-                        
-                        // USER HAS CHANGED THEIR PREFERENCES
-                        
-                        else if (function.equals("setpreferences")) {
-                            HashMap preferences = (HashMap)((Object[])MyApplicationData.getParameters())[1];
-/*System.out.println("SETTING Preferences...");
-Iterator it = preferences.keySet().iterator();
-while (it.hasNext()) {
-    String n = (String)it.next();
-    System.out.println("   " + n + ": " + preferences.get(n));
-}*/
-                            this.preferences = preferences;
-                        }
-                        
-                        
-                        //ADD A MESSAGE TO THE MESSAGE QUEUE.
-                        else if(function.equals("message")){//We have received a message.
-							Object messageObject = MyApplicationData.getParameters();
-							if(messageObject instanceof String){
-								addMessage((String)messageObject);
-							}
-							else if(messageObject instanceof Object[]){
-								Object[] messageArray = (Object[])messageObject;
-								Object[] message = (Object[])messageArray[0]; // this throws a ClassCastException when messageArray[0] is a string
-								if(messageArray[1] instanceof Object[]){
-									Object[] parameters = (Object[])messageArray[1];
-									if(messageArray.length > 2){
-										Object[] portInfo = (Object[])messageArray[2];
-										addMessage(message,parameters,portInfo);
-									}
-									else{
-										addMessage(message,parameters);
-									}
-								}
-								else{
-									addMessage(messageArray);
-								}
-							}
-							
-							systemChange=true;
-						}else
-						
-						//SEND AN EMAIL USING XML RPC.
-						if(function.equals("sendemail")){//We have received a message.
-							String message=(String)MyApplicationData.getParameters();
-							if(checkBank()){
-									if(pettyCash>=100.0){
-										try{
-											Object[] params = new Object[]{ip,message};
-											sessionService.executeRemote("http://www.hackwars.net/xmlrpc/mail.php","sendEmail",params);
-										}catch(Exception e){
-										}
-						
-									MyComputerHandler.addData(new ApplicationData("pettycash",-100.0f,0,ip),ip);
-								}
-							}
-						}
-                        
-                        //POST TO FACEBOOK USING XML RPC.
-                        else if(function.equals("sendfacebook")){//We have received a message.
-							String message=(String)((Object[])MyApplicationData.getParameters())[0];
-							String targetIP=(String)((Object[])MyApplicationData.getParameters())[1];
-
-								try{
-									Object[] params = new Object[]{ip,targetIP,message};
-									sessionService.executeRemote("http://www.hackwars.net/xmlrpc/facebook.php","sendFacebook",params);
-								}catch(Exception e){
-									e.printStackTrace();
-								}
-
-						}else
-						
-						//POST TO FACEBOOK USING XML RPC.
-						if(function.equals("facebookupdate")){//We have received a message.
-								String message=(String)MyApplicationData.getParameters();
-								try{	
-									Object[] params = new Object[]{ip,new Double(pettyCash),new Double(bankMoney),new Integer(defaultBank)};
-									sessionService.executeRemote("http://www.hackwars.net/xmlrpc/facebook.php","updateFacebook",params);
-								}catch(Exception e){
-									e.printStackTrace();
-								}
-						}else
-						
-						//ADD A MESSAGE TO THE MESSAGE QUEUE.
-						if(function.equals("dailypayset")){//We have received a message.
-							String bountyip=(String)MyApplicationData.getParameters();
-							MyMakeBounty.checkBounty(this,null,MyMakeBounty.CHANGE,MyApplicationData.getSourceIP(),false,bountyip);
-						}else
-					
-						//CHANGE AMOUNT OF MONEY IN PETTY CASH.
-						if(function.equals("pettycash")){//We have been asked to modify petty cash.
-							//Do we have a bank port running.
-							DecimalFormat nf = new DecimalFormat("#.00");
-							float value = 0.0f;
-							float returnValue = 0.0f;
-							boolean sendMessage = true;
-							Object parameters = MyApplicationData.getParameters();
-							if(parameters instanceof Float){
-								value=(Float)parameters;
-							}
-							else if(parameters instanceof Object[]){
-								Object[] params = (Object[])parameters;
-								value = (Float)params[0];
-								Object secondEntry = params[1];
-								if(secondEntry instanceof Float){
-									returnValue = (Float)params[1];
-								}
-								else if ( secondEntry instanceof Boolean ) {
-									sendMessage = false;
-								}
-							}
-							if(getTotalLevel()<noobLevel&&!MyApplicationData.getSourceIP().equals(ip)){
-								addMessage(MessageHandler.TRANSFER_FAIL_NOOB_LEVEL,new Object[]{noobLevel});
-								if(!MyApplicationData.getSourceIP().equals(ip)){
-									MyComputerHandler.addData(MyApplicationData,MyApplicationData.getSourceIP());
-								}
-							}else if(checkBank()){
-		
-								setPettyCash(pettyCash+value);
-								CentralLogging.getInstance().addOutput(ip+"\t"+MyApplicationData.getSourceIP()+"\t"+"1\t"+value+"\n");
-								if(!MyApplicationData.getSourceIP().equals(ip)&&sendMessage){
-									ApplicationData message = new ApplicationData("message",new Object[]{MessageHandler.TRANSFER_SENT_SUCCESSFUL,new Object[]{nf.format(value)}},0,MyApplicationData.getSourceIP());
-									MyComputerHandler.addData(message,MyApplicationData.getSourceIP());
-									addMessage(MessageHandler.TRANSFER_RECEIVED,new Object[]{nf.format(value),MyApplicationData.getSourceIP()});
-								}
-								if(pettyCash<0)
-									pettyCash=0;
-							}else{
-								addMessage(MessageHandler.TRANSFER_RECEIVE_FAIL_BANK_PORT,new Object[]{nf.format(value),MyApplicationData.getSourceIP()});
-								if(!MyApplicationData.getSourceIP().equals(ip)){
-									ApplicationData pettyCash = new ApplicationData("pettycash",returnValue,0,MyApplicationData.getSourceIP());
-									ApplicationData message = new ApplicationData("message",MessageHandler.TRANSFER_SEND_FAIL_BANK_PORT,0,MyApplicationData.getSourceIP());
-									MyComputerHandler.addData(pettyCash,MyApplicationData.getSourceIP());
-									MyComputerHandler.addData(message,MyApplicationData.getSourceIP());
-								}
-							}
-								
-							if(pettyCash<respawnMoney)
-								respawn(Port.BANKING);
-								
-							systemChange=true;
-
-						}else
-						
-						//THIS FUNCTION ACCEPTS A TRANSFER OF A COMMODITY FROM MINING.
-						if(function.equals("commodity")){//We have been asked to modify petty cash.
-						
-							if(checkShipping()){//Do we have an active shipping port?
-								Object[] parameters = (Object[])MyApplicationData.getParameters();
-								int commodity=(Integer)parameters[0];
-								float value=(Float)parameters[1];
-								int redirectPort = (Integer)parameters[2];
-								Port p = (Port)Ports.get(redirectPort);
-								int windowHandle = getWindowHandle(p);
-								setCommodityAmount(commodity,getCommodity(commodity)+value);
-								String targetIP = (String)parameters[3];
-								addMessage(MessageHandler.RECEIVED_COMMODITY,new Object[]{(int)value,commodityString[commodity]},new Object[]{windowHandle,ip});
-								addMessage(MessageHandler.RECEIVED_COMMODITY_GAME,new Object[]{(int)value,commodityString[commodity],targetIP});
-							}else{
-								addMessage(MessageHandler.RECEIVED_COMMODITY_FAIL);
-								if(!MyApplicationData.getSourceIP().equals(ip)){
-									MyComputerHandler.addData(MyApplicationData,MyApplicationData.getSourceIP());
-								}
-							}
-								
-							systemChange=true;
-
-						}else
-						
-						//CHANGE AMOUNT OF MONEY IN BANK.
-						if(function.equals("bank")){
-							float value=(Float)MyApplicationData.getParameters();
-
-							//Do we have a bank port running.
-							if(checkBank()){
-								bankMoney+=value;
-								if(value>0)
-									CentralLogging.getInstance().addOutput(ip+"\t"+MyApplicationData.getSourceIP()+"\t"+"0\t"+value+"\n");
-							}else if(value>0.0f){
-								addMessage(MessageHandler.ACTIVE_BANK_NOT_FOUND);
-							}
-							systemChange=true;
-						}else 
-						
-						//UNLOCK THE LOCKED STATE IF CORRECT CAPTCHA.
-						if(function.equals("unlock")){
-							String code=(String)MyApplicationData.getParameters();
-							if(code.equals(unlockKey)){
-								lockCount=0;
-								locked=false;
-							}else{
-								RESEND_CAPTCHA=true;
-							}
-						}else
-						
-						//RETURNS AN ARRAY OF THE WATCHES THAT ARE CURRENTLY INSTALLED ON THIS PROGRAM.
-						if(function.equals("fetchwatches")){
-							PacketWatch PacketWatches[]=new PacketWatch[MyWatchHandler.getWatches().size()];
-							Iterator WatchIterator=MyWatchHandler.getWatches().iterator();
-							int ii=0;
-							while(WatchIterator.hasNext()){
-								Watch TempWatch=(Watch)WatchIterator.next();
-								PacketWatches[ii]=TempWatch.getPacketWatch();
-								ii++;
-							}
-							PA.setPacketWatches(PacketWatches);
-							systemChange=true;
-						}else 
-						
-						//SHOW CHOICES CAN REQUEST THAT A SCRIPT IS INSTALLED.
-						if(function.equals("requestinstallscript")){
-							String targetIP=(String)((Object[])MyApplicationData.getParameters())[0];
-							int targetPort=(Integer)((Object[])MyApplicationData.getParameters())[1];
-							String path=(String)((Object[])MyApplicationData.getParameters())[2];
-							String file=(String)((Object[])MyApplicationData.getParameters())[3];
-							Object MaliciousParameters=(Object[])((Object[])MyApplicationData.getParameters())[4];
-							HashMap Content=null;
-							
-							HackerFile HF=MyFileSystem.getFile(path,file);
-							
-							if(HF!=null){
-								
-								HF.setQuantity(HF.getQuantity()-1);
-								if(HF.getQuantity()<=0){
-									MyFileSystem.deleteFile(path,file);
-								}
-									
-								Content=HF.getContent();
-								
-								Object O[]=new Object[]{Content,MaliciousParameters};
-								MyComputerHandler.addData(new ApplicationData("installScript",O,targetPort,ip),targetIP);
-							}
-							systemChange=true;
-						}
-						
-						//REQUEST YOUR OWN WEB-PAGE.
-						else if(function.equals("requestpage")){
-							PA.setBody(pageBody);
-							PA.setTitle(pageTitle);
-							systemChange=true;
-						}else
-						
-						//CHECK FOR THE FILE AND RETURN THE FILE AND PRICE.
-						if(function.equals("requestpurchase")){
-							String file=(String)((Object[])MyApplicationData.getParameters())[0];
-							int quantity=(Integer)((Object[])MyApplicationData.getParameters())[1];
-							
-							if(quantity>0){
-								
-								HackerFile HF=this.getFileSystem().getFile("Store/",file);
-								if(!(HF==null)){
-									if(HF.getQuantity()<quantity&&HF.getQuantity()!=-1)
-										quantity=HF.getQuantity();
-									
-									HackerFile PurchasedFile=HF.clone();
-									PurchasedFile.setQuantity(quantity);
-									
-									if(HF.getQuantity()!=-1){
-									
-										HF.setQuantity(HF.getQuantity()-quantity);
-										if(HF.getQuantity()<=0)
-											MyFileSystem.deleteFile("Store/",file);
-											
-									}
-										
-									Object O[]=new Object[]{PurchasedFile,storeRevenueTarget,new Integer(type)};
-										
-									MyComputerHandler.addData(new ApplicationData("continuepurchase",O,0,ip),MyApplicationData.getSourceIP());
-								}else
-									MyComputerHandler.addData(new ApplicationData("message",MessageHandler.PURCHASE_FAIL_FILE_NOT_FOUND,0,ip),MyApplicationData.getSourceIP());
-							
-							}
-							systemChange=true;
-						}else
-						
-						//IN THE NEXT ROUND OF PURCHASING WE CONFIRM THAT THE PLAYER HAS ENOUGH MONEY.
-						if(function.equals("continuepurchase")){
-							HackerFile HF=(HackerFile)((Object[])MyApplicationData.getParameters())[0];
-							String payTarget=(String)((Object[])MyApplicationData.getParameters())[1];
-							int sellerType=(Integer)((Object[])MyApplicationData.getParameters())[2];
-							int quantity = HF.getQuantity();
-							HackerFile HFCheck=MyFileSystem.getFile("",HF.getName());
-							
-							float level=0.0f;
-							if(HF!=null){
-								if(HF.getType()==HF.CPU){
-									level=new Float((String)HF.getContent().get("level"));
-								}else if(HF.getType()==HF.HD){
-									level=new Float((String)HF.getContent().get("level"));
-								}else if(HF.getType()==HF.FIREWALL){
-									level=new Float((String)HF.getContent().get("level"));
-								}else if(HF.getType()==HF.MEMORY){
-									level=new Float((String)HF.getContent().get("level"));
-								}
-							}
-							
-							float totalLevel=0.0f;
-							if(!(HF.getType()==HF.FIREWALL)){
-								totalLevel+=getLevel((float)(Float)Stats.get("Attack"));
-								totalLevel+=getLevel((float)(Float)Stats.get("Bank"));
-								totalLevel+=getLevel((float)(Float)Stats.get("Watch"));
-								totalLevel+=getLevel((float)(Float)Stats.get("Scanning"));
-								totalLevel+=getLevel((float)(Float)Stats.get("Webdesign"));
-								totalLevel+=getLevel((float)(Float)Stats.get("Redirecting"));
-								totalLevel+=getLevel((float)(Float)Stats.get("Repair"));
-							}
-							totalLevel+=getLevel((float)(Float)Stats.get("FireWall"));
-
-							float mult=(getLevel((float)(Float)Stats.get("Bank"))-50.0f)/100.0f;
-							float price=(quantity*HF.getPrice())-(quantity*HF.getPrice()*mult);
-							
-							if(MyFileSystem.getSpaceLeft()<=0){
-								addMessage(MessageHandler.PURCHASE_FAIL_HD_FULL);
-								Object O[]=new Object[]{"Store/",HF};
-								MyComputerHandler.addData(new ApplicationData("savefile",O,0,ip),MyApplicationData.getSourceIP());
-							}else if(!checkBank()&&price>0){
-								addMessage(MessageHandler.ACTIVE_BANK_NOT_FOUND);
-								Object O[]=new Object[]{"Store/",HF};
-								MyComputerHandler.addData(new ApplicationData("savefile",O,0,ip),MyApplicationData.getSourceIP());
-							}else if(pettyCash<price){
-								addMessage(MessageHandler.PURCHASE_FAIL_NOT_ENOUGH_MONEY);
-								Object O[]=new Object[]{"Store/",HF};
-								MyComputerHandler.addData(new ApplicationData("savefile",O,0,ip),MyApplicationData.getSourceIP());
-							}else if(MyFileSystem.getSpaceLeft()<1&&!((HF.getType()==HF.CPU||HF.getType()==HF.HD||HF.getType()==HF.MEMORY)||HFCheck!=null)){
-								addMessage(MessageHandler.PURCHASE_FAIL_HD_FULL);
-								Object O[]=new Object[]{"Store/",HF};
-								MyComputerHandler.addData(new ApplicationData("savefile",O,0,ip),MyApplicationData.getSourceIP());
-							}else if(totalLevel<level&&sellerType==1){
-								Object O[]=new Object[]{"Store/",HF};
-								MyComputerHandler.addData(new ApplicationData("savefile",O,0,ip),MyApplicationData.getSourceIP());
-								addMessage(MessageHandler.PURCHASE_FAIL_NOT_HIGH_ENOUGH_LEVEL);
-							}else{
-								boolean buyFail=false;
-								Object O[]=new Object[]{"",HF};
-								if(HF.getType()==HF.CPU){
-									int type=new Integer((String)HF.getContent().get("data"));
-									if(CPU_CHART[type]>CPU_CHART[cputype]){
-										cputype=type;
-										addMessage(MessageHandler.PURCHASE_NEW_CPU,new Object[]{HF.getName()});
-									}else{
-										buyFail=true;
-										addMessage(MessageHandler.PURCHASE_FAIL_OLDER_CPU);
-									}
-								}else if(HF.getType()==HF.HD){
-									int type=new Integer((String)HF.getContent().get("data"));
-									if(MyFileSystem.checkType(type)){
-										MyFileSystem.setHDType(type);
-										addMessage(MessageHandler.PURCHASE_NEW_HD,new Object[]{HF.getName()});
-									}else{
-										buyFail=true;
-										addMessage(MessageHandler.PURCHASE_FAIL_OLDER_HD);
-									}
-								}else if(HF.getType()==HF.MEMORY){
-									int type=new Integer((String)HF.getContent().get("data"));
-									if((MEMORY_CHART[type]>MEMORY_CHART[memorytype])||(WATCH_CHART[type]>WATCH_CHART[memorytype])){
-										memorytype=type;
-										addMessage(MessageHandler.PURCHASE_NEW_MEMORY,new Object[]{HF.getName()});
-									}else{
-										buyFail=true;
-										addMessage(MessageHandler.PURCHASE_FAIL_OLDER_MEMORY);
-									}
-								}else{
-									HF.setLocation("");
-									if(HF.getType()==HF.FIREWALL){
-										HashMap SetLevel=HF.getContent();
-										SetLevel.put("level","0");
-									}
-									MyComputerHandler.addData(new ApplicationData("savefile",O,0,ip),ip);
-									NumberFormat format = NumberFormat.getCurrencyInstance();
-									addMessage(MessageHandler.PURCHASE_SUCCESS,new Object[]{quantity,HF.getName(),format.format(price)});
-								}
-							
-								if(price>0&&!buyFail){
-									MyComputerHandler.addData(new ApplicationData("pettycash",new Object[]{new Float(price*-1.0f),false},0,ip),ip);
-									MyComputerHandler.addData(new ApplicationData("pettycash",new Object[]{new Float(price),false},0,ip),payTarget);
-								}
-								MyComputerHandler.addData(new ApplicationData("requestwebpage",null,0,ip),MyApplicationData.getSourceIP());
-								MyComputerHandler.addData(new ApplicationData("requestequipment",new Integer(13),0,ip),ip);
-							}
-							systemChange=true;
-						}else
-						
-						//ANOTHER PLAYER HAS REQUESTED YOUR WEB-PAGE.
-						if(function.equals("requestwebpage")){
-						
-							Port TempPort=(Port)Ports.get(new Integer(defaultHTTP));
-							if(TempPort!=null&&TempPort.getType()==Port.HTTP){
-									if(TempPort.getProgram()!=null&&TempPort.getOn()){
-										Object O = null;
-										if(MyApplicationData.getParameters()!=null){
-											O=((HashMap)MyApplicationData.getParameters()).get("Attack");
-										}
-										if(O!=null||type!=NPC){
-										//	System.out.println(MyApplicationData.getParameters());//QUEST INFO.
-											TempPort.getProgram().execute(MyApplicationData);
-										}else{
-											MyComputerHandler.addData(new ApplicationData("questinformation",new Object[]{MyApplicationData.getParameters(),InvolvedQuests},0,ip),MyApplicationData.getSourceIP());
-										}
-									}else{
-										HTTPProgram HP=new HTTPProgram(this,MyComputerHandler);
-										HP.serveWebPage(MyApplicationData,(Integer)((HashMap)MyApplicationData.getParameters()).get("packetid"));
-									}
-							}else{
-								HTTPProgram HP=new HTTPProgram(this,MyComputerHandler);
-								HP.serveWebPage(MyApplicationData,(Integer)((HashMap)MyApplicationData.getParameters()).get("packetid"));
-							}
-							systemChange=true;
-						}else
-						
-						//INSERT QUEST SPECIFIC INFORMATION INTO AN HTTP REQUEST.
-						if(function.equals("questinformation")){
-
-							HashMap GetParameters=(HashMap)((Object[])MyApplicationData.getParameters())[0];
-							ArrayList InterestedQuests=(ArrayList)((Object[])MyApplicationData.getParameters())[1];
-							ArrayList QuestItems=MyFileSystem.getFilesOfType(HackerFile.QUEST_ITEM);
-							if(QuestItems!=null)
-							for(int ii=0;ii<QuestItems.size();ii++){
-								HackerFile HF=(HackerFile)QuestItems.get(ii);
-								HashMap Content=HF.getContent();
-								int qFileQuantity=HF.getQuantity();
-	
-								String ItemName=(String)Content.get("itemname");
-								GetParameters.put(ItemName,"true");
-								GetParameters.put(ItemName+"_quantity",qFileQuantity+"");
-								}
-
-							for(int i=0;i<InterestedQuests.size();i++){//Only fetch tasks from quests we're interested in.
-								HashMap Tasks=null;
-								if(CurrentQuests.get(InterestedQuests.get(i))!=null){
-									Tasks=(HashMap)((Object[])CurrentQuests.get(InterestedQuests.get(i)))[0];
-								}
-								
-								if(Tasks!=null){
-									Iterator TaskIterator=Tasks.entrySet().iterator();
-									while(TaskIterator.hasNext()){
-										Map.Entry CurrentEntry=(Map.Entry)TaskIterator.next();
-										GetParameters.put(CurrentEntry.getKey(),""+((Object[])CurrentEntry.getValue())[0]);
-									}
-								}
-							}
-							
-							//Add the completed quests to the parameters.
-							for(int i=0;i<CompletedQuests.size();i++){
-								GetParameters.put("quest"+((Object[])CompletedQuests.get(i))[0],"true");
-							}
-			
-							//Add in started quests with the value false.
-							Iterator Iterator1=CurrentQuests.entrySet().iterator();
-							while(Iterator1.hasNext()){
-								Map.Entry CurrentEntry=(Map.Entry)Iterator1.next();
-								Integer questID=(Integer)CurrentEntry.getKey();
-								GetParameters.put("quest"+questID,"false");
-							}
-							
-							//Add commodity information to the quest parameters.
-							for(int i=0;i<commodityAmount.length;i++){
-								GetParameters.put("commodity"+i,""+commodityAmount[i]);
-							}
-														
-							
-							//Add in the different stats.
-							GetParameters.put("Attack",""+getAttackLevel());
-							GetParameters.put("Bank",""+getBankLevel());
-							GetParameters.put("Watch",""+getWatchLevel());
-							GetParameters.put("Scanning",""+getScanningLevel());
-							GetParameters.put("FireWall",""+getFireWallLevel());
-							GetParameters.put("HTTP",""+getHTTPLevel());
-							GetParameters.put("pettycash",""+getPettyCash());
-							GetParameters.put("Redirecting",""+getRedirectingLevel());
-							GetParameters.put("Repair",""+getRepairLevel());
-							
-							//Add the player's default ports.
-							GetParameters.put("defaultattack",""+getDefaultAttack());
-							GetParameters.put("defaultbank",""+getDefaultBank());
-							GetParameters.put("defaulthttp",""+getDefaultHTTP());
-							GetParameters.put("defaultredirecting",""+getDefaultShipping());
-							GetParameters.put("repaired",""+getRepaired());
-							
-							// Add in the player's current network.
-							GetParameters.put(getNetwork(),"true");
-
-							//Add in whether or not the player has made their first website.
-							if(pageBody.length()>1){
-								GetParameters.put("websitemade","true");
-							}else{
-								GetParameters.put("websitemade","false");
-							}
-							
-							//Add information about whether or not a fire wall has been installed.
-							if(checkFirewall()){
-								GetParameters.put("firewallinstalled","true");
-							}else{
-								GetParameters.put("firewallinstalled","false");
-							}
-							
-							//Add in a parameter that keeps track of whether you have a watch installed.
-							if(MyWatchHandler.getWatchCount()>0){
-								GetParameters.put("watchinstalled","true");
-							}else{
-								GetParameters.put("watchinstalled","false");
-							}
-													
-							MyComputerHandler.addData(new ApplicationData("requestwebpage",GetParameters,0,ip),MyApplicationData.getSourceIP());
-						}else
-						
-						//A PLAYER HAS BEEN REWARDED EXPERIENCE BY COMPLETING A QUEST TASK.
-						if(function.equals("giveexperience")){
-							String stat=((String)((Object[])MyApplicationData.getParameters())[0]).toLowerCase();
-							float xp=(Float)((Object[])MyApplicationData.getParameters())[1];
-							float amount=0.0f;
-							
-							float mult = 1.0f;
-							xp *= mult;
-							
-							if(stat.equals("bank")){
-								amount=(Float)Stats.get("Bank");
-								amount+=xp;
-								if(mult < 0) {
-									if(amount <= 300.0f) amount = 300.0f;
-								}
-								Stats.put("Bank",amount);
-							}else
-							
-							if(stat.equals("attack")){
-								amount=(Float)Stats.get("Attack");
-								amount+=xp;
-								if(mult < 0) {
-									if(amount <= 300.0f) amount = 300.0f;
-								}
-								Stats.put("Attack",amount);
-							}else
-							
-							if(stat.equals("scanning")){
-								amount=(Float)Stats.get("Scanning");
-								amount+=xp;
-								if(mult < 0) {
-									if(amount <= 300.0f) amount = 300.0f;
-								}
-								Stats.put("Scanning",amount);
-							}else
-							
-							if(stat.equals("watch")){
-								amount=(Float)Stats.get("Watch");
-								amount+=xp;
-								if(mult < 0) {
-									if(amount <= 300.0f) amount = 300.0f;
-								}
-								Stats.put("Watch",amount);
-							}else
-							
-							if(stat.equals("firewall")){
-								amount=(Float)Stats.get("FireWall");
-								amount+=xp;
-								if(mult < 0) {
-									if(amount <= 300.0f) amount = 300.0f;
-								}
-								Stats.put("FireWall",amount);
-							}else
-							
-							if(stat.equals("http")){
-								amount=(Float)Stats.get("Webdesign");
-								amount+=xp;
-								if(mult < 0) {
-									if(amount <= 300.0f) amount = 300.0f;
-								}
-								Stats.put("Webdesign",amount);
-							}else
-							
-							if(stat.equals("redirecting")){
-								amount=(Float)Stats.get("Redirecting");
-								amount+=xp;
-								if(mult < 0) {
-									if(amount <= 300.0f) amount = 300.0f;
-								}
-								Stats.put("Redirecting",amount);
-							}
-
-							if(stat.equals("repair")){
-								amount=(Float)Stats.get("Repair");
-								amount+=xp;
-								if(mult < 0) {
-									if(amount <= 300.0f) amount = 300.0f;
-								}
-								Stats.put("Repair",amount);
-							}
-			
-							healthChange=true;
-						}else
-																		
-						//ANOTHER PLAYER HAS SUBMITTED A FORM TO A WEBSITE.
-						if(function.equals("submit")){
-							Port TempPort=(Port)Ports.get(new Integer(defaultHTTP));
-							if(TempPort!=null&&TempPort.getType()==Port.HTTP){
-									if(TempPort.getProgram()!=null&&TempPort.getOn()){
-										TempPort.getProgram().execute(MyApplicationData);
-									}
-							}
-							systemChange=true;
-						}else
-
-						//ANOTHER PLAYER HAS EXITED YOUR WEBSITE.
-						if(function.equals("exit")){
-							Port TempPort=(Port)Ports.get(new Integer(defaultHTTP));
-							if(TempPort!=null&&TempPort.getType()==Port.HTTP){
-									if(TempPort.getProgram()!=null){
-										TempPort.getProgram().execute(MyApplicationData);
-									}
-							}
-							systemChange=true;
-						}else
-						
-						if(function.equals("vote")){
-							if(getTotalLevel()<noobLevel){
-								addMessage(MessageHandler.VOTE_FAIL_NOOB_LEVEL,new Object[]{noobLevel});
-							}if(MyApplicationData.getSourceIP().equals(ip)){
-								addMessage(MessageHandler.VOTE_FAIL_OWN_SITE);
-							}else if(myVotes>0){
-								MyMakeBounty.checkBounty(this,null,MakeBounty.VOTE,MyApplicationData.getSourceIP(),false,"");
-							
-								myVotes-=1;
-								MyComputerHandler.addData(new ApplicationData("httpxp",new Float(500.7337f),0,ip),MyApplicationData.getSourceIP());
-								addMessage(MessageHandler.VOTE_SUCCESS,new Object[]{myVotes});
-							}else{
-								addMessage(MessageHandler.VOTE_FAIL_NO_VOTES);
-							}
-							systemChange=true;
-						}else
-						
-						//A REQUESTED WEB-PAGE HAS BEEN RETURNED.
-						if(function.equals("webpage")){
-							String PageTitle=(String)((Object[])MyApplicationData.getParameters())[0];
-							String PageBody=(String)((Object[])MyApplicationData.getParameters())[1];
-							Object Files[]=(Object[])((Object[])MyApplicationData.getParameters())[2];
-							Object Temp[]=null;
-							if(Files!=null)
-								Temp=new Object[Files.length+1];
-							else
-								Temp=new Object[1];
-							Temp[0]=(Integer)((Object[])MyApplicationData.getParameters())[3];
-							
-							if(Files!=null)
-							for(int i=0;i<Files.length;i++)
-								Temp[i+1]=Files[i];
-								
-							Files=Temp;
-							
-							PA.setBody(PageBody);
-							PA.setTitle(PageTitle);
-							PA.setDirectory(Files);
-							systemChange=true;
-						}else
-						
-						//SAVE THE SOURCE OF A PLAYER'S WEB PAGE.
-						if(function.equals("savepage")){
-							if(((String)((Object[])MyApplicationData.getParameters())[1]).length()>30000){
-								addMessage(MessageHandler.WEBSITE_SAVE_FAIL_TOO_BIG);
-							}else{
-								pageTitle=(String)((Object[])MyApplicationData.getParameters())[0];
-								pageBody=(String)((Object[])MyApplicationData.getParameters())[1];
-								pageChanged=true;
-							}
-							systemChange=true;
-						}else
-						
-						//SET THE QUANTITY ASSOCIATED WITH THE WATCH.
-						if(function.equals("setwatchquantity")){
-							int watchID=(Integer)((Object[])MyApplicationData.getParameters())[0];
-							float quantity=(Float)((Object[])MyApplicationData.getParameters())[1];
-							Watch twatch=(Watch)MyWatchHandler.getWatches().get(watchID);
-							if(twatch!=null){
-								twatch.setQuantity(quantity);
-							}
-							MyComputerHandler.addData(new ApplicationData("fetchwatches",null,0,ip),ip);
-						}else
-						
-						//SeT WHETHER THE GIVEN WATCH IS ON OR OFF.
-						if(function.equals("setwatchonoff")){
-							int watchID=(Integer)((Object[])MyApplicationData.getParameters())[0];
-							boolean state=(Boolean)((Object[])MyApplicationData.getParameters())[1];
-							Watch twatch=(Watch)MyWatchHandler.getWatches().get(watchID);
-							if(twatch!=null){
-								float cpuCheck=getCPULoad()+twatch.getActualCPUCost();
-								float maxCPU=CPU_CHART[cputype]+MyEquipmentSheet.getCPUBonus();
-								if(state){
-									if(MyWatchHandler.getWatchCount()<WATCH_CHART[memorytype]+MyEquipmentSheet.getWatchBonus()){
-										if(cpuCheck<=maxCPU){
-											twatch.setOn(state);
-										}
-									}else{
-										addMessage(MessageHandler.WATCH_ON_FAIL);
-									}
-								}else{
-									if(getCPULoad()<=maxCPU)
-										twatch.setOn(state);
-								}
-							}
-							MyComputerHandler.addData(new ApplicationData("fetchwatches",null,0,ip),ip);
-						}else
-						
-						//SET THE FIRE WALL THAT SHOULD BE SEARCHED FOR BY THE WATCH.
-						if(function.equals("setwatchsearchfirewall")){
-							int watchID=(Integer)((Object[])MyApplicationData.getParameters())[0];
-							Integer searchFireWall=(Integer)((Object[])MyApplicationData.getParameters())[1];
-							Watch twatch=(Watch)MyWatchHandler.getWatches().get(watchID);
-							if(twatch!=null){
-								twatch.setSearchFireWall(searchFireWall);
-							}
-							MyComputerHandler.addData(new ApplicationData("fetchwatches",null,0,ip),ip);
-						}else
-						
-						//SET THE NOTE ASSOCIATED WITH THIS WATCH.
-						if(function.equals("setwatchnote")){
-							int watchID=(Integer)((Object[])MyApplicationData.getParameters())[0];
-							String note=(String)((Object[])MyApplicationData.getParameters())[1];
-							Watch twatch=(Watch)MyWatchHandler.getWatches().get(watchID);
-							if(twatch!=null){
-								twatch.setNote(note);
-							}
-							MyComputerHandler.addData(new ApplicationData("fetchwatches",null,0,ip),ip);
-						}else
-						
-						//DELETE A WATCH FROM THE WATCH HANDLER.
-						if(function.equals("deletewatch")){
-							float maxCPU=CPU_CHART[cputype]+MyEquipmentSheet.getCPUBonus();
-							if(getCPULoad()<=maxCPU){
-								int watchID=(Integer)((Object[])MyApplicationData.getParameters())[0];
-								MyWatchHandler.removeWatch(watchID);
-								MyComputerHandler.addData(new ApplicationData("fetchwatches",null,0,ip),ip);
-							}
-						}else
-						
-						if(function.equals("checkbounty")){
-							String fname=(String)MyApplicationData.getParameters();
-							HackerFile HF=MyFileSystem.getFile("Store/",fname);
-							if(HF!=null){
-								HashMap Content=HF.getContent();
-								float reward=new Float((String)Content.get("reward"));
-								MyComputerHandler.addData(new ApplicationData("pettycash",new Float(reward),0,ip),MyApplicationData.getSourceIP());
-								MyComputerHandler.addData(new ApplicationData("message",new Object[]{MessageHandler.BOUNTY_COMPLETED,new Object[]{NumberFormat.getCurrencyInstance().format(reward)}},0,ip),MyApplicationData.getSourceIP());
-							}else
-								MyComputerHandler.addData(new ApplicationData("message",MessageHandler.BOUNTY_FAILED_ALREADY_COMPLETED,0,ip),MyApplicationData.getSourceIP());
-
-						}else
-						
-						//SET THE PORTS BEING OBSERVED BY THIS WATCH.
-						if(function.equals("setwatchobservedports")){
-							int watchID=(Integer)((Object[])MyApplicationData.getParameters())[0];
-							Integer ObservedPorts[]=(Integer[])((Object[])MyApplicationData.getParameters())[1];
-							Watch twatch=(Watch)MyWatchHandler.getWatches().get(watchID);
-							if(twatch!=null){
-								twatch.setObservedPorts(ObservedPorts);
-							}
-							MyComputerHandler.addData(new ApplicationData("fetchwatches",null,0,ip),ip);
-						}else
-						
-						//A PLAYER IS REQUESTING A NETWORK HOP.
-						if(function.equals("changenetwork")){
-							String changeNetwork=(String)MyApplicationData.getParameters();
-							
-							
-							if (network.equals(changeNetwork)) {
-								addMessage(MessageHandler.CHANGE_NETWORK_FAIL_ALREADY_ON,new Object[]{network});
-							} else if (network.equals(Network.JAIL_NETWORK)) {
-								addMessage(MessageHandler.CHANGE_NETWORK_FAIL_JAILED,new Object[]{network});
-							} else
-
-							if (MyTime.getCurrentTime()-lastChangeNetwork<CHANGE_NETWORKS){
-								addMessage(MessageHandler.CHANGE_NETWORK_FAIL_TIMEOUT, new Object[]{network});
-							}
-							
-						 	else {
-								boolean allowed=false;
-                                // always allow a person onto the UGOPNet
-								if (changeNetwork.equals("UGOPNet")) {
-									allowed = true;
-								} else {
-									for(int i=0;i<AllowedNetworks.size();i++){
-										String check=(String)AllowedNetworks.get(i);
-										if(check.equals(changeNetwork)){
-											allowed=true;
-											break;
-										}
-									}
-								}
-                                // need to allow everybody that's already completed dedrick's quest (before networks existed) onto ProgNet
-                                /*if (!allowed) {
-                                    boolean dedrickDone = checkQuest(DEDRICKS_QUEST);
-                                    if (dedrickDone) {
-                                        AllowedNetworks.add("ProgNet");
-                                    }
-                                }*/ // we now have a working gateway that checks for this.
-                                
-								if(allowed){
-									lastChangeNetwork = MyTime.getCurrentTime();
-									
-									Network.getInstance(MyComputerHandler).removeFromNetwork(network,ip);
-									Network.getInstance(MyComputerHandler).addToNetwork(changeNetwork,ip);
-									PacketNetwork PN=Network.getInstance(MyComputerHandler).getNetworkInformation(changeNetwork);
-									store=PN.getStoreIP();
-									PA.setPacketNetwork(PN);
-									network=changeNetwork;
-									addMessage(MessageHandler.CHANGE_NETWORK_SUCCESS,new Object[]{changeNetwork});
-								}else{
-									addMessage(Network.getInstance(MyComputerHandler).switchNetwork(network,changeNetwork,ip));
-								}
-							}
-							systemChange=true;//Force a packet to sent.
-						}else
-						
-						//A PLAYER IS REQUESTING A NETWORK HOP.
-						if(function.equals("changenetwork2")){
-							String changeNetwork=(String)MyApplicationData.getParameters();
-							if (network.equals(changeNetwork)) {
-								addMessage(MessageHandler.CHANGE_NETWORK_FAIL_ALREADY_ON,new Object[]{network});
-							} else {
-								/* -- edited version, don't need to be 'allowed'
-								boolean allowed=false;
-                                // always allow a person onto the UGOPNet
-								if (changeNetwork.equals("UGOPNet")) {
-									allowed = true;
-								} else {
-									for(int i=0;i<AllowedNetworks.size();i++){
-										String check=(String)AllowedNetworks.get(i);
-										if(check.equals(changeNetwork)){
-											allowed=true;
-											break;
-										}
-									}
-								}
-								*/
-                                
-                                
-								if(true){
-									lastChangeNetwork = MyTime.getCurrentTime();
-									
-									Network.getInstance(MyComputerHandler).removeFromNetwork(network,ip);
-									Network.getInstance(MyComputerHandler).addToNetwork(changeNetwork,ip);
-									PacketNetwork PN=Network.getInstance(MyComputerHandler).getNetworkInformation(changeNetwork);
-									store=PN.getStoreIP();
-									PA.setPacketNetwork(PN);
-									network=changeNetwork;
-									addMessage(MessageHandler.CHANGE_NETWORK_SUCCESS,new Object[]{changeNetwork});
-								}
-							}
-							systemChange=true;//Force a packet to sent.
-						}else
-						
-						//Create a new bounty.
-						if(function.equals("makebounty")){
-							Object O[]=(Object[])MyApplicationData.getParameters();
-							//new Object[]{anonymous,target,type,fname,folder,iterations,reward};
-							boolean anonymous=(Boolean)O[0];
-							String target=(String)O[1];
-							int type=(Integer)O[2];
-							String fileName=(String)O[3];
-							String filePath=(String)O[4];
-							int iterations=(Integer)O[5];
-							float reward=(Float)O[6];
-							
-							if(!checkBank()){
-								addMessage(MessageHandler.ACTIVE_BANK_NOT_FOUND);
-							}else if(getPettyCash()>=reward){
-								HashMap Content=new HashMap();
-								Content.put("count",""+iterations);
-								Content.put("type",""+type);
-								Content.put("reward",""+reward);
-								Content.put("target",""+target);
-								Content.put("bountyip",""+ip);
-								Content.put("timeout",""+getCurrentTime());
-							
-								HackerFile HF=new HackerFile(HackerFile.BOUNTY);
-								HF.setQuantity(1);
-								if(anonymous&&type!=MyMakeBounty.CHANGE){
-									HF.setName(MakeBounty.getTypeName(type)+" By (Anonymous)");
-								}else{
-									HF.setName(MakeBounty.getTypeName(type)+" By ("+ip+")");
-								}
-								
-								String Description="";
-								Description+="Bounty Type: "+MakeBounty.getTypeName(type)+"\n";
-								if(!target.equals("*"))
-									Description+="Target: "+target+"\n";
-								else
-									Description+="Target: Any Player.\n";
-								Description+="Reward: "+NumberFormat.getCurrencyInstance().format(reward)+"\n";
-
-								
-								if(type==MyMakeBounty.INSTALL&&fileName!=null&&!fileName.equals("")){
-									HackerFile CheckFile=MyFileSystem.getFile(filePath,fileName);
-									Description+="Must Install: "+CheckFile.getName()+" Maker: "+CheckFile.getMaker()+"\n";
-									Content.put("maker",CheckFile.getMaker());
-									Content.put("script",CheckFile.getName());
-								}else{
-									Content.put("maker","");
-									Content.put("script","");
-								}
-								
-								HF.setDescription(Description);
-								HF.setQuantity(-1);
-								HF.setContent(Content);
-								HF.setLocation("Store/");
-								Object O2[]=new Object[]{"Store/",HF};
-								MyComputerHandler.addData(new ApplicationData("savefile",O2,0,ip),store);
-								MyComputerHandler.addData(new ApplicationData("pettycash",new Float(-1.0f*reward),0,ip),ip);
-							}else{
-								addMessage(MessageHandler.SCAN_FAIL_NO_MONEY);
-							}
-							systemChange=true;
-						}else
-						
-						//COMPARE SCAN AND FIRE-WALL LEVEL AND RETURN THE FINAL SCAN INFORMATION TO THE PLAYER WHOM REQUESTED SCAN.
-						if(function.equals("scan")){
-							float scanXP=(Float)Stats.get("Scanning");
-							int scanLevel=getLevel(scanXP);
-							float xp=60.0f;
-							
-							if(getCPULoad()>getMaximumCPULoad()){
-								addMessage(MessageHandler.SCAN_FAIL_OVERHEATED);
-							}else if(!checkBank()){
-								addMessage(MessageHandler.ACTIVE_BANK_NOT_FOUND);
-							}else if(getPettyCash()<10.0){
-								addMessage(MessageHandler.SCAN_FAIL_NO_MONEY);
-							}else if(getPettyCash()>=10.0){
-								int opponentFireWall=(Integer)((Object[])MyApplicationData.getParameters())[0];
-								PacketPort PacketPorts[]=(PacketPort[])((Object[])MyApplicationData.getParameters())[1];
-								//int oDefaultBank=(Integer)((Object[])MyApplicationData.getParameters())[2];
-								//int oDefaultAttack=(Integer)((Object[])MyApplicationData.getParameters())[3];
-								//int oDefaultFTP=(Integer)((Object[])MyApplicationData.getParameters())[4];
-								//int oDefaultHTTP=(Integer)((Object[])MyApplicationData.getParameters())[5];
-								boolean npc=(Boolean)((Object[])MyApplicationData.getParameters())[6];
-								//int oDefaultShipping=(Integer)((Object[])MyApplicationData.getParameters())[7];
-
-								if(!isNPC()){
-									MyMakeBounty.checkBounty(this,null,MyMakeBounty.SCAN,MyApplicationData.getSourceIP(),false,"");
-								}
-								
-								for(int i=0;i<PacketPorts.length;i++){
-									PacketPort P=(PacketPort)PacketPorts[i];
-									if(P!=null){
-										if(scanLevel-opponentFireWall<25){
-											xp=40.0f;
-											P.setDefault(-1);
-										}else{
-											P.setDefault(0);
-											P.setNote(MyApplicationData.getSourceIP());
-											
-											if(P.getParamIndex() > 0)
-											{
-												if(P.getNumber() == (Integer)((Object[])MyApplicationData.getParameters())[P.getParamIndex()])
-													P.setDefault(1);
-											}
-											/*
-											if(P.getType()==PacketPort.BANKING&&P.getNumber()==oDefaultBank)
-												P.setDefault(1);
-											if(P.getType()==PacketPort.ATTACK&&P.getNumber()==oDefaultAttack)
-												P.setDefault(1);
-											if(P.getType()==PacketPort.SHIPPING&&P.getNumber()==oDefaultShipping)
-												P.setDefault(1);
-											if(P.getType()==PacketPort.FTP&&P.getNumber()==oDefaultFTP)
-												P.setDefault(1);
-											if(P.getType()==PacketPort.HTTP&&P.getNumber()==oDefaultHTTP)
-												P.setDefault(1);
-											*/
-										}
-										
-										if(scanLevel-opponentFireWall<15){
-											xp=20.0f;
-											P.setFireWall(null);
-										}
-									
-									}
-									PA.setScannedPorts(PacketPorts);
-								}
-
-								MyComputerHandler.addData(new ApplicationData("pettycash",new Float(-10.0f),0,ip),ip);
-								MyComputerHandler.addData(new ApplicationData("scanxp",new Float(xp),0,ip),ip);
-								MyComputerHandler.addData(new ApplicationData("scansuccess",null,0,ip),MyApplicationData.getSourceIP());
-							//	MyMakeClue.checkClue(this,MyApplicationData.getSourceIP(),MakeClue.SCAN);//Check the clue status.
-							}else{
-								addMessage(MessageHandler.ACTIVE_BANK_NOT_FOUND);
-							}
-							systemChange=true;
-						}else if(function.equals("scansuccess")){
-						//To hell with them.
-						}else
-												
-						//REQUEST A SCAN OF AN OPPONENT.
-						if(function.equals("requestscan")){
-							float fireWallXP=(Float)Stats.get("FireWall");
-							int fireWallLevel=getLevel(fireWallXP);
-							
-							String target=(String)(MyApplicationData.getParameters());
-							PacketPort PacketPorts[]=new PacketPort[Ports.size()];
-							
-							Iterator PortIterator=Ports.entrySet().iterator();
-							int ii=0;
-							while(PortIterator.hasNext()){
-								Port TempPort=(Port)(((Map.Entry)PortIterator.next()).getValue());
-								if(TempPort.getOn())
-									PacketPorts[ii]=TempPort.getPacketPort(); 
-								ii++;
-							}
-							Object O[]=new Object[]{new Integer(fireWallLevel),PacketPorts,new Integer(defaultBank),new Integer(defaultAttack),new Integer(defaultFTP),new Integer(defaultHTTP),new Boolean(type==NPC),new Integer(defaultShipping)};
-							MyComputerHandler.addData(new ApplicationData("scan",O,0,ip),target);
-						}else
-						
-						//THIS IS WHAT HAPPENS WHEN A PLAYER IS GIVEN A NEW QUEST TASK FROM AN NPC.
-						if(function.equals("givetask")){
-							Object O[]=(Object[])MyApplicationData.getParameters();
-							String TaskName=(String)O[0];
-							String TaskLabel=(String)O[1];
-							Integer QuestID=(Integer)O[2];
-							
-							if(!checkQuest(QuestID)){//Make sure the quest isn't already complete.
-								HashMap CurrentQuest=null;
-								String label="";
-								if(CurrentQuests.get(QuestID)!=null){
-									CurrentQuest=(HashMap)((Object[])CurrentQuests.get(QuestID))[0];
-									label=(String)((Object[])CurrentQuests.get(QuestID))[1];
-								}
-																
-								if(CurrentQuest==null){
-									CurrentQuest=new HashMap();
-									CurrentQuest.put(TaskName,new Object[]{new Boolean(false),TaskLabel});
-									CurrentQuests.put(QuestID,new Object[]{CurrentQuest,label});
-								}else{
-									CurrentQuest.put(TaskName,new Object[]{new Boolean(false),TaskLabel});
-								}
-							}
-							
-						}else
-						
-						//THIS SETS THE VALUE OF AN EXISTING TASK, IN CASE WE WANT TO SET SOMEONE BACK IN A QUEST. (Can also use it to give a new one)
-						if(function.equals("settask")){
-							Object O[]=(Object[])MyApplicationData.getParameters();
-							String TaskName=(String)O[0];
-							Integer QuestID=(Integer)O[1];
-							Boolean SetTo=(Boolean)O[2];
-							
-							if(!checkQuest(QuestID)){//Make sure the quest hasn't already been completed.
-								HashMap CurrentQuest=null;
-								String label="";
-								if(CurrentQuests.get(QuestID)!=null){
-                                    // they have this quest already; get the quest and the name of the quest
-									CurrentQuest=(HashMap)((Object[])CurrentQuests.get(QuestID))[0];
-									label=(String)((Object[])CurrentQuests.get(QuestID))[1];
-								}
-
-								if(CurrentQuest==null){
-                                    // they didn't have this quest already; create the quest with "", and create the task
-									CurrentQuest=new HashMap();
-									O=(Object[])CurrentQuests.get(TaskName);
-									CurrentQuest.put(TaskName,new Object[]{SetTo,O[1]});
-									CurrentQuests.put(QuestID,new Object[]{CurrentQuest,label});
-								} else {
-                                    // the quest already exists; get the task and set it's value
-                                    // wouldn't this throw an exception if you cast (Object[])null ?  I want to set a task that doesn't exist yet.
-                                    if (CurrentQuest.get(TaskName) == null) {
-                                        // since you don't give a task description when you use setTask, if the task is a new task, we'll use the taskname as the description
-                                        CurrentQuest.put(TaskName, new Object[]{SetTo, TaskName});
-                                    } else {
-                                        O=(Object[])CurrentQuest.get(TaskName);
-                                        CurrentQuest.put(TaskName,new Object[]{SetTo,O[1]});
-                                    }
-								}
-							}
-							
-							HashMap TempHashMap=new HashMap();
-							TempHashMap.put("packetid",-1);
-							MyComputerHandler.addData(new ApplicationData("requestwebpage",TempHashMap,0,ip),MyApplicationData.getSourceIP());
-						}else
-						
-						//THIS SETS THE VALUE OF AN EXISTING TASK, IN CASE WE WANT TO SET SOMEONE BACK IN A QUEST. (Can also use it to give a new one)
-						if(function.equals("completetask")){
-							Object O[]=(Object[])MyApplicationData.getParameters();
-							String TaskName=(String)O[0];
-							Integer QuestID=(Integer)O[1];
-							Boolean SetTo=(Boolean)true;
-							
-							if(!checkQuest(QuestID)){//Make sure the quest hasn't already been completed.
-								HashMap CurrentQuest=null;
-								String label="";
-								if(CurrentQuests.get(QuestID)!=null){
-                                    // they have this quest already; get the quest and the name of the quest
-									CurrentQuest=(HashMap)((Object[])CurrentQuests.get(QuestID))[0];
-									label=(String)((Object[])CurrentQuests.get(QuestID))[1];
-								}
-
-								if(CurrentQuest==null){
-                                    // they didn't have this quest already; create the quest with "", and create the task
-									CurrentQuest=new HashMap();
-									O=(Object[])CurrentQuests.get(TaskName);
-									CurrentQuest.put(TaskName,new Object[]{SetTo,O[1]});
-									CurrentQuests.put(QuestID,new Object[]{CurrentQuest,label});
-								} else {
-                                    // the quest already exists; get the task and set it's value
-                                    // wouldn't this throw an exception if you cast (Object[])null ?  I want to set a task that doesn't exist yet.
-                                    if (CurrentQuest.get(TaskName) == null) {
-                                        // since you don't give a task description when you use setTask, if the task is a new task, we'll use the taskname as the description
-                                        CurrentQuest.put(TaskName, new Object[]{SetTo, TaskName});
-                                    } else {
-                                        O=(Object[])CurrentQuest.get(TaskName);
-                                        CurrentQuest.put(TaskName,new Object[]{SetTo,O[1]});
-                                    }
-								}
-							}
-						}else
-						
-						//THIS IS WHAT HAPPENS WHEN A PLAYER IS GIVEN A NEW QUEST TASK FROM AN NPC.
-						if(function.equals("givecommodity")){
-							Object O[]=(Object[])MyApplicationData.getParameters();
-							int commodityType=(Integer)O[0];
-							float amount=(Float)O[1];
-							setCommodityAmount(commodityType,getCommodity(commodityType)+amount);
-						}else
-						
-						//Gives a player access to a specific network in their allowed networks array.
-						if(function.equals("giveaccess")){
-							String accessNetwork=(String)MyApplicationData.getParameters();
-							AllowedNetworks.add(accessNetwork);
-						}else
-						
-						//Give a quest specic item to a player.
-						if(function.equals("givefile")){
-							Object O[]=(Object[])MyApplicationData.getParameters();
-							
-							String fileID=(String)O[0];
-							int quan = (int)((Integer)O[1]);
-
-							if(MyDropTable==null)
-								MyDropTable=new DropTable(dropTable,this);
-							
-							HackerFile HF=MyDropTable.getQuestItem(fileID);
-														
-							if(HF!=null){
-								HF.setQuantity(quan);
-								Object Parameter[]=new Object[]{"",HF};
-								MyComputerHandler.addData(new ApplicationData("savefile",Parameter,0,ip),MyApplicationData.getSourceIP());
-								MyComputerHandler.addData(new ApplicationData("message",new Object[]{MessageHandler.GIVEN_FILE,new Object[]{HF.getName(),quan}},0,ip),MyApplicationData.getSourceIP());
-							}
-							
-						}else
-						
-						//Take a quest specific item from a player.
-						if(function.equals("takefile")){
-							String fileID=(String)MyApplicationData.getParameters();
-							//ArrayList Files=MyFileSystem.getFilesOfType(HackerFile.QUEST_ITEM);
-							ArrayList Files=MyFileSystem.getFiles();
-							if(Files!=null)
-							for(int i=0;i<Files.size();i++){
-								HashMap Content=((HackerFile)Files.get(i)).getContent();
-								String itemname=(String)Content.get("itemname");
-								if(itemname.equals(fileID)){
-									Object O[]=new Object[]{"",((HackerFile)Files.get(i)).getName()};
-									MyComputerHandler.addData(new ApplicationData("deletefile",O,0,ip),ip);
-								}
-							}
-						}else
-						
-						//Take an item (of the given quantity) from a player.
-						if(function.equals("takefile2")){
-							Object O[]=(Object[])MyApplicationData.getParameters();
-							String fileID=(String)O[0];
-							int quan = (int)((Integer)O[1]);
-							ArrayList Files=MyFileSystem.getFilesOfType(HackerFile.QUEST_ITEM);
-							if(Files!=null)
-							for(int i=0;i<Files.size();i++){
-								HashMap Content=((HackerFile)Files.get(i)).getContent();
-								String itemname=(String)Content.get("itemname");
-								if(itemname.equals(fileID)){
-									HackerFile HF = ((HackerFile)Files.get(i));
-									int currentQuantity = HF.getQuantity();
-									int newQuantity = currentQuantity - quan;
-									if(newQuantity > 0) {
-										HackerFile HFCheck=MyFileSystem.getFile("",HF.getName());
-										/* bug fix for the takeFile bug giving -quantities
-										 * it was caused by the object references for HF and HFCheck being the same (dunno how that worked)
-										 * so here's the hack fix
-										**/
-										// these two lines commented out, that was the old way
-										//if(HFCheck.getQuantity()==0) { HFCheck.setQuantity(currentQuantity); }
-										//HF.setQuantity(-1 * quan);
-										
-										// here I use a function I wrote to bypass any file quantity calculation, and just set it to the right value
-										saveFileTemp(HF,HFCheck,"",newQuantity);
-										// instead of
-										//saveFile(HF,HFCheck,"");
-										
-										MyComputerHandler.addData(new ApplicationData("message",new Object[]{MessageHandler.FILE_TAKEN,new Object[]{HF.getName(),quan}},0,ip),ip);
-									} else if(newQuantity == 0) {
-										Object O1[]=new Object[]{"",((HackerFile)Files.get(i)).getName()};
-										MyComputerHandler.addData(new ApplicationData("deletefile",O1,0,ip),ip);
-									}
-								}
-							}
-						}else
-																							
-						//FINISHES A SPECIFIC QUEST.
-						if(function.equals("finishquest")){
-							Object O[]=(Object[])MyApplicationData.getParameters();
-							Integer QuestID=(Integer)O[0];
-							O=(Object[])CurrentQuests.remove(QuestID);
-							if(O!=null){
-								CompletedQuests.add(new Object[]{QuestID,O[1]});
-								addMessage(MessageHandler.QUEST_COMPLETED,new Object[]{O[1]});
-							}
-						}else
-																							
-						//FINISHES A SPECIFIC QUEST.
-						if(function.equals("givequest")){
-							Object O[]=(Object[])MyApplicationData.getParameters();
-							Integer QuestID=(Integer)O[0];
-							String description=(String)O[1];
-							CurrentQuests.put(QuestID,new Object[]{new HashMap(),description});
-							addMessage(MessageHandler.QUEST_GIVEN,new Object[]{description});
-						}else
-						
-						//TAKE MONEY IS USED TO REQUEST MONEY AS A PART OF A QUEST OBLIGATION.
-						if(function.equals("takemoney")){
-							float amount=(Float)((Object[])MyApplicationData.getParameters())[0];
-							//String TaskName=(String)((Object[])MyApplicationData.getParameters())[1];
-							//Integer QuestID=(Integer)((Object[])MyApplicationData.getParameters())[2];
-
-							if(getPettyCash()>=amount){
-								setPettyCash(getPettyCash()-amount);
-								//HashMap CurrentQuest=null;
-								//if(CurrentQuests.get(QuestID)!=null)
-									//CurrentQuest=(HashMap)((Object[])CurrentQuests.get(QuestID))[0];
-								
-								//if(CurrentQuest!=null)
-									//CurrentQuest.put(TaskName,new Object[]{new Boolean(true),""});
-							}
-							/* removed autorefresh
-							HashMap TempHashMap=new HashMap();
-							TempHashMap.put("packetid",-1);
-							MyComputerHandler.addData(new ApplicationData("requestwebpage",TempHashMap,0,ip),MyApplicationData.getSourceIP());
-							*/
-						}else
-						
-						//TAKES A COMMODITY AS PART OF A QUEST REQUIREMENT.
-						if(function.equals("takecommodity")){
-							float amount=(Float)((Object[])MyApplicationData.getParameters())[0];
-							int CommodityType=(Integer)((Object[])MyApplicationData.getParameters())[1];
-							//String TaskName=(String)((Object[])MyApplicationData.getParameters())[2];
-							//Integer QuestID=(Integer)((Object[])MyApplicationData.getParameters())[3];
-
-							if(getCommodity(CommodityType)>=amount){
-								setCommodityAmount(CommodityType,getCommodity(CommodityType)-amount);
-								
-								//HashMap CurrentQuest=null;
-								//if(CurrentQuests.get(QuestID)!=null)
-									//CurrentQuest=(HashMap)((Object[])CurrentQuests.get(QuestID))[0];
-								//if(CurrentQuest!=null)
-									//CurrentQuest.put(TaskName,new Object[]{new Boolean(true),""});
-							}
-							/* removed the auto refresh
-							HashMap TempHashMap=new HashMap();
-							TempHashMap.put("packetid",-1);
-							MyComputerHandler.addData(new ApplicationData("requestwebpage",TempHashMap,0,ip),MyApplicationData.getSourceIP());
-							*/
-						}else
-	
-						//THIS FUNCTION ALLOWS YOU TO EXCHANGE A COMMODITY FOR A FILE ON YOUR HD, MAKING IT SAFE.
-						if(function.equals("exchangecommodity")){
-							Integer ExchangeAmount=(Integer)((Object[])MyApplicationData.getParameters())[0];
-							Integer CommodityType=(Integer)((Object[])MyApplicationData.getParameters())[1];
-							float ExchangeCost=(Float)((Object[])MyApplicationData.getParameters())[2];
-							
-							boolean failed=false;
-							
-                            String name="DuctTape";
-							if(checkBank()&&getPettyCash()>=ExchangeCost&&MyFileSystem.getSpaceLeft()>0){
-								if(getCommodity(CommodityType)>=ExchangeAmount){// We have enough of the commodity and enough money.
-									setPettyCash(getPettyCash()-ExchangeCost);
-									setCommodityAmount(CommodityType,getCommodity(CommodityType)-ExchangeAmount);
-									HackerFile NewHackerFile=new HackerFile(HackerFile.COMMODITY_SLIP);
-									NewHackerFile.setDescription("This slip is can be exchanged for the given commodity.");
-									NewHackerFile.setMaker("Ming");
-									NewHackerFile.setQuantity(ExchangeAmount);
-									HashMap attributes=new HashMap();
-									attributes.put("data",""+CommodityType);
-									attributes.put("level","0");
-									NewHackerFile.setContent(attributes);
-									
-									if(CommodityType==0){
-										name="DuctTape.commodity";
-									}else if(CommodityType==1){
-										name="Germanium.commodity";
-									}else if(CommodityType==2){
-										name="Silicon.commodity";
-									}else if(CommodityType==3){
-										name="YBCO.commodity";
-									}else if(CommodityType==4){
-										name="Plutonium.commodity";
-									}
-									NewHackerFile.setName(name);
-									Object Parameter[]=new Object[]{"",NewHackerFile};
-									MyComputerHandler.addData(new ApplicationData("savefile",Parameter,0,ip),ip);
-								}else{
-									failed=true;
-									addMessage(MessageHandler.EXCHANGE_COMMODITY_FAIL_NOT_ENOUGH_COMMODITY,new Object[]{name});
-								}
-							}else if(!checkBank()){
-								failed=true;
-								addMessage(MessageHandler.EXCHANGE_COMMODITY_FAIL_NO_BANKING_PORT);
-							}else if(getPettyCash()<=ExchangeCost){
-								failed=true;
-								addMessage(MessageHandler.EXCHANGE_COMMODITY_FAIL_NOT_ENOUGH_MONEY);
-							}else if(MyFileSystem.getSpaceLeft()<=0){
-								failed=true;
-								addMessage(MessageHandler.EXCHANGE_COMMODITY_FAIL_HD_FULL);
-							}
-				
-							if(!failed)
-								addMessage(MessageHandler.EXCHANGE_COMMODITY_SUCCESS,new Object[]{ExchangeAmount,name});
-
-
-							systemChange=true;
-						}else
-						
-						//THIS FUNCTION ALLOWS YOU TO CHANGE A FILE BACK INTO A COMMODITY.
-						if(function.equals("exchangefile")){
-							Integer ExchangeAmount=(Integer)((Object[])MyApplicationData.getParameters())[0];
-							Integer CommodityType=(Integer)((Object[])MyApplicationData.getParameters())[1];
-							float ExchangeCost=(Float)((Object[])MyApplicationData.getParameters())[2];
-							
-							boolean failed=false;
-							
-							HackerFile TempFile = null;
-							if(checkBank() && getPettyCash() >= ExchangeCost){
-								ArrayList CommodityFiles=MyFileSystem.getFilesOfType(HackerFile.COMMODITY_SLIP);
-								int FileAmount=0;
-								if(CommodityFiles!=null)
-								
-								
-								for(int i=0;i<CommodityFiles.size();i++){
-									TempFile=(HackerFile)CommodityFiles.get(i);
-									int type=new Integer((String)TempFile.getContent().get("data"));
-									if(type==CommodityType){
-										if(TempFile.getQuantity()>=ExchangeAmount){
-											setPettyCash(getPettyCash()-ExchangeCost);
-											setCommodityAmount(CommodityType,getCommodity(CommodityType)+ExchangeAmount);
-											TempFile.setQuantity(TempFile.getQuantity()-ExchangeAmount);
-											if(TempFile.getQuantity()==0){//Delete the file if it's empty.
-												String path="";
-												String name=TempFile.getName();
-												MyFileSystem.deleteFile(path,name);
-												PA.setRequestPrimary(true,1);
-											}
-										}else
-											failed=true;
-										break;
-									}
-									
-									if(i==CommodityFiles.size()-1)
-										failed=true;
-								}
-								
-							}else if(!checkBank()){
-								failed=true;
-								addMessage(MessageHandler.EXCHANGE_COMMODITY_FAIL_NO_BANKING_PORT);
-							}else if(getPettyCash() <= ExchangeCost){
-								failed=true;
-								addMessage(MessageHandler.EXCHANGE_COMMODITY_FAIL_NOT_ENOUGH_MONEY);
-							}
-				
-							if(!failed){
-								addMessage(MessageHandler.EXCHANGE_COMMODITY_SUCCESS_FROM_FILE,new Object[]{ExchangeAmount,TempFile.getName()});
-							}
-							
-							systemChange=true;
-						}else
-						
-						//REQUEST THAT A PORT LISTING BE PROVIDED TO THE PACKET.
-						if(function.equals("fetchports")){
-							PacketPort PacketPorts[]=new PacketPort[Ports.size()];
-							Iterator PortIterator=Ports.entrySet().iterator();
-							int ii=0;
-							while(PortIterator.hasNext()){
-								Port TempPort=(Port)(((Map.Entry)PortIterator.next()).getValue());
-								PacketPorts[ii]=TempPort.getPacketPort();
-								ii++;
-							}
-							PA.setPacketPorts(PacketPorts);
-							systemChange=true;
-						}else
-						
-						//PING.
-						if(function.equals("ping")){
-						//TO HELL WITH THEM.
-						}
-						
-						//BY DEFAULT A REMOTE FUNCTION CALL IS DISPATCHED TO A PORT FOR PROCESSING.
-						else{
-							checkedWatch=dispatchToPortOrFail(MyApplicationData,port);
-						}
-						
-						finalizeProcessedApplicationData(MyApplicationData,function,startTime,checkedWatch);
-					}
-				
+			finalizeProcessedApplicationData(MyApplicationData,function,startTime,checkedWatch);
+		}
 	}
 
 	private void updateApplicationActivity(ApplicationData applicationData,String function){
@@ -4739,41 +2318,14 @@ while (it.hasNext()) {
 	}
 
 	private void runLoopMaintenance(long startTime){
-		//Check whether this player has purchased any file packs.
-		if(iterationCount%150==0){
-			GiveItemsSingleton.getInstance().giveFiles(this,RawComputerHandler);
-		}
-		
 		//Check whether or not a packet should currently be sent.
 		sendStandardPacket();
-		            			
-		//Run the saving logic.
-		runSavingLogic();
-							
-		//check the ping times to see if we need to write statistics.
-		checkPingTime();
-		
-		//Check the player's daily pay, and provide it if needed.
-		checkDailyPay();
-
-		//Runs the attack logic this includes calculating the current CPU costs.
-		runAttackLogic();
+		runRuntimeCoordinatorTick();
 		
 		//Macro Protection.
 		if(operationCount>6000&&!isNPC()){
 			RawComputerHandler.broadcast(new ApplicationData("message",new Object[]{MessageHandler.PLAYER_BUSY,new Object[]{ip}},0,""));
 			operationCount=0;
-		}
-		
-		if(!isNPC()){
-			if(getLoaded()&&!getLoading()&&lockCount>=CAPTCHA_COUNT&&(!locked||RESEND_CAPTCHA)){
-				locked=true;
-				Object O[]=Computer.generateImage();
-				PA.setCAPTCHA(O[0]);
-				unlockKey=(String)O[1];
-				sendPacket();
-				RESEND_CAPTCHA=false;
-			}
 		}
 		
 		//Sleep to cut down on processor load.
@@ -4807,6 +2359,326 @@ while (it.hasNext()) {
 			}
 		}catch(Exception e){
 			e.printStackTrace();
+		}
+	}
+
+	private void runRuntimeCoordinatorTick(){
+		long now=MyTime.getCurrentTime();
+		checkRuntimePortTimeouts(now);
+		RuntimeTickState runtimeState=buildRuntimeTickState(now);
+		RuntimeTickEventApplier.INSTANCE.apply(runtimeCoordinator.tick(runtimeState),buildRuntimeTickEventSink(now));
+		applyRuntimeTickState(runtimeState);
+	}
+
+	private void checkRuntimePortTimeouts(long now){
+		Iterator portIterator=Ports.entrySet().iterator();
+		while(portIterator.hasNext()){
+			Port tempPort=(Port)(((Map.Entry)portIterator.next()).getValue());
+			tempPort.checkTimeOut(now);
+		}
+	}
+
+	private RuntimeTickState buildRuntimeTickState(final long now){
+		final RuntimeTickState state=new RuntimeTickState();
+		state.setNow(now);
+		state.setIp(ip);
+		state.setLoaded(Loaded);
+		state.setLoading(Loading);
+		state.setLoggedIn(loggedIn);
+		state.setLoadFailure(LOAD_FAILURE);
+		state.setLogoutRequested(LOGOUT);
+		state.setCountDown(countDown);
+		state.setCountDownStart(countDownStart);
+		state.setCountDownLengthMs(COUNTDOWN_LENGTH);
+		state.setLastAccessed(lastAccessed);
+		state.setComputerTimeoutMs(COMPUTER_TIMEOUT);
+		state.setLastSave(lastSave);
+		state.setAutoSaveMs(AUTO_SAVE);
+		state.setLoadRequester(loadRequester);
+		state.setErrorMessage(errorMessage);
+		state.getPendingTasks().addAll(buildRuntimeQueuedTasks());
+		state.setLastPingTime(lastPingTime);
+		state.setLogInTime(logInTime);
+		state.setLastClientPacketTime(lastClientPacketTime);
+		state.setPingTimeoutMs(PING_TIMEOUT);
+		state.setClientPacketTimeoutMs(CLIENT_PACKET_TIMEOUT);
+		state.setLastPaid(lastPaid);
+		state.setPayPeriodMs(PAY_PERIOD);
+		state.setDailyPaySize(dailyPaySize);
+		state.setDailyPayReduction(dailyPayReduction);
+		state.setInactive(inactive);
+		state.setNpc(isNPC());
+		state.setType(type);
+		state.setHttpActive(checkHTTP());
+		state.setHttpLevel(getHTTPLevel());
+		state.setPettyCash(pettyCash);
+		state.setBankMoney(bankMoney);
+		state.setMyVotes(myVotes);
+		state.setAdRevenueTarget(adRevenueTarget);
+		state.setCurrentCPU(currentCPU);
+		state.setReportCPU(reportCPU);
+		state.setBaseCPU(baseCPU);
+		state.setCurrentWatchCost(currentWatchCost);
+		state.setCpuLoadCalculated(cpuLoadCalculated);
+		state.setLastAttack(lastAttack);
+		state.setAttackRateMs(ATTACK_RATE);
+		state.setHealCounter(healCounter);
+		state.setHealMod(MyEquipmentSheet.getHealMod());
+		state.setOverheatStart(overheatStart);
+		state.setOverHeatTimeMs(OVER_HEAT_TIME);
+		state.setSentOverHeatedMessage(sentOverHeatedMessage);
+		state.setCpuMaximum(CPU_CHART[cputype]+MyEquipmentSheet.getCPUBonus());
+		state.setLockCount(lockCount);
+		state.setLocked(locked);
+		state.setResendCaptcha(RESEND_CAPTCHA);
+		state.setCaptchaThreshold(CAPTCHA_COUNT);
+		state.setUnlockKey(unlockKey);
+		state.setOperationCount(operationCount);
+		state.setGrantFilesInterval(150);
+		state.setGrantFilesCounter(Math.max(0,iterationCount-1));
+		state.setCaptchaGenerator(new Function0<RuntimeCaptchaPayload>(){
+			public RuntimeCaptchaPayload invoke(){
+				Object[] generated=Computer.generateImage();
+				int[] pixels=(generated[0] instanceof int[])?(int[])generated[0]:new int[0];
+				return new RuntimeCaptchaPayload((String)generated[1],pixels);
+			}
+		});
+		state.setWatchCostSupplier(new Function0<Float>(){
+			public Float invoke(){
+				return MyWatchHandler.checkWatches(new ApplicationData("null",null,0,ip),Ports,pettyCash);
+			}
+		});
+		state.getPorts().addAll(buildRuntimePortSnapshots());
+		return(state);
+	}
+
+	private List buildRuntimeQueuedTasks(){
+		ArrayList runtimeTasks=new ArrayList();
+		ArrayList queuedItems=new ArrayList(Tasks);
+		Iterator iterator=queuedItems.iterator();
+		while(iterator.hasNext()){
+			Object queued=iterator.next();
+			if(queued instanceof ApplicationData){
+				ApplicationData applicationData=(ApplicationData)queued;
+				runtimeTasks.add(new RuntimeQueuedTask(
+					applicationData.getFunction(),
+					applicationData.getSourceIP(),
+					applicationData.getParameters(),
+					applicationData.getPort(),
+					applicationData.getSourcePort(),
+					applicationData.getSource()
+				));
+			}
+		}
+		return(runtimeTasks);
+	}
+
+	private List buildRuntimePortSnapshots(){
+		ArrayList snapshots=new ArrayList();
+		Iterator portIterator=Ports.entrySet().iterator();
+		while(portIterator.hasNext()){
+			Port tempPort=(Port)(((Map.Entry)portIterator.next()).getValue());
+			snapshots.add(
+				new RuntimePortSnapshot(
+					tempPort.getNumber(),
+					tempPort.getType(),
+					tempPort.getOn(),
+					tempPort.getDummy(),
+					tempPort.getAttacking(),
+					tempPort.getOverHeated(),
+					tempPort.getHealth(),
+					tempPort.getCPUCost(),
+					tempPort.getBaseCPUCostTotal(),
+					tempPort.getLastDamageWindowHandle(),
+					tempPort.getAccessing(),
+					getRuntimeTargetPort(tempPort),
+					getRuntimeTargetIP(tempPort),
+					getRuntimeMaliciousTarget(tempPort),
+					isRuntimeZombie(tempPort)
+				)
+			);
+		}
+		return(snapshots);
+	}
+
+	private int getRuntimeTargetPort(Port tempPort){
+		if(tempPort.getProgram() instanceof AttackProgram){
+			return((AttackProgram)tempPort.getProgram()).getTargetPort();
+		}else if(tempPort.getProgram() instanceof ShippingProgram){
+			return((ShippingProgram)tempPort.getProgram()).getTargetPort();
+		}
+		return(-1);
+	}
+
+	private String getRuntimeTargetIP(Port tempPort){
+		if(tempPort.getProgram() instanceof AttackProgram){
+			String targetIP=((AttackProgram)tempPort.getProgram()).getTargetIP();
+			return(targetIP==null?"":targetIP);
+		}else if(tempPort.getProgram() instanceof ShippingProgram){
+			String targetIP=((ShippingProgram)tempPort.getProgram()).getTargetIP();
+			return(targetIP==null?"":targetIP);
+		}
+		return("");
+	}
+
+	private String getRuntimeMaliciousTarget(Port tempPort){
+		if(tempPort.getProgram() instanceof AttackProgram){
+			String maliciousIP=((AttackProgram)tempPort.getProgram()).getMaliciousIP();
+			if(maliciousIP!=null)
+				return(maliciousIP);
+		}
+		return(tempPort.getMaliciousTarget());
+	}
+
+	private boolean isRuntimeZombie(Port tempPort){
+		if(tempPort.getProgram() instanceof AttackProgram){
+			return(((AttackProgram)tempPort.getProgram()).isZombie());
+		}
+		return(false);
+	}
+
+	private RuntimeTickEventSink buildRuntimeTickEventSink(final long now){
+		return new RuntimeTickEventSink(){
+			public void persistRequested(boolean autoSave){
+				if(autoSave){
+					MyEquipmentSheet.degradeEquipment();
+				}
+				try{
+					MysqlHandler.addWork(new Object[]{ip,Computer.this,"asdbas0d98a0sd9fa8sasdlbo",new Boolean(pageChanged),pageTitle,pageBody});
+				}catch(Exception e){
+					e.printStackTrace();
+				}
+				if(autoSave){
+					MyComputerHandler.addData(new ApplicationData("requestequipment",new Integer(13),0,ip),ip);
+				}
+			}
+
+			public void unloadRequested(){
+				Loaded=false;
+				RawComputerHandler.addData(null,ip);
+			}
+
+			public void playerCountDecrementRequested(){
+				RawComputerHandler.decrementPlayers();
+			}
+
+			public void applicationDataDispatchRequested(game.computer.runtime.RuntimeApplicationDataDispatch runtimeApplicationData,String targetIp){
+				ApplicationData applicationData=new ApplicationData(runtimeApplicationData.getFunction(),runtimeApplicationData.getParameters(),runtimeApplicationData.getPort(),runtimeApplicationData.getSourceIp());
+				applicationData.setSourcePort(runtimeApplicationData.getSourcePort());
+				applicationData.setSource(runtimeApplicationData.getSource());
+				MyComputerHandler.addData(applicationData,targetIp);
+			}
+
+			public void logEntry(String message,String targetIP,long timestamp){
+				logMessage(message,targetIP,timestamp);
+			}
+
+			public void playSessionRecorded(String targetIP,long startedAt,long endedAt){
+				sessionService.recordPlayWindow(targetIP,startedAt,endedAt);
+			}
+
+			public void dailyPayIssued(float amount,String targetIP){
+				MyComputerHandler.addData(new ApplicationData("pettycash",new Object[]{new Float(amount),false},0,ip),targetIP);
+			}
+
+			public void httpXpIssued(float amount,String targetIP){
+				MyComputerHandler.addData(new ApplicationData("httpxp",new Float(amount),0,ip),targetIP);
+			}
+
+			public void bankMoneyAdded(float amount){
+			}
+
+			public void pettyCashAdded(float amount){
+			}
+
+			public void attackContinueRequested(int portNumber,int targetPort){
+				Port tempPort=(Port)Ports.get(new Integer(portNumber));
+				if(tempPort!=null){
+					tempPort.addApplicationData(new ApplicationData("attackcontinue",null,targetPort,""),now);
+				}
+			}
+
+			public void overheatAnnounced(String targetIP){
+				addMessage(MessageHandler.COMPUTER_OVERHEATED);
+			}
+
+			public void opponentOverheated(String targetIP,int windowHandle,String accessing){
+				MyComputerHandler.addData(new ApplicationData("message",new Object[]{MessageHandler.OVERHEATED_OPPONENT,new Object[]{ip},new Object[]{windowHandle,accessing}},0,ip),targetIP);
+				MyComputerHandler.addData(new ApplicationData("message",new Object[]{MessageHandler.OVERHEATED_OPPONENT_GAME,new Object[]{ip}},0,ip),targetIP);
+			}
+
+			public void zombieOverheated(String targetIP,String maliciousIp){
+				MyComputerHandler.addData(new ApplicationData("message",new Object[]{MessageHandler.ZOMBIE_OVERHEATED,new Object[]{targetIP}},0,targetIP),maliciousIp);
+			}
+
+			public void captchaRequested(RuntimeCaptchaPayload payload){
+				PA.setCAPTCHA(payload.getImage());
+				unlockKey=payload.getUnlockKey();
+				sendPacket();
+			}
+
+			public void grantFilesRequested(){
+				GiveItemsSingleton.getInstance().giveFiles(Computer.this,RawComputerHandler);
+			}
+
+			public void equipmentRefreshRequested(){
+				healthChange=true;
+			}
+		};
+	}
+
+	private void applyRuntimeTickState(RuntimeTickState runtimeState){
+		applyRuntimePortSnapshots(runtimeState);
+		Loaded=runtimeState.getLoaded();
+		lastSave=runtimeState.getLastSave();
+		lastPingTime=runtimeState.getLastPingTime();
+		logInTime=runtimeState.getLogInTime();
+		lastClientPacketTime=runtimeState.getLastClientPacketTime();
+		lastPaid=runtimeState.getLastPaid();
+		inactive=runtimeState.getInactive();
+		pettyCash=runtimeState.getPettyCash();
+		bankMoney=runtimeState.getBankMoney();
+		myVotes=runtimeState.getMyVotes();
+		currentCPU=runtimeState.getCurrentCPU();
+		reportCPU=runtimeState.getReportCPU();
+		baseCPU=runtimeState.getBaseCPU();
+		currentWatchCost=runtimeState.getCurrentWatchCost();
+		cpuLoadCalculated=runtimeState.getCpuLoadCalculated();
+		lastAttack=runtimeState.getLastAttack();
+		healCounter=runtimeState.getHealCounter();
+		overheatStart=runtimeState.getOverheatStart();
+		sentOverHeatedMessage=runtimeState.getSentOverHeatedMessage();
+		lockCount=runtimeState.getLockCount();
+		locked=runtimeState.getLocked();
+		RESEND_CAPTCHA=runtimeState.getResendCaptcha();
+		unlockKey=runtimeState.getUnlockKey();
+		iterationCount=runtimeState.getGrantFilesCounter();
+	}
+
+	private void applyRuntimePortSnapshots(RuntimeTickState runtimeState){
+		Iterator iterator=runtimeState.getPorts().iterator();
+		while(iterator.hasNext()){
+			RuntimePortSnapshot runtimePort=(RuntimePortSnapshot)iterator.next();
+			Port tempPort=(Port)Ports.get(new Integer(runtimePort.getNumber()));
+			if(tempPort==null)
+				continue;
+
+			float oldHealth=tempPort.getHealth();
+			float newHealth=runtimePort.getHealth();
+			if(newHealth!=oldHealth){
+				if(tempPort.damagePort(oldHealth-newHealth)){
+					healthChange=true;
+					MyWatchHandler.updateInitialHealthQuanity(tempPort.getNumber(),tempPort.getHealth());
+				}
+			}
+
+			if(tempPort.getOverHeated()!=runtimePort.getOverHeated()){
+				tempPort.setOverHeated(runtimePort.getOverHeated());
+			}
+
+			if(tempPort.getAttacking()!=runtimePort.getAttacking()){
+				tempPort.setAttacking(runtimePort.getAttacking());
+			}
 		}
 	}
 
@@ -5207,14 +3079,14 @@ while (it.hasNext()) {
 		}
 
 		return new ComputerDamagePacketSnapshot(
-			(float)(Float)Stats.get("Attack"),
-			(float)(Float)Stats.get("Bank"),
-			(float)(Float)Stats.get("FireWall"),
-			(float)(Float)Stats.get("Watch"),
-			(float)(Float)Stats.get("Scanning"),
-			(float)(Float)Stats.get("Webdesign"),
-			(float)(Float)Stats.get("Redirecting"),
-			(float)(Float)Stats.get("Repair"),
+			getStatXP("Attack"),
+			getStatXP("Bank"),
+			getStatXP("FireWall"),
+			getStatXP("Watch"),
+			getStatXP("Scanning"),
+			getStatXP("Webdesign"),
+			getStatXP("Redirecting"),
+			getStatXP("Repair"),
 			reportCPU,
 			healthUpdates,
 			damageEntries
@@ -5255,77 +3127,10 @@ while (it.hasNext()) {
 			public void execute(){
 				if(!run){
 					run=true;
-					
-					try{
-						if(connectionID!=-1){//is this player allowed to be logged in.
-							if(!checkLogin()){
-								Object O[]=new Object[]{new LoginFailedAssignment(0),new Integer(connectionID)};
-								MyHackerServer.addData(O);
-								connectionID=-1;
-							}else{
-								Object O[]=MyHackerServer.getRandomKey(ip,clientHash,publicKey);
-								LoginSuccessAssignment MyLoginSuccessAssignment=new LoginSuccessAssignment(0,ip,(String)O[0],isNPC());
-								MyLoginSuccessAssignment.setPublicKey((byte[])O[1]);
-								O=new Object[]{MyLoginSuccessAssignment,new Integer(connectionID)};
-								MyHackerServer.addData(O);
-							}
-						}
-
-						boolean activeLoad = !(loadRequester==null||loadRequester.equals(""));
-						if(!activeLoad){
-							loggedIn = true;
-							logInTime = MyTime.getCurrentTime();
-						}
-
-						upgradedAccount=false;
-						inactive=false;
-						MAX_OPS = FREE_MAX_OPS;
-						FILE_SIZE_LIMIT = FREE_FILE_SIZE_LIMIT;
-
-						RemoteFunctionPackResult functionPackResult = sessionService.requestFunctionPacks(ip);
-						upgradedAccount=functionPackResult.getUpgradedAccount();
-						inactive = functionPackResult.getInactive();
-						MAX_OPS = functionPackResult.getMaxOps();
-						FILE_SIZE_LIMIT = functionPackResult.getFileSizeLimit();
-
-						String xml = sessionService.loadLocalSaveXml(ip,activeLoad);
-						ComputerSnapshot snapshot = xmlComputerPersistence.parse(xml);
-						persistenceSupport.restoreSnapshot(MyComputer,snapshot);
-					}catch(Exception e){
-						String message = e.getMessage();
-						if(message==null||message.equals("")){
-							message = "Unable to load local account data for ip=" + ip + ".";
-						}
-						errorMessage = message;
-					e.printStackTrace();
-					LOAD_FAILURE=true;
-				}		
-				Loaded=true;
-				Loading=false;
-			
-						
-			//Add the player to the network and get the network information.
-			if(type!=NPC)
-				try{
-					RawComputerHandler.incrementPlayers();
-					Network.getInstance(MyComputerHandler).addToNetwork(Network.ROOT_NETWORK,ip);
-					PacketNetwork PN=Network.getInstance(MyComputerHandler).getNetworkInformation(Network.ROOT_NETWORK);
-					store=PN.getStoreIP();
-					PA.setPacketNetwork(PN);
-				}catch(Exception e){
-					e.printStackTrace();
+					loadCoordinator.execute(MyComputer);
 				}
 			}
-
-			//WorldSingleton.getInstance().addPlayer("game",ip,userName,npc);//Add the player into the 3D chat.
-			
-			systemChange=true;
-			healthChange=true;
-            sendPreferences = true;
-			MyEquipmentSheet.degradeEquipment();//Make sure that equipment starts out degraded.
-			MyComputerHandler.addData(new ApplicationData("requestequipment",new Integer(13),0,ip),ip);
 		}
-	}
 	
 	
 	

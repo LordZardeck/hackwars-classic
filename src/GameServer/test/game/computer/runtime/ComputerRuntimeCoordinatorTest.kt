@@ -1,5 +1,6 @@
 package game.computer.runtime
 
+import game.Port
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -18,12 +19,29 @@ class ComputerRuntimeCoordinatorTest {
         state.payPeriodMs = 10_000L
         state.lockCount = 5
         state.captchaThreshold = 5
+        state.currentCPU = 10f
+        state.reportCPU = 10f
+        state.cpuMaximum = 200f
+        state.currentWatchCost = 0f
+        state.watchCostSupplier = { 7f }
+        state.ports.add(
+            runtimePort(
+                number = 3,
+                type = Port.ATTACK,
+                attacking = true,
+                cpuCost = 15f,
+                baseCpuCostTotal = 12f,
+                targetPort = 9
+            )
+        )
 
         val events = ComputerRuntimeCoordinator().tick(state)
 
         assertTrue(events.any { it is RuntimeTickEvent.PersistRequested })
         assertTrue(events.filterIsInstance<RuntimeTickEvent.PlaySessionRecorded>().isNotEmpty())
         assertTrue(events.any { it is RuntimeTickEvent.DailyPayIssued })
+        assertTrue(events.any { it is RuntimeTickEvent.AttackContinueRequested })
+        assertTrue(events.any { it is RuntimeTickEvent.EquipmentRefreshRequested })
         assertTrue(events.any { it is RuntimeTickEvent.CaptchaRequested })
     }
 }

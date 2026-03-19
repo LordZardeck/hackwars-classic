@@ -16,6 +16,7 @@ data class RuntimeTickState(
     var lastSave: Long = 0,
     var autoSaveMs: Long = 0,
     var loadRequester: String = "",
+    var errorMessage: String = "",
     var pendingTasks: MutableList<RuntimeQueuedTask> = mutableListOf(),
     var lastPingTime: Long = 0,
     var logInTime: Long = 0,

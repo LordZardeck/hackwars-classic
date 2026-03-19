@@ -73,12 +73,94 @@ public class LegacyWatchEquipmentCommandsTest {
 
             Assert.assertTrue(handled);
             Assert.assertEquals(Watch.SCAN, watch.getType());
-            Assert.assertEquals(1, fixture.computer.Tasks.size());
-            ApplicationData queued = (ApplicationData) fixture.computer.Tasks.get(0);
-            Assert.assertEquals("fetchwatches", queued.getFunction());
+            assertQueuedFetchWatches(fixture);
         } finally {
             fixture.close();
         }
+    }
+
+    @Test
+    public void dispatch_setWatchOnOff_turnsWatchOnAndQueuesRefreshWhenWithinLimits() {
+        TestFixture fixture = new TestFixture();
+        try {
+            Watch watch = new Watch(fixture.computer);
+            watch.setType(Watch.PETTY_CASH);
+            watch.setCPUCost(3.0f);
+            watch.setOn(false);
+            fixture.computer.MyWatchHandler.addWatch(watch);
+            fixture.computer.Tasks.clear();
+
+            boolean handled = fixture.handler.dispatch(
+                fixture.computer,
+                new ApplicationData("setwatchonoff", new Object[]{0, Boolean.TRUE}, 0, fixture.computer.ip),
+                0
+            );
+
+            Assert.assertTrue(handled);
+            Assert.assertTrue(watch.getOn());
+            assertQueuedFetchWatches(fixture);
+        } finally {
+            fixture.close();
+        }
+    }
+
+    @Test
+    public void dispatch_setWatchObservedPorts_updatesObservedPortsAndQueuesRefresh() {
+        TestFixture fixture = new TestFixture();
+        try {
+            Watch watch = new Watch(fixture.computer);
+            fixture.computer.MyWatchHandler.addWatch(watch);
+            fixture.computer.Tasks.clear();
+
+            boolean handled = fixture.handler.dispatch(
+                fixture.computer,
+                new ApplicationData("setwatchobservedports", new Object[]{0, new Integer[]{3, 7, 9}}, 0, fixture.computer.ip),
+                0
+            );
+
+            Assert.assertTrue(handled);
+            Assert.assertEquals(3, watch.getObservedPorts().size());
+            Assert.assertEquals(3, watch.getObservedPorts().get(0));
+            Assert.assertEquals(7, watch.getObservedPorts().get(1));
+            Assert.assertEquals(9, watch.getObservedPorts().get(2));
+            assertQueuedFetchWatches(fixture);
+        } finally {
+            fixture.close();
+        }
+    }
+
+    @Test
+    public void dispatch_requestEquipment_populatesPrimaryAndSecondaryDirectories() {
+        TestFixture fixture = new TestFixture();
+        try {
+            HackerFile agpCard = fixture.createEquipmentFile(HackerFile.AGP, "Alpha AGP");
+            fixture.computer.MyFileSystem.addFile(agpCard, false);
+            fixture.computer.systemChange = false;
+
+            boolean handled = fixture.handler.dispatch(
+                fixture.computer,
+                new ApplicationData("requestequipment", Integer.valueOf(13), 0, fixture.computer.ip),
+                0
+            );
+
+            Assert.assertTrue(handled);
+            Assert.assertTrue(fixture.computer.systemChange);
+            Assert.assertNotNull(fixture.computer.PA.getDirectory());
+            Assert.assertEquals(13, fixture.computer.PA.getDirectory()[0]);
+            Assert.assertNotNull(fixture.computer.PA.getSecondaryDirectory());
+            Assert.assertEquals(13, fixture.computer.PA.getSecondaryDirectory()[0]);
+            HackerFile returned = (HackerFile) fixture.computer.PA.getDirectory()[1];
+            Assert.assertEquals("Alpha AGP", returned.getName());
+            Assert.assertNotNull(returned.getContent().get("bonusdata"));
+        } finally {
+            fixture.close();
+        }
+    }
+
+    private static void assertQueuedFetchWatches(TestFixture fixture) {
+        Assert.assertEquals(1, fixture.computer.Tasks.size());
+        ApplicationData queued = (ApplicationData) fixture.computer.Tasks.get(0);
+        Assert.assertEquals("fetchwatches", queued.getFunction());
     }
 
     private static final class TestFixture {
@@ -94,6 +176,19 @@ public class LegacyWatchEquipmentCommandsTest {
         private void close() {
             stopComputerThread(computer);
             time.clean();
+        }
+
+        private HackerFile createEquipmentFile(int type, String name) {
+            HackerFile file = new HackerFile(type);
+            file.setLocation("");
+            file.setName(name);
+            java.util.HashMap content = new java.util.HashMap();
+            content.put("attribute0", "0");
+            content.put("quality0", "0");
+            content.put("attribute1", "1");
+            content.put("quality1", "0");
+            file.setContent(content);
+            return file;
         }
     }
 

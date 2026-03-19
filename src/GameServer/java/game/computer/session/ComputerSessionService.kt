@@ -257,6 +257,10 @@ class ComputerSessionService(
         )
     }
 
+    fun recordPlayWindow(ip: String, startTime: Long, endTime: Long) {
+        recordPlayStatWindow(ip, startTime, endTime)
+    }
+
     private fun recordPlayStatWindow(ip: String, startTime: Long, endTime: Long) {
         var session: SqlSession? = null
         try {

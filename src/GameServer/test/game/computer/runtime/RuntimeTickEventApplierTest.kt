@@ -8,23 +8,35 @@ class RuntimeTickEventApplierTest {
     fun apply_dispatchesEventsInOrder() {
         val sink = RecordingRuntimeTickEventSink()
         RuntimeTickEventApplier.apply(
-            listOf(
-                RuntimeTickEvent.PersistRequested,
+            listOf<RuntimeTickEvent>(
+                RuntimeTickEvent.PersistRequested(autoSave = true),
+                RuntimeTickEvent.ApplicationDataDispatchRequested(
+                    applicationData = RuntimeApplicationDataDispatch(
+                        function = "message",
+                        parameters = "boom",
+                        port = 4,
+                        sourceIp = "1.1.1.1",
+                        sourcePort = 9,
+                        source = 1,
+                    ),
+                    targetIp = "9.9.9.9",
+                ),
                 RuntimeTickEvent.LogEntry("one", "1.1.1.1", 10L),
                 RuntimeTickEvent.DailyPayIssued(5f, "2.2.2.2"),
-                RuntimeTickEvent.EquipmentRefreshRequested
+                RuntimeTickEvent.EquipmentRefreshRequested,
             ),
-            sink
+            sink,
         )
 
         assertEquals(
             listOf(
-                "persist",
+                "persist:true",
+                "dispatch:message:9.9.9.9:4:1.1.1.1:9:1",
                 "log:one",
                 "pay:5.0",
-                "refresh"
+                "refresh",
             ),
-            sink.calls
+            sink.calls,
         )
     }
 }
@@ -32,8 +44,8 @@ class RuntimeTickEventApplierTest {
 private class RecordingRuntimeTickEventSink : RuntimeTickEventSink {
     val calls = mutableListOf<String>()
 
-    override fun persistRequested() {
-        calls += "persist"
+    override fun persistRequested(autoSave: Boolean) {
+        calls += "persist:$autoSave"
     }
 
     override fun unloadRequested() {
@@ -44,8 +56,8 @@ private class RecordingRuntimeTickEventSink : RuntimeTickEventSink {
         calls += "decrement"
     }
 
-    override fun deferredTaskRetried(function: String, sourceIp: String) {
-        calls += "retry:$function:$sourceIp"
+    override fun applicationDataDispatchRequested(applicationData: RuntimeApplicationDataDispatch, targetIp: String) {
+        calls += "dispatch:${applicationData.function}:$targetIp:${applicationData.port}:${applicationData.sourceIp}:${applicationData.sourcePort}:${applicationData.source}"
     }
 
     override fun logEntry(message: String, ip: String, timestamp: Long) {
