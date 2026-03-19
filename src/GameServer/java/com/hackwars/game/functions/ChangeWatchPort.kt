@@ -2,7 +2,7 @@ package com.hackwars.game.functions
 
 import game.ApplicationData
 import game.Computer
-import rpc.FetchWatches
+import com.hackwars.rpc.FetchWatches
 
 /**
  * Represents a function to change the port of a specific watch on the computer.
