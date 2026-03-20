@@ -852,19 +852,37 @@ class Port(
                 }
 
                 if (xp > 0) {
-                    val commandName = if (zombieDamage) "opponentupdate" else if (!mining) "attackxp" else "miningdamageupdate"
-                    val resolutionPayload = CombatResolutionPayload(
-                        ApplicationCommand.of(commandName),
-                        xp,
-                        _health,
-                        myComputer.getPettyCash(),
-                        getCPUCost(),
-                        modify,
-                        myComputer.watchHandler.checkForWatch(number),
-                        damageFromFireWall,
-                        mining,
-                        zombieSource
+                    val values = CombatDamageValues(
+                        xp = xp,
+                        health = _health,
+                        pettyCash = myComputer.getPettyCash(),
+                        cpuCost = getCPUCost(),
+                        damage = modify
                     )
+                    val resolutionPayload = when {
+                        zombieDamage -> CombatOpponentUpdatePayload(
+                            values = values,
+                            targetWatch = myComputer.watchHandler.checkForWatch(number),
+                            damageFromFirewall = damageFromFireWall,
+                            mining = mining
+                        )
+
+                        !mining -> CombatAttackXpUpdatePayload(
+                            values = values,
+                            targetWatch = myComputer.watchHandler.checkForWatch(number),
+                            damageFromFirewall = damageFromFireWall,
+                            mining = false,
+                            targetIp = null
+                        )
+
+                        else -> CombatMiningDamageUpdatePayload(
+                            values = values,
+                            targetWatch = myComputer.watchHandler.checkForWatch(number),
+                            damageFromFirewall = damageFromFireWall,
+                            mining = true,
+                            targetIp = null
+                        )
+                    }
                     if (zombieDamage) {
                         myComputerHandler.addData(ApplicationData(resolutionPayload, MyApplicationData.getSourcePort(), ip), zombieSource)
                     }

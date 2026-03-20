@@ -104,7 +104,12 @@ public class MessageServer implements Runnable {
      * Send an assignment to a specific client.
      */
     public synchronized void addAssignment(int clientId, Assignment assignment) {
-        connections.get(clientId).sendData(assignment);
+        ServerConnection connection = connections.get(clientId);
+        if (connection == null || connection.getConnectionClosed()) {
+            connections.remove(clientId);
+            return;
+        }
+        connection.sendData(assignment);
     }
 
     /**

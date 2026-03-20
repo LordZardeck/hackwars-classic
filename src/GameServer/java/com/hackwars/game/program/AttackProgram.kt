@@ -17,6 +17,8 @@ import com.hackwars.rpc.RequestAttack
 import com.hackwars.rpc.RequestCancelAttack
 import game.*
 import game.payload.AddShowChoicesPayload
+import game.payload.ATTACK_CONTINUE_COMMAND
+import game.payload.AttackContinuePayload
 import game.payload.CancelAttackPayload
 import game.payload.DamagePayload
 import game.payload.AttackFinalizePayload
@@ -322,6 +324,11 @@ class AttackProgram(
     override fun execute(applicationData: ApplicationData) {
         if (hasAttackTimedOut()) {
             handleAttackTimeout()
+            return
+        }
+
+        if (applicationData.command == ATTACK_CONTINUE_COMMAND || applicationData.payload is AttackContinuePayload) {
+            functionHandlers["attackcontinue"]?.execute(this, applicationData)
             return
         }
 

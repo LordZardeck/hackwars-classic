@@ -2,8 +2,8 @@ package com.hackwars.game.functions
 
 import game.ApplicationData
 import game.Computer
+import game.payload.CombatScanXpPayload
 import game.payload.FloatCommandPayload
-import game.payloadAs
 
 /**
  * Represents a function that rewards scanning experience.
@@ -28,7 +28,14 @@ class ScanXP(computer: Computer) : Function(computer) {
     override fun execute(applicationData: ApplicationData) {
         computer.sendDamagePacket()
 
-        val amount = applicationData.payloadAs<FloatCommandPayload>().value
+        val amount = when (val payload = applicationData.payload) {
+            is FloatCommandPayload -> payload.value
+            is CombatScanXpPayload -> payload.amount
+            else -> throw IllegalStateException(
+                "Illegal payload provided for ${applicationData.command.wireName()}. " +
+                    "Expected FloatCommandPayload or CombatScanXpPayload, Actual ${applicationData.payload::class.java.name}"
+            )
+        }
         val currentXp = (computer.stats["Scanning"] as? Float) ?: 0f
         val updatedXp = (amount * XP_MULTIPLIER + currentXp).coerceAtLeast(
             if (XP_MULTIPLIER < 0) MIN_XP else Float.NEGATIVE_INFINITY

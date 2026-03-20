@@ -2543,7 +2543,7 @@ open class Computer : GameServerService {
                 val tempPort = Ports.get(portNumber) as Port?
                 if (tempPort != null) {
                     tempPort.addApplicationData(
-                        ApplicationData(game.payload.NoArgumentsPayload(ApplicationCommand.of("attackcontinue")), targetPort, ""),
+                        ApplicationData(game.payload.AttackContinuePayload, targetPort, ""),
                         now
                     )
                 }
@@ -2899,13 +2899,13 @@ open class Computer : GameServerService {
                     if (TempPort.getProgram() is AttackProgram) {
                         val AP = TempPort.getProgram() as AttackProgram
                         TempPort.addApplicationData(
-                            ApplicationData(game.payload.NoArgumentsPayload(ApplicationCommand.of("attackcontinue")), AP.getTargetPort(), ""),
+                            ApplicationData(game.payload.AttackContinuePayload, AP.getTargetPort(), ""),
                             MyTime!!.getCurrentTime()
                         )
                     } else {
                         val SP = TempPort.getProgram() as ShippingProgram
                         TempPort.addApplicationData(
-                            ApplicationData(game.payload.NoArgumentsPayload(ApplicationCommand.of("attackcontinue")), SP.getTargetPort(), ""),
+                            ApplicationData(game.payload.AttackContinuePayload, SP.getTargetPort(), ""),
                             MyTime!!.getCurrentTime()
                         )
                     }
