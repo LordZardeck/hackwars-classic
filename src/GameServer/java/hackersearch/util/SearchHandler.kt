@@ -1,5 +1,6 @@
 package hackersearch.util
 
+import com.hackwars.data.service.GameSearchDataService
 import com.plink.dolphinstem.ItemData
 import com.plink.dolphinstem.TextSource
 import com.plink.dolphinstem.WordData
@@ -7,6 +8,7 @@ import hackersearch.assignments.SearchAssignment
 import hackersearch.assignments.SearchResult
 import hackersearch.assignments.SearchResultAssignment
 import hackersearch.server.SearchServer
+import game.data.GameServerDataLocator
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
@@ -15,7 +17,6 @@ import org.w3c.dom.Node
 import server.runtime.GameServerRuntime
 import server.runtime.GameServerService
 import util.LoadXML
-import util.sql
 import java.util.ArrayList
 import java.util.HashMap
 import java.util.concurrent.atomic.AtomicBoolean
@@ -24,12 +25,9 @@ import kotlin.math.min
 
 open class SearchHandler(
     private var myServer: SearchServer?,
-    runtime: GameServerRuntime? = null
+    runtime: GameServerRuntime? = null,
+    private val searchDataService: GameSearchDataService? = null,
 ) : GameServerService {
-    private val Connection = "127.0.0.1"
-    private val DB = "hackwars"
-    private val Username = "root"
-    private val Password = ""
     private val ownsRuntime = runtime == null
     private val runtime: GameServerRuntime = runtime ?: GameServerRuntime()
     private val commands = Channel<SearchCommand>(Channel.UNLIMITED)
@@ -238,40 +236,22 @@ open class SearchHandler(
 
     private fun bootstrapFromDatabase() {
         try {
-            val c = sql(Connection, DB, Username, Password)
-            try {
-                val result = c.process("select max(num) from user;")
-                val fileCount = result?.firstOrNull()?.toString()?.toIntOrNull() ?: 0
-
-                var indexedCount = 0
-                for (num in 1..fileCount) {
-                    val dataResult = c.process("select stats,ip from user where num=$num;")
-                    val data = dataResult?.getOrNull(0)?.toString().orEmpty()
-                    val ip = dataResult?.getOrNull(1)?.toString().orEmpty()
-                    if (data.isBlank() || ip.isBlank()) {
-                        continue
-                    }
-
-                    val metaResult = c.process(
-                        "SELECT TO_DAYS(NOW())-TO_DAYS(last_logged_in),npc FROM hackerforum.users WHERE ip='$ip'"
-                    )
-                    val isActive = metaResult?.getOrNull(0)?.toString()?.toIntOrNull() ?: 0
-                    val isNpc = metaResult?.getOrNull(1)?.toString() == "Y"
-                    if (isActive < 14 && !isNpc) {
-                        continue
-                    }
-
-                    val loaded = loadBootstrapPage(data)
-                    if (loaded != null) {
-                        applyIndexedPage(loaded.title, loaded.address, loaded.content)
-                        indexedCount++
-                    }
+            val rows = (searchDataService ?: GameServerDataLocator.searchService()).findBootstrapRows()
+            var indexedCount = 0
+            for (row in rows) {
+                val isActive = row.daysSinceLastLogin ?: 0
+                val isNpc = row.npc == "Y"
+                if (isActive < 14 && !isNpc) {
+                    continue
                 }
 
-                snapshot = snapshot.copy(fileCount = fileCount, indexedCount = indexedCount)
-            } finally {
-                c.close()
+                val loaded = loadBootstrapPage(row.statsXml)
+                if (loaded != null) {
+                    applyIndexedPage(loaded.title, loaded.address, loaded.content)
+                    indexedCount++
+                }
             }
+            snapshot = snapshot.copy(fileCount = rows.size, indexedCount = indexedCount)
         } catch (e: Exception) {
             e.printStackTrace()
         }

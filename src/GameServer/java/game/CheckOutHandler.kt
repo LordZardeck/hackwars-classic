@@ -1,57 +1,44 @@
 package game
 
+import com.hackwars.data.service.GameAuthDataService
+import com.hackwars.data.service.GameProfileDataService
+import game.data.GameServerDataLocator
 import org.apache.xmlrpc.client.XmlRpcClient
 import org.apache.xmlrpc.client.XmlRpcClientConfigImpl
 import util.LocalWebConfig
-import util.sql
 import java.net.URL
-import java.util.ArrayList
 
 /**
  * Description: This class processes a single queued save request by talking to Tomcat/MySQL.
  * The coroutine scheduler now owns the worker lifecycle; this class only owns the save logic.
  */
-open class CheckOutHandler {
-    private var Connection = "127.0.0.1"
-    private var DB = "hackwars"
-    private var Username = "root"
-    private var Password = ""
+open class CheckOutHandler(
+    private val authDataService: GameAuthDataService? = null,
+    private val profileDataService: GameProfileDataService? = null,
+) {
+    private fun authDataService(): GameAuthDataService = authDataService ?: GameServerDataLocator.authService()
+
+    private fun profileDataService(): GameProfileDataService = profileDataService ?: GameServerDataLocator.profileService()
 
     //Fetches a profile from the DB based on IP.
     open fun fetchProfile(ip: String, checkActive: Boolean): String? {
-        val c = sql(Connection, DB, Username, Password)
-        var result: ArrayList<*>? = null
         try {
             if (checkActive) {
-                val query = "SELECT npc,TO_DAYS(NOW())-TO_DAYS(last_logged_in) FROM hackerforum.users WHERE ip=\"$ip\""
-                result = c.process(query)
-                if (result == null) {
-                    return null
-                }
-                val npc = result[0] as String
-                val active = result[1] as String
-                if (npc == "N") {
-                    if (Integer.parseInt(active) > 14) {
-                        return "inactive"
-                    }
+                val activity = authDataService().findForumActivityByIp(ip) ?: return null
+                if (activity.npc == "N" && (activity.daysSinceLastLogin ?: 0) > 14) {
+                    return "inactive"
                 }
             }
-            val q = "select stats from user where ip=\"$ip\""
-            result = c.process(q)
+            val result = profileDataService().findProfileXmlByIp(ip)
+            if (result == null) {
+                return null
+            }
+            return result
         } catch (e: Exception) {
             e.printStackTrace()
-        } finally {
-            try {
-                c.close()
-            } catch (_: Exception) {
-            }
         }
 
-        return if (result == null) {
-            null
-        } else {
-            result[0] as String
-        }
+        return null
     }
 
     open fun processWork(o: Array<Any?>) {
@@ -105,20 +92,18 @@ open class CheckOutHandler {
     }
 
     protected open fun insertProfile(ip: String, content: String) {
-        val c = sql(Connection, DB, Username, Password)
-        val q = "insert into user values(\"$ip\",\"${content.replace("\"", "\\\\\"")}\",NULL);"
-        c.process(q)
-        c.close()
+        try {
+            profileDataService().upsertProfileXmlByIp(ip, content)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 
     protected open fun updateProfile(ip: String, content: String) {
-        val c = sql(Connection, DB, Username, Password)
-        val escapedContent = content.replace("\\", "\\\\").replace("\"", "\\\\\"")
-        val q = "update user set stats=\"$escapedContent\" where ip=\"$ip\";"
-
-        println("Just got to the process step.")
-
-        c.process(q)
-        c.close()
+        try {
+            profileDataService().upsertProfileXmlByIp(ip, content)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 }

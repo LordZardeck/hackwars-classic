@@ -50,14 +50,14 @@
     </content>
     <orderEntry type="jdk" jdkName="openjdk-25" jdkType="JavaSDK" />
     <orderEntry type="sourceFolder" forTests="false" />
-    <orderEntry type="module" module-name="src.HackwarsClassic.GameServer.main" />
-    <orderEntry type="module" module-name="src.HackwarsClassic.HackWars.main" />
-    <orderEntry type="module" module-name="src.HackwarsClassic.Networking.main" />
+    <orderEntry type="module" module-name="src.HackwarsClassic.GameServer.main~1" />
+    <orderEntry type="module" module-name="HackwarsClassic.Data.main" />
+    <orderEntry type="module" module-name="src.HackwarsClassic.HackWars.main~1" />
+    <orderEntry type="module" module-name="src.HackwarsClassic.Networking.main~1" />
     <orderEntry type="module" module-name="HackwarsClassic.RpcDispatchAnnotations.main" />
     <orderEntry type="library" name="Gradle: org.jetbrains.kotlin:kotlin-test-junit:2.1.21" level="project" />
     <orderEntry type="library" name="Gradle: org.jetbrains.kotlin:kotlin-stdlib:2.1.21" level="project" />
     <orderEntry type="library" name="Gradle: ch.qos.logback:logback-classic:1.5.18" level="project" />
-    <orderEntry type="library" name="Gradle: mysql:mysql-connector-java:5.1.49" level="project" />
     <orderEntry type="library" name="Gradle: org.apache.xmlrpc:xmlrpc-client:3.1.3" level="project" />
     <orderEntry type="library" name="Gradle: org.apache.axis:axis:1.4" level="project" />
     <orderEntry type="library" name="Gradle: org.antlr:antlr-runtime:3.0.1" level="project" />
@@ -80,8 +80,27 @@
     <orderEntry type="library" name="Gradle: net.bytebuddy:byte-buddy-agent:1.14.15" level="project" />
     <orderEntry type="library" name="Gradle: org.apache.ws.commons.util:ws-commons-util:1.0.2" level="project" />
     <orderEntry type="library" name="Gradle: xml-apis:xml-apis:1.0.b2" level="project" />
+    <orderEntry type="library" scope="RUNTIME" name="Gradle: com.zaxxer:HikariCP:5.1.0" level="project" />
+    <orderEntry type="library" scope="RUNTIME" name="Gradle: org.hibernate.orm:hibernate-core:6.4.4.Final" level="project" />
+    <orderEntry type="library" scope="RUNTIME" name="Gradle: jakarta.persistence:jakarta.persistence-api:3.1.0" level="project" />
+    <orderEntry type="library" scope="RUNTIME" name="Gradle: com.mysql:mysql-connector-j:8.4.0" level="project" />
+    <orderEntry type="library" scope="RUNTIME" name="Gradle: mysql:mysql-connector-java:5.1.49" level="project" />
     <orderEntry type="library" scope="RUNTIME" name="Gradle: org.jetbrains.kotlin:kotlin-reflect:2.1.21" level="project" />
     <orderEntry type="library" scope="RUNTIME" name="Gradle: org.objenesis:objenesis:3.3" level="project" />
+    <orderEntry type="library" scope="RUNTIME" name="Gradle: jakarta.transaction:jakarta.transaction-api:2.0.1" level="project" />
+    <orderEntry type="library" scope="RUNTIME" name="Gradle: org.jboss.logging:jboss-logging:3.5.0.Final" level="project" />
+    <orderEntry type="library" scope="RUNTIME" name="Gradle: org.hibernate.common:hibernate-commons-annotations:6.0.6.Final" level="project" />
+    <orderEntry type="library" scope="RUNTIME" name="Gradle: io.smallrye:jandex:3.1.2" level="project" />
+    <orderEntry type="library" scope="RUNTIME" name="Gradle: com.fasterxml:classmate:1.5.1" level="project" />
+    <orderEntry type="library" scope="RUNTIME" name="Gradle: org.glassfish.jaxb:jaxb-runtime:4.0.2" level="project" />
+    <orderEntry type="library" scope="RUNTIME" name="Gradle: jakarta.xml.bind:jakarta.xml.bind-api:4.0.0" level="project" />
+    <orderEntry type="library" scope="RUNTIME" name="Gradle: jakarta.inject:jakarta.inject-api:2.0.1" level="project" />
+    <orderEntry type="library" scope="RUNTIME" name="Gradle: org.antlr:antlr4-runtime:4.13.0" level="project" />
+    <orderEntry type="library" scope="RUNTIME" name="Gradle: org.glassfish.jaxb:jaxb-core:4.0.2" level="project" />
+    <orderEntry type="library" scope="RUNTIME" name="Gradle: jakarta.activation:jakarta.activation-api:2.1.1" level="project" />
+    <orderEntry type="library" scope="RUNTIME" name="Gradle: org.eclipse.angus:angus-activation:2.0.0" level="project" />
+    <orderEntry type="library" scope="RUNTIME" name="Gradle: org.glassfish.jaxb:txw2:4.0.2" level="project" />
+    <orderEntry type="library" scope="RUNTIME" name="Gradle: com.sun.istack:istack-commons-runtime:4.1.1" level="project" />
   </component>
   <component name="TestModuleProperties" production-module="HackwarsClassic.GameServer.main" />
 </module>

@@ -1,5 +1,15 @@
 package hackersearch.util
 
+import com.hackwars.data.model.AttachedNetworkLink
+import com.hackwars.data.model.DropItemData
+import com.hackwars.data.model.ForumActivity
+import com.hackwars.data.model.ForumLoginSnapshot
+import com.hackwars.data.model.NetworkDefinition
+import com.hackwars.data.model.NetworkNpcView
+import com.hackwars.data.model.PendingPurchase
+import com.hackwars.data.model.SearchBootstrapRow
+import com.hackwars.data.service.GameSearchDataService
+import com.hackwars.data.service.GameWorldDataService
 import hackersearch.assignments.SearchAssignment
 import hackersearch.assignments.SearchResult
 import hackersearch.server.SearchServer
@@ -57,14 +67,78 @@ class SearchHandlerTest {
         }
     }
 
-    private suspend fun withStartedHandler(block: suspend (SearchHandler) -> Unit) {
-        val handler = SearchHandler(SearchServer(true))
+    @Test
+    fun bootstrapFromDatabase_usesCompositeDataQueryAndIndexesOnlyActivePages() = runTest {
+        val service = FakeSearchDataService(
+            rows = listOf(
+                SearchBootstrapRow(
+                    statsXml = """
+                        <save>
+                            <ip>example.com</ip>
+                            <title>Alpha Title</title>
+                            <body>alpha beta gamma</body>
+                        </save>
+                    """.trimIndent(),
+                    ip = "example.com",
+                    daysSinceLastLogin = 20,
+                    npc = "N",
+                ),
+                SearchBootstrapRow(
+                    statsXml = """
+                        <save>
+                            <ip>skip.example</ip>
+                            <title>Skip</title>
+                            <body>skip</body>
+                        </save>
+                    """.trimIndent(),
+                    ip = "skip.example",
+                    daysSinceLastLogin = 3,
+                    npc = "N",
+                ),
+            )
+        )
+
+        withStartedHandler(primeFromDatabase = true, searchDataService = service) { handler ->
+            val assignment = SearchAssignment(11)
+            assignment.setVector("alpha beta")
+
+            val result = handler.requestSearch(assignment)
+
+            val results = result.getResults()
+            assertEquals(1, results.size)
+            val first = results[0] as SearchResult
+            assertEquals("example.com", first.getAddress())
+            assertEquals("Alpha Title", first.getTitle())
+            assertEquals("alpha beta gamma", first.getDescription())
+            assertEquals(1, service.requestCount)
+            assertEquals(1, result.getSize())
+            assertTrue(handler.getLoaded())
+        }
+    }
+
+    private suspend fun withStartedHandler(
+        primeFromDatabase: Boolean = false,
+        searchDataService: GameSearchDataService = FakeSearchDataService(emptyList()),
+        block: suspend (SearchHandler) -> Unit,
+    ) {
+        val handler = SearchHandler(SearchServer(true), searchDataService = searchDataService)
         try {
-            handler.start(primeFromDatabase = false)
+            handler.start(primeFromDatabase = primeFromDatabase)
             block(handler)
         } finally {
             handler.shutdown()
             handler.join()
+        }
+    }
+
+    private class FakeSearchDataService(
+        val rows: List<SearchBootstrapRow>,
+    ) : GameSearchDataService {
+        var requestCount = 0
+
+        override fun findBootstrapRows(): List<SearchBootstrapRow> {
+            requestCount++
+            return rows
         }
     }
 }

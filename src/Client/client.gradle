@@ -73,7 +73,7 @@ sourceSets {
             }
         }
         resources {
-            setSrcDirs(['resources'])
+            setSrcDirs(['resources', rootProject.ext.resourcesRootDir])
         }
     }
     test {

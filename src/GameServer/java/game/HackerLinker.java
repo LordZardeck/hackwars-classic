@@ -9,7 +9,9 @@ package game;
 import java.util.ArrayList;
 
 import com.hackwars.game.program.*;
+import com.hackwars.data.service.GameWorldDataService;
 import hackscript.model.*;
+import game.data.GameServerDataLocator;
 import util.*;
 
 import java.util.*;
@@ -26,13 +28,19 @@ public class HackerLinker extends Linker {
     private Program MyProgram = null;
     private Object theLinker = null;
     private HashMap SpamTracker = new HashMap();
+    private GameWorldDataService worldDataService;
 
     /**
      * Creates a new instance of structInfo
      */
     public HackerLinker(Program MyProgram, NetworkSwitch MyComputerHandler) {
+        this(MyProgram, MyComputerHandler, null);
+    }
+
+    public HackerLinker(Program MyProgram, NetworkSwitch MyComputerHandler, GameWorldDataService worldDataService) {
         this.MyProgram = MyProgram;
         this.MyComputerHandler = MyComputerHandler;
+        this.worldDataService = worldDataService;
         this.globalVars = globalVars;
         this.theLinker = theLinker;
         codeCounter = 0;
@@ -1229,12 +1237,13 @@ public class HackerLinker extends Linker {
                     try {
                         //check for domain here.
                         String returnValue = H.getTargetIP();
-                        if (!H.getComputer().isNPC()) {
-                            sql conn = new sql("localhost", "hackwars", "root", "");
-                            String query = "SELECT domain FROM domains WHERE ip=\"" + returnValue + "\"";
-                            ArrayList domainResult = conn.process(query);
-                            if (domainResult != null) {
-                                returnValue = (String) domainResult.get(0);
+                        if (returnValue != null && !H.getComputer().isNPC()) {
+                            if (worldDataService == null) {
+                                worldDataService = GameServerDataLocator.worldService();
+                            }
+                            String domain = worldDataService.findDomainByIp(returnValue);
+                            if (domain != null) {
+                                returnValue = domain;
                             }
                         }
                         return (new TypeString(returnValue));

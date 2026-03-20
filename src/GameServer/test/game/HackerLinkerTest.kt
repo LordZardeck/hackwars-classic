@@ -1,7 +1,17 @@
 package game
 
+import com.hackwars.data.model.AttachedNetworkLink
+import com.hackwars.data.model.DropItemData
+import com.hackwars.data.model.ForumActivity
+import com.hackwars.data.model.ForumLoginSnapshot
+import com.hackwars.data.model.NetworkDefinition
+import com.hackwars.data.model.NetworkNpcView
+import com.hackwars.data.model.PendingPurchase
+import com.hackwars.data.model.SearchBootstrapRow
+import com.hackwars.data.service.GameWorldDataService
 import com.hackwars.game.functions.FunctionTestSupport
 import com.hackwars.game.program.Program
+import com.hackwars.game.program.HTTPProgram
 import hackscript.model.TypeArray
 import hackscript.model.TypeFloat
 import hackscript.model.TypeInteger
@@ -11,6 +21,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.mockito.kotlin.whenever
+import java.lang.reflect.Field
 
 class HackerLinkerTest {
     @Test
@@ -59,6 +70,21 @@ class HackerLinkerTest {
         assertEquals(1, linker.incrementValue("other"))
     }
 
+    @Test
+    fun getVisitorIP_usesDomainLookupForNonNpcVisitors() {
+        val computer = FunctionTestSupport.baseComputer()
+        whenever(computer.getIP()).thenReturn("10.0.0.1")
+        whenever(computer.isNPC()).thenReturn(false)
+
+        val program = HTTPProgram(computer, null)
+        setPrivateField(program, "targetIP", "10.0.0.1")
+        val linker = HackerLinker(program, null, FakeWorldDataService("10.0.0.1" to "example.com"))
+
+        val result = linker.runFunction("getVisitorIP", arrayListOf<Any?>()) as TypeString
+
+        assertEquals("example.com", result.stringValue)
+    }
+
     private class TestProgram(fileIo: Boolean = true) : Program(baseComputer(fileIo), null) {
         override fun installScript(script: HashMap<*, *>) {
         }
@@ -85,5 +111,28 @@ class HackerLinkerTest {
                 return computer
             }
         }
+    }
+
+    private class FakeWorldDataService(
+        private val domainLookup: Pair<String, String>,
+    ) : GameWorldDataService {
+        override fun loadNetworkDefinitions(): List<NetworkDefinition> = emptyList()
+
+        override fun findDropItems(dropId: Int): List<DropItemData> = emptyList()
+
+        override fun findDomainByIp(ip: String): String? {
+            return if (ip == domainLookup.first) domainLookup.second else null
+        }
+
+        override fun findPendingPurchasesByIp(ip: String): List<PendingPurchase> = emptyList()
+
+        override fun markPurchasesGiven(ids: Collection<Long>) {
+        }
+    }
+
+    private fun setPrivateField(target: Any, fieldName: String, value: Any?) {
+        val field: Field = target.javaClass.getDeclaredField(fieldName)
+        field.isAccessible = true
+        field.set(target, value)
     }
 }

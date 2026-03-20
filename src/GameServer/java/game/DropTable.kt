@@ -1,45 +1,30 @@
 package game
 
+import com.hackwars.data.service.GameWorldDataService
+import game.data.GameServerDataLocator
 import org.w3c.dom.Node
 import util.LoadXML
-import util.sql
 import java.util.ArrayList
 import java.util.HashMap
 
 /**
  * By Alexander Morrison
  */
-open class DropTable(dropTable: Int, private val MyComputer: Computer) {
+open class DropTable @JvmOverloads constructor(
+    dropTable: Int,
+    private val MyComputer: Computer,
+    private val worldDataService: GameWorldDataService? = null,
+) {
     private var totalWeight = 0
     private val Drops = ArrayList<Any?>()
     private val clueLevel = 0
 
-    private var Connection = "localhost"
-    private var DB = "hackwars"
-    private var Username = "root"
-    private var Password = ""
-
     init {
         try {
-            var Q = "SELECT item_id,weight FROM drop_table where drop_id=$dropTable"
-            val C = sql(Connection, DB, Username, Password)
-            val result = C.process(Q)
-            if (result != null && result.size > 0) {
-                var i = 0
-                while (i < result.size) {
-                    Q = "SELECT data FROM items WHERE id=" + result[i]
-                    val result2 = C.process(Q)
-
-                    val weight = Integer.valueOf(result[i + 1] as String)
-                    var data = ""
-                    if (result2 != null && result2.size > 0) {
-                        data = result2[0] as String
-                    }
-
-                    totalWeight += weight
-                    Drops.add(arrayOf<Any?>(Integer.valueOf(totalWeight), data))
-                    i += 2
-                }
+            val service = worldDataService ?: GameServerDataLocator.worldService()
+            service.findDropItems(dropTable).forEach { item ->
+                totalWeight += item.weight
+                Drops.add(arrayOf<Any?>(Integer.valueOf(totalWeight), item.data))
             }
         } catch (e: Exception) {
             e.printStackTrace()

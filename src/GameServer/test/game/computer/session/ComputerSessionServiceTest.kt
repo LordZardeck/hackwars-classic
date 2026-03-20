@@ -1,9 +1,13 @@
 package game.computer.session
 
+import com.hackwars.data.model.ForumLoginSnapshot
+import com.hackwars.data.service.GameAuthDataService
+import com.hackwars.data.service.GameProfileDataService
+import com.hackwars.data.service.GameTelemetryDataService
+import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
-import org.junit.After
 import org.junit.Before
 import org.junit.Test
 import java.awt.image.BufferedImage
@@ -27,14 +31,8 @@ class ComputerSessionServiceTest {
 
     @Test
     fun `play fab auth short circuits and requests preferences`() {
-        val service = ComputerSessionService(
-            config = ComputerSessionConfig(localAuthFallbackEnabled = false),
-            sqlSessionFactory = RecordingSqlSessionFactory(),
-            xmlRpcGateway = RecordingXmlRpcGateway(),
-            passwordSource = StaticPasswordSource("secret"),
-            captchaImageSource = StaticCaptchaImageSource(BufferedImage(175, 45, BufferedImage.TYPE_INT_ARGB)),
-            captchaKeyGenerator = StaticCaptchaKeyGenerator("12345"),
-        )
+        val auth = FakeAuthDataService()
+        val service = service(auth = auth)
 
         val result = service.authenticate(
             LoginRequest(
@@ -48,18 +46,12 @@ class ComputerSessionServiceTest {
 
         assertTrue(result.accepted)
         assertTrue(result.sendPreferences)
+        assertTrue(auth.authenticateCalls.isEmpty())
     }
 
     @Test
     fun `xor crypt round trips data with the same key`() {
-        val service = ComputerSessionService(
-            config = ComputerSessionConfig(localAuthFallbackEnabled = false),
-            sqlSessionFactory = RecordingSqlSessionFactory(),
-            xmlRpcGateway = RecordingXmlRpcGateway(),
-            passwordSource = StaticPasswordSource(null),
-            captchaImageSource = StaticCaptchaImageSource(BufferedImage(175, 45, BufferedImage.TYPE_INT_ARGB)),
-            captchaKeyGenerator = StaticCaptchaKeyGenerator("12345"),
-        )
+        val service = service()
 
         val original = "hello".toByteArray()
         val encrypted = original.copyOf()
@@ -71,13 +63,10 @@ class ComputerSessionServiceTest {
 
     @Test
     fun `local auth fallback short circuits when enabled`() {
-        val service = ComputerSessionService(
+        val auth = FakeAuthDataService()
+        val service = service(
             config = ComputerSessionConfig(localAuthFallbackEnabled = true),
-            sqlSessionFactory = RecordingSqlSessionFactory(),
-            xmlRpcGateway = RecordingXmlRpcGateway(),
-            passwordSource = StaticPasswordSource(null),
-            captchaImageSource = StaticCaptchaImageSource(BufferedImage(175, 45, BufferedImage.TYPE_INT_ARGB)),
-            captchaKeyGenerator = StaticCaptchaKeyGenerator("12345"),
+            auth = auth,
         )
 
         val result = service.authenticate(
@@ -92,28 +81,23 @@ class ComputerSessionServiceTest {
 
         assertTrue(result.accepted)
         assertTrue(result.sendPreferences)
+        assertTrue(auth.authenticateCalls.isEmpty())
     }
 
     @Test
-    fun `password ini shortcut selects name only query and validates ip`() {
-        val auth = RecordingSqlSession(
-            queryResults = mutableMapOf(
-                """SELECT name FROM hackerforum.users WHERE name = "player"""" to listOf("player"),
-            )
+    fun `password ini shortcut selects forum auth path and validates ip`() {
+        val auth = FakeAuthDataService(
+            authenticateResult = true,
+            forumLoginSnapshot = ForumLoginSnapshot(
+                ip = "10.0.0.1",
+                npc = "N",
+                daysSinceLastLogin = 0,
+            ),
         )
-        val game = RecordingSqlSession(
-            queryResults = mutableMapOf(
-                """SELECT ip, npc, TO_DAYS(NOW()) - TO_DAYS(last_logged_in) FROM users WHERE name = "player"""" to listOf("10.0.0.1", "0", "0"),
-            )
-        )
-        val factory = RecordingSqlSessionFactory(auth, game)
-        val service = ComputerSessionService(
+        val service = service(
             config = ComputerSessionConfig(localAuthFallbackEnabled = false),
-            sqlSessionFactory = factory,
-            xmlRpcGateway = RecordingXmlRpcGateway(),
+            auth = auth,
             passwordSource = StaticPasswordSource("secret"),
-            captchaImageSource = StaticCaptchaImageSource(BufferedImage(175, 45, BufferedImage.TYPE_INT_ARGB)),
-            captchaKeyGenerator = StaticCaptchaKeyGenerator("12345"),
         )
 
         val result = service.authenticate(
@@ -129,31 +113,32 @@ class ComputerSessionServiceTest {
         assertTrue(result.accepted)
         assertTrue(result.sendPreferences)
         assertEquals(
-            listOf("""SELECT name FROM hackerforum.users WHERE name = "player""""),
-            auth.queries
+            listOf(
+                AuthenticateCall(
+                    username = "player",
+                    loginPassword = "secret",
+                    passwordIniValue = "secret",
+                ),
+            ),
+            auth.authenticateCalls
         )
+        assertEquals(listOf("player"), auth.markedForumLogins)
     }
 
     @Test
     fun `wrong ip rejects successful db auth`() {
-        val auth = RecordingSqlSession(
-            queryResults = mutableMapOf(
-                """SELECT name FROM users WHERE name = "player" AND pass = PASSWORD("pw")""" to listOf("player"),
-            )
+        val auth = FakeAuthDataService(
+            authenticateResult = true,
+            forumLoginSnapshot = ForumLoginSnapshot(
+                ip = "10.0.0.2",
+                npc = "N",
+                daysSinceLastLogin = 0,
+            ),
         )
-        val game = RecordingSqlSession(
-            queryResults = mutableMapOf(
-                """SELECT ip, npc, TO_DAYS(NOW()) - TO_DAYS(last_logged_in) FROM users WHERE name = "player"""" to listOf("10.0.0.2", "0", "0"),
-            )
-        )
-        val factory = RecordingSqlSessionFactory(auth, game)
-        val service = ComputerSessionService(
+        val service = service(
             config = ComputerSessionConfig(localAuthFallbackEnabled = false),
-            sqlSessionFactory = factory,
-            xmlRpcGateway = RecordingXmlRpcGateway(),
+            auth = auth,
             passwordSource = StaticPasswordSource("different"),
-            captchaImageSource = StaticCaptchaImageSource(BufferedImage(175, 45, BufferedImage.TYPE_INT_ARGB)),
-            captchaKeyGenerator = StaticCaptchaKeyGenerator("12345"),
         )
 
         val result = service.authenticate(
@@ -168,6 +153,7 @@ class ComputerSessionServiceTest {
 
         assertFalse(result.accepted)
         assertFalse(result.sendPreferences)
+        assertEquals(listOf("player"), auth.markedForumLogins)
     }
 
     @Test
@@ -175,13 +161,9 @@ class ComputerSessionServiceTest {
         val gateway = RecordingXmlRpcGateway(
             response = arrayOf("ok", "ignored", true, false)
         )
-        val service = ComputerSessionService(
+        val service = service(
             config = ComputerSessionConfig(remoteXmlRpcEnabled = true),
-            sqlSessionFactory = RecordingSqlSessionFactory(),
             xmlRpcGateway = gateway,
-            passwordSource = StaticPasswordSource(null),
-            captchaImageSource = StaticCaptchaImageSource(BufferedImage(175, 45, BufferedImage.TYPE_INT_ARGB)),
-            captchaKeyGenerator = StaticCaptchaKeyGenerator("12345"),
         )
 
         val result = service.requestFunctionPacks("10.0.0.1")
@@ -197,11 +179,7 @@ class ComputerSessionServiceTest {
     fun `captcha challenge returns pixels and key`() {
         val image = BufferedImage(175, 45, BufferedImage.TYPE_INT_ARGB)
         image.setRGB(0, 0, 0x00FF00)
-        val service = ComputerSessionService(
-            config = ComputerSessionConfig(),
-            sqlSessionFactory = RecordingSqlSessionFactory(),
-            xmlRpcGateway = RecordingXmlRpcGateway(),
-            passwordSource = StaticPasswordSource(null),
+        val service = service(
             captchaImageSource = StaticCaptchaImageSource(image),
             captchaKeyGenerator = StaticCaptchaKeyGenerator("67890"),
         )
@@ -214,19 +192,8 @@ class ComputerSessionServiceTest {
 
     @Test
     fun `ping timeout records play statistics and resets timestamps`() {
-        val session = RecordingSqlSession(
-            queryResults = mutableMapOf(
-                "SELECT uid FROM users WHERE ip = '10.0.0.1'" to listOf("42"),
-            )
-        )
-        val service = ComputerSessionService(
-            config = ComputerSessionConfig(),
-            sqlSessionFactory = RecordingSqlSessionFactory(session),
-            xmlRpcGateway = RecordingXmlRpcGateway(),
-            passwordSource = StaticPasswordSource(null),
-            captchaImageSource = StaticCaptchaImageSource(BufferedImage(175, 45, BufferedImage.TYPE_INT_ARGB)),
-            captchaKeyGenerator = StaticCaptchaKeyGenerator("12345"),
-        )
+        val telemetry = FakeTelemetryDataService()
+        val service = service(telemetry = telemetry)
 
         val result = service.recordPlayStatistics(
             PlayStatisticsRequest(
@@ -242,27 +209,13 @@ class ComputerSessionServiceTest {
         assertTrue(result.pingRecorded)
         assertEquals(0, result.lastPingTimeMillis)
         assertEquals(0, result.logInTimeMillis)
-        assertEquals(
-            listOf("SELECT uid FROM users WHERE ip = '10.0.0.1'", "INSERT INTO hackwars.user_play_statistics VALUES ('42','1000','1000')"),
-            session.queries
-        )
+        assertEquals(listOf(PlayWindow("10.0.0.1", 1000, 1000)), telemetry.windows)
     }
 
     @Test
     fun `client packet timeout records play statistics and resets timestamps`() {
-        val session = RecordingSqlSession(
-            queryResults = mutableMapOf(
-                "SELECT uid FROM users WHERE ip = '10.0.0.1'" to listOf("42"),
-            )
-        )
-        val service = ComputerSessionService(
-            config = ComputerSessionConfig(),
-            sqlSessionFactory = RecordingSqlSessionFactory(session),
-            xmlRpcGateway = RecordingXmlRpcGateway(),
-            passwordSource = StaticPasswordSource(null),
-            captchaImageSource = StaticCaptchaImageSource(BufferedImage(175, 45, BufferedImage.TYPE_INT_ARGB)),
-            captchaKeyGenerator = StaticCaptchaKeyGenerator("12345"),
-        )
+        val telemetry = FakeTelemetryDataService()
+        val service = service(telemetry = telemetry)
 
         val result = service.recordPlayStatistics(
             PlayStatisticsRequest(
@@ -278,6 +231,7 @@ class ComputerSessionServiceTest {
         assertTrue(result.clientPacketRecorded)
         assertEquals(0, result.lastClientPacketTimeMillis)
         assertEquals(0, result.logInTimeMillis)
+        assertEquals(listOf(PlayWindow("10.0.0.1", 1000, 1000)), telemetry.windows)
     }
 
     @Test
@@ -286,10 +240,8 @@ class ComputerSessionServiceTest {
             <?xml version="1.0" encoding="UTF-8"?>
             <save><ip>10.0.0.1</ip></save>
         """.trimIndent()
-        val session = RecordingSqlSession(
-            queryResults = mutableMapOf(
-                "select stats from user where ip = '10.0.0.1' limit 1" to listOf(saveXml),
-            )
+        val profile = FakeProfileDataService(
+            xmlByIp = mutableMapOf("10.0.0.1" to saveXml)
         )
 
         try {
@@ -298,55 +250,108 @@ class ComputerSessionServiceTest {
                 "http://127.0.0.1:1/hackwars",
             )
 
-            val service = ComputerSessionService(
+            val service = service(
                 config = ComputerSessionConfig(localAuthFallbackEnabled = false),
-                sqlSessionFactory = RecordingSqlSessionFactory(session),
-                xmlRpcGateway = RecordingXmlRpcGateway(),
-                passwordSource = StaticPasswordSource(null),
-                captchaImageSource = StaticCaptchaImageSource(BufferedImage(175, 45, BufferedImage.TYPE_INT_ARGB)),
-                captchaKeyGenerator = StaticCaptchaKeyGenerator("12345"),
+                profile = profile,
             )
 
             val xml = service.loadLocalSaveXml("10.0.0.1", active = false)
 
             assertTrue(xml.contains("<ip>10.0.0.1</ip>"))
-            assertEquals(
-                listOf("select stats from user where ip = '10.0.0.1' limit 1"),
-                session.queries
-            )
+            assertEquals(listOf("10.0.0.1"), profile.readIps)
         } finally {
             System.clearProperty("hackwars.localWebBaseUrl")
         }
     }
-}
 
-private class RecordingSqlSessionFactory(
-    private val first: RecordingSqlSession = RecordingSqlSession(),
-    private val second: RecordingSqlSession = RecordingSqlSession(),
-) : SqlSessionFactory {
-    private var openCount = 0
-
-    override fun open(connection: String, database: String, username: String, password: String): SqlSession {
-        val session = if (openCount++ == 0) first else second
-        return session
+    private fun service(
+        config: ComputerSessionConfig = ComputerSessionConfig(),
+        auth: GameAuthDataService = FakeAuthDataService(),
+        profile: GameProfileDataService = FakeProfileDataService(),
+        telemetry: GameTelemetryDataService = FakeTelemetryDataService(),
+        xmlRpcGateway: XmlRpcGateway = RecordingXmlRpcGateway(),
+        passwordSource: PasswordSource = StaticPasswordSource(null),
+        captchaImageSource: CaptchaImageSource = StaticCaptchaImageSource(BufferedImage(175, 45, BufferedImage.TYPE_INT_ARGB)),
+        captchaKeyGenerator: CaptchaKeyGenerator = StaticCaptchaKeyGenerator("12345"),
+    ): ComputerSessionService {
+        return ComputerSessionService(
+            config = config,
+            authDataService = auth,
+            profileDataService = profile,
+            telemetryDataService = telemetry,
+            xmlRpcGateway = xmlRpcGateway,
+            passwordSource = passwordSource,
+            captchaImageSource = captchaImageSource,
+            captchaKeyGenerator = captchaKeyGenerator,
+        )
     }
 }
 
-private class RecordingSqlSession(
-    val queryResults: MutableMap<String, List<String>?> = mutableMapOf(),
-) : SqlSession {
-    val queries = mutableListOf<String>()
+private data class AuthenticateCall(
+    val username: String,
+    val loginPassword: String,
+    val passwordIniValue: String?,
+)
 
-    override fun query(command: String): List<String>? {
-        queries.add(command)
-        return queryResults[command]
+private data class PlayWindow(
+    val ip: String,
+    val startTime: Long,
+    val endTime: Long,
+)
+
+private class FakeAuthDataService(
+    var authenticateResult: Boolean = true,
+    var forumLoginSnapshot: ForumLoginSnapshot? = ForumLoginSnapshot(
+        ip = "10.0.0.1",
+        npc = "Y",
+        daysSinceLastLogin = 0,
+    ),
+) : GameAuthDataService {
+    val authenticateCalls = mutableListOf<AuthenticateCall>()
+    val markedForumLogins = mutableListOf<String>()
+    val activityByIp = mutableMapOf<String, Pair<String, Int?>?>()
+
+    override fun authenticate(username: String, loginPassword: String, passwordIniValue: String?): Boolean {
+        authenticateCalls += AuthenticateCall(username, loginPassword, passwordIniValue)
+        return authenticateResult
     }
 
-    override fun update(command: String) {
-        queries.add(command)
+    override fun findForumLoginSnapshotByName(username: String): ForumLoginSnapshot? {
+        return forumLoginSnapshot
     }
 
-    override fun close() {
+    override fun findForumActivityByIp(ip: String): com.hackwars.data.model.ForumActivity? {
+        val activity = activityByIp[ip] ?: return null
+        return com.hackwars.data.model.ForumActivity(activity.first, activity.second)
+    }
+
+    override fun markForumLoginNow(username: String) {
+        markedForumLogins += username
+    }
+}
+
+private class FakeProfileDataService(
+    val xmlByIp: MutableMap<String, String?> = mutableMapOf(),
+) : GameProfileDataService {
+    val readIps = mutableListOf<String>()
+    val writes = mutableListOf<Pair<String, String>>()
+
+    override fun findProfileXmlByIp(ip: String): String? {
+        readIps += ip
+        return xmlByIp[ip]
+    }
+
+    override fun upsertProfileXmlByIp(ip: String, xml: String) {
+        writes += ip to xml
+        xmlByIp[ip] = xml
+    }
+}
+
+private class FakeTelemetryDataService : GameTelemetryDataService {
+    val windows = mutableListOf<PlayWindow>()
+
+    override fun recordPlayWindowByIp(ip: String, startTime: Long, endTime: Long) {
+        windows += PlayWindow(ip, startTime, endTime)
     }
 }
 

@@ -3,6 +3,9 @@ package game;
  * This singleton delivers files to a player when they purchase them via the Game's store.
  */
 
+import com.hackwars.data.model.PendingPurchase;
+import com.hackwars.data.service.GameWorldDataService;
+import game.data.GameServerDataLocator;
 import util.*;
 
 import java.util.*;
@@ -10,10 +13,7 @@ import java.util.*;
 public class GiveItemsSingleton {
     //MYSQL INFO.
     public static int SAVE_COUNTER = 0;
-    private String Connection = "localhost";
-    private String DB = "hackwars";
-    private String Username = "root";
-    private String Password = "";
+    private static volatile GameWorldDataService worldDataService = null;
 
     //The singleton class.
     private static GiveItemsSingleton instance = null;
@@ -24,6 +24,21 @@ public class GiveItemsSingleton {
         }
 
         return (instance);
+    }
+
+    public static synchronized void installWorldDataServiceForTests(GameWorldDataService service) {
+        worldDataService = service;
+    }
+
+    public static synchronized void resetWorldDataServiceForTests() {
+        worldDataService = null;
+    }
+
+    private static GameWorldDataService worldDataService() {
+        if (worldDataService == null) {
+            worldDataService = GameServerDataLocator.worldService();
+        }
+        return worldDataService;
     }
 
     //Make the constructor private.
@@ -276,52 +291,40 @@ public class GiveItemsSingleton {
      */
     public synchronized void giveFiles(Computer PlayerComputer, ComputerHandler MyComputerHandler) {
         try {
-            sql C = new sql(Connection, DB, Username, Password);
-            ArrayList result = null;
-            String q = "SELECT store_item_id,bought_item_id FROM bought_items WHERE ip=\"" + PlayerComputer.getIP() + "\" AND given=0";
-            result = C.process(q);
+            ArrayList<Long> givenList = new ArrayList<Long>();//Purchases that have been successfully given.
+            List<PendingPurchase> purchases = worldDataService().findPendingPurchasesByIp(PlayerComputer.getIP());
 
-            ArrayList givenList = new ArrayList();//Purchases that have been successfully given.
+            for (PendingPurchase purchase : purchases) {
+                String store_item_id = String.valueOf(purchase.getStoreItemId());
 
-            if (result != null)
-                for (int i = 0; i < result.size(); i += 2) {
-                    String store_item_id = (String) result.get(i);
-                    String bought_item_id = (String) result.get(i + 1);
-
-                    if (store_item_id.equals("1")) {
-                        if (givePackage1(PlayerComputer, MyComputerHandler)) {
-                            givenList.add(bought_item_id);
-                        }
-                    } else if (store_item_id.equals("2")) {
-                        if (givePackage2(PlayerComputer, MyComputerHandler)) {
-                            givenList.add(bought_item_id);
-                        }
-                    } else if (store_item_id.equals("3")) {
-                        if (givePackage3(PlayerComputer, MyComputerHandler)) {
-                            givenList.add(bought_item_id);
-                        }
-                    } else if (store_item_id.equals("4")) {
-                        if (givePackage4(PlayerComputer, MyComputerHandler)) {
-                            givenList.add(bought_item_id);
-                        }
-                    } else if (store_item_id.equals("5")) {
-                        if (givePackage5(PlayerComputer, MyComputerHandler)) {
-                            givenList.add(bought_item_id);
-                        }
-                    } else if (store_item_id.equals("6")) {
-                        if (givePackage6(PlayerComputer, MyComputerHandler)) {
-                            givenList.add(bought_item_id);
-                        }
+                if (store_item_id.equals("1")) {
+                    if (givePackage1(PlayerComputer, MyComputerHandler)) {
+                        givenList.add(purchase.getBoughtItemId());
+                    }
+                } else if (store_item_id.equals("2")) {
+                    if (givePackage2(PlayerComputer, MyComputerHandler)) {
+                        givenList.add(purchase.getBoughtItemId());
+                    }
+                } else if (store_item_id.equals("3")) {
+                    if (givePackage3(PlayerComputer, MyComputerHandler)) {
+                        givenList.add(purchase.getBoughtItemId());
+                    }
+                } else if (store_item_id.equals("4")) {
+                    if (givePackage4(PlayerComputer, MyComputerHandler)) {
+                        givenList.add(purchase.getBoughtItemId());
+                    }
+                } else if (store_item_id.equals("5")) {
+                    if (givePackage5(PlayerComputer, MyComputerHandler)) {
+                        givenList.add(purchase.getBoughtItemId());
+                    }
+                } else if (store_item_id.equals("6")) {
+                    if (givePackage6(PlayerComputer, MyComputerHandler)) {
+                        givenList.add(purchase.getBoughtItemId());
                     }
                 }
-
-            //Now update the items table to set that they have been given.
-            for (int i = 0; i < givenList.size(); i++) {
-                q = "UPDATE bought_items SET given=1 WHERE bought_item_id=" + (String) givenList.get(i);
-                C.process(q);
             }
 
-            C.close();
+            worldDataService().markPurchasesGiven(givenList);
         } catch (Exception e) {
             e.printStackTrace();
         }

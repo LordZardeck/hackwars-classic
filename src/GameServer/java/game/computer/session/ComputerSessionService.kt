@@ -1,17 +1,29 @@
 package game.computer.session
 
+import com.hackwars.data.service.GameAuthDataService
+import com.hackwars.data.service.GameProfileDataService
+import com.hackwars.data.service.GameTelemetryDataService
+import game.data.GameServerDataLocator
 import org.w3c.dom.Node
 import util.LoadXML
 import util.LocalWebConfig
 
 class ComputerSessionService(
     private val config: ComputerSessionConfig = ComputerSessionConfig(),
-    private val sqlSessionFactory: SqlSessionFactory = DefaultSqlSessionFactory(),
+    private val authDataService: GameAuthDataService? = null,
+    private val profileDataService: GameProfileDataService? = null,
+    private val telemetryDataService: GameTelemetryDataService? = null,
     private val xmlRpcGateway: XmlRpcGateway = DefaultXmlRpcGateway(),
     private val passwordSource: PasswordSource = FilePasswordSource(config.passwordFilePath),
     private val captchaImageSource: CaptchaImageSource = DefaultCaptchaImageSource(),
     private val captchaKeyGenerator: CaptchaKeyGenerator = RandomCaptchaKeyGenerator(),
 ) {
+    private fun authDataService(): GameAuthDataService = authDataService ?: GameServerDataLocator.authService()
+
+    private fun profileDataService(): GameProfileDataService = profileDataService ?: GameServerDataLocator.profileService()
+
+    private fun telemetryDataService(): GameTelemetryDataService = telemetryDataService ?: GameServerDataLocator.telemetryService()
+
     fun xorCrypt(data: ByteArray, key: String): String {
         val keyBytes = key.toByteArray()
         if (keyBytes.isEmpty()) {
@@ -34,52 +46,26 @@ class ComputerSessionService(
             }
         }
 
-        var authSession: SqlSession? = null
-        var gameSession: SqlSession? = null
-        var accepted = false
-        var ipCheck = ""
-
         try {
-            authSession = sqlSessionFactory.open(
-                config.authConnection,
-                config.authDatabase,
-                config.authUsername,
-                config.authPassword,
-            )
-
+            val userName = request.userName
+            if (userName.isNullOrBlank()) {
+                return LoginResult(accepted = false, sendPreferences = false)
+            }
             val loginPassword = passwordSource.readPassword()
-            val query = if (request.loginPassword != loginPassword) {
-                "SELECT name FROM users WHERE name = \"${request.userName}\" AND pass = PASSWORD(\"${request.loginPassword}\")"
-            } else {
-                "SELECT name FROM hackerforum.users WHERE name = \"${request.userName}\""
-            }
-
-            val authResult = authSession.query(query)
-            if ((authResult == null || authResult.isEmpty()) && !request.testing) {
+            val authService = authDataService()
+            val authenticated = authService.authenticate(userName, request.loginPassword, loginPassword)
+            if (!authenticated && !request.testing) {
                 return LoginResult(accepted = false, sendPreferences = false)
             }
 
-            gameSession = sqlSessionFactory.open(
-                config.gameConnection,
-                config.gameDatabase,
-                config.gameUsername,
-                config.gamePassword,
-            )
-
-            val lookupQuery = "SELECT ip, npc, TO_DAYS(NOW()) - TO_DAYS(last_logged_in) FROM users WHERE name = \"${request.userName}\""
-            val result = gameSession.query(lookupQuery)
-            gameSession.update("UPDATE users SET last_logged_in=NOW() WHERE name = \"${request.userName}\"")
-
-            if (result != null && result.size > 0) {
-                ipCheck = result[0]
-                accepted = true
-            }
-
-            if (request.ip != ipCheck) {
+            authService.markForumLoginNow(userName)
+            val snapshot = authService.findForumLoginSnapshotByName(userName)
+                ?: return LoginResult(accepted = false, sendPreferences = false)
+            if (request.ip != snapshot.ip) {
                 return LoginResult(accepted = false, sendPreferences = false)
             }
 
-            return LoginResult(accepted = accepted, sendPreferences = accepted)
+            return LoginResult(accepted = true, sendPreferences = true)
         } catch (_: Exception) {
             if (config.localAuthFallbackEnabled) {
                 if (!request.userName.isNullOrBlank() && request.ip.isNotBlank()) {
@@ -87,15 +73,6 @@ class ComputerSessionService(
                 }
             }
             return LoginResult(accepted = false, sendPreferences = false)
-        } finally {
-            try {
-                authSession?.close()
-            } catch (_: Exception) {
-            }
-            try {
-                gameSession?.close()
-            } catch (_: Exception) {
-            }
         }
     }
 
@@ -125,16 +102,8 @@ class ComputerSessionService(
             }
         }
 
-        var saveSession: SqlSession? = null
         try {
-            saveSession = sqlSessionFactory.open(
-                config.saveConnection,
-                config.saveDatabase,
-                config.saveUsername,
-                config.savePassword,
-            )
-            val results = saveSession.query("select stats from user where ip = '$ip' limit 1")
-            val xml = results?.firstOrNull()
+            val xml = profileDataService().findProfileXmlByIp(ip)
             if (!xml.isNullOrBlank()) {
                 return xml
             }
@@ -142,11 +111,6 @@ class ComputerSessionService(
         } catch (e: Exception) {
             failures.append("DB fallback failed: ").append(e.message).append(". ")
             lastError = e
-        } finally {
-            try {
-                saveSession?.close()
-            } catch (_: Exception) {
-            }
         }
 
         val detail = "Unable to load local account data for ip=$ip. $failures"
@@ -258,28 +222,14 @@ class ComputerSessionService(
     }
 
     fun recordPlayWindow(ip: String, startTime: Long, endTime: Long) {
-        recordPlayStatWindow(ip, startTime, endTime)
+        try {
+            telemetryDataService().recordPlayWindowByIp(ip, startTime, endTime)
+        } catch (_: Exception) {
+        }
     }
 
     private fun recordPlayStatWindow(ip: String, startTime: Long, endTime: Long) {
-        var session: SqlSession? = null
-        try {
-            session = sqlSessionFactory.open(
-                config.authConnection,
-                config.authDatabase,
-                config.authUsername,
-                config.authPassword,
-            )
-            val result = session.query("""SELECT uid FROM users WHERE ip = '$ip'""")
-            val uid = result?.firstOrNull() ?: return
-            session.update("""INSERT INTO hackwars.user_play_statistics VALUES ('$uid','$startTime','$endTime')""")
-        } catch (_: Exception) {
-        } finally {
-            try {
-                session?.close()
-            } catch (_: Exception) {
-            }
-        }
+        recordPlayWindow(ip, startTime, endTime)
     }
 
     private fun localLoginUrls(ip: String, active: Boolean, addPass: String): List<String> {

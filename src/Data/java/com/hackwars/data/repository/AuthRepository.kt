@@ -1,6 +1,7 @@
 package com.hackwars.data.repository
 
 import com.hackwars.data.model.ForumLoginSnapshot
+import com.hackwars.data.model.ForumActivity
 import jakarta.persistence.EntityManager
 
 class AuthRepository(private val entityManager: EntityManager) {
@@ -92,7 +93,7 @@ class AuthRepository(private val entityManager: EntityManager) {
      * Legacy mapping:
      * SELECT npc, TO_DAYS(NOW()) - TO_DAYS(last_logged_in) FROM hackerforum.users WHERE ip=?
      */
-    fun findForumActivityByIp(ip: String): Pair<String, Int?>? {
+    fun findForumActivityByIp(ip: String): ForumActivity? {
         @Suppress("UNCHECKED_CAST")
         val rows = entityManager.createNativeQuery(
             """
@@ -105,7 +106,10 @@ class AuthRepository(private val entityManager: EntityManager) {
             .setMaxResults(1)
             .resultList as List<Array<Any?>>
         val row = rows.firstOrNull() ?: return null
-        return (row[0] as String) to ((row[1] as? Number)?.toInt())
+        return ForumActivity(
+            npc = row[0] as String,
+            daysSinceLastLogin = (row[1] as? Number)?.toInt(),
+        )
     }
 
     /**

@@ -3,7 +3,9 @@ package com.hackwars.data.repository
 import com.hackwars.data.entity.hackwars.DropTableEntryEntity
 import com.hackwars.data.entity.hackwars.ItemEntity
 import com.hackwars.data.model.DropEntry
+import com.hackwars.data.model.DropItemData
 import jakarta.persistence.EntityManager
+import java.nio.charset.StandardCharsets
 
 class DropTableRepository(private val entityManager: EntityManager) {
     /**
@@ -42,4 +44,30 @@ class DropTableRepository(private val entityManager: EntityManager) {
             .resultList
             .firstOrNull()
             ?.data
+
+    fun findDropItems(dropId: Int): List<DropItemData> {
+        @Suppress("UNCHECKED_CAST")
+        val rows = entityManager.createNativeQuery(
+            """
+            SELECT dt.weight, i.data
+            FROM hackwars.drop_table dt
+            INNER JOIN hackwars.items i
+                ON i.id = dt.item_id
+            WHERE dt.drop_id = :dropId
+            ORDER BY dt.item_id
+            """.trimIndent(),
+        )
+            .setParameter("dropId", dropId)
+            .resultList as List<Array<Any?>>
+
+        return rows.mapNotNull { row ->
+            val weight = (row[0] as? Number)?.toInt() ?: return@mapNotNull null
+            val data = when (val value = row[1]) {
+                is ByteArray -> String(value, StandardCharsets.UTF_8)
+                is String -> value
+                else -> value?.toString()
+            } ?: return@mapNotNull null
+            DropItemData(weight = weight, data = data)
+        }
+    }
 }

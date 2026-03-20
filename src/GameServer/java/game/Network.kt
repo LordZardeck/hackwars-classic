@@ -1,19 +1,18 @@
 package game
 
 import assignments.PacketNetwork
+import com.hackwars.data.service.GameWorldDataService
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineName
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
-import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 import org.slf4j.LoggerFactory
 import server.runtime.GameServerRuntime
 import server.runtime.GameServerService
-import util.sql
+import game.data.GameServerDataLocator
 
 /**
  * Description: This is the Network singleton. It loads all the networks into existence.
@@ -23,7 +22,8 @@ class Network internal constructor(
     private var computerHandler: NetworkSwitch?,
     private val runtime: GameServerRuntime = GameServerRuntime(),
     private val attackSleepMs: Long = ATTACK_SLEEP,
-    private val bootstrapNetworks: Boolean = true
+    private val bootstrapNetworks: Boolean = true,
+    private val worldDataService: GameWorldDataService? = null
 ) : GameServerService, Cloneable {
     companion object {
         private val Logger = LoggerFactory.getLogger(Network::class.java)
@@ -63,11 +63,6 @@ class Network internal constructor(
             }
         }
     }
-
-    private val Connection = "localhost"
-    private val DB = "hackwars"
-    private val Username = "root"
-    private val Password = ""
 
     private val networkNodes = HashMap<Any?, Any?>()
     private var schedulerJob: Job? = null
@@ -184,134 +179,49 @@ class Network internal constructor(
     fun loadNetworks(): HashMap<*, *> {
         try {
             Logger.info("Loading networks from database")
-            val c = sql(Connection, DB, Username, Password)
-
-            var result: ArrayList<*>? = null
-            var result1: ArrayList<*>? = null
-
-            val q = "SELECT id, name, attack_probability FROM network"
-            result = c.process(q)
-            if (result != null && result.size > 0) {
-                var i = 0
-                while (i < result.size) {
-                    val networkInfo = HashMap<Any?, Any?>()
-
-                    val networkId = result[i].toString()
-                    val networkName = result[i + 1] as String?
-                    val attackProbability = coerceFloat(result[i + 2])
-
-                    val q1 =
-                        "SELECT n.name,an.entranceMessage FROM network n INNER JOIN attached_networks an ON n.id = an.attached_network_id WHERE an.network_id = $networkId"
-                    result1 = c.process(q1)
-                    val attachedNetworksArray = HashMap<Any?, Any?>()
-                    if (result1 != null && result1.size > 0) {
-                        var j = 0
-                        while (j < result1.size) {
-                            attachedNetworksArray[result1[j] as String?] = result1[j + 1] as String?
-                            j += 2
-                        }
-                        networkInfo["attachedNetworks"] = attachedNetworksArray
+            val service = worldDataService ?: GameServerDataLocator.worldService()
+            service.loadNetworkDefinitions().forEach { definition ->
+                val networkInfo = HashMap<Any?, Any?>()
+                networkInfo["attachedNetworks"] = HashMap<Any?, Any?>().apply {
+                    definition.attachedNetworks.forEach { link ->
+                        put(link.attachedNetworkName, link.entranceMessage)
                     }
-
-                    var npcIP: String? = ""
-                    var resource: String? = ""
-                    var npcName: String? = ""
-                    var npcTitle: String? = ""
-
-                    val qstore =
-                        "SELECT npc_ip, name, title FROM network_npc WHERE npc_type = 'store' AND network_id = $networkId"
-                    result1 = c.process(qstore)
-                    val storeHashArray = ArrayList<Any?>()
-                    if (result1 != null && result1.size > 0) {
-                        var j = 0
-                        while (j < result1.size) {
-                            val storeNPCs = HashMap<Any?, Any?>()
-                            npcIP = result1[j] as String?
-                            npcName = result1[j + 1] as String?
-                            npcTitle = result1[j + 2] as String?
-                            storeNPCs["ip"] = npcIP
-                            storeNPCs["name"] = npcName
-                            storeNPCs["title"] = npcTitle
-                            storeHashArray.add(storeNPCs)
-                            j += 3
-                        }
-                    }
-                    networkInfo["storeNPCs"] = storeHashArray
-                    var networkStoreIP: String? = ""
-                    if (storeHashArray.size > 0) {
-                        networkStoreIP = (storeHashArray[0] as HashMap<*, *>)["ip"] as String?
-                    }
-                    println("network = $networkName, storeNPC = $networkStoreIP")
-                    networkInfo["storeNPC"] = networkStoreIP
-
-                    val qmining =
-                        "SELECT npc_ip, resource, name, title FROM network_npc WHERE npc_type = 'mining' AND network_id = $networkId"
-                    result1 = c.process(qmining)
-                    val miningHashArray = ArrayList<Any?>()
-                    if (result1 != null && result1.size > 0) {
-                        var j = 0
-                        while (j < result1.size) {
-                            val miningNPCs = HashMap<Any?, Any?>()
-                            npcIP = result1[j] as String?
-                            resource = result1[j + 1] as String?
-                            npcName = result1[j + 2] as String?
-                            npcTitle = result1[j + 3] as String?
-                            miningNPCs["ip"] = npcIP
-                            miningNPCs["commodity"] = resource
-                            miningNPCs["name"] = npcName
-                            miningNPCs["title"] = npcTitle
-                            miningHashArray.add(miningNPCs)
-                            j += 4
-                        }
-                    }
-                    networkInfo["miningNPCs"] = miningHashArray
-
-                    val qattack =
-                        "SELECT npc_ip, name, title FROM network_npc WHERE npc_type = 'attack' AND network_id = $networkId"
-                    result1 = c.process(qattack)
-                    val attackHashArray = ArrayList<Any?>()
-                    if (result1 != null && result1.size > 0) {
-                        var j = 0
-                        while (j < result1.size) {
-                            val attackNPCs = HashMap<Any?, Any?>()
-                            npcIP = result1[j] as String?
-                            npcName = result1[j + 1] as String?
-                            npcTitle = result1[j + 2] as String?
-                            attackNPCs["ip"] = npcIP
-                            attackNPCs["name"] = npcName
-                            attackNPCs["title"] = npcTitle
-                            attackHashArray.add(attackNPCs)
-                            j += 3
-                        }
-                    }
-                    networkInfo["attackNPCs"] = attackHashArray
-
-                    val qquest =
-                        "SELECT npc_ip, name, title FROM network_npc WHERE npc_type = 'quest' AND network_id = $networkId"
-                    result1 = c.process(qquest)
-                    val questHashArray = ArrayList<Any?>()
-                    if (result1 != null && result1.size > 0) {
-                        var j = 0
-                        while (j < result1.size) {
-                            val questNPCs = HashMap<Any?, Any?>()
-                            npcIP = result1[j] as String?
-                            npcName = result1[j + 1] as String?
-                            npcTitle = result1[j + 2] as String?
-                            questNPCs["ip"] = npcIP
-                            questNPCs["name"] = npcName
-                            questNPCs["title"] = npcTitle
-                            questHashArray.add(questNPCs)
-                            j += 3
-                        }
-                    }
-                    networkInfo["questNPCs"] = questHashArray
-                    networkInfo["attackProbability"] = attackProbability
-                    networkNodes[networkName] = networkInfo
-                    i += 3
                 }
+                networkInfo["storeNPCs"] = definition.storeNpcs.map { npc ->
+                    hashMapOf<Any?, Any?>(
+                        "ip" to npc.ip,
+                        "name" to npc.name,
+                        "title" to npc.title,
+                    )
+                }.toCollection(ArrayList())
+                networkInfo["storeNPC"] = definition.storeNpcIp
+                networkInfo["miningNPCs"] = definition.miningNpcs.map { npc ->
+                    hashMapOf<Any?, Any?>(
+                        "ip" to npc.ip,
+                        "commodity" to npc.resource,
+                        "name" to npc.name,
+                        "title" to npc.title,
+                    )
+                }.toCollection(ArrayList())
+                networkInfo["attackNPCs"] = definition.attackNpcs.map { npc ->
+                    hashMapOf<Any?, Any?>(
+                        "ip" to npc.ip,
+                        "name" to npc.name,
+                        "title" to npc.title,
+                    )
+                }.toCollection(ArrayList())
+                networkInfo["questNPCs"] = definition.questNpcs.map { npc ->
+                    hashMapOf<Any?, Any?>(
+                        "ip" to npc.ip,
+                        "name" to npc.name,
+                        "title" to npc.title,
+                    )
+                }.toCollection(ArrayList())
+                networkInfo["attackProbability"] = definition.attackProbability
+                println("network = ${definition.name}, storeNPC = ${definition.storeNpcIp}")
+                networkNodes[definition.name] = networkInfo
             }
             ensureRootNetwork()
-            c.close()
             Logger.info("Loaded {} networks", networkNodes.size)
         } catch (e: Exception) {
             Logger.error("Failed to load networks", e)

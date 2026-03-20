@@ -9,6 +9,7 @@ import com.plink.dolphinnet.MessageServer
 import com.plink.dolphinnet.MessageCoordinator
 import com.plink.dolphinnet.assignments.ZippedAssignment
 import game.*
+import game.data.GameServerDataLocator
 import kotlinx.coroutines.CoroutineName
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
@@ -261,6 +262,7 @@ class HackerServer(e: MessageServer, serverID: String) : MessageCoordinator(e), 
 
 fun main(args: Array<String>) {
     try {
+        GameServerDataLocator.bootstrap()
         val messageServer = MessageServer(1000, 10020) //Creates a new server for distributing tasks.
         messageServer.setClientJobSize(4)
         HackerServer(messageServer, args[0])
