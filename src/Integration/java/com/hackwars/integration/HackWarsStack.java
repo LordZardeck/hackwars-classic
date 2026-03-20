@@ -3,9 +3,8 @@ package com.hackwars.integration;
 import com.hackwars.client.ClientAuthGateway;
 import com.hackwars.client.DeterministicClientAuthAccount;
 import com.hackwars.client.DeterministicClientAuthGateway;
-import com.plink.dolphinnet.Editor;
+import com.plink.dolphinnet.MessageServer;
 import game.computer.session.ComputerSessionOverrides;
-import org.jetbrains.annotations.NotNull;
 import server.ChatServer;
 import util.PlayFabTokenVerifier;
 import util.SessionTokenVerifier;
@@ -16,8 +15,8 @@ import java.util.Collections;
 public final class HackWarsStack implements AutoCloseable {
     private final IntegrationStackConfig config;
     private final SeedScenario scenario;
-    private Editor gameEditor;
-    private Editor chatEditor;
+    private MessageServer gameMessageServer;
+    private MessageServer chatMessageServer;
     private server.HackerServer gameServer;
     private ChatServer chatServer;
     private boolean started;
@@ -52,13 +51,13 @@ public final class HackWarsStack implements AutoCloseable {
         });
         ComputerSessionOverrides.installLocalSaveOverride((ip, active) -> scenario.getPlayerIp().equals(ip) ? scenario.getSaveXml() : null);
 
-        gameEditor = new Editor(2048, 1000, config.getGameOutPort(), config.getGameInPort());
-        gameEditor.setClientJobSize(4);
-        gameServer = new server.HackerServer(gameEditor, "integration");
+        gameMessageServer = new MessageServer(2048, 1000, config.getGameOutPort(), config.getGameInPort());
+        gameMessageServer.setClientJobSize(4);
+        gameServer = new server.HackerServer(gameMessageServer, "integration");
 
-        chatEditor = new Editor(2048, 1000, config.getChatOutPort(), config.getChatInPort());
-        chatEditor.setClientJobSize(4);
-        chatServer = new ChatServer(chatEditor);
+        chatMessageServer = new MessageServer(2048, 1000, config.getChatOutPort(), config.getChatInPort());
+        chatMessageServer.setClientJobSize(4);
+        chatServer = new ChatServer(chatMessageServer);
 
         started = true;
         try {

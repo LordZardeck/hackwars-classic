@@ -1,12 +1,6 @@
 package com.plink.dolphinnet;
 
-import javax.swing.*;
-import java.util.*;
-import java.util.zip.*;
 import java.net.*;
-import java.io.*;
-import java.awt.*;
-import java.awt.event.*;
 
 /**
  * <b>DolphinNet<br />
@@ -14,10 +8,10 @@ import java.awt.event.*;
  * <p>
  * The Editor (server) end implementation of an inbound server.
  */
-public class EditorInServe extends InServe {
+public class ServerInboundConnection extends InboundConnection {
     /// /////////////////////////
     //Constructor.
-    public EditorInServe(Object parent, Socket socket) {
+    public ServerInboundConnection(Object parent, Socket socket) {
         super(parent, socket);
         super.setThreadSleepTime(50);
     }
@@ -26,7 +20,7 @@ public class EditorInServe extends InServe {
      * Dispatch a received object to the appropriate location.
      */
     public synchronized void putInObject(Object o) {
-        Editor e = (Editor) this.getParent();
+        MessageServer e = (MessageServer) this.getParent();
 
         if (o instanceof Assignment) {
             Assignment a = (Assignment) o;

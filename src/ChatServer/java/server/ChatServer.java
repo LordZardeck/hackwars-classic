@@ -8,11 +8,8 @@ package server;
 import assignments.LoginAssignment;
 import assignments.MessageInPacket;
 import assignments.PingAssignment;
-import com.plink.dolphinnet.Assignment;
-import com.plink.dolphinnet.ClientBinaryList;
-import com.plink.dolphinnet.ClientData;
-import com.plink.dolphinnet.Editor;
-import com.plink.dolphinnet.IParty;
+import com.plink.dolphinnet.*;
+import com.plink.dolphinnet.MessageServer;
 
 import java.util.*;
 import java.util.concurrent.Semaphore;
@@ -24,7 +21,7 @@ import util.UserHandler;
 import util.PlayFabTokenVerifier;
 import util.SessionTokenVerifiers;
 
-public class ChatServer extends IParty implements Runnable {
+public class ChatServer extends MessageCoordinator implements Runnable {
     private static final Logger Logger = LoggerFactory.getLogger(ChatServer.class);
 
     //Data.
@@ -34,7 +31,7 @@ public class ChatServer extends IParty implements Runnable {
     private Thread MyThread = null;
     private ArrayList Tasks = new ArrayList();
 
-    public ChatServer(Editor e) {//Used for constructor just keep this here in IPartys.
+    public ChatServer(MessageServer e) {//Used for constructor just keep this here in IPartys.
         super(e);
         MyTime = new Time();
         MyUserHandler = new UserHandler(MyTime, this);
@@ -91,7 +88,7 @@ public class ChatServer extends IParty implements Runnable {
 
     static void main() {
         try {
-            Editor E = new Editor(2048, 1000, 10025, 10026);//Creates a new server for distributing tasks.
+            MessageServer E = new MessageServer(2048, 1000, 10025, 10026);//Creates a new server for distributing tasks.
             E.setClientJobSize(4);
             new ChatServer(E);
         } catch (Exception e) {

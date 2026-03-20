@@ -1,35 +1,32 @@
 package com.plink.dolphinnet;
 
-import com.plink.dolphinnet.util.*;
-
-import javax.swing.*;
 import java.util.*;
-import java.util.zip.*;
 import java.net.*;
 import java.io.*;
-import java.awt.*;
-import java.awt.event.*;
+
+import com.plink.dolphinnet.assignments.*;
 
 /**
  * <b>DolphinNet<br />
  * Benjamin E. Coe (2006)</b><br /><br />
  * <p>
- * This class provides an abstract basis for sending outbound data on a socket.
- * You must implement the getGuiObject() which checks for objects to be output and the specialInit()
- * method which is provided for any implementation specific initialization.
+ * This class provides an abstract basis for receiving data on a socket.
+ * You must implement putGuiObject() which delivers received object to the appropriate
+ * location and the specialInit() method which is provided for any implementation specific initialization.]
  */
-abstract public class OutServe implements Runnable {
+
+abstract public class InboundConnection implements Runnable {
     //Data.
     private int id = 0;
     private Object Parent = null;
 
-    private InputStream in = null;
-    private ObjectOutputStream out = null;
-    private Socket SSend = null;
-    private int socketTimeOut = 100000;
-
-    private int threadSleepTime = 50;
     private volatile Thread t = null;
+    private int threadSleepTime = 50;
+
+    private int socketTimeOut = 200;
+    private Socket SReceive = null;
+    private ObjectInputStream in = null;
+    private OutputStream out = null;
 
     private long timeOut = 300000;//About 3 minutes.
     private long timeStamp = 0;
@@ -45,9 +42,10 @@ abstract public class OutServe implements Runnable {
 
     /// /////////////////////////
     //Constructor.
-    public OutServe(Object Parent, Socket SSend) {
+    public InboundConnection(Object Parent, Socket SReceive) {
         this.Parent = Parent;
-        this.SSend = SSend;
+        this.SReceive = SReceive;
+        this.timeOut = timeOut;
         setAlive();
     }
 
@@ -69,7 +67,7 @@ abstract public class OutServe implements Runnable {
     }
 
     public Socket getSocket() {
-        return (SSend);
+        return (SReceive);
     }
 
     /// ////////////////////////
@@ -92,57 +90,73 @@ abstract public class OutServe implements Runnable {
     }
 
     public void setSocketTimeOut(int socketTimeOut) {
-        this.socketTimeOut = socketTimeOut;
+        //this.socketTimeOut=socketTimeOut;
     }
 
-    /// ///////////////////////
+    /// ////////////////////////
     // Methods.
     public void run() {
+
         Thread thisThread = Thread.currentThread();
         while (thisThread == t) {
             try {
                 if (!getAlive())
                     kill();
 
-                Object o = getOutObject(id);
+                if (this instanceof ClientInboundConnection)
+                    out.write(10);
+
+                Object o = in.readObject();
 
                 if (o != null) {
-
-                    if (this instanceof EditorOutServe)
-                        in.read();
-
-                    out.writeObject(o);
-
-                    out.flush();
-                    out.reset();
+                    if (o instanceof ZippedAssignment) {
+                        putInObject(((ZippedAssignment) o).getAssignment());
+                    } else
+                        putInObject(o);
                     setAlive();
                 }
 
 
             } catch (Exception e) {
+                //	e.printStackTrace();
                 if (!(e instanceof java.net.SocketTimeoutException)) {
-                    //	this.kill();
+                    //		this.kill();
                 }
             }
 
             try {
                 t.sleep(threadSleepTime);
-            } catch (Exception e) {
+            } catch (Exception wake) {
                 Thread.currentThread().interrupt();
             }
         }
 
         //Clean up data.
-        if (Parent instanceof Editor) {
-            Editor p = (Editor) Parent;
-            p.removeClient(getID());
+        Parent = null;
+        try {
+            if (in != null)
+                in.close();
+            if (SReceive != null)
+                SReceive.close();
+        } catch (Exception e) {
+            //	e.printStackTrace();
         }
+        in = null;
+        SReceive = null;
+        t = null;
+    }
 
+    /**
+     * Start the server.
+     */
+    public void execute() {
+        t = new Thread(this, "com/plink/dolphinnet/InServe");
+        t.start();
     }
 
     /**
      * Kill this process.
-     **/
+     */
     public void kill() {
         if (t != null) {
             Thread moribund = t;
@@ -153,52 +167,46 @@ abstract public class OutServe implements Runnable {
         try {
             if (out != null)
                 out.close();
-            if (SSend != null)
-                SSend.close();
             if (in != null)
                 in.close();
+            if (SReceive != null)
+                SReceive.close();
         } catch (Exception e) {
             //	e.printStackTrace();
         }
+
+        id = 0;
         Parent = null;
-        SSend = null;
+        SReceive = null;
         in = null;
         out = null;
     }
 
     /**
-     * Start the server running.
+     * Dispatch a received object to the appropriate location.
      */
-    public void execute() {
-        t = new Thread(this, "com/plink/dolphinnet/OutServe");
-        t.start();
-    }
+    abstract public void putInObject(Object o);
 
     /**
-     * Get any objects that are currently in queue to be sent on this connection.
+     * Perform and special initialization steps.
      */
-    abstract public Object getOutObject(int id);
+    abstract public void specialInit();
 
     /**
-     * Perform any special initialization steps.
-     */
-    abstract public void specialInit(Socket SSend);
-
-    /**
-     * Initialize the server (must be run before executing).
+     * Initialize the socket.
      */
     public void init(int socketTimeOut) {
         this.socketTimeOut = socketTimeOut;
         try {
-            //Set up our object output stream.
-            specialInit(SSend);
-            SSend.setSoTimeout(socketTimeOut);
-            SSend.setTcpNoDelay(true);
-            SSend.setKeepAlive(true);
-            //this.SSend.setTrafficClass(0x02|0x04|0x08|0x10);
-            in = SSend.getInputStream();
-            out = new ObjectOutputStream(new BufferedOutputStream(SSend.getOutputStream(), 20000));
-            out.flush();
+            //Setup our object input stream.
+            specialInit();
+            this.SReceive.setSoTimeout(this.socketTimeOut);
+            this.SReceive.setTcpNoDelay(true);
+            this.SReceive.setKeepAlive(true);
+            //this.SReceive.setTrafficClass(0x02|0x04|0x08|0x10);
+            out = SReceive.getOutputStream();
+            in = new ObjectInputStream(new BufferedInputStream(SReceive.getInputStream(), 20000));
+            //in.reset();
         } catch (Exception e) {
             //	e.printStackTrace();
         }

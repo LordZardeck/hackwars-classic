@@ -6,8 +6,8 @@ import assignments.PingAssignment
 import assignments.RemoteFunctionCall
 import com.plink.dolphinnet.Assignment
 import com.plink.dolphinnet.ClientData
-import com.plink.dolphinnet.Editor
-import com.plink.dolphinnet.IParty
+import com.plink.dolphinnet.MessageServer
+import com.plink.dolphinnet.MessageCoordinator
 import com.plink.dolphinnet.assignments.ZippedAssignment
 import game.*
 import kotlinx.coroutines.CoroutineName
@@ -34,7 +34,7 @@ import java.util.*
  * to actual players of the game.
  */
 
-class HackerServer(e: Editor, serverID: String) : IParty(e), HackerServerBridge {
+class HackerServer(e: MessageServer, serverID: String) : MessageCoordinator(e), HackerServerBridge {
     companion object {
         private val Logger: Logger = LoggerFactory.getLogger(HackerServer::class.java)
 
@@ -264,9 +264,9 @@ class HackerServer(e: Editor, serverID: String) : IParty(e), HackerServerBridge 
 
 fun main(args: Array<String>) {
     try {
-        val editor = Editor(2048, 1000, 10020, 10021) //Creates a new server for distributing tasks.
-        editor.setClientJobSize(4)
-        HackerServer(editor, args[0])
+        val messageServer = MessageServer(2048, 1000, 10020, 10021) //Creates a new server for distributing tasks.
+        messageServer.setClientJobSize(4)
+        HackerServer(messageServer, args[0])
     } catch (e: Exception) {
         e.printStackTrace()
     }

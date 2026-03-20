@@ -1,7 +1,5 @@
 package com.plink.dolphinnet;
 
-import com.plink.dolphinnet.util.*;
-
 import java.util.*;
 
 /**
@@ -99,7 +97,7 @@ public class ClientData {
     /**
      * Upon failing the client should return all un-finished jobs.
      */
-    public void fail(IParty IP) {
+    public void fail(MessageCoordinator IP) {
         //	for(int i=0;i<outAssignments.getData().size();i++)
         //	IP.failedAssignment((Assignment)outAssignments.get(i));
     }

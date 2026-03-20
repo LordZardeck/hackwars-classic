@@ -1,12 +1,6 @@
 package com.plink.dolphinnet;
 
-import javax.swing.*;
-import java.util.*;
-import java.util.zip.*;
 import java.net.*;
-import java.io.*;
-import java.awt.*;
-import java.awt.event.*;
 
 /**
  * <b>DolphinNet<br />
@@ -14,12 +8,12 @@ import java.awt.event.*;
  * <p>
  * The Reporter (client) end implementation of an outbound server.
  */
-public class ReporterOutServe extends OutServe {
+public class ClientOutboundConnection extends OutboundConnection {
     int i = 0;
 
     /// ////////////////////
     // Constructor.
-    ReporterOutServe(Object parent, Socket socket) {
+    ClientOutboundConnection(Object parent, Socket socket) {
         super(parent, socket);
     }
 
@@ -27,7 +21,7 @@ public class ReporterOutServe extends OutServe {
      * Get any objects that are currently in queue to be output on this connection.
      */
     public synchronized Object getOutObject(int id) {
-        Reporter parent = (Reporter) getParent();
+        MessageClient parent = (MessageClient) getParent();
         Object o = parent.getAssignment();
         return (o);
     }

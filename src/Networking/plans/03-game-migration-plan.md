@@ -24,7 +24,7 @@ Move game communication from `Assignment`/`RemoteFunctionCall` to typed protobuf
   - `deletefile`, `deletemulti`, `createfolder`, `deletefolder`
   - `setfiledescription`, `setfileprice`
 - Preserve current callback/update behavior (`requestPrimary/requestSecondary`, directory/file pushes).
-- Done when: file browser, script editor, and install choosers run without legacy transport.
+- Done when: file browser, script messageServer, and install choosers run without legacy transport.
 
 ## Chunk 4: Implement Command Group C (Combat + Attack + Watch)
 - Migrate commands:

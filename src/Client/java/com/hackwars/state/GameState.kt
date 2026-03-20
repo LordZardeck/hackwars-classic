@@ -8,7 +8,7 @@ import com.hackwars.assignments.HackerPacketListener
 import com.hackwars.client.ConfigurationState
 import com.plink.dolphinnet.Assignment
 import com.plink.dolphinnet.DataHandler
-import com.plink.dolphinnet.Reporter
+import com.plink.dolphinnet.MessageClient
 import com.plink.dolphinnet.assignments.ZippedAssignment
 import gui.Hacker
 import kotlinx.coroutines.*
@@ -77,8 +77,8 @@ open class GameState : DataHandler, Runnable {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var loopJob: Job? = null
     private var fallbackJob: Job? = null
-    private var gameServerReporter: Reporter? = null
-    private var chatServerReporter: Reporter? = null
+    private var gameServerMessageClient: MessageClient? = null
+    private var chatServerMessageClient: MessageClient? = null
     private var user: String? = null
     private var accessToken: String? = null
     private var lastAccessed: Long = 0
@@ -152,12 +152,12 @@ open class GameState : DataHandler, Runnable {
     }
 
     override fun addFinishedAssignment(assignment: Assignment?) {
-        gameServerReporter?.addFinishedAssignment(ZippedAssignment(0, assignment))
+        gameServerMessageClient?.addFinishedAssignment(ZippedAssignment(0, assignment))
         runBlocking { delay(250) }
     }
 
     fun addFinishedAssignment(assignment: MessageInPacket?) {
-        chatServerReporter?.addFinishedAssignment(ZippedAssignment(0, assignment))
+        chatServerMessageClient?.addFinishedAssignment(ZippedAssignment(0, assignment))
     }
 
     override fun getData(i: Int): Any? {
@@ -252,29 +252,29 @@ open class GameState : DataHandler, Runnable {
     suspend fun reconnect() {
         println("Connecting")
         println("ABOUT TO CREATE REPORTER")
-        gameServerReporter = Reporter(
+        gameServerMessageClient = MessageClient(
             ConfigurationState.GameServer.Address,
             200000,
             ConfigurationState.GameServer.InPort,
             ConfigurationState.GameServer.OutPort,
         )
-        gameServerReporter?.setDataHandler(this)
+        gameServerMessageClient?.setDataHandler(this)
 
         println("ABOUT TO CREATE CHAT REPORTER")
-        chatServerReporter = Reporter(
+        chatServerMessageClient = MessageClient(
             ConfigurationState.ChatServer.Address,
             200000,
             ConfigurationState.ChatServer.InPort,
             ConfigurationState.ChatServer.OutPort,
         )
-        chatServerReporter?.setDataHandler(this)
+        chatServerMessageClient?.setDataHandler(this)
         println("CREATED REPORTER & CHAT REPORTER")
 
         //Wait for handshake from server.
         var success = true
         var startTime = MyTime.currentTime
         println("Attempting to Connect to Server")
-        while (gameServerReporter!!.id == -1) {
+        while (gameServerMessageClient!!.id == -1) {
             if (MyTime.currentTime - startTime > TIME_OUT) {
                 success = false
                 break
@@ -282,19 +282,19 @@ open class GameState : DataHandler, Runnable {
             delay(10)
         }
         startTime = MyTime.currentTime
-        println("Connection ID: " + gameServerReporter!!.id)
+        println("Connection ID: " + gameServerMessageClient!!.id)
         println("Connecting to Chat")
-        while (chatServerReporter!!.id == -1) {
+        while (chatServerMessageClient!!.id == -1) {
             if (MyTime.currentTime - startTime > CHAT_TIME_OUT) {
                 success = false
                 break
             }
             delay(10)
         }
-        if (success && gameServerReporter?.id == -1) {
+        if (success && gameServerMessageClient?.id == -1) {
             success = false
         }
-        if (success && chatServerReporter?.id == -1) {
+        if (success && chatServerMessageClient?.id == -1) {
             success = false
         }
         if (!success) {
@@ -313,10 +313,10 @@ open class GameState : DataHandler, Runnable {
         Encryption.getInstance().init()
         val MyLoginAssignment = LoginAssignment(0, accessToken)
         MyLoginAssignment.publicKey = Encryption.getInstance().encodedKey
-        gameServerReporter!!.addFinishedAssignment(MyLoginAssignment)
+        gameServerMessageClient!!.addFinishedAssignment(MyLoginAssignment)
         val MyChatLoginAssignment = LoginAssignment(0, accessToken)
         MyChatLoginAssignment.publicKey = Encryption.getInstance().encodedKey
-        chatServerReporter!!.addFinishedAssignment(MyChatLoginAssignment)
+        chatServerMessageClient!!.addFinishedAssignment(MyChatLoginAssignment)
     }
 
     open fun addFunctionCall(remoteFunctionCall: RemoteFunctionCall?) {
@@ -349,8 +349,8 @@ open class GameState : DataHandler, Runnable {
         System.gc()
         run = false
         lastPingSuccess = 0
-        gameServerReporter?.clean()
-        chatServerReporter?.clean()
+        gameServerMessageClient?.clean()
+        chatServerMessageClient?.clean()
     }
 
     override fun run() {
@@ -412,15 +412,15 @@ open class GameState : DataHandler, Runnable {
             if (hackerState != null) {
                 runCatching {
                     hackerState?.chatController?.popMessages()?.let {
-                        chatServerReporter?.addFinishedAssignment(MessageInPacket(it))
+                        chatServerMessageClient?.addFinishedAssignment(MessageInPacket(it))
                     }
                 }.onFailure { it.printStackTrace() }
 
                 if (MyTime.currentTime - lastPing > PINGTIME) {
                     lastPing = MyTime.currentTime
                     if (user != null) {
-                        gameServerReporter?.addFinishedAssignment(PingAssignment(0, user))
-                        chatServerReporter?.addFinishedAssignment(
+                        gameServerMessageClient?.addFinishedAssignment(PingAssignment(0, user))
+                        chatServerMessageClient?.addFinishedAssignment(
                             PingAssignment(
                                 0,
                                 username!!.lowercase(Locale.getDefault())
@@ -434,8 +434,8 @@ open class GameState : DataHandler, Runnable {
                     println("Reconnecting")
                     lastPingSuccess = MyTime.currentTime
                     println("Attempt reconnect.")
-                    gameServerReporter?.clean()
-                    chatServerReporter?.clean()
+                    gameServerMessageClient?.clean()
+                    chatServerMessageClient?.clean()
 
                     reconnect = true
                     reconnect()

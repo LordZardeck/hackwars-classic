@@ -1,14 +1,6 @@
 package com.plink.dolphinnet;
 
-import com.plink.dolphinnet.util.*;
-
-import javax.swing.*;
-import java.util.*;
-import java.util.zip.*;
 import java.net.*;
-import java.io.*;
-import java.awt.*;
-import java.awt.event.*;
 
 /**
  * <b>DolphinNet<br />
@@ -16,10 +8,10 @@ import java.awt.event.*;
  * <p>
  * The Editor (server) end implementation of an outbound server.
  */
-public class EditorOutServe extends OutServe {
+public class ServerOutboundConnection extends OutboundConnection {
     /// ////////////////////
     // Constructor.
-    EditorOutServe(Object parent, Socket socket) {
+    ServerOutboundConnection(Object parent, Socket socket) {
         super(parent, socket);
     }
 
@@ -27,7 +19,7 @@ public class EditorOutServe extends OutServe {
      * Get any objects that are currently in queue to be output on this connection.
      */
     public synchronized Object getOutObject(int id) {
-        Editor parent = (Editor) getParent();
+        MessageServer parent = (MessageServer) getParent();
         Object o = parent.getAssignment(getID());
 
         return (o);
@@ -38,7 +30,7 @@ public class EditorOutServe extends OutServe {
      */
     public void specialInit(Socket socket) {
         //Get and distribute client IDs
-        Editor parent = (Editor) getParent();
+        MessageServer parent = (MessageServer) getParent();
         setID(parent.getID());
         parent.addClient(getID());
         ClientBinaryList b = parent.getClients();

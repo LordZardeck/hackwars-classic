@@ -5,25 +5,25 @@ import assignments.LoginSuccessAssignment;
 import assignments.PacketAssignment;
 import assignments.PingAssignment;
 import com.hackwars.rpc.RequestPage;
-import com.plink.dolphinnet.Reporter;
+import com.plink.dolphinnet.MessageClient;
 import util.Encryption;
 
 import java.time.Duration;
 
 public final class GameProtocolClient implements AutoCloseable {
-    private final Reporter reporter;
+    private final MessageClient messageClient;
     private final AssignmentInbox inbox = new AssignmentInbox();
     private LoginSuccessAssignment loginSuccess;
 
     public GameProtocolClient(IntegrationStackConfig config) {
-        this.reporter = new Reporter(config.getAddress(), 200000, config.getGameInPort(), config.getGameOutPort());
-        this.reporter.setDataHandler(inbox);
+        this.messageClient = new MessageClient(config.getAddress(), 200000, config.getGameInPort(), config.getGameOutPort());
+        this.messageClient.setDataHandler(inbox);
     }
 
     public void awaitConnected(Duration timeout) throws InterruptedException {
         long deadline = System.nanoTime() + timeout.toNanos();
         while (System.nanoTime() < deadline) {
-            if (reporter.getID() != -1) {
+            if (messageClient.getID() != -1) {
                 return;
             }
             Thread.sleep(10L);
@@ -37,7 +37,7 @@ public final class GameProtocolClient implements AutoCloseable {
 
         LoginAssignment loginAssignment = new LoginAssignment(0, sessionTicket);
         loginAssignment.setPublicKey(Encryption.getInstance().getEncodedKey());
-        reporter.addFinishedAssignment(loginAssignment);
+        messageClient.addFinishedAssignment(loginAssignment);
 
         loginSuccess = inbox.await(LoginSuccessAssignment.class, timeout);
         if (loginSuccess.getPublicKey() != null) {
@@ -47,12 +47,12 @@ public final class GameProtocolClient implements AutoCloseable {
     }
 
     public PingAssignment ping(Duration timeout) throws InterruptedException {
-        reporter.addFinishedAssignment(new PingAssignment(0, loginSuccess.getIP()));
+        messageClient.addFinishedAssignment(new PingAssignment(0, loginSuccess.getIP()));
         return inbox.await(PingAssignment.class, timeout);
     }
 
     public PacketAssignment requestPage(Duration timeout) throws InterruptedException {
-        reporter.addFinishedAssignment(new RequestPage(loginSuccess.getEncryptedIP()).toRfc());
+        messageClient.addFinishedAssignment(new RequestPage(loginSuccess.getEncryptedIP()).toRfc());
         return inbox.await(PacketAssignment.class, timeout, packet ->
             packet.getTitle() != null && packet.getBody() != null
         );
@@ -60,6 +60,6 @@ public final class GameProtocolClient implements AutoCloseable {
 
     @Override
     public void close() {
-        reporter.clean();
+        messageClient.clean();
     }
 }

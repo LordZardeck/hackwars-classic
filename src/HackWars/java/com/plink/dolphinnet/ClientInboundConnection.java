@@ -1,12 +1,6 @@
 package com.plink.dolphinnet;
 
-import javax.swing.*;
-import java.util.*;
-import java.util.zip.*;
 import java.net.*;
-import java.io.*;
-import java.awt.*;
-import java.awt.event.*;
 
 /**
  * <b>DolphinNet<br />
@@ -14,10 +8,10 @@ import java.awt.event.*;
  * <p>
  * The Reporter (client) end implementation of an inbound server.
  */
-public class ReporterInServe extends InServe {
+public class ClientInboundConnection extends InboundConnection {
     /// /////////////////////////
     //Constructor.
-    public ReporterInServe(Object parent, Socket socket) {
+    public ClientInboundConnection(Object parent, Socket socket) {
         super(parent, socket);
     }
 
@@ -25,7 +19,7 @@ public class ReporterInServe extends InServe {
      * Dispatch a received object to the appropriate location.
      */
     public void putInObject(Object o) {
-        Reporter r = (Reporter) this.getParent();
+        MessageClient r = (MessageClient) this.getParent();
 
         try {
 

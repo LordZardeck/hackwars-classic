@@ -7,7 +7,7 @@ import chat.client.ChatController
 import com.hackwars.assignments.AssignmentEventDispatcher
 import com.hackwars.assignments.IAssignmentEventDispatcher
 import com.plink.dolphinnet.Assignment
-import com.plink.dolphinnet.Reporter
+import com.plink.dolphinnet.MessageClient
 import com.plink.dolphinnet.assignments.ZippedAssignment
 import org.slf4j.LoggerFactory
 import java.util.*
@@ -22,7 +22,7 @@ class ConnectionManager : IAssignmentEventDispatcher by AssignmentEventDispatche
     private val username: String? = null
     var allowRun = false
 
-    private var gameServerReporter: Reporter? = null
+    private var gameServerMessageClient: MessageClient? = null
     private var lastGameServerPing = 0L
     private var _isGameServerConnected = false
     private val isGameServerConnected: Boolean
@@ -30,7 +30,7 @@ class ConnectionManager : IAssignmentEventDispatcher by AssignmentEventDispatche
             return _isGameServerConnected && System.nanoTime() - lastGameServerPing > PING_TIMEOUT
         }
 
-    private var chatServerReporter: Reporter? = null
+    private var chatServerMessageClient: MessageClient? = null
     private var lastChatServerPing = 0L
     private var _isChatServerConnected = false
     private val isChatServerConnected: Boolean
@@ -67,7 +67,7 @@ class ConnectionManager : IAssignmentEventDispatcher by AssignmentEventDispatche
 
     fun connectToGameServer() {
         Logger.debug("Initializing connection to game server")
-        gameServerReporter = Reporter(
+        gameServerMessageClient = MessageClient(
             System.getProperty("hackwars.gameServer.address", "127.0.0.1"),
             200000,
             System.getProperty("hackwars.gameServer.inPort", "10021").toInt(),
@@ -77,7 +77,7 @@ class ConnectionManager : IAssignmentEventDispatcher by AssignmentEventDispatche
 
     fun connectToChatServer() {
         Logger.debug("Initializing connection to chat server")
-        chatServerReporter = Reporter(
+        chatServerMessageClient = MessageClient(
             System.getProperty("hackwars.chatServer.address", "127.0.0.1"),
             200000,
             System.getProperty("hackwars.chatServer.inPort", "10026").toInt(),
@@ -91,7 +91,7 @@ class ConnectionManager : IAssignmentEventDispatcher by AssignmentEventDispatche
                 tasks.iterator().let { taskIterator ->
                     while (taskIterator.hasNext()) {
                         when(val assignment = taskIterator.next()) {
-                            is RemoteFunctionCall -> gameServerReporter?.addFinishedAssignment(ZippedAssignment(0, assignment))
+                            is RemoteFunctionCall -> gameServerMessageClient?.addFinishedAssignment(ZippedAssignment(0, assignment))
                         }
                         taskIterator.remove()
                     }
@@ -114,7 +114,7 @@ class ConnectionManager : IAssignmentEventDispatcher by AssignmentEventDispatche
                 runCatching {
                     chatController?.popMessages()?.let {
                         if (isChatServerConnected)
-                            chatServerReporter?.addFinishedAssignment(MessageInPacket(it))
+                            chatServerMessageClient?.addFinishedAssignment(MessageInPacket(it))
                     }
                 }.onFailure {
                     Logger.error("Unable to send chat message", it)
@@ -125,20 +125,20 @@ class ConnectionManager : IAssignmentEventDispatcher by AssignmentEventDispatche
                 lastGameServerPing = System.nanoTime()
                 userId?.let {
                     Logger.debug("Been too long since last ping to game server, pinging to keep connection active")
-                    gameServerReporter?.addFinishedAssignment(PingAssignment(0, it))
+                    gameServerMessageClient?.addFinishedAssignment(PingAssignment(0, it))
                 }
             }
             if (System.nanoTime() - lastChatServerPing > PING_TIMEOUT) {
                 lastChatServerPing = System.nanoTime()
                 username?.let {
                     Logger.debug("Been too long since last ping to chat server, pinging to keep connection active")
-                    chatServerReporter?.addFinishedAssignment(PingAssignment(0, it.lowercase(Locale.getDefault())))
+                    chatServerMessageClient?.addFinishedAssignment(PingAssignment(0, it.lowercase(Locale.getDefault())))
                 }
             }
 
             if (!isGameServerConnected) {
                 // We made the assumption that the game server is no longer connected, so clean it up before we create a new one
-                gameServerReporter
+                gameServerMessageClient
                     ?.runCatching { ::clean }
                     ?.onFailure {
                         Logger.error("Error while cleaning game server reporter", it)
@@ -148,7 +148,7 @@ class ConnectionManager : IAssignmentEventDispatcher by AssignmentEventDispatche
 
             if (!isChatServerConnected) {
                 // We made the assumption that the chat server is no longer connected, so clean it up before we create a new one
-                chatServerReporter
+                chatServerMessageClient
                     ?.runCatching { ::clean }
                     ?.onFailure {
                         Logger.error("Error while cleaning game server reporter", it)

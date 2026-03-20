@@ -5,9 +5,7 @@ package hackerlogin;
  * A Client for connecting to the main game server.
  */
 
-import game.*;
 import assignments.*;
-import server.*;
 import com.plink.dolphinnet.*;
 import util.*;
 
@@ -17,7 +15,7 @@ public class ServerConnectionSingleton implements Runnable, DataHandler {
     public static final int PINGTIME = 30000;
     private long lastPing;
     private String server = "localhost";
-    private Reporter R = null;
+    private MessageClient R = null;
     private static ServerConnectionSingleton MyServerConnectionSingleton = null;
     private boolean RESPONSE = false;//Has a response been received.
     private static final long TIME_OUT = 5000;//How long should we wait for a connection.
@@ -26,7 +24,7 @@ public class ServerConnectionSingleton implements Runnable, DataHandler {
     private Thread MyThread = null;
 
     private ServerConnectionSingleton() {
-        R = new Reporter(server, 200000, 10021, 10020);
+        R = new MessageClient(server, 200000, 10021, 10020);
         R.setDataHandler(this);
         connect(R, "", "", "", false);
         lastPing = MyTime.getCurrentTime();
@@ -45,7 +43,7 @@ public class ServerConnectionSingleton implements Runnable, DataHandler {
     /**
      Connect to the search server and tell the server to shutdown.
      */
-    public void connect(Reporter R, String title, String address, String content, boolean sendPacket) {
+    public void connect(MessageClient R, String title, String address, String content, boolean sendPacket) {
 
         boolean success = true;
         long startTime = MyTime.getCurrentTime();

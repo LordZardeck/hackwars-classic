@@ -1,14 +1,7 @@
 package com.plink.dolphinnet;
 
-import com.plink.dolphinnet.util.*;
-
-import javax.swing.*;
 import java.util.*;
-import java.util.zip.*;
 import java.net.*;
-import java.io.*;
-import java.awt.*;
-import java.awt.event.*;
 
 /**
  * <b>DolphinNet<br />
@@ -19,13 +12,13 @@ import java.awt.event.*;
  * on the Assignment class which represents concrete calculations.
  */
 
-public class Editor implements Runnable {
+public class MessageServer implements Runnable {
     //Data.
     private ArrayList assignments;
     private ClientBinaryList Clients = null;
     private int maxAssignments = 1024;
     private int clientJobSize = 2;
-    private IParty IP = null;
+    private MessageCoordinator IP = null;
     private Thread t = null;
     //Sockets Data.
     private ServerSocket SReceive = null;
@@ -41,7 +34,7 @@ public class Editor implements Runnable {
 
     /// ///////////////
     //Constuctors.
-    public Editor() {
+    public MessageServer() {
         //Create the queue that assignments will be posted to.
         assignments = new ArrayList();
         Clients = new ClientBinaryList();
@@ -59,7 +52,7 @@ public class Editor implements Runnable {
         t.start();
     }
 
-    public Editor(int maxAssignments, int socketTimeOut, int receiveSocket, int sendSocket) {
+    public MessageServer(int maxAssignments, int socketTimeOut, int receiveSocket, int sendSocket) {
         //Create the array that assignments will be posted to.
         assignments = new ArrayList();
         Clients = new ClientBinaryList();
@@ -98,7 +91,7 @@ public class Editor implements Runnable {
     /**
      * Add the current IParty that is to receive results from the Editor.
      */
-    public void setIParty(IParty IP) {
+    public void setIParty(MessageCoordinator IP) {
         this.IP = IP;
     }
 
@@ -255,7 +248,7 @@ public class Editor implements Runnable {
                     gCount++;
 
                 Socket temp = SSend.accept();
-                EditorOutServe out = new EditorOutServe(this, temp);
+                ServerOutboundConnection out = new ServerOutboundConnection(this, temp);
                 out.init(outSocketTimeOut);
                 out.setTimeOut(timeOut);
                 out.execute();
@@ -266,7 +259,7 @@ public class Editor implements Runnable {
             //Check for a client to receive data from.
             try {
                 Socket temp = SReceive.accept();
-                EditorInServe in = new EditorInServe(this, temp);
+                ServerInboundConnection in = new ServerInboundConnection(this, temp);
                 in.init(inSocketTimeOut);
                 in.setTimeOut(timeOut);
                 in.execute();

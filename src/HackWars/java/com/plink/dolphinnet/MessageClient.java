@@ -1,10 +1,7 @@
 package com.plink.dolphinnet;
 
 import java.net.*;
-import java.io.*;
 import java.util.ArrayList;
-
-import com.plink.dolphinnet.assignments.*;
 
 /**
  * <b>DolphinNet<br />
@@ -18,7 +15,7 @@ import com.plink.dolphinnet.assignments.*;
  * to the Reporter. As of right now the Assignment class must be present on the client and server
  * side.
  */
-public class Reporter implements Runnable {
+public class MessageClient implements Runnable {
 
     /// ////////////////////////////////
     //Data.
@@ -28,8 +25,8 @@ public class Reporter implements Runnable {
     private ArrayList Processes = null;
     private ArrayList FinishedAssignments = null;
     private volatile Thread t = null;
-    private ReporterInServe in = null;
-    private ReporterOutServe out = null;
+    private ClientInboundConnection in = null;
+    private ClientOutboundConnection out = null;
     private int socketTimeOut = 10000;
     private int timeOut = 180000;
     private boolean killAllAssignments = false;
@@ -137,7 +134,7 @@ public class Reporter implements Runnable {
 
     /// ///////////////////////////.
     // Constructor.
-    public Reporter(String address, int socketTimeOut, int inPort, int outPort) {
+    public MessageClient(String address, int socketTimeOut, int inPort, int outPort) {
         this.id = -1;
         this.socketTimeOut = socketTimeOut;
 
@@ -149,7 +146,7 @@ public class Reporter implements Runnable {
         try {
             //Create the inboud socket.
             Socket s = new Socket(address, inPort);
-            in = new ReporterInServe(this, s);
+            in = new ClientInboundConnection(this, s);
             in.setID(id);
             in.setTimeOut(timeOut);
             in.init(150000);
@@ -157,7 +154,7 @@ public class Reporter implements Runnable {
 
             //Create the outbound socket.
             Socket s2 = new Socket(address, outPort);
-            out = new ReporterOutServe(this, s2);
+            out = new ClientOutboundConnection(this, s2);
             out.setID(id);
             out.setTimeOut(timeOut);
             out.init(150000);

@@ -1,13 +1,5 @@
 package com.plink.dolphinnet;
 
-import javax.swing.*;
-import java.util.*;
-import java.util.zip.*;
-import java.net.*;
-import java.io.*;
-import java.awt.*;
-import java.awt.event.*;
-
 /**
  * <b>DolphinNet<br />
  * Benjamin E. Coe (2006)</b><br /><br />
@@ -22,28 +14,28 @@ import java.awt.event.*;
  * of some sort of harness makes sense for controling the flow of multiple IParty calculation using
  * one central server.
  */
-abstract public class IParty {
+abstract public class MessageCoordinator {
     //Data
-    private Editor editor = null;
+    private MessageServer messageServer = null;
 
     /// //////////////////////////
     // Constructors.
-    public IParty() {
-        this.editor = null;
+    public MessageCoordinator() {
+        this.messageServer = null;
     }
 
     /**
      * An editor represents the server for distributing assignments. And is required.
      */
-    public IParty(Editor editor) {
-        this.editor = editor;
-        editor.setIParty(this);
+    public MessageCoordinator(MessageServer messageServer) {
+        this.messageServer = messageServer;
+        messageServer.setIParty(this);
     }
 
     /// //////////////////////////
     // Getters.
-    public Editor getEditor() {
-        return (editor);
+    public MessageServer getEditor() {
+        return (messageServer);
     }
     /////////////////////////////
     // Setters.
@@ -51,9 +43,9 @@ abstract public class IParty {
     /**
      * An editor represents the server for distributing assignments. And is required.
      */
-    public void setEditor(Editor editor) {
-        this.editor = editor;
-        editor.setIParty(this);
+    public void setEditor(MessageServer messageServer) {
+        this.messageServer = messageServer;
+        messageServer.setIParty(this);
     }
     /////////////////////////////
     // Methods.
@@ -63,7 +55,7 @@ abstract public class IParty {
      */
     public void addAssignment(Assignment a) throws Exception {
         try {
-            editor.addAssignment(a);
+            messageServer.addAssignment(a);
         } catch (Exception e) {
             throw (e);
         }
@@ -75,7 +67,7 @@ abstract public class IParty {
      */
     public void addAssignment(int ClientID, Assignment a) throws Exception {
         try {
-            editor.addAssignment(ClientID, a);
+            messageServer.addAssignment(ClientID, a);
         } catch (Exception e) {
             throw (e);
         }
