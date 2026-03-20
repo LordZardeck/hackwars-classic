@@ -2,6 +2,9 @@ package com.hackwars.game.functions
 
 import game.ApplicationData
 import game.Computer
+import game.payload.FloatCommandPayload
+import game.payload.IntCommandPayload
+import game.payloadAs
 
 /**
  * Represents a function that rewards redirecting experience.
@@ -24,9 +27,9 @@ class RedirectXP(computer: Computer) : Function(computer) {
     }
 
     override fun execute(applicationData: ApplicationData) {
-        val amount = when (val parameters = applicationData.parameters) {
-            is Int -> Computer.commodityXP[parameters]
-            is Float -> parameters
+        val amount = when (val payload = applicationData.payload) {
+            is IntCommandPayload -> Computer.commodityXP[payload.value]
+            is FloatCommandPayload -> payload.value
             else -> return
         }
 

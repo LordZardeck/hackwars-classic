@@ -3,6 +3,19 @@ package game
 import assignments.PacketWatch
 import com.hackwars.game.program.Program
 import com.hackwars.game.program.WatchProgram
+import com.hackwars.rpc.ChangeWatchType
+import com.hackwars.rpc.DeleteWatch
+import com.hackwars.rpc.FetchWatches
+import com.hackwars.rpc.InstallWatch
+import com.hackwars.rpc.SetWatchNote
+import com.hackwars.rpc.SetWatchObservedPorts
+import com.hackwars.rpc.SetWatchOnOff
+import com.hackwars.rpc.SetWatchQuantity
+import com.hackwars.rpc.SetWatchSearchFirewall
+import game.payload.InstallEquipmentPayload
+import game.payload.RepairEquipmentPayload
+import game.payload.RequestEquipmentPayload
+import game.payloadAs
 import java.util.HashMap
 
 /**
@@ -10,12 +23,13 @@ import java.util.HashMap
  */
 class LegacyWatchEquipmentCommands : LegacyApplicationDataHandler {
     override fun dispatch(computer: Computer, applicationData: ApplicationData, resolvedPort: Int): Boolean {
-        val function = applicationData.function
+        val function = applicationData.command.wireName()
 
         if (function == "changewatchtype") {
-            val parameters = applicationData.parameters as Array<Int>
-            val targetWatch = parameters[0]
-            val newType = parameters[1]
+            val payload = applicationData.payloadAs<ChangeWatchType>()
+
+            val targetWatch = payload.watchID ?: return true
+            val newType = payload.portID ?: return true
 
             if (targetWatch < computer.MyWatchHandler.watches.size) {
                 val myWatch = computer.MyWatchHandler.getWatch(targetWatch) as Watch
@@ -24,12 +38,9 @@ class LegacyWatchEquipmentCommands : LegacyApplicationDataHandler {
             }
             return true
         } else if (function == "installwatch") {
-            val parameters = applicationData.parameters as Array<Any?>
-            val path = parameters[0] as String
-            val name = parameters[1] as String
-            val type = parameters[2] as Int
+            val payload = applicationData.payloadAs<InstallWatch>()
 
-            val hackerFile = computer.fileSystem.getFile(path, name)
+            val hackerFile = computer.fileSystem.getFile(payload.path, payload.name)
 
             if (computer.MyWatchHandler.watches.size < 21) {
                 if (hackerFile != null && hackerFile.type == HackerFile.WATCH_COMPILED) {
@@ -38,14 +49,14 @@ class LegacyWatchEquipmentCommands : LegacyApplicationDataHandler {
                     if (cpuCheck <= maxCpu) {
                         hackerFile.quantity = hackerFile.quantity - 1
                         if (hackerFile.quantity <= 0) {
-                            computer.fileSystem.deleteFile(path, name)
+                            computer.fileSystem.deleteFile(payload.path, payload.name)
                         }
 
                         val watch = Watch(computer)
-                        watch.type = type
+                        watch.type = payload.type
                         watch.searchFireWall = 0
                         watch.actualCpuCost = hackerFile.cpuCost
-                        watch.note = name
+                        watch.note = payload.name
                         watch.on = false
                         watch.quantity = 0.0f
 
@@ -75,9 +86,11 @@ class LegacyWatchEquipmentCommands : LegacyApplicationDataHandler {
             queueFetchWatches(computer)
             return true
         } else if (function == "requestequipment") {
+            val payload = applicationData.payloadAs<RequestEquipmentPayload>()
+
             var equipment = computer.MyFileSystem.getEquipment("")
             var temp = arrayOfNulls<Any?>(equipment.size + 1)
-            temp[0] = applicationData.parameters
+            temp[0] = payload.windowHandle
             for (i in equipment.indices) {
                 if (equipment[i] != null) {
                     computer.MyEquipmentSheet.describeCard(equipment[i] as HackerFile)
@@ -89,7 +102,7 @@ class LegacyWatchEquipmentCommands : LegacyApplicationDataHandler {
 
             equipment = computer.MyEquipmentSheet.getEquipment()
             temp = arrayOfNulls(equipment.size + 1)
-            temp[0] = applicationData.parameters
+            temp[0] = payload.windowHandle
             for (i in equipment.indices) {
                 if (equipment[i] != null) {
                     computer.MyEquipmentSheet.describeCard(equipment[i] as HackerFile)
@@ -102,14 +115,13 @@ class LegacyWatchEquipmentCommands : LegacyApplicationDataHandler {
             computer.systemChange = true
             return true
         } else if (function == "installequipment") {
-            val parameters = applicationData.parameters as Array<Any?>
-            val position = parameters[0] as Int
-            val name = parameters[1] as String
-            computer.MyEquipmentSheet.equip(position, name)
+            val payload = applicationData.payloadAs<InstallEquipmentPayload>()
+
+            computer.MyEquipmentSheet.equip(payload.position, payload.name)
 
             var equipment = computer.MyFileSystem.getEquipment("")
             var temp = arrayOfNulls<Any?>(equipment.size + 1)
-            temp[0] = parameters[2] as Int
+            temp[0] = payload.windowHandle
             for (i in equipment.indices) {
                 temp[i + 1] = equipment[i]
             }
@@ -118,7 +130,7 @@ class LegacyWatchEquipmentCommands : LegacyApplicationDataHandler {
 
             equipment = computer.MyEquipmentSheet.getEquipment()
             temp = arrayOfNulls(equipment.size + 1)
-            temp[0] = parameters[2] as Int
+            temp[0] = payload.windowHandle
             for (i in equipment.indices) {
                 temp[i + 1] = equipment[i]
             }
@@ -128,21 +140,19 @@ class LegacyWatchEquipmentCommands : LegacyApplicationDataHandler {
             computer.systemChange = true
             return true
         } else if (function == "repairequipment") {
-            val parameters = applicationData.parameters as Array<Any?>
-            val position = parameters[0] as Int
-            val name = parameters[1] as String
+            val payload = applicationData.payloadAs<RepairEquipmentPayload>()
 
-            if (position != -1) {
-                computer.MyEquipmentSheet.repair(position)
+            if (payload.position != -1) {
+                computer.MyEquipmentSheet.repair(payload.position)
             } else {
-                val equipment = computer.MyFileSystem.getFile("", name)
+                val equipment = computer.MyFileSystem.getFile("", payload.name)
                 if (equipment != null) {
                     computer.MyEquipmentSheet.repair(equipment)
                 }
             }
 
             computer.MyComputerHandler.addData(
-                ApplicationData("requestequipment", Integer.valueOf(13), 0, computer.ip),
+                ApplicationData(RequestEquipmentPayload(13), 0, computer.ip),
                 computer.ip
             )
             return true
@@ -159,17 +169,19 @@ class LegacyWatchEquipmentCommands : LegacyApplicationDataHandler {
             computer.systemChange = true
             return true
         } else if (function == "setwatchquantity") {
-            val parameters = applicationData.parameters as Array<Any?>
-            val watchId = parameters[0] as Int
-            val quantity = parameters[1] as Float
+            val payload = applicationData.payloadAs<SetWatchQuantity>()
+
+            val watchId = payload.watchID ?: return true
+            val quantity = payload.quantity ?: return true
             val watch = computer.MyWatchHandler.watches[watchId] as Watch?
-            watch?.quantity= quantity
+            watch?.quantity = quantity
             queueFetchWatches(computer)
             return true
         } else if (function == "setwatchonoff") {
-            val parameters = applicationData.parameters as Array<Any?>
-            val watchId = parameters[0] as Int
-            val state = parameters[1] as Boolean
+            val payload = applicationData.payloadAs<SetWatchOnOff>()
+
+            val watchId = payload.watchID ?: return true
+            val state = payload.state ?: return true
             val watch = computer.MyWatchHandler.watches[watchId] as Watch?
             if (watch != null) {
                 val cpuCheck = computer.cPULoad + watch.actualCpuCost
@@ -189,9 +201,10 @@ class LegacyWatchEquipmentCommands : LegacyApplicationDataHandler {
             queueFetchWatches(computer)
             return true
         } else if (function == "setwatchsearchfirewall") {
-            val parameters = applicationData.parameters as Array<Any?>
-            val watchId = parameters[0] as Int
-            val searchFireWall = parameters[1] as Int
+            val payload = applicationData.payloadAs<SetWatchSearchFirewall>()
+
+            val watchId = payload.watchID ?: return true
+            val searchFireWall = payload.searchFireWall ?: return true
             val watch = computer.MyWatchHandler.watches[watchId] as Watch?
             if (watch != null) {
                 watch.searchFireWall = searchFireWall
@@ -199,9 +212,10 @@ class LegacyWatchEquipmentCommands : LegacyApplicationDataHandler {
             queueFetchWatches(computer)
             return true
         } else if (function == "setwatchnote") {
-            val parameters = applicationData.parameters as Array<Any?>
-            val watchId = parameters[0] as Int
-            val note = parameters[1] as String
+            val payload = applicationData.payloadAs<SetWatchNote>()
+
+            val watchId = payload.watchID ?: return true
+            val note = payload.note ?: return true
             val watch = computer.MyWatchHandler.watches[watchId] as Watch?
             if (watch != null) {
                 watch.note = note
@@ -211,19 +225,21 @@ class LegacyWatchEquipmentCommands : LegacyApplicationDataHandler {
         } else if (function == "deletewatch") {
             val maxCpu = computer.maximumCPULoad
             if (computer.cPULoad <= maxCpu) {
-                val parameters = applicationData.parameters as Array<Any?>
-                val watchId = parameters[0] as Int
+                val payload = applicationData.payloadAs<DeleteWatch>()
+
+                val watchId = payload.watchID ?: return true
                 computer.MyWatchHandler.removeWatch(watchId)
                 queueFetchWatches(computer)
             }
             return true
         } else if (function == "setwatchobservedports") {
-            val parameters = applicationData.parameters as Array<Any?>
-            val watchId = parameters[0] as Int
-            val observedPorts = parameters[1] as Array<Int>
+            val payload = applicationData.payloadAs<SetWatchObservedPorts>()
+
+            val watchId = payload.watchID ?: return true
+            val observedPorts = payload.observedPorts ?: return true
             val watch = computer.MyWatchHandler.watches[watchId] as Watch?
             if (watch != null) {
-                watch.setObservedPorts(observedPorts)
+                watch.setObservedPorts(observedPorts.requireNoNulls())
             }
             queueFetchWatches(computer)
             return true
@@ -233,6 +249,6 @@ class LegacyWatchEquipmentCommands : LegacyApplicationDataHandler {
     }
 
     private fun queueFetchWatches(computer: Computer) {
-        computer.MyComputerHandler.addData(ApplicationData("fetchwatches", null, 0, computer.ip), computer.ip)
+        computer.MyComputerHandler.addData(ApplicationData(FetchWatches(computer.ip), 0, computer.ip), computer.ip)
     }
 }

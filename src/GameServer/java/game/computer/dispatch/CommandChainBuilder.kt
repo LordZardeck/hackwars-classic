@@ -14,7 +14,7 @@ class CommandChainBuilder {
     private val routes = mutableListOf<CommandRoute>()
 
     fun onCommand(command: String, handler: CommandHandler): CommandChainBuilder {
-        routes += CommandRoute(command, { applicationData -> applicationData.function == command }, handler)
+        routes += CommandRoute(command, { applicationData -> applicationData.command.wireName() == command }, handler)
         return this
     }
 

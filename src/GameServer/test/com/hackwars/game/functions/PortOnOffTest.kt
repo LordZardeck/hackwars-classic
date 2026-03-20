@@ -22,11 +22,11 @@ class PortOnOffTest {
         whenever(port.accessing).thenReturn("attacker")
         whenever(computer.ports).thenReturn(hashMapOf(8080 to port))
 
-        PortOnOff(computer).execute(ApplicationData("portonoff", false, 8080, "source"))
+        PortOnOff(computer).execute(FunctionTestSupport.booleanCommand("portonoff", false, 8080))
 
         verify(computer).addMessage(MessageHandler.PORT_OFF_FAIL_UNDER_ATTACK)
         val appCaptor = argumentCaptor<ApplicationData>()
         verify(networkSwitch).addData(appCaptor.capture(), eq("3.3.3.3"))
-        assertEquals("fetchports", appCaptor.firstValue.function)
+        assertEquals("fetchports", appCaptor.firstValue.command.wireName())
     }
 }

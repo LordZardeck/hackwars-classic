@@ -1,5 +1,8 @@
 package game
 
+import com.hackwars.rpc.DeleteFile
+import game.payload.BountyHttpPayload
+import game.payload.CheckBountyPayload
 import java.util.HashMap
 
 /**
@@ -85,8 +88,10 @@ open class MakeBounty(private val MyFileSystem: FileSystem) {
                         if (checkTarget != target && checkTarget != "*") {
                             success = false
                         } else {
-                            MyComputer!!.computerHandler
-                                .addData(ApplicationData("bountyhttp", MyComputer.getIP(), 0, MyComputer.getIP()), target)
+                            MyComputer!!.computerHandler.addData(
+                                ApplicationData(BountyHttpPayload(MyComputer.getIP()), 0, MyComputer.getIP()),
+                                target
+                            )
                         }
                     } else if (BountyType == DESTROY_WATCH && BountyType == CheckBountyType) {
                         if (checkTarget != target && checkTarget != "*") {
@@ -103,12 +108,21 @@ open class MakeBounty(private val MyFileSystem: FileSystem) {
                     count -= 1
                     Content["count"] = "" + count
                     if (count <= 0) {
-                        val O = arrayOf<Any?>("Store/", HF.getName())
                         MyFileSystem.deleteFile(HF.getLocation(), HF.getName())
                         MyComputer.computerHandler
-                            .addData(ApplicationData("checkbounty", HF.getName(), 0, MyComputer.getIP()), MyComputer.storeIP)
+                            .addData(
+                                ApplicationData(CheckBountyPayload(HF.getName()), 0, MyComputer.getIP()),
+                                MyComputer.storeIP
+                            )
                         MyComputer.computerHandler
-                            .addData(ApplicationData("deletefile", O, 0, MyComputer.getIP()), MyComputer.storeIP)
+                            .addData(
+                                ApplicationData(
+                                    DeleteFile(MyComputer.storeIP ?: return true, "Store/", HF.getName()),
+                                    0,
+                                    MyComputer.getIP()
+                                ),
+                                MyComputer.storeIP
+                            )
                     }
 
                     return true

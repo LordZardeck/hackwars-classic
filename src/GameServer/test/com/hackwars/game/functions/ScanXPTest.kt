@@ -11,7 +11,7 @@ class ScanXPTest {
         val computer = FunctionTestSupport.baseComputer()
         computer.stats["Scanning"] = 100f
 
-        ScanXP(computer).execute(ApplicationData("scanxp", 4f, 0, "source"))
+        ScanXP(computer).execute(FunctionTestSupport.floatCommand("scanxp", 4f))
 
         verify(computer).sendDamagePacket()
         assertEquals(104f, computer.stats["Scanning"])

@@ -3,6 +3,10 @@ package com.hackwars.game.functions
 import game.ApplicationData
 import game.Computer
 import game.MessageHandler
+import game.payload.PettyCashDeltaPayload
+import game.payload.ZombieAttackPayload
+import game.payloadAs
+import com.hackwars.rpc.RequestZombieAttack as RequestZombieAttackPayload
 
 /**
  * Represents a function that initiates the zombie attack handshake flow.
@@ -24,18 +28,31 @@ class RequestZombieAttack(computer: Computer) : Function(computer) {
 
     override fun execute(applicationData: ApplicationData) {
         if (!computer.checkBank()) return
+        val payload = applicationData.payloadAs<RequestZombieAttackPayload>()
 
         if (computer.getPettyCash() >= ZOMBIE_ATTACK_COST) {
             val computerHandler = computer.computerHandler
             computerHandler.addData(
-                ApplicationData("pettycash", -ZOMBIE_ATTACK_COST, 0, computer.getIP()),
+                ApplicationData(PettyCashDeltaPayload(-ZOMBIE_ATTACK_COST), 0, computer.getIP()),
                 computer.getIP()
             )
 
-            val targetIp = getPositionalParameter<String>(applicationData, 5)
             computerHandler.addData(
-                ApplicationData("zombieattack", applicationData.parameters, applicationData.port, computer.getIP()),
-                targetIp
+                ApplicationData(
+                    ZombieAttackPayload(
+                        payload.targetIP,
+                        payload.targetPort,
+                        payload.sourceIP ?: computer.getIP(),
+                        payload.sourcePort,
+                        payload.I,
+                        payload.S,
+                        payload.O,
+                        payload.parentIP
+                    ),
+                    applicationData.port,
+                    computer.getIP()
+                ),
+                payload.targetIP
             )
             return
         }

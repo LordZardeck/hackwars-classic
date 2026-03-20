@@ -3,6 +3,7 @@ package game;
 import assignments.PacketAssignment;
 import assignments.PacketNetwork;
 import assignments.PacketPort;
+import com.hackwars.game.functions.FunctionTestSupport;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
 import util.Time;
@@ -18,14 +19,44 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyFloat;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+
+import game.payload.CombatAttackXpAwardPayload;
+import game.payload.CombatAttackXpUpdatePayload;
+import game.payload.CombatChangeNetworkPayload;
+import game.payload.CombatCheckBountyPayload;
+import game.payload.CombatMakeBountyPayload;
+import game.payload.CombatCompleteTaskPayload;
+import game.payload.CombatDamageValues;
+import game.payload.CombatExchangeCommodityPayload;
+import game.payload.CombatExchangeFilePayload;
+import game.payload.CombatFirewallXpPayload;
+import game.payload.CombatFinishQuestPayload;
+import game.payload.CombatGiveExperiencePayload;
+import game.payload.CombatGiveTaskPayload;
+import game.payload.CombatMiningDamageUpdatePayload;
+import game.payload.CombatOpponentUpdatePayload;
+import game.payload.CombatQuestInformationPayload;
+import game.payload.CombatQuestTaskState;
+import game.payload.CombatRequestScanPayload;
+import game.payload.CombatScanPayload;
+import game.payload.CombatScanSuccessPayload;
+import game.payload.CombatScanXpPayload;
+import game.payload.CombatSetTaskPayload;
+import game.payload.CombatTakeFile2Payload;
+import game.payload.CombatQuestSupport;
+import game.payload.PettyCashDeltaPayload;
+import game.payload.RequestWebPagePayload;
+import game.payload.SaveFileRequestPayload;
 
 public class LegacyCombatNetworkQuestCommandsTest {
     private final LegacyCombatNetworkQuestCommands handler = new LegacyCombatNetworkQuestCommands();
@@ -36,7 +67,7 @@ public class LegacyCombatNetworkQuestCommandsTest {
 
         boolean handled = handler.dispatch(
                 computer,
-                new ApplicationData("not-owned", null, 0, "10.0.0.1"),
+                FunctionTestSupport.INSTANCE.noArgsCommand("not-owned", 0, "10.0.0.1"),
                 0
         );
 
@@ -52,13 +83,150 @@ public class LegacyCombatNetworkQuestCommandsTest {
 
         boolean handled = handler.dispatch(
                 computer,
-                new ApplicationData("giveexperience", new Object[]{"attack", 25.0f}, 0, "10.0.0.1"),
+                new ApplicationData(new CombatGiveExperiencePayload("attack", 25.0f), 0, "10.0.0.1"),
                 0
         );
 
         assertTrue(handled);
         assertEquals(325.0f, (Float) computer.Stats.get("Attack"), 0.001f);
         assertTrue(computer.healthChange);
+    }
+
+    @Test
+    public void dispatch_attackXpAwardUpdatesAttackStat() {
+        Computer computer = mock(Computer.class);
+        computer.Stats = new HashMap();
+        computer.Stats.put("Attack", 300.0f);
+
+        boolean handled = handler.dispatch(
+                computer,
+                new ApplicationData(new CombatAttackXpAwardPayload(25.0f), 0, "10.0.0.1"),
+                0
+        );
+
+        assertTrue(handled);
+        assertEquals(325.0f, (Float) computer.Stats.get("Attack"), 0.001f);
+        assertTrue(computer.healthChange);
+    }
+
+    @Test
+    public void dispatch_opponentUpdateAppliesPortSnapshotAndDamage() {
+        Computer computer = mock(Computer.class);
+        Port port = mock(Port.class);
+        computer.Stats = new HashMap();
+        computer.Stats.put("Attack", 300.0f);
+        computer.Ports = new HashMap();
+        computer.Ports.put(4000, port);
+        computer.Damage = new ArrayList();
+        computer.connectionID = 1;
+
+        boolean handled = handler.dispatch(
+                computer,
+                new ApplicationData(
+                        new CombatOpponentUpdatePayload(
+                                new CombatDamageValues(12.0f, 13.0f, 14.0f, 15.0f, 16.0f),
+                                true,
+                                false,
+                                true
+                        ),
+                        0,
+                        "10.0.0.1"
+                ),
+                4000
+        );
+
+        assertTrue(handled);
+        assertTrue(computer.healthChange);
+        assertEquals(1, computer.Damage.size());
+        verify(port).setTargetHP(13.0f);
+        verify(port).setTargetPettyCash(14.0f);
+        verify(port).setTargetCPUCost(15.0f);
+        verify(port).setTargetWatch(true);
+    }
+
+    @Test
+    public void dispatch_attackXpUpdateRoutesDamageToTargetIp() {
+        Computer computer = mock(Computer.class);
+        Port port = mock(Port.class);
+        computer.Stats = new HashMap();
+        computer.Stats.put("Attack", 300.0f);
+        computer.Ports = new HashMap();
+        computer.Ports.put(4000, port);
+        computer.Damage = new ArrayList();
+        computer.connectionID = 1;
+
+        boolean handled = handler.dispatch(
+                computer,
+                new ApplicationData(
+                        new CombatAttackXpUpdatePayload(
+                                new CombatDamageValues(12.0f, 13.0f, 14.0f, 15.0f, 16.0f),
+                                false,
+                                true,
+                                false,
+                                "10.0.0.77"
+                        ),
+                        0,
+                        "10.0.0.1"
+                ),
+                4000
+        );
+
+        assertTrue(handled);
+        assertTrue(computer.healthChange);
+        assertEquals(1, computer.Damage.size());
+        assertEquals(312.0f, (Float) computer.Stats.get("Attack"), 0.001f);
+        verify(port, never()).setTargetHP(anyFloat());
+        verify(port, never()).setTargetPettyCash(anyFloat());
+        verify(port, never()).setTargetCPUCost(anyFloat());
+        verify(port, never()).setTargetWatch(anyBoolean());
+    }
+
+    @Test
+    public void dispatch_makeBountyUsesTypedPayloadsAndChargesReward() {
+        Computer computer = mock(Computer.class);
+        NetworkSwitch computerHandler = mock(NetworkSwitch.class);
+        computer.ip = "10.0.0.1";
+        computer.store = "store-ip";
+        computer.MyMakeBounty = mock(MakeBounty.class);
+        computer.systemChange = false;
+
+        when(computer.checkBank()).thenReturn(true);
+        when(computer.getPettyCash()).thenReturn(100.0f);
+        when(computer.getCurrentTime()).thenReturn(1234L);
+        when(computer.getComputerHandler()).thenReturn(computerHandler);
+
+        boolean handled = handler.dispatch(
+                computer,
+                new ApplicationData(
+                        new CombatMakeBountyPayload(false, "*", MakeBounty.SCAN, "", "", 1, 42.0f),
+                        0,
+                        "10.0.0.1"
+                ),
+                0
+        );
+
+        assertTrue(handled);
+        assertTrue(computer.systemChange);
+
+        ArgumentCaptor<ApplicationData> captor = ArgumentCaptor.forClass(ApplicationData.class);
+        ArgumentCaptor<String> targetCaptor = ArgumentCaptor.forClass(String.class);
+        verify(computerHandler, times(2)).addData(captor.capture(), targetCaptor.capture());
+
+        ApplicationData saveCall = captor.getAllValues().get(0);
+        assertEquals("savefile", saveCall.getCommand().wireName());
+        assertTrue(saveCall.getPayload() instanceof SaveFileRequestPayload);
+        SaveFileRequestPayload savePayload = (SaveFileRequestPayload) saveCall.getPayload();
+        assertEquals("Store/", savePayload.getPath());
+        assertEquals(HackerFile.BOUNTY, savePayload.getFile().getType());
+        assertEquals("Scan By (10.0.0.1)", savePayload.getFile().getName());
+        assertEquals(-1, savePayload.getFile().getQuantity());
+        assertEquals("store-ip", targetCaptor.getAllValues().get(0));
+
+        ApplicationData cashCall = captor.getAllValues().get(1);
+        assertEquals("pettycash", cashCall.getCommand().wireName());
+        assertTrue(cashCall.getPayload() instanceof PettyCashDeltaPayload);
+        assertEquals(-42.0f, ((PettyCashDeltaPayload) cashCall.getPayload()).getAmount(), 0.001f);
+        assertEquals("10.0.0.1", targetCaptor.getAllValues().get(1));
     }
 
     @Test
@@ -70,17 +238,17 @@ public class LegacyCombatNetworkQuestCommandsTest {
 
         boolean handled = handler.dispatch(
                 computer,
-                new ApplicationData("givetask", new Object[]{"Collect Parts", "Find three parts", 42}, 0, "10.0.0.1"),
+                new ApplicationData(new CombatGiveTaskPayload("Collect Parts", "Find three parts", 42), 0, "10.0.0.1"),
                 0
         );
 
         assertTrue(handled);
         Object[] questEntry = (Object[]) computer.CurrentQuests.get(42);
         HashMap tasks = (HashMap) questEntry[0];
-        Object[] taskEntry = (Object[]) tasks.get("Collect Parts");
+        CombatQuestTaskState taskEntry = (CombatQuestTaskState) tasks.get("Collect Parts");
         assertEquals("", questEntry[1]);
-        assertEquals(Boolean.FALSE, taskEntry[0]);
-        assertEquals("Find three parts", taskEntry[1]);
+        assertEquals(Boolean.FALSE, taskEntry.getCompleted());
+        assertEquals("Find three parts", taskEntry.getLabel());
     }
 
     @Test
@@ -93,7 +261,7 @@ public class LegacyCombatNetworkQuestCommandsTest {
 
         boolean handled = handler.dispatch(
                 computer,
-                new ApplicationData("finishquest", new Object[]{99}, 0, "10.0.0.1"),
+                new ApplicationData(new CombatFinishQuestPayload(99), 0, "10.0.0.1"),
                 0
         );
 
@@ -131,7 +299,7 @@ public class LegacyCombatNetworkQuestCommandsTest {
 
         boolean handled = handler.dispatch(
                 computer,
-                new ApplicationData("requestscan", "10.0.0.2", 0, "10.0.0.1"),
+                new ApplicationData(new CombatRequestScanPayload("10.0.0.2"), 0, "10.0.0.1"),
                 0
         );
 
@@ -140,18 +308,17 @@ public class LegacyCombatNetworkQuestCommandsTest {
         ArgumentCaptor<ApplicationData> captor = ArgumentCaptor.forClass(ApplicationData.class);
         verify(computerHandler).addData(captor.capture(), eq("10.0.0.2"));
         ApplicationData forwarded = captor.getValue();
-        assertEquals("scan", forwarded.getFunction());
+        assertEquals("scan", forwarded.getCommand().wireName());
         assertEquals("10.0.0.1", forwarded.getSourceIP());
-
-        Object[] payload = (Object[]) forwarded.getParameters();
-        assertEquals(7, payload[0]);
-        assertEquals(1001, payload[2]);
-        assertEquals(1002, payload[3]);
-        assertEquals(1003, payload[4]);
-        assertEquals(1004, payload[5]);
-        assertEquals(Boolean.FALSE, payload[6]);
-        assertEquals(1005, payload[7]);
-        PacketPort[] payloadPorts = (PacketPort[]) payload[1];
+        CombatScanPayload payload = (CombatScanPayload) forwarded.getPayload();
+        assertEquals(7, payload.getOpponentFirewall());
+        assertEquals(1001, payload.getDefaultBank());
+        assertEquals(1002, payload.getDefaultAttack());
+        assertEquals(1003, payload.getDefaultFtp());
+        assertEquals(1004, payload.getDefaultHttp());
+        assertFalse(payload.getNpc());
+        assertEquals(1005, payload.getDefaultShipping());
+        PacketPort[] payloadPorts = payload.getPacketPorts();
         assertEquals(1, payloadPorts.length);
         assertSame(packetPort, payloadPorts[0]);
     }
@@ -184,7 +351,11 @@ public class LegacyCombatNetworkQuestCommandsTest {
 
         boolean handled = handler.dispatch(
                 computer,
-                new ApplicationData("scan", new Object[]{3, new PacketPort[]{packetPort}, 1001, 8080, 1003, 1004, Boolean.FALSE, 1005}, 0, "10.0.0.9"),
+                new ApplicationData(
+                        new CombatScanPayload(3, new PacketPort[]{packetPort}, 1001, 8080, 1003, 1004, false, 1005),
+                        0,
+                        "10.0.0.9"
+                ),
                 0
         );
 
@@ -200,15 +371,18 @@ public class LegacyCombatNetworkQuestCommandsTest {
         List<ApplicationData> payloads = payloadCaptor.getAllValues();
         List<String> targets = targetCaptor.getAllValues();
 
-        assertEquals("pettycash", payloads.get(0).getFunction());
-        assertEquals(-10.0f, (Float) payloads.get(0).getParameters(), 0.001f);
+        assertEquals("pettycash", payloads.get(0).getCommand().wireName());
+        assertTrue(payloads.get(0).getPayload() instanceof PettyCashDeltaPayload);
+        assertEquals(-10.0f, ((PettyCashDeltaPayload) payloads.get(0).getPayload()).getAmount(), 0.001f);
         assertEquals("10.0.0.1", targets.get(0));
 
-        assertEquals("scanxp", payloads.get(1).getFunction());
-        assertEquals(60.0f, (Float) payloads.get(1).getParameters(), 0.001f);
+        assertEquals("scanxp", payloads.get(1).getCommand().wireName());
+        assertTrue(payloads.get(1).getPayload() instanceof CombatScanXpPayload);
+        assertEquals(60.0f, ((CombatScanXpPayload) payloads.get(1).getPayload()).getAmount(), 0.001f);
         assertEquals("10.0.0.1", targets.get(1));
 
-        assertEquals("scansuccess", payloads.get(2).getFunction());
+        assertEquals("scansuccess", payloads.get(2).getCommand().wireName());
+        assertTrue(payloads.get(2).getPayload() instanceof CombatScanSuccessPayload);
         assertEquals("10.0.0.9", targets.get(2));
     }
 
@@ -238,7 +412,11 @@ public class LegacyCombatNetworkQuestCommandsTest {
 
         boolean handled = handler.dispatch(
                 computer,
-                new ApplicationData("scan", new Object[]{30, new PacketPort[]{packetPort}, 1001, 8080, 1003, 4040, Boolean.TRUE, 1005}, 0, "10.0.0.9"),
+                new ApplicationData(
+                        new CombatScanPayload(30, new PacketPort[]{packetPort}, 1001, 8080, 1003, 4040, true, 1005),
+                        0,
+                        "10.0.0.9"
+                ),
                 0
         );
 
@@ -249,7 +427,8 @@ public class LegacyCombatNetworkQuestCommandsTest {
 
         ArgumentCaptor<ApplicationData> payloadCaptor = ArgumentCaptor.forClass(ApplicationData.class);
         verify(computerHandler, times(3)).addData(payloadCaptor.capture(), anyString());
-        assertEquals(20.0f, (Float) payloadCaptor.getAllValues().get(1).getParameters(), 0.001f);
+        assertTrue(payloadCaptor.getAllValues().get(1).getPayload() instanceof CombatScanXpPayload);
+        assertEquals(20.0f, ((CombatScanXpPayload) payloadCaptor.getAllValues().get(1).getPayload()).getAmount(), 0.001f);
     }
 
     @Test
@@ -275,13 +454,18 @@ public class LegacyCombatNetworkQuestCommandsTest {
         computer.commodityAmount = new float[]{1.0f, 2.0f, 3.0f, 4.0f, 5.0f};
         computer.pageBody = "<html>ready</html>";
         computer.ip = "10.0.0.1";
+        computer.network = "ProgNet";
+        computer.pettyCash = 99.0f;
 
         HashMap tasks = new HashMap();
-        tasks.put("SpeakToNPC", new Object[]{Boolean.TRUE, "Talk to the quest giver"});
+        tasks.put("SpeakToNPC", new CombatQuestTaskState(true, "Talk to the quest giver"));
         computer.CurrentQuests.put(7, new Object[]{tasks, "Active Quest"});
         computer.CompletedQuests.add(new Object[]{9, "Done Quest"});
 
         when(computer.getComputerHandler()).thenReturn(computerHandler);
+        when(computer.getMyFileSystem()).thenReturn(fileSystem);
+        when(computer.getCurrentQuests()).thenReturn(computer.CurrentQuests);
+        when(computer.getWatchHandler()).thenReturn(watchHandler);
         when(computer.getAttackLevel()).thenReturn(11.0f);
         when(computer.getBankLevel()).thenReturn(12.0f);
         when(computer.getWatchLevel()).thenReturn(13.0f);
@@ -306,7 +490,7 @@ public class LegacyCombatNetworkQuestCommandsTest {
 
         boolean handled = handler.dispatch(
                 computer,
-                new ApplicationData("questinformation", new Object[]{parameters, interestedQuests}, 0, "10.0.0.8"),
+                new ApplicationData(new CombatQuestInformationPayload(parameters, interestedQuests), 0, "10.0.0.8"),
                 0
         );
 
@@ -315,9 +499,10 @@ public class LegacyCombatNetworkQuestCommandsTest {
         ArgumentCaptor<ApplicationData> captor = ArgumentCaptor.forClass(ApplicationData.class);
         verify(computerHandler).addData(captor.capture(), eq("10.0.0.8"));
         ApplicationData forwarded = captor.getValue();
-        assertEquals("requestwebpage", forwarded.getFunction());
+        assertEquals("requestwebpage", forwarded.getCommand().wireName());
+        assertTrue(forwarded.getPayload() instanceof RequestWebPagePayload);
 
-        HashMap routed = (HashMap) forwarded.getParameters();
+        HashMap routed = ((RequestWebPagePayload) forwarded.getPayload()).getRequestParameters();
         assertEquals("true", routed.get("artifact"));
         assertEquals("3", routed.get("artifact_quantity"));
         assertEquals("true", routed.get("SpeakToNPC"));
@@ -361,7 +546,7 @@ public class LegacyCombatNetworkQuestCommandsTest {
 
         boolean handled = handler.dispatch(
                 computer,
-                new ApplicationData("takefile2", new Object[]{"artifact-id", 2}, 0, "10.0.0.1"),
+                new ApplicationData(new CombatTakeFile2Payload("artifact-id", 2), 0, "10.0.0.1"),
                 0
         );
 
@@ -373,7 +558,8 @@ public class LegacyCombatNetworkQuestCommandsTest {
 
         ArgumentCaptor<ApplicationData> captor = ArgumentCaptor.forClass(ApplicationData.class);
         verify(computerHandler).addData(captor.capture(), eq("10.0.0.1"));
-        assertEquals("message", captor.getValue().getFunction());
+        assertEquals("message", captor.getValue().getCommand().wireName());
+        assertTrue(captor.getValue().getPayload() instanceof game.payload.StructuredMessagePayload);
     }
 
     @Test
@@ -400,7 +586,7 @@ public class LegacyCombatNetworkQuestCommandsTest {
         try {
             boolean handled = handler.dispatch(
                     computer,
-                    new ApplicationData("changenetwork", "ProgNet", 0, "10.0.0.1"),
+                    new ApplicationData(new CombatChangeNetworkPayload("ProgNet"), 0, "10.0.0.1"),
                     0
             );
 

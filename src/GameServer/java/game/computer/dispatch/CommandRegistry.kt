@@ -38,7 +38,7 @@ class CommandRegistry private constructor(
     fun commands(): Set<String> = handlers.keys.toSet()
 
     override fun dispatch(applicationData: ApplicationData): Boolean {
-        val handler = handlers[applicationData.function] ?: return false
+        val handler = handlers[applicationData.command.wireName()] ?: return false
         handler.handle(applicationData)
         return true
     }

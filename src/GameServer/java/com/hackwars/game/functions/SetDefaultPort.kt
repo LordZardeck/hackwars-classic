@@ -3,6 +3,9 @@ package com.hackwars.game.functions
 import assignments.PacketPort
 import game.ApplicationData
 import game.Computer
+import game.payload.IntCommandPayload
+import game.payloadAs
+import com.hackwars.rpc.FetchPorts
 
 /**
  * Represents a function that sets one of the computer's default service ports.
@@ -16,7 +19,7 @@ import game.Computer
  */
 class SetDefaultPort(computer: Computer) : Function(computer) {
     override fun execute(applicationData: ApplicationData) {
-        val type = applicationData.parameters as? Int ?: return
+        val type = applicationData.payloadAs<IntCommandPayload>().value
         val port = applicationData.port
 
         when (type) {
@@ -27,6 +30,6 @@ class SetDefaultPort(computer: Computer) : Function(computer) {
             PacketPort.SHIPPING -> computer.setDefaultShipping(port)
         }
 
-        computer.computerHandler.addData(ApplicationData("fetchports", null, 0, computer.getIP()), computer.getIP())
+        computer.computerHandler.addData(ApplicationData(FetchPorts(computer.getIP()), 0, computer.getIP()), computer.getIP())
     }
 }

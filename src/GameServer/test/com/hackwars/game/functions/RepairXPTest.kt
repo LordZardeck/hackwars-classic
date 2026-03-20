@@ -11,7 +11,7 @@ class RepairXPTest {
         val computer = FunctionTestSupport.baseComputer()
         computer.stats["Repair"] = 8f
 
-        RepairXP(computer).execute(ApplicationData("repairxp", 7f, 0, "source"))
+        RepairXP(computer).execute(FunctionTestSupport.floatCommand("repairxp", 7f))
 
         assertEquals(15f, computer.stats["Repair"])
         verify(computer).sendDamagePacket()

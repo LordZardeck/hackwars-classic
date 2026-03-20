@@ -2,6 +2,7 @@ package game
 
 import org.apache.xmlrpc.client.XmlRpcClient
 import org.apache.xmlrpc.client.XmlRpcClientConfigImpl
+import game.payload.WebPagePayload
 import util.LocalWebConfig
 import util.zip
 import java.net.URL
@@ -24,16 +25,15 @@ open class NetworkSwitch(
     */
     open fun addData(AD: ApplicationData, ip: String?) {
         if (ip == "062.153.7.142") {
-            if (AD.getFunction() == "webpage") {
+            val payload = AD.payload
+            if (payload is WebPagePayload) {
                 println("Attempting to return site.")
-
-                val o = AD.getParameters() as Array<*>
                 try {
                     val config = XmlRpcClientConfigImpl()
                     config.serverURL = URL(LocalWebConfig.getXmlRpcUrl())
                     val client = XmlRpcClient()
                     client.setConfig(config)
-                    val params = arrayOf(o[0] as String, zip.zipString(o[1] as String), o[3] as Integer)
+                    val params = arrayOf(payload.title, zip.zipString(payload.body), payload.packetId as Integer)
                     client.execute("hackerRPC.returnWebsite", params) as String
                 } catch (e: Exception) {
                     e.printStackTrace()

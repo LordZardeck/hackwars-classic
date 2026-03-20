@@ -3,6 +3,7 @@ package game;
  * This singleton delivers files to a player when they purchase them via the Game's store.
  */
 
+import game.payload.SaveFileRequestPayload;
 import util.*;
 
 import java.util.*;
@@ -29,6 +30,13 @@ public class GiveItemsSingleton {
     //Make the constructor private.
     private GiveItemsSingleton() {
 
+    }
+
+    private void queueSaveFile(Computer playerComputer, ComputerHandler myComputerHandler, HackerFile file) {
+        myComputerHandler.addData(
+            new ApplicationData(new SaveFileRequestPayload("", file), 0, playerComputer.getIP()),
+            playerComputer.getIP()
+        );
     }
 
     /**
@@ -58,8 +66,7 @@ public class GiveItemsSingleton {
                 return (false);
             } else {
                 for (int i = 0; i < Items.size(); i++) {
-                    Object Parameter[] = new Object[]{"", (HackerFile) Items.get(i)};
-                    MyComputerHandler.addData(new ApplicationData("savefile", Parameter, 0, PlayerComputer.getIP()), PlayerComputer.getIP());
+                    queueSaveFile(PlayerComputer, MyComputerHandler, (HackerFile) Items.get(i));
                 }
 
                 PlayerComputer.addMessage("You have received files that you purchased using HackWars' online store. (" + basic + " x Attacking Data Shield, " + medium + " x Attacking Digital Fortress)");
@@ -96,8 +103,7 @@ public class GiveItemsSingleton {
                 return (false);
             } else {
                 for (int i = 0; i < Items.size(); i++) {
-                    Object Parameter[] = new Object[]{"", (HackerFile) Items.get(i)};
-                    MyComputerHandler.addData(new ApplicationData("savefile", Parameter, 0, PlayerComputer.getIP()), PlayerComputer.getIP());
+                    queueSaveFile(PlayerComputer, MyComputerHandler, (HackerFile) Items.get(i));
                 }
 
                 PlayerComputer.addMessage("You have received files that you purchased using HackWars' online store. (" + basic + " x Attacking Digital Fortress, " + medium + " x Attacking Ruby Guardian)");
@@ -134,8 +140,7 @@ public class GiveItemsSingleton {
                 return (false);
             } else {
                 for (int i = 0; i < Items.size(); i++) {
-                    Object Parameter[] = new Object[]{"", (HackerFile) Items.get(i)};
-                    MyComputerHandler.addData(new ApplicationData("savefile", Parameter, 0, PlayerComputer.getIP()), PlayerComputer.getIP());
+                    queueSaveFile(PlayerComputer, MyComputerHandler, (HackerFile) Items.get(i));
                 }
 
                 PlayerComputer.addMessage("You have received files that you purchased using HackWars' online store. (" + basic + " x Attacking Ruby Guardian, " + medium + " x Attacking Diamond Defender)");
@@ -172,8 +177,7 @@ public class GiveItemsSingleton {
                 return (false);
             } else {
                 for (int i = 0; i < Items.size(); i++) {
-                    Object Parameter[] = new Object[]{"", (HackerFile) Items.get(i)};
-                    MyComputerHandler.addData(new ApplicationData("savefile", Parameter, 0, PlayerComputer.getIP()), PlayerComputer.getIP());
+                    queueSaveFile(PlayerComputer, MyComputerHandler, (HackerFile) Items.get(i));
                 }
 
                 PlayerComputer.addMessage("You have received files that you purchased using HackWars' online store. (" + basic + " x Low Hardware Rolls, " + medium + " x Medium Hardware Rolls)");
@@ -210,8 +214,7 @@ public class GiveItemsSingleton {
                 return (false);
             } else {
                 for (int i = 0; i < Items.size(); i++) {
-                    Object Parameter[] = new Object[]{"", (HackerFile) Items.get(i)};
-                    MyComputerHandler.addData(new ApplicationData("savefile", Parameter, 0, PlayerComputer.getIP()), PlayerComputer.getIP());
+                    queueSaveFile(PlayerComputer, MyComputerHandler, (HackerFile) Items.get(i));
                 }
 
                 PlayerComputer.addMessage("You have received files that you purchased using HackWars' online store. (" + basic + " x Medium Hardware Rolls, " + medium + " x High Hardware Rolls)");
@@ -249,8 +252,7 @@ public class GiveItemsSingleton {
                 return (false);
             } else {
                 for (int i = 0; i < Items.size(); i++) {
-                    Object Parameter[] = new Object[]{"", (HackerFile) Items.get(i)};
-                    MyComputerHandler.addData(new ApplicationData("savefile", Parameter, 0, PlayerComputer.getIP()), PlayerComputer.getIP());
+                    queueSaveFile(PlayerComputer, MyComputerHandler, (HackerFile) Items.get(i));
                 }
 
                 PlayerComputer.addMessage("You have received files that you purchased using HackWars' online store. (" + basic + " x High Hardware Rolls, " + medium + " x Rare Hardware Rolls)");

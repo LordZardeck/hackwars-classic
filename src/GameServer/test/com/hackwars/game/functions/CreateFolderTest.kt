@@ -14,7 +14,7 @@ class CreateFolderTest {
         val packetAssignment = computer.packetAssignment
         whenever(fileSystem.addDirectory("/tmp/new")).thenReturn(false)
 
-        CreateFolder(computer).execute(ApplicationData("createfolder", "/tmp/new", 0, "source"))
+        CreateFolder(computer).execute(FunctionTestSupport.stringCommand("createfolder", "/tmp/new"))
 
         verify(computer).sendPacket()
         verify(computer).addMessage(MessageHandler.SAVE_FAIL_HD_FULL)

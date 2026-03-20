@@ -1,13 +1,32 @@
 package game.computer.runtime
 
+import game.ApplicationCommand
+import game.ApplicationPayload
+
+data class RuntimeLogMessagePayload(
+    val message: String,
+    val ip: String,
+    val timestamp: Long,
+) : ApplicationPayload {
+    override fun getCommand(): ApplicationCommand = ApplicationCommand.of("logmessage")
+}
+
 data class RuntimeApplicationDataDispatch(
-    val function: String,
-    val parameters: Any? = null,
+    val command: ApplicationCommand,
+    val payload: ApplicationPayload,
     val port: Int = 0,
     val sourceIp: String = "",
     val sourcePort: Int = 0,
     val source: Int = 0,
-)
+) {
+    constructor(
+        payload: ApplicationPayload,
+        port: Int = 0,
+        sourceIp: String = "",
+        sourcePort: Int = 0,
+        source: Int = 0,
+    ) : this(payload.getCommand(), payload, port, sourceIp, sourcePort, source)
+}
 
 sealed interface RuntimeTickEvent {
     data class PersistRequested(val autoSave: Boolean = false) : RuntimeTickEvent

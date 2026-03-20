@@ -3,6 +3,7 @@ package com.hackwars.game.program.attack
 import com.hackwars.game.program.AttackProgram
 import game.ApplicationData
 import game.MessageHandler
+import game.payload.CancelAttackPayload
 
 class RequestCancelAttackHandler : AttackFunctionHandler {
     override val functionName: String = "requestcancelattack"
@@ -17,7 +18,7 @@ class RequestCancelAttackHandler : AttackFunctionHandler {
 
         if (!program.zombie) {
             program.computerHandler!!.addData(
-                ApplicationData("cancelattack", null, program.getTargetPort(), program.sourceIP),
+                ApplicationData(CancelAttackPayload(null), program.getTargetPort(), program.sourceIP),
                 program.getTargetIP()
             )
             program.computer!!.addMessage(
@@ -27,7 +28,7 @@ class RequestCancelAttackHandler : AttackFunctionHandler {
             )
         } else {
             program.computerHandler!!.addData(
-                ApplicationData("cancelattack", null, program.getTargetPort(), program.maliciousIP),
+                ApplicationData(CancelAttackPayload(null), program.getTargetPort(), program.maliciousIP),
                 program.getTargetIP()
             )
             program.computer!!.addMessage(

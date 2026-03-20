@@ -1,5 +1,8 @@
 package game
 
+import com.hackwars.rpc.SaveFile
+import game.payload.ChallengeResultsPayload
+import game.payload.RequestNetworkHopPayload
 import java.util.ArrayList
 import java.util.HashMap
 
@@ -143,9 +146,12 @@ open class MakeClue(private val MyFileSystem: FileSystem, private val MyComputer
                             MyComputer.addMessage("Rewards:")
                             MyComputer.addMessage("${XP_TABLE[clueLevel]} XP in all skills.")
                             MyComputer.addMessage("$" + MONEY_TABLE[clueLevel] + " rewarded.")
-                            val O = arrayOf<Any?>(MONEY_TABLE[clueLevel], XP_TABLE[clueLevel])
                             MyComputer.computerHandler.addData(
-                                ApplicationData("challengeresults", O, 0, MyComputer.getIP()),
+                                ApplicationData(
+                                    ChallengeResultsPayload(MONEY_TABLE[clueLevel], XP_TABLE[clueLevel]),
+                                    0,
+                                    MyComputer.getIP()
+                                ),
                                 MyComputer.getIP()
                             )
                             var H1: HackerFile? = null
@@ -163,20 +169,22 @@ open class MakeClue(private val MyFileSystem: FileSystem, private val MyComputer
                             MyComputer.addMessage("Rewarded File " + H1!!.getName())
                             MyComputer.addMessage("Rewarded File " + H2!!.getName())
 
-                            var Parameter = arrayOf<Any?>("", H1)
                             MyComputer.computerHandler.addData(
-                                ApplicationData("savefile", Parameter, 0, MyComputer.getIP()),
+                                ApplicationData(SaveFile(MyComputer.getIP(), "", H1!!), 0, MyComputer.getIP()),
                                 MyComputer.getIP()
                             )
-                            Parameter = arrayOf("", H2)
                             MyComputer.computerHandler.addData(
-                                ApplicationData("savefile", Parameter, 0, MyComputer.getIP()),
+                                ApplicationData(SaveFile(MyComputer.getIP(), "", H2!!), 0, MyComputer.getIP()),
                                 MyComputer.getIP()
                             )
                         } else {
                             MyComputer.fileSystem.deleteFile("", HF.getName())
                             MyComputer.computerHandler.addData(
-                                ApplicationData("requestnetworkhop", MyComputer.getIP(), 0, MyComputer.getIP()),
+                                ApplicationData(
+                                    RequestNetworkHopPayload(MyComputer.getIP()),
+                                    0,
+                                    MyComputer.getIP()
+                                ),
                                 HF.getMaker()
                             )
                         }

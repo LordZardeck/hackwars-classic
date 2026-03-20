@@ -1,6 +1,12 @@
 package game
 
 import assignments.PacketWatch
+import com.hackwars.rpc.ChangeWatchType
+import com.hackwars.rpc.FetchPorts
+import com.hackwars.rpc.FetchWatches
+import com.hackwars.rpc.SetWatchOnOff
+import com.hackwars.rpc.SetWatchObservedPorts
+import game.payload.RequestEquipmentPayload
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -15,7 +21,7 @@ class LegacyWatchEquipmentCommandsTest {
         try {
             val handled = fixture.handler.dispatch(
                 fixture.computer,
-                ApplicationData("not-owned", null, 0, fixture.computer.ip),
+                ApplicationData(FetchPorts(fixture.computer.ip), 0, fixture.computer.ip),
                 0
             )
 
@@ -42,7 +48,7 @@ class LegacyWatchEquipmentCommandsTest {
 
             val handled = fixture.handler.dispatch(
                 fixture.computer,
-                ApplicationData("fetchwatches", null, 0, fixture.computer.ip),
+                ApplicationData(FetchWatches(fixture.computer.ip), 0, fixture.computer.ip),
                 0
             )
 
@@ -70,7 +76,7 @@ class LegacyWatchEquipmentCommandsTest {
 
             val handled = fixture.handler.dispatch(
                 fixture.computer,
-                ApplicationData("changewatchtype", arrayOf(0, Watch.SCAN), 0, fixture.computer.ip),
+                ApplicationData(ChangeWatchType(fixture.computer.ip, 0, Watch.SCAN), 0, fixture.computer.ip),
                 0
             )
 
@@ -95,7 +101,7 @@ class LegacyWatchEquipmentCommandsTest {
 
             val handled = fixture.handler.dispatch(
                 fixture.computer,
-                ApplicationData("setwatchonoff", arrayOf<Any>(0, true), 0, fixture.computer.ip),
+                ApplicationData(SetWatchOnOff(fixture.computer.ip, 0, true), 0, fixture.computer.ip),
                 0
             )
 
@@ -117,7 +123,7 @@ class LegacyWatchEquipmentCommandsTest {
 
             val handled = fixture.handler.dispatch(
                 fixture.computer,
-                ApplicationData("setwatchobservedports", arrayOf<Any>(0, arrayOf(3, 7, 9)), 0, fixture.computer.ip),
+                ApplicationData(SetWatchObservedPorts(fixture.computer.ip, 0, arrayOf(3, 7, 9)), 0, fixture.computer.ip),
                 0
             )
 
@@ -142,7 +148,7 @@ class LegacyWatchEquipmentCommandsTest {
 
             val handled = fixture.handler.dispatch(
                 fixture.computer,
-                ApplicationData("requestequipment", Integer.valueOf(13), 0, fixture.computer.ip),
+                ApplicationData(RequestEquipmentPayload(13), 0, fixture.computer.ip),
                 0
             )
 
@@ -164,7 +170,7 @@ class LegacyWatchEquipmentCommandsTest {
         val queuedTasks = fixture.computer.snapshotPendingTasks()
         assertEquals(1, queuedTasks.size)
         val queued = queuedTasks[0] as ApplicationData
-        assertEquals("fetchwatches", queued.function)
+        assertEquals("fetchwatches", queued.command.wireName())
     }
 
     private class TestFixture {

@@ -4,6 +4,9 @@ import game.ApplicationData
 import game.Computer
 import game.MessageHandler
 import game.Port
+import game.payload.BooleanCommandPayload
+import game.payloadAs
+import com.hackwars.rpc.FetchPorts
 
 /**
  * Represents a function that toggles a port's power state.
@@ -23,7 +26,7 @@ import game.Port
 class PortOnOff(computer: Computer) : Function(computer) {
     override fun execute(applicationData: ApplicationData) {
         val targetPort = applicationData.port
-        val turnOn = applicationData.parameters as? Boolean ?: return
+        val turnOn = applicationData.payloadAs<BooleanCommandPayload>().value
 
         for (portEntry in computer.ports.values) {
             val port = portEntry as? Port ?: continue
@@ -77,6 +80,6 @@ class PortOnOff(computer: Computer) : Function(computer) {
             }
         }
 
-        computer.computerHandler.addData(ApplicationData("fetchports", null, 0, computer.getIP()), computer.getIP())
+        computer.computerHandler.addData(ApplicationData(FetchPorts(computer.getIP()), 0, computer.getIP()), computer.getIP())
     }
 }

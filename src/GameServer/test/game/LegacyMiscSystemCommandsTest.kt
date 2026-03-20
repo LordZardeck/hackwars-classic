@@ -1,6 +1,13 @@
 package game
 
 import assignments.PacketAssignment
+import com.hackwars.rpc.ClueData
+import com.hackwars.rpc.HacktendoActivate
+import com.hackwars.rpc.HacktendoTarget
+import com.hackwars.rpc.RequestDirectory
+import com.hackwars.rpc.Unlock
+import game.payload.BountyHttpPayload
+import game.payload.PingPayload
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -17,7 +24,7 @@ class LegacyMiscSystemCommandsTest {
     fun dispatch_returnsFalse_forNonOwnedCommand() {
         val computer = baseComputer()
 
-        val handled = handler.dispatch(computer, ApplicationData("requestdirectory", null, 0, "10.0.0.1"), 0)
+        val handled = handler.dispatch(computer, ApplicationData(RequestDirectory("10.0.0.1", null), 0, "10.0.0.1"), 0)
 
         assertFalse(handled)
     }
@@ -26,7 +33,7 @@ class LegacyMiscSystemCommandsTest {
     fun dispatch_bountyhttp_updatesLastBountyHttp() {
         val computer = baseComputer()
 
-        val handled = handler.dispatch(computer, ApplicationData("bountyhttp", "12.13.14.15", 0, "10.0.0.1"), 0)
+        val handled = handler.dispatch(computer, ApplicationData(BountyHttpPayload("12.13.14.15"), 0, "10.0.0.1"), 0)
 
         assertTrue(handled)
         assertEquals("12.13.14.15", computer.lastBountyHTTPIP)
@@ -40,7 +47,7 @@ class LegacyMiscSystemCommandsTest {
         computer.lockCount = 42
         computer.RESEND_CAPTCHA = false
 
-        val handled = handler.dispatch(computer, ApplicationData("unlock", "alpha", 0, "10.0.0.1"), 0)
+        val handled = handler.dispatch(computer, ApplicationData(Unlock("10.0.0.1", "alpha"), 0, "10.0.0.1"), 0)
 
         assertTrue(handled)
         assertFalse(computer.locked)
@@ -56,7 +63,7 @@ class LegacyMiscSystemCommandsTest {
         computer.lockCount = 42
         computer.RESEND_CAPTCHA = false
 
-        val handled = handler.dispatch(computer, ApplicationData("unlock", "beta", 0, "10.0.0.1"), 0)
+        val handled = handler.dispatch(computer, ApplicationData(Unlock("10.0.0.1", "beta"), 0, "10.0.0.1"), 0)
 
         assertTrue(handled)
         assertTrue(computer.locked)
@@ -69,7 +76,7 @@ class LegacyMiscSystemCommandsTest {
         val computer = baseComputer()
         computer.lastPingTime = 777L
 
-        val handled = handler.dispatch(computer, ApplicationData("ping", null, 0, "10.0.0.1"), 0)
+        val handled = handler.dispatch(computer, ApplicationData(PingPayload, 0, "10.0.0.1"), 0)
 
         assertTrue(handled)
         assertEquals(777L, computer.lastPingTime)
@@ -81,17 +88,17 @@ class LegacyMiscSystemCommandsTest {
 
         val targetHandled = handler.dispatch(
             computer,
-            ApplicationData("hacktendoTarget", arrayOf(1, 2, 3, 4), 0, "10.0.0.1"),
+            ApplicationData(HacktendoTarget(1, 2, "10.0.0.1", 3, 4), 0, "10.0.0.1"),
             0
         )
         val activateHandled = handler.dispatch(
             computer,
-            ApplicationData("hacktendoActivate", arrayOf(5, 6), 0, "10.0.0.1"),
+            ApplicationData(HacktendoActivate(5, 6, "10.0.0.1"), 0, "10.0.0.1"),
             0
         )
         val clueHandled = handler.dispatch(
             computer,
-            ApplicationData("cluedata", "payload", 0, "10.0.0.1"),
+            ApplicationData(ClueData("10.0.0.1", "payload"), 0, "10.0.0.1"),
             0
         )
 

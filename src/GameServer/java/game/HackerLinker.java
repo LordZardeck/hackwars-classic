@@ -6,9 +6,16 @@ Contains all the functions available to a player using the Hack Wars scriptting 
 
 package game;
 
+import com.hackwars.rpc.RequestAttack;
+import com.hackwars.rpc.RequestCancelAttack;
+import com.hackwars.rpc.SaveFile;
+import com.hackwars.rpc.SetWatchOnOff;
+import com.hackwars.rpc.RequestZombieAttack;
+
 import java.util.ArrayList;
 
 import com.hackwars.game.program.*;
+import game.payload.*;
 import hackscript.model.*;
 import util.*;
 
@@ -133,16 +140,16 @@ public class HackerLinker extends Linker {
 
                                     String banking_ip = B.getIP();
                                     if (!ip.equals(B.getIP())) {
-                                        ApplicationData MyBank = new ApplicationData("bank", new Float(deposit * depositCut), 0, ip);
+                                        ApplicationData MyBank = new ApplicationData(new FloatCommandPayload(ApplicationCommand.of("bank"), deposit * depositCut), 0, ip);
                                         MyComputerHandler.addData(MyBank, ip);
                                     } else {
                                         CentralLogging.getInstance().addOutput(ip + "\t" + ip + "\t" + "0\t" + deposit + "\n");
                                         B.deposit(deposit * depositCut);
-                                        ApplicationData MyBank = new ApplicationData("bank", new Float(0.0f), 0, ip);
+                                        ApplicationData MyBank = new ApplicationData(new FloatCommandPayload(ApplicationCommand.of("bank"), 0.0f), 0, ip);
                                         MyComputerHandler.addData(MyBank, ip);
                                     }
 
-                                    MyComputerHandler.addData(new ApplicationData("bankxp", new Float(deposit / depositXP), 0, ip), ip);
+                                    MyComputerHandler.addData(new ApplicationData(new FloatCommandPayload(ApplicationCommand.of("bankxp"), deposit / depositXP), 0, ip), ip);
 
                                     Computer C = B.getComputer();
                                     if (!C.getIP().equals(ip))//Send a packet if something malicious happens.
@@ -179,7 +186,7 @@ public class HackerLinker extends Linker {
                                         if (ip != null && deposit <= amount) {
                                             String banking_ip = B.getIP();
 
-                                            ApplicationData MyPettyCash = new ApplicationData("pettycash", new Float((deposit)), 0, B.getComputer().getIP());
+                                            ApplicationData MyPettyCash = new ApplicationData(new PettyCashDeltaPayload(deposit), 0, B.getComputer().getIP());
 
                                             if (!ip.equals(B.getComputer().getIP())) {
                                                 CentralLogging.getInstance().addOutput(B.getComputer().getIP() + "\t" + ip + "\t" + "1\t" + deposit + "\n");
@@ -254,10 +261,10 @@ public class HackerLinker extends Linker {
                                     }
 
 
-                                    ApplicationData MyBank = new ApplicationData("pettycash", new Object[]{new Float(deposit * transferCut), deposit}, 0, B.getComputer().getIP());
+                                    ApplicationData MyBank = new ApplicationData(new PettyCashTransferPayload(deposit * transferCut, deposit, true), 0, B.getComputer().getIP());
 
                                     MyComputerHandler.addData(MyBank, ip);
-                                    MyComputerHandler.addData(new ApplicationData("bankxp", new Float(deposit / transferXP), 0, banking_ip), banking_ip);
+                                    MyComputerHandler.addData(new ApplicationData(new FloatCommandPayload(ApplicationCommand.of("bankxp"), deposit / transferXP), 0, banking_ip), banking_ip);
 
                                     Computer C = B.getComputer();
                                     if (!C.getIP().equals(ip))//Send a packet if something malicious happens.
@@ -334,7 +341,7 @@ public class HackerLinker extends Linker {
                         String message = "";
                         if (parameters.get(0) instanceof TypeString)
                             message = ((TypeString) parameters.get(0)).getStringValue();
-                        MyComputerHandler.addData(new ApplicationData("sendemail", message, 0, W.getIP()), W.getIP());
+                        MyComputerHandler.addData(new ApplicationData(new SendEmailPayload(message), 0, W.getIP()), W.getIP());
                     } catch (Exception e) {
                         MyProgram.getComputer().addMessage("An exception occurred in sendEmail().");
                     }
@@ -343,8 +350,7 @@ public class HackerLinker extends Linker {
                         String message = "";
                         if (parameters.get(0) instanceof TypeString)
                             message = ((TypeString) parameters.get(0)).getStringValue();
-                        Object O[] = new Object[]{message, W.getTargetIP()};
-                        MyComputerHandler.addData(new ApplicationData("sendfacebook", O, 0, W.getIP()), W.getIP());
+                        MyComputerHandler.addData(new ApplicationData(new SendFacebookPayload(message, W.getTargetIP()), 0, W.getIP()), W.getIP());
                     } catch (Exception e) {
                         MyProgram.getComputer().addMessage("An exception occurred in sendFacebookMessage().");
                     }
@@ -393,7 +399,7 @@ public class HackerLinker extends Linker {
                                         if (parameters.size() > 0)
                                             port = ((TypeInteger) parameters.get(0)).getIntValue();
                                         if (port >= 0) {
-                                            MyComputerHandler.addData(new ApplicationData("requestcancelattack", null, port, W.getIP()), W.getIP());
+                                            MyComputerHandler.addData(new ApplicationData(new RequestCancelAttack(W.getIP(), port), port, W.getIP()), W.getIP());
                                         }
                                     } catch (Exception e) {
                                         MyProgram.getComputer().addMessage("An exception occurred in cancelAttack().");
@@ -415,7 +421,7 @@ public class HackerLinker extends Linker {
                                             if (W.getParentWatch().getExternal()) {//Only allow this function if it came from triggerWatch.
                                                 try {
                                                     String targetIP = ((TypeString) parameters.get(0)).getStringValue();
-                                                    ApplicationData Test = new ApplicationData("requestscan", W.getIP(), 0, W.getIP());
+                                                    ApplicationData Test = new ApplicationData(new CombatRequestScanPayload(W.getIP()), 0, W.getIP());
                                                     MyComputerHandler.addData(Test, targetIP);
                                                 } catch (Exception e) {
                                                     MyProgram.getComputer().addMessage("An exception occurred in scan().");
@@ -435,8 +441,11 @@ public class HackerLinker extends Linker {
                                                     String targetIP = W.getTargetIP();
                                                     Integer I[] = new Integer[0];
                                                     String S[][] = {null, null, null};
-                                                    Object o = new Object[]{targetIP, new Integer(targetPort), I, S, null, 0};
-                                                    ApplicationData Test = new ApplicationData("requestattack", o, attackport, W.getIP());
+                                                    ApplicationData Test = new ApplicationData(
+                                                            new RequestAttack(targetIP, targetPort, W.getIP(), attackport, I, S, null, 0),
+                                                            attackport,
+                                                            W.getIP()
+                                                    );
                                                     MyComputerHandler.addData(Test, W.getIP());
                                                 } catch (Exception e) {
                                                     MyProgram.getComputer().addMessage("An exception occurred in counterattack().");
@@ -454,10 +463,13 @@ public class HackerLinker extends Linker {
                                                         String targetIP = ((TypeString) parameters.get(1)).getStringValue();
                                                         Integer I[] = new Integer[0];
                                                         String S[][] = {null, null, null};
-                                                        Object o = new Object[]{targetIP, new Integer(targetPort), I, S, null, 0};
 
                                                         if (!targetIP.equals(W.getIP()) && targetIP.indexOf("store") == -1) {
-                                                            ApplicationData Test = new ApplicationData("requestattack", o, attackport, W.getIP());
+                                                            ApplicationData Test = new ApplicationData(
+                                                                    new RequestAttack(targetIP, targetPort, W.getIP(), attackport, I, S, null, 0),
+                                                                    attackport,
+                                                                    W.getIP()
+                                                            );
                                                             MyComputerHandler.addData(Test, W.getIP());
                                                         }
 						/*}else
@@ -482,8 +494,12 @@ public class HackerLinker extends Linker {
                                                                 String S[][] = null;
 
                                                                 if (targetIP.indexOf("store") == -1) {
-                                                                    Object Parameters[] = new Object[]{targetIP, new Integer(targetPort), I, S, new Object[]{"", new Float(0), "", new Float(0), ""}, sourceIP};
-                                                                    ApplicationData AD = new ApplicationData("requestzombieattack", Parameters, sourcePort, W.getIP());
+                                                                    Object extraInfo[] = new Object[]{"", new Float(0), "", new Float(0), ""};
+                                                                    ApplicationData AD = new ApplicationData(
+                                                                            new RequestZombieAttack(targetIP, targetPort, W.getIP(), sourcePort, I, S, extraInfo, sourceIP),
+                                                                            sourcePort,
+                                                                            W.getIP()
+                                                                    );
                                                                     MyComputerHandler.addData(AD, W.getIP());
                                                                 }
 
@@ -499,11 +515,7 @@ public class HackerLinker extends Linker {
                                                             try {
                                                                 int counterport = ((TypeInteger) parameters.get(0)).getIntValue();
                                                                 String targetIP = W.getTargetIP();
-                                                                int defaultAttack = W.getDefaultAttack();
-                                                                Integer I[] = new Integer[0];
-                                                                String S[][] = {null, null, null};
-                                                                Object o = new Object[]{targetIP, "Bank", I, S};
-                                                                ApplicationData Test = new ApplicationData("requestattackdefault", o, counterport, W.getIP());
+                                                                ApplicationData Test = new ApplicationData(new RequestAttackDefaultPayload("Bank"), counterport, W.getIP());
                                                                 MyComputerHandler.addData(Test, targetIP);
                                                             } catch (Exception e) {
                                                                 MyProgram.getComputer().addMessage("An exception occurred in counterattackBank().");
@@ -515,11 +527,7 @@ public class HackerLinker extends Linker {
                                                                 try {
                                                                     int counterport = ((TypeInteger) parameters.get(0)).getIntValue();
                                                                     String targetIP = W.getTargetIP();
-                                                                    int defaultAttack = W.getDefaultAttack();
-                                                                    Integer I[] = new Integer[0];
-                                                                    String S[][] = {null, null, null};
-                                                                    Object o = new Object[]{targetIP, "Attack", I, S};
-                                                                    ApplicationData Test = new ApplicationData("requestattackdefault", o, counterport, W.getIP());
+                                                                    ApplicationData Test = new ApplicationData(new RequestAttackDefaultPayload("Attack"), counterport, W.getIP());
                                                                     MyComputerHandler.addData(Test, targetIP);
                                                                 } catch (Exception e) {
                                                                     MyProgram.getComputer().addMessage("An exception occurred in counterattackAttack.");
@@ -577,7 +585,7 @@ public class HackerLinker extends Linker {
                                                                                             if (parameters.get(0) instanceof TypeFloat)
                                                                                                 amount = (Float) ((TypeFloat) parameters.get(0)).getRawValue();
                                                                                         int port = W.getParentWatch().getNumber();
-                                                                                        MyComputerHandler.addData(new ApplicationData("deposit", amount, port, W.getIP()), W.getIP());
+                                                                                        MyComputerHandler.addData(new ApplicationData(new FloatCommandPayload(ApplicationCommand.of("deposit"), amount), port, W.getIP()), W.getIP());
                                                                                     } catch (Exception e) {
                                                                                         MyProgram.getComputer().addMessage("An exception occurred in depositPettyCash().");
                                                                                     }
@@ -588,8 +596,7 @@ public class HackerLinker extends Linker {
                                                                                         try {
                                                                                             String target_ip = (String) ((TypeString) parameters.get(0)).getStringValue();
                                                                                             float amount = (Float) ((TypeFloat) parameters.get(1)).getRawValue();
-                                                                                            Object tO[] = new Object[]{target_ip, new Float(amount)};
-                                                                                            MyComputerHandler.addData(new ApplicationData("transfer", tO, W.getDefaultBank(), W.getIP()), W.getIP());
+                                                                                            MyComputerHandler.addData(new ApplicationData(new TransferPayload(target_ip, amount), W.getDefaultBank(), W.getIP()), W.getIP());
                                                                                         } catch (Exception e) {
                                                                                             MyProgram.getComputer().addMessage("An exception occurred in transferMoney.");
                                                                                         }
@@ -645,8 +652,7 @@ public class HackerLinker extends Linker {
                                                                                                                 int port = -1;
                                                                                                                 if (parameters.get(0) instanceof TypeInteger)
                                                                                                                     port = ((TypeInteger) parameters.get(0)).getIntValue();
-                                                                                                                Object O = new Object[]{new Integer(port), new Boolean(false)};
-                                                                                                                MyComputerHandler.addData(new ApplicationData("setwatchonoff", O, 0, MyProgram.getComputer().getIP()), MyProgram.getComputer().getIP());
+                                                                                                                MyComputerHandler.addData(new ApplicationData(new SetWatchOnOff(MyProgram.getComputer().getIP(), port, false), 0, MyProgram.getComputer().getIP()), MyProgram.getComputer().getIP());
                                                                                                             } catch (
                                                                                                                     Exception e) {
                                                                                                                 MyProgram.getComputer().addMessage("An exception occurred in shutDownWatch().");
@@ -659,8 +665,7 @@ public class HackerLinker extends Linker {
                                                                                                                     int port = -1;
                                                                                                                     if (parameters.get(0) instanceof TypeInteger)
                                                                                                                         port = ((TypeInteger) parameters.get(0)).getIntValue();
-                                                                                                                    Object O = new Object[]{new Integer(port), new Boolean(true)};
-                                                                                                                    MyComputerHandler.addData(new ApplicationData("setwatchonoff", O, 0, MyProgram.getComputer().getIP()), MyProgram.getComputer().getIP());
+                                                                                                                    MyComputerHandler.addData(new ApplicationData(new SetWatchOnOff(MyProgram.getComputer().getIP(), port, true), 0, MyProgram.getComputer().getIP()), MyProgram.getComputer().getIP());
                                                                                                                 } catch (
                                                                                                                         Exception e) {
                                                                                                                     MyProgram.getComputer().addMessage("An exception occurred in turnOnWatch().");
@@ -683,7 +688,7 @@ public class HackerLinker extends Linker {
                                                                                                                     //Heal this port.
                                                                                                                     if (name.equals("heal")) {
                                                                                                                         try {
-                                                                                                                            MyComputerHandler.addData(new ApplicationData("heal", null, W.getNumber(), W.getIP()), W.getIP());
+                                                                                                                            MyComputerHandler.addData(new ApplicationData(HealPayload.INSTANCE, W.getNumber(), W.getIP()), W.getIP());
                                                                                                                         } catch (
                                                                                                                                 Exception e) {
                                                                                                                             MyProgram.getComputer().addMessage("An exception occurred in heal().");
@@ -841,7 +846,7 @@ public class HackerLinker extends Linker {
                                         MyProgram.getComputer().addMessage(MessageHandler.MESSAGE_FAIL_INVALID_TARGET);
                                     } else if (message.length() < 256) {
                                         CentralLogging.getInstance().addOutput(MyProgram.getComputer().getIP() + " sent message \"" + message + "\" to " + ip + "\n");
-                                        MyComputerHandler.addData(new ApplicationData("message", message, 0, MyProgram.getComputer().getIP()), ip);
+                                        MyComputerHandler.addData(new ApplicationData(new MessageTextPayload(message), 0, MyProgram.getComputer().getIP()), ip);
                                     } else
                                         MyProgram.getComputer().addMessage(MessageHandler.MESSAGE_FAIL_TOO_LONG);
                                 }
@@ -864,16 +869,16 @@ public class HackerLinker extends Linker {
 
                             //Freeze an opponent's port.
                             if (name.equals("freeze")) {
-                                try {
-                                    ApplicationData AD = null;
-                                    if (!A.isZombie()) {
-                                        AD = new ApplicationData("freeze", null, A.getTargetPort(), A.getComputer().getIP());
+                                                        try {
+                                                            ApplicationData AD = null;
+                                                            if (!A.isZombie()) {
+                                                                AD = new ApplicationData(FreezePayload.INSTANCE, A.getTargetPort(), A.getComputer().getIP());
 
-                                    } else {
-                                        AD = new ApplicationData("freeze", null, A.getTargetPort(), A.getMaliciousIP());
-                                    }
-                                    AD.setSourcePort(A.getPort());
-                                    MyComputerHandler.addData(AD, A.getTargetIP());
+                                                            } else {
+                                                                AD = new ApplicationData(FreezePayload.INSTANCE, A.getTargetPort(), A.getMaliciousIP());
+                                                            }
+                                                            AD = AD.withSourcePort(A.getPort());
+                                                            MyComputerHandler.addData(AD, A.getTargetIP());
 
                                     A.setDamage(false);
                                 } catch (Exception e) {
@@ -893,12 +898,12 @@ public class HackerLinker extends Linker {
                                             ApplicationData AD = null;
 
                                             if (!A.isZombie()) {
-                                                AD = new ApplicationData("attack", A.getComputer().getNetwork(), newPort, A.getComputer().getIP());
+                                                AD = new ApplicationData(new LocalPortEntryPayload(ApplicationCommand.of("attack"), A.getComputer().getNetwork()), newPort, A.getComputer().getIP());
                                             } else {
-                                                AD = new ApplicationData("attack", new String[]{A.getComputer().getIP(), A.getComputer().getNetwork()}, newPort, A.getMaliciousIP());
+                                                AD = new ApplicationData(new RedirectedPortEntryPayload(ApplicationCommand.of("attack"), A.getComputer().getIP(), A.getComputer().getNetwork()), newPort, A.getMaliciousIP());
                                             }
 
-                                            AD.setSourcePort(A.getPort());
+                                            AD = AD.withSourcePort(A.getPort());
                                             MyComputerHandler.addData(AD, A.getTargetIP());
 
                                         }
@@ -935,31 +940,35 @@ public class HackerLinker extends Linker {
                                             } else
 
                                                 //Install a script as a finalization step in an attack.
-                                                if (name.equals("installScript")) {
-                                                    try {
-                                                        if (!A.isZombie()) {
-                                                            A.setAttacking(false);
-                                                            Object o[] = new Object[]{A.getMaliciousCode(), A.getMaliciousParameters()};
+                                                    if (name.equals("installScript")) {
+                                                        try {
+                                                            if (!A.isZombie()) {
+                                                                A.setAttacking(false);
+                                                                HashMap maliciousCode = (HashMap) A.getMaliciousCode();
 
-                                                            //Check for bounty.
-                                                            A.checkBounty(A.getLastFile(), MakeBounty.INSTALL);
-                                                            ApplicationData AD = new ApplicationData("installScript", o, A.getTargetPort(), A.getIP());
-                                                            AD.setSourcePort(A.getPort());
-                                                            MyComputerHandler.addData(AD, A.getTargetIP());
+                                                                //Check for bounty.
+                                                                A.checkBounty(A.getLastFile(), MakeBounty.INSTALL);
+                                                                ApplicationData AD = new ApplicationData(
+                                                                    new AttackInstallScriptPayload(maliciousCode, A.getMaliciousParameters()),
+                                                                    A.getTargetPort(),
+                                                                    A.getIP()
+                                                                );
+                                                                AD = AD.withSourcePort(A.getPort());
+                                                                MyComputerHandler.addData(AD, A.getTargetIP());
+                                                            }
+                                                        } catch (Exception e) {
+                                                            MyProgram.getComputer().addMessage("An exception occurred in installScript().");
                                                         }
-                                                    } catch (Exception e) {
-                                                        MyProgram.getComputer().addMessage("An exception occurred in installScript().");
-                                                    }
                                                 } else
 
                                                     //Install a script as a finalization step in an attack.
                                                     if (name.equals("editLogs")) {
                                                         try {
-                                                            Object o[] = new Object[]{((TypeString) parameters.get(0)).getStringValue(), ((TypeString) parameters.get(1)).getStringValue()};
+                                                            EditLogsPayload payload = new EditLogsPayload(((TypeString) parameters.get(0)).getStringValue(), ((TypeString) parameters.get(1)).getStringValue());
                                                             if (!A.isZombie())
-                                                                MyComputerHandler.addData(new ApplicationData("editLogs", o, A.getTargetPort(), A.getIP()), A.getTargetIP());
+                                                                MyComputerHandler.addData(new ApplicationData(payload, A.getTargetPort(), A.getIP()), A.getTargetIP());
                                                             else
-                                                                MyComputerHandler.addData(new ApplicationData("editLogs", o, A.getTargetPort(), A.getMaliciousIP()), A.getTargetIP());
+                                                                MyComputerHandler.addData(new ApplicationData(payload, A.getTargetPort(), A.getMaliciousIP()), A.getTargetIP());
 
 
                                                             A.setAttacking(false);
@@ -999,9 +1008,9 @@ public class HackerLinker extends Linker {
                                                                                 ip = ((TypeString) parameters.get(0)).getStringValue();
 
                                                                             if (!A.isZombie())
-                                                                                MyComputerHandler.addData(new ApplicationData("deletelog", ip, A.getTargetPort(), A.getIP()), A.getTargetIP());
+                                                                                MyComputerHandler.addData(new ApplicationData(new DeleteLogPayload(ip), A.getTargetPort(), A.getIP()), A.getTargetIP());
                                                                             else
-                                                                                MyComputerHandler.addData(new ApplicationData("deletelog", ip, A.getTargetPort(), A.getMaliciousIP()), A.getTargetIP());
+                                                                                MyComputerHandler.addData(new ApplicationData(new DeleteLogPayload(ip), A.getTargetPort(), A.getMaliciousIP()), A.getTargetIP());
 
                                                                             A.setAttacking(false);
                                                                         } catch (Exception e) {
@@ -1013,9 +1022,9 @@ public class HackerLinker extends Linker {
                                                                         if (name.equals("emptyPettyCash")) {
                                                                             try {
                                                                                 if (!A.isZombie())
-                                                                                    MyComputerHandler.addData(new ApplicationData("emptyPettyCash", A.getWindowHandle(), A.getTargetPort(), A.getIP()), A.getTargetIP());
+                                                                                    MyComputerHandler.addData(new ApplicationData(new EmptyPettyCashPayload(A.getWindowHandle()), A.getTargetPort(), A.getIP()), A.getTargetIP());
                                                                                 else
-                                                                                    MyComputerHandler.addData(new ApplicationData("emptyPettyCash", A.getWindowHandle(), A.getTargetPort(), A.getMaliciousIP()), A.getTargetIP());
+                                                                                    MyComputerHandler.addData(new ApplicationData(new EmptyPettyCashPayload(A.getWindowHandle()), A.getTargetPort(), A.getMaliciousIP()), A.getTargetIP());
 
                                                                                 A.setAttacking(false);
                                                                             } catch (Exception e) {
@@ -1032,16 +1041,14 @@ public class HackerLinker extends Linker {
                                                                                         String fetch_path = "Public/";
                                                                                         String path = "";
                                                                                         String password = "";
-                                                                                        Object O[] = new Object[]{targetIP, fileName, fetch_path, path, password, A.getSourcePort()};
-                                                                                        MyComputerHandler.addData(new ApplicationData("malget", O, A.getTargetPort(), A.getIP()), A.getTargetIP());
+                                                                                        MyComputerHandler.addData(new ApplicationData(new MalGetPayload(targetIP, fileName, fetch_path, path, password, A.getSourcePort(), A.getTargetPort()), A.getTargetPort(), A.getIP()), A.getTargetIP());
                                                                                     } else {
                                                                                         String targetIP = A.getMaliciousIP();
                                                                                         String fileName = null;
                                                                                         String fetch_path = "Public/";
                                                                                         String path = "";
                                                                                         String password = "";
-                                                                                        Object O[] = new Object[]{targetIP, fileName, fetch_path, path, password, A.getSourcePort()};
-                                                                                        MyComputerHandler.addData(new ApplicationData("malget", O, A.getTargetPort(), A.getMaliciousIP()), A.getTargetIP());
+                                                                                        MyComputerHandler.addData(new ApplicationData(new MalGetPayload(targetIP, fileName, fetch_path, path, password, A.getSourcePort(), A.getTargetPort()), A.getTargetPort(), A.getMaliciousIP()), A.getTargetIP());
                                                                                     }
 
                                                                                     A.setAttacking(false);
@@ -1059,10 +1066,10 @@ public class HackerLinker extends Linker {
                                                                                         if (!A.isZombie())
                                                                                             // This is the fix for changeDailyPay messages not showing up in the attack window ... it was sending the port and not the window handle
                                                                                             // changed from
-                                                                                            // MyComputerHandler.addData(new ApplicationData("changedailypay",new Object[]{user,A.getPort()},A.getTargetPort(),A.getIP()),A.getTargetIP());
-                                                                                            MyComputerHandler.addData(new ApplicationData("changedailypay", new Object[]{user, A.getWindowHandle()}, A.getTargetPort(), A.getIP()), A.getTargetIP());
+                                                                                            // Daily pay changes are routed through typed payloads elsewhere.
+                                                                                            MyComputerHandler.addData(new ApplicationData(new ChangeDailyPayPayload(user, A.getWindowHandle()), A.getTargetPort(), A.getIP()), A.getTargetIP());
                                                                                         else
-                                                                                            MyComputerHandler.addData(new ApplicationData("changedailypay", new Object[]{user, A.getWindowHandle()}, A.getTargetPort(), A.getMaliciousIP()), A.getTargetIP());
+                                                                                            MyComputerHandler.addData(new ApplicationData(new ChangeDailyPayPayload(user, A.getWindowHandle()), A.getTargetPort(), A.getMaliciousIP()), A.getTargetIP());
 
                                                                                         A.setAttacking(false);
                                                                                     } catch (Exception e) {
@@ -1081,11 +1088,11 @@ public class HackerLinker extends Linker {
 
                                                                                         //Cancel the current attack taking place.
                                                                                         if (name.equals("cancelAttack")) {
-                                                                                            try {
-                                                                                                if (!A.isZombie())
-                                                                                                    MyComputerHandler.addData(new ApplicationData("cancelattack", null, A.getTargetPort(), A.getIP()), A.getTargetIP());
-                                                                                                else
-                                                                                                    MyComputerHandler.addData(new ApplicationData("cancelattack", null, A.getTargetPort(), A.getMaliciousIP()), A.getTargetIP());
+                                                                                        try {
+                                                            if (!A.isZombie())
+                                                                                                MyComputerHandler.addData(new ApplicationData(new CancelAttackPayload((Boolean) null), A.getTargetPort(), A.getIP()), A.getTargetIP());
+                                                                                            else
+                                                                                                MyComputerHandler.addData(new ApplicationData(new CancelAttackPayload((Boolean) null), A.getTargetPort(), A.getMaliciousIP()), A.getTargetIP());
                                                                                                 A.setAttacking(false);
                                                                                             } catch (Exception e) {
                                                                                                 MyProgram.getComputer().addMessage("An exception occurred in cancelAttack().");
@@ -1159,15 +1166,15 @@ public class HackerLinker extends Linker {
                                                                                                                 } else
 
                                                                                                                     //Finalize the attack by destroying the ports attached to target.
-                                                                                                                    if (name.equals("destroyWatches")) {
-                                                                                                                        try {
-                                                                                                                            if (A.getComputer() != null) {
+                                                                                                                if (name.equals("destroyWatches")) {
+                                                                                                                    try {
+                                                                                                                        if (A.getComputer() != null) {
 
-                                                                                                                                if (!A.isZombie())
-                                                                                                                                    MyComputerHandler.addData(new ApplicationData("destroyWatch", null, A.getTargetPort(), A.getIP()), A.getTargetIP());
-                                                                                                                                else {
-                                                                                                                                    MyComputerHandler.addData(new ApplicationData("destroyWatch", null, A.getTargetPort(), A.getMaliciousIP()), A.getTargetIP());
-                                                                                                                                }
+                                                                                                                            if (!A.isZombie())
+                                                                                                                                MyComputerHandler.addData(new ApplicationData(DestroyWatchPayload.INSTANCE, A.getTargetPort(), A.getIP()), A.getTargetIP());
+                                                                                                                            else {
+                                                                                                                                MyComputerHandler.addData(new ApplicationData(DestroyWatchPayload.INSTANCE, A.getTargetPort(), A.getMaliciousIP()), A.getTargetIP());
+                                                                                                                            }
                                                                                                                             }
                                                                                                                             A.setAttacking(false);
 
@@ -1249,8 +1256,7 @@ public class HackerLinker extends Linker {
                             int port = -1;
                             if (parameters.get(0) instanceof TypeInteger)
                                 port = ((TypeInteger) parameters.get(0)).getIntValue();
-                            Object O = new Object[]{new Integer(port), new Boolean(true)};
-                            MyComputerHandler.addData(new ApplicationData("setwatchonoff", O, 0, MyProgram.getComputer().getIP()), MyProgram.getComputer().getIP());
+                            MyComputerHandler.addData(new ApplicationData(new SetWatchOnOff(MyProgram.getComputer().getIP(), port, true), 0, MyProgram.getComputer().getIP()), MyProgram.getComputer().getIP());
                         } catch (Exception e) {
                             MyProgram.getComputer().addMessage("An exception occurred in turnOnWatch().");
                         }
@@ -1322,10 +1328,8 @@ public class HackerLinker extends Linker {
                                     TriggerParam.put(key, parameters.get(i + 1));
                                 }
 
-                                Object O = new Object[]{new Integer(watchNumber), TriggerParam, H.getTargetIP()};
-
-                                ApplicationData AD = new ApplicationData("requesttrigger", O, 0, MyProgram.getComputer().getIP());
-                                AD.setSource(ApplicationData.OUTSIDE);
+                                ApplicationData AD = new ApplicationData(new TriggerWatchByIndexPayload(watchNumber, TriggerParam, H.getTargetIP()), 0, MyProgram.getComputer().getIP());
+                                AD = AD.withSource(ApplicationData.OUTSIDE);
                                 MyComputerHandler.addData(AD, MyProgram.getComputer().getIP());
 
                             } catch (Exception e) {
@@ -1346,10 +1350,8 @@ public class HackerLinker extends Linker {
                                         TriggerParam.put(key, parameters.get(i + 1));
                                     }
 
-                                    Object O = new Object[]{new Integer(watchNumber), TriggerParam, IP};
-
-                                    ApplicationData AD = new ApplicationData("requesttrigger", O, 0, MyProgram.getComputer().getIP());
-                                    AD.setSource(ApplicationData.OUTSIDE);
+                                    ApplicationData AD = new ApplicationData(new TriggerWatchByIndexPayload(watchNumber, TriggerParam, IP), 0, MyProgram.getComputer().getIP());
+                                    AD = AD.withSource(ApplicationData.OUTSIDE);
                                     MyComputerHandler.addData(AD, IP);
 
                                 } catch (Exception e) {
@@ -1383,7 +1385,7 @@ public class HackerLinker extends Linker {
                                     String message = "";
                                     if (parameters.get(0) instanceof TypeString)
                                         message = ((TypeString) parameters.get(0)).getStringValue();
-                                    MyComputerHandler.addData(new ApplicationData("message", "pop;" + message, 0, H.getComputer().getIP()), H.getTargetIP());
+                                    MyComputerHandler.addData(new ApplicationData(new MessageTextPayload("pop;" + message), 0, H.getComputer().getIP()), H.getTargetIP());
                                 }
                             } catch (Exception e) {
                                 MyProgram.getComputer().addMessage("An exception occurred in popUP().");
@@ -1394,7 +1396,7 @@ public class HackerLinker extends Linker {
                                 String TaskName = (String) ((TypeString) parameters.get(0)).getRawValue();
                                 String TaskLabel = (String) ((TypeString) parameters.get(1)).getRawValue();
                                 Integer QuestID = (Integer) ((TypeInteger) parameters.get(2)).getRawValue();
-                                MyComputerHandler.addData(new ApplicationData("givetask", new Object[]{TaskName, TaskLabel, QuestID}, 0, H.getComputer().getIP()), H.getTargetIP());
+                                MyComputerHandler.addData(new ApplicationData(new CombatGiveTaskPayload(TaskName, TaskLabel, QuestID), 0, H.getComputer().getIP()), H.getTargetIP());
                             }
                         } else if (name.equals("setTask")) {
                             Computer C = H.getComputer();
@@ -1402,7 +1404,7 @@ public class HackerLinker extends Linker {
                                 String TaskName = (String) ((TypeString) parameters.get(0)).getRawValue();
                                 Integer QuestID = (Integer) ((TypeInteger) parameters.get(1)).getRawValue();
                                 Boolean SetTo = (Boolean) ((TypeBoolean) parameters.get(2)).getRawValue();
-                                MyComputerHandler.addData(new ApplicationData("settask", new Object[]{TaskName, QuestID, SetTo}, 0, H.getComputer().getIP()), H.getTargetIP());
+                                MyComputerHandler.addData(new ApplicationData(new CombatSetTaskPayload(TaskName, QuestID, SetTo), 0, H.getComputer().getIP()), H.getTargetIP());
 
                             }
                         } else if (name.equals("completeTask")) {
@@ -1410,7 +1412,7 @@ public class HackerLinker extends Linker {
                             if (C.isNPC()) {
                                 String TaskName = (String) ((TypeString) parameters.get(0)).getRawValue();
                                 Integer QuestID = (Integer) ((TypeInteger) parameters.get(1)).getRawValue();
-                                MyComputerHandler.addData(new ApplicationData("completetask", new Object[]{TaskName, QuestID}, 0, H.getComputer().getIP()), H.getTargetIP());
+                                MyComputerHandler.addData(new ApplicationData(new CombatCompleteTaskPayload(TaskName, QuestID), 0, H.getComputer().getIP()), H.getTargetIP());
 
                             }
                         } else if (name.equals("giveQuest")) {
@@ -1419,7 +1421,7 @@ public class HackerLinker extends Linker {
                                 Integer QuestID = (Integer) ((TypeInteger) parameters.get(0)).getRawValue();
                                 String description = (String) ((TypeString) parameters.get(1)).getRawValue();
 
-                                MyComputerHandler.addData(new ApplicationData("givequest", new Object[]{QuestID, description}, 0, H.getComputer().getIP()), H.getTargetIP());
+                                MyComputerHandler.addData(new ApplicationData(new CombatGiveQuestPayload(QuestID, description), 0, H.getComputer().getIP()), H.getTargetIP());
                             }
                         } else if (name.equals("finishQuest")) {
                             Computer C = H.getComputer();
@@ -1428,7 +1430,7 @@ public class HackerLinker extends Linker {
                                     C.addRecentQuestFinisher(H.getTargetIP());
 
                                     Integer QuestID = (Integer) ((TypeInteger) parameters.get(0)).getRawValue();
-                                    MyComputerHandler.addData(new ApplicationData("finishquest", new Object[]{QuestID}, 0, H.getComputer().getIP()), H.getTargetIP());
+                                    MyComputerHandler.addData(new ApplicationData(new CombatFinishQuestPayload(QuestID), 0, H.getComputer().getIP()), H.getTargetIP());
 
                                 }
                             }
@@ -1438,7 +1440,7 @@ public class HackerLinker extends Linker {
                                 Float amount = (Float) ((TypeFloat) parameters.get(0)).getRawValue();
                                 //String TaskName=(String)((TypeString)parameters.get(1)).getRawValue();
                                 //Integer QuestID=(Integer)((TypeInteger)parameters.get(2)).getRawValue();
-                                MyComputerHandler.addData(new ApplicationData("takemoney", new Object[]{amount/*,TaskName,QuestID*/}, 0, H.getComputer().getIP()), H.getTargetIP());
+                                MyComputerHandler.addData(new ApplicationData(new CombatTakeMoneyPayload(amount), 0, H.getComputer().getIP()), H.getTargetIP());
                             }
                         } else if (name.equals("takeCommodity")) {
                             Computer C = H.getComputer();
@@ -1447,7 +1449,7 @@ public class HackerLinker extends Linker {
                                 Integer CommodityType = (Integer) ((TypeInteger) parameters.get(1)).getRawValue();
                                 //String TaskName=(String)((TypeString)parameters.get(2)).getRawValue();
                                 //Integer QuestID=(Integer)((TypeInteger)parameters.get(3)).getRawValue();
-                                MyComputerHandler.addData(new ApplicationData("takecommodity", new Object[]{amount, CommodityType/*,TaskName,QuestID*/}, 0, H.getComputer().getIP()), H.getTargetIP());
+                                MyComputerHandler.addData(new ApplicationData(new CombatTakeCommodityPayload(amount, CommodityType), 0, H.getComputer().getIP()), H.getTargetIP());
                             }
                         } else if (name.equals("exchangeCommodity")) {
                             Computer C = H.getComputer();
@@ -1455,7 +1457,7 @@ public class HackerLinker extends Linker {
                                 Integer ExchangeAmount = (Integer) ((TypeInteger) parameters.get(0)).getRawValue();
                                 Integer CommodityType = (Integer) ((TypeInteger) parameters.get(1)).getRawValue();
                                 Float ExchangeCost = (Float) ((TypeFloat) parameters.get(2)).getRawValue();
-                                MyComputerHandler.addData(new ApplicationData("exchangecommodity", new Object[]{ExchangeAmount, CommodityType, ExchangeCost}, 0, H.getComputer().getIP()), H.getTargetIP());
+                                MyComputerHandler.addData(new ApplicationData(new CombatExchangeCommodityPayload(ExchangeAmount, CommodityType, ExchangeCost), 0, H.getComputer().getIP()), H.getTargetIP());
                             }
                         } else if (name.equals("exchangeFile")) {
                             Computer C = H.getComputer();
@@ -1463,20 +1465,20 @@ public class HackerLinker extends Linker {
                                 Integer ExchangeAmount = (Integer) ((TypeInteger) parameters.get(0)).getRawValue();
                                 Integer CommodityType = (Integer) ((TypeInteger) parameters.get(1)).getRawValue();
                                 Float ExchangeCost = (Float) ((TypeFloat) parameters.get(2)).getRawValue();
-                                MyComputerHandler.addData(new ApplicationData("exchangefile", new Object[]{ExchangeAmount, CommodityType, ExchangeCost}, 0, H.getComputer().getIP()), H.getTargetIP());
+                                MyComputerHandler.addData(new ApplicationData(new CombatExchangeFilePayload(ExchangeAmount, CommodityType, ExchangeCost), 0, H.getComputer().getIP()), H.getTargetIP());
                             }
                         } else if (name.equals("giveXP")) {
                             Computer C = H.getComputer();
                             if (C.isNPC()) {
                                 String Stat = (String) ((TypeString) parameters.get(0)).getRawValue();
                                 Float Amount = (Float) ((TypeFloat) parameters.get(1)).getRawValue();
-                                MyComputerHandler.addData(new ApplicationData("giveexperience", new Object[]{Stat, Amount}, 0, H.getComputer().getIP()), H.getTargetIP());
+                                MyComputerHandler.addData(new ApplicationData(new CombatGiveExperiencePayload(Stat, Amount), 0, H.getComputer().getIP()), H.getTargetIP());
                             }
                         } else if (name.equals("giveMoney")) {
                             Computer C = H.getComputer();
                             if (C.isNPC()) {
                                 float amount = (Float) ((TypeFloat) parameters.get(0)).getRawValue();
-                                ApplicationData MyBank = new ApplicationData("bank", new Float(amount), 0, H.getComputer().getIP());
+                                ApplicationData MyBank = new ApplicationData(new FloatCommandPayload(ApplicationCommand.of("bank"), amount), 0, H.getComputer().getIP());
                                 MyComputerHandler.addData(MyBank, H.getTargetIP());
                             }
                         } else if (name.equals("giveCommodity")) {
@@ -1484,7 +1486,7 @@ public class HackerLinker extends Linker {
                             if (C.isNPC()) {
                                 Integer commodityType = (Integer) ((TypeInteger) parameters.get(0)).getRawValue();
                                 Float amount = (Float) ((TypeFloat) parameters.get(1)).getRawValue();
-                                ApplicationData MyBank = new ApplicationData("givecommodity", new Object[]{commodityType, amount}, 0, H.getComputer().getIP());
+                                ApplicationData MyBank = new ApplicationData(new CombatGiveCommodityPayload(commodityType, amount), 0, H.getComputer().getIP());
                                 MyComputerHandler.addData(MyBank, H.getTargetIP());
                             }
                         } else if (name.equals("giveFile")) {
@@ -1492,7 +1494,7 @@ public class HackerLinker extends Linker {
                             if (C.isNPC()) {
                                 String fileID = (String) ((TypeString) parameters.get(0)).getRawValue();
                                 Integer quan = (Integer) ((TypeInteger) parameters.get(1)).getRawValue();
-                                ApplicationData MyBank = new ApplicationData("givefile", new Object[]{fileID, quan}, 0, H.getTargetIP());
+                                ApplicationData MyBank = new ApplicationData(new CombatGiveFilePayload(fileID, quan), 0, H.getTargetIP());
                                 MyComputerHandler.addData(MyBank, H.getComputer().getIP());
                             }
                         } else if (name.equals("takeFile")) {
@@ -1500,14 +1502,14 @@ public class HackerLinker extends Linker {
                             if (C.isNPC()) {
                                 String fileID = (String) ((TypeString) parameters.get(0)).getRawValue();
                                 Integer quan = (Integer) ((TypeInteger) parameters.get(1)).getRawValue();
-                                ApplicationData MyBank = new ApplicationData("takefile2", new Object[]{fileID, quan}, 0, H.getComputer().getIP());
+                                ApplicationData MyBank = new ApplicationData(new CombatTakeFile2Payload(fileID, quan), 0, H.getComputer().getIP());
                                 MyComputerHandler.addData(MyBank, H.getTargetIP());
                             }
                         } else if (name.equals("giveAccess")) {
                             Computer C = H.getComputer();
                             if (C.isNPC()) {
                                 String networkName = (String) ((TypeString) parameters.get(0)).getStringValue();
-                                ApplicationData MyApplicationData = new ApplicationData("giveaccess", networkName, 0, H.getComputer().getIP());
+                                ApplicationData MyApplicationData = new ApplicationData(new CombatGiveAccessPayload(networkName), 0, H.getComputer().getIP());
                                 MyComputerHandler.addData(MyApplicationData, H.getTargetIP());
                             }
                         }
@@ -1519,7 +1521,7 @@ public class HackerLinker extends Linker {
 					String tIP = H.getTargetIP();
 					if(C.isNPC()){
 						String fileID=(String)((TypeString)parameters.get(0)).getRawValue();
-						ApplicationData MyBank=new ApplicationData("takefile",fileID,0,H.getComputer().getIP());
+						ApplicationData MyBank=new ApplicationData(new CombatTakeFilePayload(fileID),0,H.getComputer().getIP());
 						MyComputerHandler.addData(MyBank,H.getTargetIP());
 					}
 				}
@@ -1547,7 +1549,7 @@ public class HackerLinker extends Linker {
                             String sourceIP = F.getComputer().getIP();
                             //System.out.println("putting to "+ip+" from "+sourceIP+" with mal ip "+malIP);
                             if (sourceIP.equals(ip) || malIP.equals(ip) || putIP.equals(ip)) {
-                                MyComputerHandler.addData(new ApplicationData("savefile", Parameter, 0, ip), ip);
+                                MyComputerHandler.addData(new ApplicationData(new SaveFile(ip, path, file), 0, ip), ip);
                             } else {
                                 MyProgram.getComputer().addMessage(MessageHandler.FTP_FAIL_WRONG_TARGET);
                             }
@@ -1570,7 +1572,7 @@ public class HackerLinker extends Linker {
                             String getIP = F.getIP();
                             String sourceIP = F.getComputer().getIP();
                             if (sourceIP.equals(ip) || malIP.equals(ip) || getIP.equals(ip)) {
-                                MyComputerHandler.addData(new ApplicationData("savefile", Parameter, 0, ip), ip);
+                                MyComputerHandler.addData(new ApplicationData(new SaveFile(ip, F.getFetchPath(), file), 0, ip), ip);
                             } else {
                                 MyProgram.getComputer().addMessage(MessageHandler.FTP_FAIL_WRONG_TARGET);
                             }
@@ -1650,7 +1652,7 @@ public class HackerLinker extends Linker {
                             A = (AttackProgram) MyProgram;
 
                         if (A == null || (A.getTargetIP().equals(ip) || A.getComputer().getIP().equals(ip))) {
-                            MyComputerHandler.addData(new ApplicationData("message", "sound;" + sound, 0, MyProgram.getComputer().getIP()), MyProgram.getComputer().getIP());
+                            MyComputerHandler.addData(new ApplicationData(new MessageTextPayload("sound;" + sound), 0, MyProgram.getComputer().getIP()), MyProgram.getComputer().getIP());
                         } else {
                             MyProgram.getComputer().addMessage(MessageHandler.MESSAGE_FAIL_INVALID_TARGET);
                         }
@@ -2343,7 +2345,7 @@ public class HackerLinker extends Linker {
                                                                                                 message = ((TypeString) parameters.get(1)).getStringValue();
                                                                                             if (message.length() < 256) {
                                                                                                 CentralLogging.getInstance().addOutput(MyProgram.getComputer().getIP() + " sent message \"" + message + "\" to " + ip);
-                                                                                                MyComputerHandler.addData(new ApplicationData("message", message, 0, MyProgram.getComputer().getIP()), ip);
+                                                                                                MyComputerHandler.addData(new ApplicationData(new MessageTextPayload(message), 0, MyProgram.getComputer().getIP()), ip);
                                                                                             } else
                                                                                                 MyProgram.getComputer().addMessage(MessageHandler.MESSAGE_FAIL_TOO_LONG);
                                                                                         }
@@ -2487,7 +2489,7 @@ public class HackerLinker extends Linker {
                     String TaskLabel = (String) ((TypeString) parameters.get(1)).getRawValue();
                     Integer QuestID = (Integer) ((TypeInteger) parameters.get(2)).getRawValue();
                     String IP = (String) ((TypeString) parameters.get(3)).getRawValue();
-                    MyComputerHandler.addData(new ApplicationData("givetask", new Object[]{TaskName, TaskLabel, QuestID}, 0, MyProgram.getComputer().getIP()), IP);
+                    MyComputerHandler.addData(new ApplicationData(new CombatGiveTaskPayload(TaskName, TaskLabel, QuestID), 0, MyProgram.getComputer().getIP()), IP);
                 }
             }
 
@@ -2498,7 +2500,7 @@ public class HackerLinker extends Linker {
                     Integer QuestID = (Integer) ((TypeInteger) parameters.get(1)).getRawValue();
                     Boolean SetTo = (Boolean) ((TypeBoolean) parameters.get(2)).getRawValue();
                     String IP = (String) ((TypeString) parameters.get(3)).getRawValue();
-                    MyComputerHandler.addData(new ApplicationData("settask", new Object[]{TaskName, QuestID, SetTo}, 0, MyProgram.getComputer().getIP()), IP);
+                    MyComputerHandler.addData(new ApplicationData(new CombatSetTaskPayload(TaskName, QuestID, SetTo), 0, MyProgram.getComputer().getIP()), IP);
 
                 }
             } else if (name.equals("giveQuest")) {
@@ -2507,7 +2509,7 @@ public class HackerLinker extends Linker {
                     Integer QuestID = (Integer) ((TypeInteger) parameters.get(0)).getRawValue();
                     String description = (String) ((TypeString) parameters.get(1)).getRawValue();
                     String IP = (String) ((TypeString) parameters.get(2)).getRawValue();
-                    MyComputerHandler.addData(new ApplicationData("givequest", new Object[]{QuestID, description}, 0, MyProgram.getComputer().getIP()), IP);
+                    MyComputerHandler.addData(new ApplicationData(new CombatGiveQuestPayload(QuestID, description), 0, MyProgram.getComputer().getIP()), IP);
                 }
             } else if (name.equals("finishQuest")) {
                 Computer C = MyProgram.getComputer();
@@ -2518,7 +2520,7 @@ public class HackerLinker extends Linker {
 
                         Integer QuestID = (Integer) ((TypeInteger) parameters.get(0)).getRawValue();
 
-                        MyComputerHandler.addData(new ApplicationData("finishquest", new Object[]{QuestID}, 0, MyProgram.getComputer().getIP()), IP);
+                        MyComputerHandler.addData(new ApplicationData(new CombatFinishQuestPayload(QuestID), 0, MyProgram.getComputer().getIP()), IP);
 
                     }
                 }
@@ -2530,7 +2532,7 @@ public class HackerLinker extends Linker {
                     Integer QuestID = (Integer) ((TypeInteger) parameters.get(2)).getRawValue();
                     String IP = (String) ((TypeString) parameters.get(3)).getRawValue();
 
-                    MyComputerHandler.addData(new ApplicationData("takemoney", new Object[]{amount, TaskName, QuestID}, 0, MyProgram.getComputer().getIP()), IP);
+                    MyComputerHandler.addData(new ApplicationData(new CombatTakeMoneyPayload(amount), 0, MyProgram.getComputer().getIP()), IP);
                 }
             } else if (name.equals("takeCommodity")) {
                 Computer C = MyProgram.getComputer();
@@ -2540,7 +2542,7 @@ public class HackerLinker extends Linker {
                     String TaskName = (String) ((TypeString) parameters.get(2)).getRawValue();
                     Integer QuestID = (Integer) ((TypeInteger) parameters.get(3)).getRawValue();
                     String IP = (String) ((TypeString) parameters.get(4)).getRawValue();
-                    MyComputerHandler.addData(new ApplicationData("takecommodity", new Object[]{amount, CommodityType, TaskName, QuestID}, 0, MyProgram.getComputer().getIP()), IP);
+                    MyComputerHandler.addData(new ApplicationData(new CombatTakeCommodityPayload(amount, CommodityType), 0, MyProgram.getComputer().getIP()), IP);
                 }
             } else if (name.equals("exchangeCommodity")) {
                 Computer C = MyProgram.getComputer();
@@ -2549,7 +2551,7 @@ public class HackerLinker extends Linker {
                     Integer CommodityType = (Integer) ((TypeInteger) parameters.get(1)).getRawValue();
                     Float ExchangeCost = (Float) ((TypeFloat) parameters.get(2)).getRawValue();
                     String IP = (String) ((TypeString) parameters.get(3)).getRawValue();
-                    MyComputerHandler.addData(new ApplicationData("exchangecommodity", new Object[]{ExchangeAmount, CommodityType, ExchangeCost}, 0, MyProgram.getComputer().getIP()), IP);
+                    MyComputerHandler.addData(new ApplicationData(new CombatExchangeCommodityPayload(ExchangeAmount, CommodityType, ExchangeCost), 0, MyProgram.getComputer().getIP()), IP);
                 }
             } else if (name.equals("exchangeFile")) {
                 Computer C = MyProgram.getComputer();
@@ -2558,7 +2560,7 @@ public class HackerLinker extends Linker {
                     Integer CommodityType = (Integer) ((TypeInteger) parameters.get(1)).getRawValue();
                     Float ExchangeCost = (Float) ((TypeFloat) parameters.get(2)).getRawValue();
                     String IP = (String) ((TypeString) parameters.get(3)).getRawValue();
-                    MyComputerHandler.addData(new ApplicationData("exchangefile", new Object[]{ExchangeAmount, CommodityType, ExchangeCost}, 0, MyProgram.getComputer().getIP()), IP);
+                    MyComputerHandler.addData(new ApplicationData(new CombatExchangeFilePayload(ExchangeAmount, CommodityType, ExchangeCost), 0, MyProgram.getComputer().getIP()), IP);
                 }
             } else if (name.equals("giveXP")) {
                 Computer C = MyProgram.getComputer();
@@ -2566,14 +2568,14 @@ public class HackerLinker extends Linker {
                     String Stat = (String) ((TypeString) parameters.get(0)).getRawValue();
                     Float Amount = (Float) ((TypeFloat) parameters.get(1)).getRawValue();
                     String IP = (String) ((TypeString) parameters.get(2)).getRawValue();
-                    MyComputerHandler.addData(new ApplicationData("giveexperience", new Object[]{Stat, Amount}, 0, MyProgram.getComputer().getIP()), IP);
+                    MyComputerHandler.addData(new ApplicationData(new CombatGiveExperiencePayload(Stat, Amount), 0, MyProgram.getComputer().getIP()), IP);
                 }
             } else if (name.equals("giveMoney")) {
                 Computer C = MyProgram.getComputer();
                 if (C.isNPC()) {
                     float amount = (Float) ((TypeFloat) parameters.get(0)).getRawValue();
                     String IP = (String) ((TypeString) parameters.get(1)).getRawValue();
-                    ApplicationData MyBank = new ApplicationData("bank", new Float(amount), 0, MyProgram.getComputer().getIP());
+                    ApplicationData MyBank = new ApplicationData(new FloatCommandPayload(ApplicationCommand.of("bank"), amount), 0, MyProgram.getComputer().getIP());
                     MyComputerHandler.addData(MyBank, IP);
                 }
             } else if (name.equals("giveCommodity")) {
@@ -2582,7 +2584,7 @@ public class HackerLinker extends Linker {
                     Integer commodityType = (Integer) ((TypeInteger) parameters.get(0)).getRawValue();
                     Float amount = (Float) ((TypeFloat) parameters.get(1)).getRawValue();
                     String IP = (String) ((TypeString) parameters.get(2)).getRawValue();
-                    ApplicationData MyBank = new ApplicationData("givecommodity", new Object[]{commodityType, amount}, 0, MyProgram.getComputer().getIP());
+                    ApplicationData MyBank = new ApplicationData(new CombatGiveCommodityPayload(commodityType, amount), 0, MyProgram.getComputer().getIP());
                     MyComputerHandler.addData(MyBank, IP);
                 }
             } else if (name.equals("giveFile2")) {
@@ -2590,7 +2592,7 @@ public class HackerLinker extends Linker {
                 if (C.isNPC()) {
                     String fileID = (String) ((TypeString) parameters.get(0)).getRawValue();
                     String IP = (String) ((TypeString) parameters.get(1)).getRawValue();
-                    ApplicationData MyBank = new ApplicationData("givefile", fileID, 0, IP);
+                    ApplicationData MyBank = new ApplicationData(new CombatTakeFilePayload(fileID), 0, IP);
                     MyComputerHandler.addData(MyBank, MyProgram.getComputer().getIP());
                 }
             } else if (name.equals("takeFile2")) {
@@ -2598,7 +2600,7 @@ public class HackerLinker extends Linker {
                 if (C.isNPC()) {
                     String fileID = (String) ((TypeString) parameters.get(0)).getRawValue();
                     String IP = (String) ((TypeString) parameters.get(1)).getRawValue();
-                    ApplicationData MyBank = new ApplicationData("takefile", fileID, 0, MyProgram.getComputer().getIP());
+                    ApplicationData MyBank = new ApplicationData(new CombatTakeFilePayload(fileID), 0, MyProgram.getComputer().getIP());
                     MyComputerHandler.addData(MyBank, IP);
                 }
             } else if (name.equals("giveAccess")) {
@@ -2606,7 +2608,7 @@ public class HackerLinker extends Linker {
                 if (C.isNPC()) {
                     String networkName = (String) ((TypeString) parameters.get(0)).getStringValue();
                     String IP = (String) ((TypeString) parameters.get(1)).getRawValue();
-                    ApplicationData MyApplicationData = new ApplicationData("giveaccess", networkName, 0, MyProgram.getComputer().getIP());
+                    ApplicationData MyApplicationData = new ApplicationData(new CombatGiveAccessPayload(networkName), 0, MyProgram.getComputer().getIP());
                     MyComputerHandler.addData(MyApplicationData, IP);
                 }
             } else if (name.equals("changeNetwork")) {
@@ -2614,7 +2616,7 @@ public class HackerLinker extends Linker {
                 if (C.isNPC()) {
                     String networkName = (String) ((TypeString) parameters.get(0)).getStringValue();
                     String IP = (String) ((TypeString) parameters.get(1)).getRawValue();
-                    ApplicationData MyApplicationData = new ApplicationData("changenetwork2", networkName, 0, MyProgram.getComputer().getIP());
+                    ApplicationData MyApplicationData = new ApplicationData(new CombatChangeNetwork2Payload(networkName), 0, MyProgram.getComputer().getIP());
                     MyComputerHandler.addData(MyApplicationData, IP);
                 }
             }

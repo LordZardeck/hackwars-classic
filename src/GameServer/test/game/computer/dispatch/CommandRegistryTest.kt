@@ -1,6 +1,7 @@
 package game.computer.dispatch
 
 import com.hackwars.game.functions.Function
+import com.hackwars.game.functions.FunctionTestSupport
 import game.ApplicationData
 import game.Computer
 import org.junit.Assert.assertEquals
@@ -18,7 +19,7 @@ class CommandRegistryTest {
                 seen += applicationData.sourceIP
             }
 
-        val handled = registry.dispatch(ApplicationData("ping", null, 0, "10.0.0.8"))
+        val handled = registry.dispatch(FunctionTestSupport.noArgsCommand("ping", sourceIp = "10.0.0.8"))
 
         assertTrue(handled)
         assertEquals(listOf("10.0.0.8"), seen)
@@ -28,7 +29,7 @@ class CommandRegistryTest {
     fun dispatch_returnsFalseForUnknownCommand() {
         val registry = CommandRegistry()
 
-        val handled = registry.dispatch(ApplicationData("unknown", null, 0, "10.0.0.8"))
+        val handled = registry.dispatch(FunctionTestSupport.noArgsCommand("unknown", sourceIp = "10.0.0.8"))
 
         assertFalse(handled)
     }
@@ -40,12 +41,12 @@ class CommandRegistryTest {
         val legacy = object : Function(computer) {
             override fun execute(applicationData: ApplicationData) {
                 invocations += 1
-                assertEquals("legacy", applicationData.function)
+                assertEquals("legacy", applicationData.command.wireName())
             }
         }
         val registry = CommandRegistry.fromFunctions(mapOf("legacy" to legacy))
 
-        val handled = registry.dispatch(ApplicationData("legacy", null, 0, "10.0.0.8"))
+        val handled = registry.dispatch(FunctionTestSupport.noArgsCommand("legacy", sourceIp = "10.0.0.8"))
 
         assertTrue(handled)
         assertEquals(1, invocations)

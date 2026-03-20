@@ -2,6 +2,8 @@ package com.hackwars.game.functions
 
 import game.ApplicationData
 import game.Computer
+import game.payload.AddShowChoicesPayload
+import game.payloadAs
 
 /**
  * Represents a function that adds a new set of choices to the computer system's "show choices" array.
@@ -16,8 +18,9 @@ import game.Computer
  */
 class AddShowChoices(computer: Computer) : Function(computer) {
     override fun execute(applicationData: ApplicationData) {
+        val payload = applicationData.payloadAs<AddShowChoicesPayload>()
         computer.sendPacket()
         computer.sendDamagePacket()
-        computer.showChoicesArray.add(applicationData.parameters)
+        computer.showChoicesArray.add(payload.choices)
     }
 }

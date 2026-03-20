@@ -6,33 +6,50 @@ package game;
  * Used to distribute function calls to the computers in the computer handling system.
  */
 
-import java.util.*;
-
 public class ApplicationData {
 
     public static final int INSIDE = 0;
     public static final int OUTSIDE = 1;
-    private int source = INSIDE;
-    private Object parameters = null;//A generic object array of data.
-    private String function = "";//The function call being requested.
-    private int port = 0;//The port that this ApplicationData should be delivered to.
+    private final int source;
+    private final ApplicationCommand command;
+    private final ApplicationPayload payload;
+    private final int port;//The port that this ApplicationData should be delivered to.
 
-    private int sourcePort = 0;//Port of the computer generating this function call.
-    private String sourceIP = "";//IP of the computer generating this request.
+    private final int sourcePort;//Port of the computer generating this function call.
+    private final String sourceIP;//IP of the computer generating this request.
 
-    //Constructor.
-    public ApplicationData(String function, Object parameters, int port, String sourceIP) {
-        this.sourceIP = sourceIP;
-        this.parameters = parameters;
-        this.function = function;
+    public ApplicationData(ApplicationPayload payload, int port, String sourceIP) {
+        this(payload, port, 0, sourceIP, INSIDE);
+    }
+
+    public ApplicationData(ApplicationPayload payload, int port, int sourcePort, String sourceIP, int source) {
+        this(payload.getCommand(), payload, port, sourcePort, sourceIP, source);
+    }
+
+    private ApplicationData(
+        ApplicationCommand command,
+        ApplicationPayload payload,
+        int port,
+        int sourcePort,
+        String sourceIP,
+        int source
+    ) {
+        this.command = command;
+        this.payload = payload;
         this.port = port;
+        this.sourcePort = sourcePort;
+        this.sourceIP = sourceIP == null ? "" : sourceIP;
+        this.source = source;
     }
 
     /**
      Where does this message originate from?
      */
-    public void setSource(int source) {
-        this.source = source;
+    public ApplicationData withSource(int source) {
+        if (this.source == source) {
+            return this;
+        }
+        return new ApplicationData(command, payload, port, sourcePort, sourceIP, source);
     }
 
     /**
@@ -40,6 +57,13 @@ public class ApplicationData {
      */
     public int getSource() {
         return (source);
+    }
+
+    /**
+     Returns the typed command identifier for this message.
+     */
+    public ApplicationCommand getCommand() {
+        return (command);
     }
 
     /**
@@ -60,8 +84,11 @@ public class ApplicationData {
     /**
      Set the port of the source of this application data.
      */
-    public void setSourcePort(int sourcePort) {
-        this.sourcePort = sourcePort;
+    public ApplicationData withSourcePort(int sourcePort) {
+        if (this.sourcePort == sourcePort) {
+            return this;
+        }
+        return new ApplicationData(command, payload, port, sourcePort, sourceIP, source);
     }
 
     /**
@@ -72,36 +99,22 @@ public class ApplicationData {
     }
 
     /**
-     getParameters()
-     returns the parameter object.
+     Returns the typed payload object.
      */
-    public Object getParameters() {
-        return (parameters);
-    }
-
-
-    /**
-     setParameters(Object parameters)
-     sets the parameters object.
-     */
-    public void setParameters(Object parameters) {
-        this.parameters = parameters;
+    public ApplicationPayload getPayload() {
+        return (payload);
     }
 
     /**
-     getFunction()
-     returns the function call.
+     Returns the payload cast to the requested type.
      */
-    public String getFunction() {
-        return (function);
+    public <T extends ApplicationPayload> T requirePayload(Class<T> payloadType) {
+        if (payloadType.isInstance(payload)) {
+            return payloadType.cast(payload);
+        }
+        String actual = payload == null ? "null" : payload.getClass().getName();
+        throw new IllegalStateException(
+            "Illegal payload provided for " + command.wireName() + ". Expected " + payloadType.getName() + ", Actual " + actual
+        );
     }
-
-    /**
-     setFunction(String function)
-     sets the function call.
-     */
-    public void setFunction(String function) {
-        this.function = function;
-    }
-
 }

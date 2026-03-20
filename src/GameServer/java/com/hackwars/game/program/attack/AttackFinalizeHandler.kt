@@ -3,6 +3,8 @@ package com.hackwars.game.program.attack
 import com.hackwars.game.program.AttackProgram
 import game.ApplicationData
 import game.MakeBounty
+import game.payload.AttackFinalizePayload
+import game.payloadAs
 
 class AttackFinalizeHandler : AttackFunctionHandler {
     override val functionName: String = "attackfinalize"
@@ -12,7 +14,7 @@ class AttackFinalizeHandler : AttackFunctionHandler {
             return
         }
 
-        program.targetPortType = applicationData.parameters as Int
+        program.targetPortType = applicationData.payloadAs<AttackFinalizePayload>().portType
         program.targetPort = applicationData.sourcePort
         program.removeSecondaryTarget(program.targetPort)
 

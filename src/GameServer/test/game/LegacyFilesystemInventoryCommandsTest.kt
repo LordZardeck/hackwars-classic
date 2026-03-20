@@ -1,6 +1,11 @@
 package game
 
 import assignments.PacketAssignment
+import com.hackwars.rpc.DeleteFile
+import com.hackwars.rpc.RequestAttack
+import com.hackwars.rpc.RequestFile
+import com.hackwars.rpc.RequestGame
+import com.hackwars.rpc.SetFileDescription
 import hackscript.model.TypeBoolean
 import hackscript.model.TypeInteger
 import hackscript.model.TypeString
@@ -12,6 +17,10 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.mockito.Answers
 import org.mockito.Mockito
+import game.payload.DeliveredDirectoryToNpcPayload
+import game.payload.RequestDirectoryPayload
+import game.payload.SaveFileRequestPayload
+import game.payload.StolenSaveFilePayload
 import java.util.ArrayList
 import java.util.HashMap
 
@@ -22,7 +31,7 @@ class LegacyFilesystemInventoryCommandsTest {
     fun dispatch_returnsFalse_forNonOwnedCommand() {
         val computer = baseComputer()
 
-        val handled = handler.dispatch(computer, ApplicationData("requestwebpage", null, 0, "10.0.0.1"), 0)
+        val handled = handler.dispatch(computer, ApplicationData(RequestAttack("10.0.0.2", 0, "10.0.0.1", 0, null, null, null, null), 0, "10.0.0.1"), 0)
 
         assertFalse(handled)
     }
@@ -35,7 +44,7 @@ class LegacyFilesystemInventoryCommandsTest {
 
         val handled = handler.dispatch(
             computer,
-            ApplicationData("requestdirectory", arrayOf("", Integer.valueOf(17)), 0, "10.0.0.1"),
+            ApplicationData(RequestDirectoryPayload("", 17), 0, "10.0.0.1"),
             0
         )
 
@@ -55,7 +64,7 @@ class LegacyFilesystemInventoryCommandsTest {
 
         val handled = handler.dispatch(
             computer,
-            ApplicationData("requestfile", arrayOf("", "arcade"), 0, "10.0.0.1"),
+            ApplicationData(RequestFile("10.0.0.1", "", "arcade"), 0, "10.0.0.1"),
             0
         )
 
@@ -80,7 +89,7 @@ class LegacyFilesystemInventoryCommandsTest {
 
         val handled = handler.dispatch(
             computer,
-            ApplicationData("requestgame", arrayOf("", "adventure"), 0, "10.0.0.1"),
+            ApplicationData(RequestGame("10.0.0.1", "", "adventure"), 0, "10.0.0.1"),
             0
         )
 
@@ -100,7 +109,7 @@ class LegacyFilesystemInventoryCommandsTest {
 
         val handled = handler.dispatch(
             computer,
-            ApplicationData("deletefile", arrayOf("", "trash.txt"), 0, "10.0.0.1"),
+            ApplicationData(DeleteFile("10.0.0.1", "", "trash.txt"), 0, "10.0.0.1"),
             0
         )
 
@@ -117,7 +126,7 @@ class LegacyFilesystemInventoryCommandsTest {
 
         val handled = handler.dispatch(
             computer,
-            ApplicationData("savefile", arrayOf("", file), 0, "10.0.0.1"),
+            ApplicationData(SaveFileRequestPayload("", file), 0, "10.0.0.1"),
             0
         )
 
@@ -134,7 +143,7 @@ class LegacyFilesystemInventoryCommandsTest {
 
         val handled = handler.dispatch(
             computer,
-            ApplicationData("delivereddirectory", arrayOf(delivered, java.lang.Boolean.TRUE), 0, "10.0.0.1"),
+            ApplicationData(DeliveredDirectoryToNpcPayload(delivered, true), 0, "10.0.0.1"),
             0
         )
 
@@ -152,7 +161,7 @@ class LegacyFilesystemInventoryCommandsTest {
 
         val handled = handler.dispatch(
             computer,
-            ApplicationData("setfiledescription", arrayOf("", "clue.txt", "updated"), 0, "10.0.0.1"),
+            ApplicationData(SetFileDescription("10.0.0.1", "", "clue.txt", "updated"), 0, "10.0.0.1"),
             0
         )
 
@@ -169,7 +178,7 @@ class LegacyFilesystemInventoryCommandsTest {
 
         val handled = handler.dispatch(
             computer,
-            ApplicationData("savefile", arrayOf("", file, "9.9.9.9", Integer.valueOf(44)), 0, "10.0.0.1"),
+            ApplicationData(StolenSaveFilePayload("", file, "9.9.9.9", 44), 0, "10.0.0.1"),
             0
         )
 

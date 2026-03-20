@@ -2,6 +2,8 @@ package com.hackwars.game.functions
 
 import game.ApplicationData
 import game.Computer
+import game.payload.StringCommandPayload
+import game.payloadAs
 
 /**
  * Represents a function that updates the computer FTP password.
@@ -15,6 +17,6 @@ import game.Computer
  */
 class SetFTPPassword(computer: Computer) : Function(computer) {
     override fun execute(applicationData: ApplicationData) {
-        computer.setPassword(applicationData.parameters as? String)
+        computer.setPassword(applicationData.payloadAs<StringCommandPayload>().value)
     }
 }

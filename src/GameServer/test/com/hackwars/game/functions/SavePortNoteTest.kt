@@ -15,7 +15,7 @@ class SavePortNoteTest {
         whenever(port.number).thenReturn(99)
         whenever(computer.ports).thenReturn(hashMapOf(99 to port))
 
-        SavePortNote(computer).execute(ApplicationData("saveportnote", "important", 99, "source"))
+        SavePortNote(computer).execute(FunctionTestSupport.stringCommand("saveportnote", "important", 99))
 
         verify(port).setNote("important")
     }

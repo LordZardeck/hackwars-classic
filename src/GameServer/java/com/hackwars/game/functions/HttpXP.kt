@@ -3,6 +3,8 @@ package com.hackwars.game.functions
 import game.ApplicationData
 import game.Computer
 import game.MessageHandler
+import game.payload.FloatCommandPayload
+import game.payloadAs
 
 /**
  * Represents a function that rewards a player with HTTP/Webdesign experience.
@@ -30,8 +32,9 @@ class HttpXP(computer: Computer) : Function(computer) {
     override fun execute(applicationData: ApplicationData) {
         if (computer.getType() == Computer.NPC) return
 
+        val payload = applicationData.payloadAs<FloatCommandPayload>()
         var grantXp = true
-        var amount = applicationData.parameters as? Float ?: return
+        var amount = payload.value
 
         if (amount == VOTE_SENTINEL) {
             if (computer.checkHTTP()) {

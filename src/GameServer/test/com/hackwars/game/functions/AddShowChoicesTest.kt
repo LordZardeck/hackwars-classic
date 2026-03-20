@@ -10,7 +10,7 @@ class AddShowChoicesTest {
     @Test
     fun execute_sendsPackets_andAppendsParameters() {
         val computer = FunctionTestSupport.baseComputer()
-        val data = ApplicationData("addshowchoices", arrayOf<Any>("a", 1), 0, "source")
+        val data = FunctionTestSupport.addShowChoices("a", 1)
 
         AddShowChoices(computer).execute(data)
 

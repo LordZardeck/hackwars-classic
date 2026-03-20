@@ -12,12 +12,7 @@ class RequestTriggerNoteTest {
         val triggerParam = hashMapOf<Any, Any>("key" to "value")
 
         RequestTriggerNote(computer).execute(
-            ApplicationData(
-                "requesttriggernote",
-                arrayOf<Any>("alert-note", triggerParam, "target-ip"),
-                0,
-                "source"
-            )
+            FunctionTestSupport.requestTriggerNote("alert-note", triggerParam, "target-ip")
         )
 
         verify(watchHandler).triggerWatch("alert-note", "target-ip", triggerParam)

@@ -2,6 +2,8 @@ package com.hackwars.game.functions
 
 import game.ApplicationData
 import game.Computer
+import game.payload.MapCommandPayload
+import game.payloadAs
 
 /**
  * Represents a function that sets the peeked code payload in packet assignment.
@@ -17,8 +19,6 @@ class SetCode(computer: Computer) : Function(computer) {
     override fun execute(applicationData: ApplicationData) {
         computer.sendPacket()
 
-        @Suppress("UNCHECKED_CAST")
-        val peakCode = applicationData.parameters as? HashMap<Any, Any> ?: return
-        computer.packetAssignment.peakCode = peakCode
+        computer.packetAssignment.peakCode = applicationData.payloadAs<MapCommandPayload>().values
     }
 }

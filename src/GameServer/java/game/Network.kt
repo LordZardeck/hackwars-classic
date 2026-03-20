@@ -1,6 +1,7 @@
 package game
 
 import assignments.PacketNetwork
+import game.payload.LaunchNetworkAttackPayload
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineName
 import kotlinx.coroutines.Job
@@ -380,8 +381,7 @@ class Network internal constructor(
                     try {
                         computerHandler?.addData(
                             ApplicationData(
-                                "launchNetworkAttack",
-                                parameter,
+                                LaunchNetworkAttackPayload(parameter[0] as String),
                                 0,
                                 players[attackMe] as String?
                             ),

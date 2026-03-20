@@ -12,7 +12,7 @@ class RedirectXPTest {
         val computer = FunctionTestSupport.baseComputer()
         computer.stats["Redirecting"] = 5f
 
-        RedirectXP(computer).execute(ApplicationData("redirectxp", 0, 0, "source"))
+        RedirectXP(computer).execute(FunctionTestSupport.intCommand("redirectxp", 0))
 
         assertEquals(5f + Computer.commodityXP[0], computer.stats["Redirecting"])
         verify(computer).sendDamagePacket()

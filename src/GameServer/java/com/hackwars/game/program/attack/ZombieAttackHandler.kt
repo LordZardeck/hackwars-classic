@@ -3,6 +3,11 @@ package com.hackwars.game.program.attack
 import com.hackwars.game.program.AttackProgram
 import game.ApplicationData
 import game.MessageHandler
+import game.payload.ATTACK_COMMAND
+import game.payload.RedirectedPortEntryPayload
+import game.payload.StructuredMessagePayload
+import game.payload.ZombieAttackPayload
+import game.payloadAs
 
 class ZombieAttackHandler : AttackFunctionHandler {
     override val functionName: String = "zombieattack"
@@ -11,21 +16,21 @@ class ZombieAttackHandler : AttackFunctionHandler {
         if (!program.parentPort!!.attacking && !program.parentPort!!.overHeated) {
             program.switching = false
 
-            val parameters = applicationData.parameters as Array<Any?>
-            program.targetIP = parameters[0] as String
-            program.targetPort = parameters[1] as Int
+            val payload = applicationData.payloadAs<ZombieAttackPayload>()
+            program.targetIP = payload.targetIp
+            program.targetPort = payload.targetPort
             program.maliciousIP = applicationData.sourceIP
 
-            if (parameters.size > 2) {
-                program.resetSecondaryTargets(program.targetPort, parameters[2] as Array<Int?>)
+            payload.secondaryPorts?.let { secondaryPorts ->
+                program.resetSecondaryTargets(program.targetPort, secondaryPorts)
             }
 
-            if (parameters.size > 3) {
-                program.maliciousCode = parameters[3] as Array<Array<String?>?>
+            payload.scripts?.let { scripts ->
+                program.maliciousCode = scripts
             }
 
-            if (parameters.size > 4) {
-                program.maliciousParameters = parameters[4] as Array<Any?>
+            payload.extraInfo?.let { extraInfo ->
+                program.maliciousParameters = extraInfo
                 program.pettyCashTarget = program.maliciousParameters!![3] as Float
             }
 
@@ -34,12 +39,14 @@ class ZombieAttackHandler : AttackFunctionHandler {
             if (program.zombieIP == program.maliciousIP) {
                 program.zombie = true
                 val request = ApplicationData(
-                    "attack",
-                    arrayOf<String?>(program.parentPort!!.IP, program.computer!!.network),
+                    RedirectedPortEntryPayload(
+                        ATTACK_COMMAND,
+                        program.parentPort!!.IP,
+                        program.computer!!.network
+                    ),
                     program.targetPort,
                     applicationData.sourceIP
-                )
-                request.sourcePort = program.parentPort!!.number
+                ).withSourcePort(program.parentPort!!.number)
                 program.computerHandler!!.addData(request, program.targetIP)
                 return
             }
@@ -47,9 +54,11 @@ class ZombieAttackHandler : AttackFunctionHandler {
             program.maliciousIP = ""
             program.zombieIP = ""
             sendMessage(
-                program, applicationData.sourceIP, arrayOf(
-                    MessageHandler.ZOMBIE_ATTEMPT_FAIL,
-                    arrayOf<Any?>(),
+                program,
+                applicationData.sourceIP,
+                StructuredMessagePayload(
+                    arrayOf<Any?>(MessageHandler.ZOMBIE_ATTEMPT_FAIL),
+                    emptyArray<Any?>(),
                     arrayOf<Any?>(program.windowHandle, program.sourceIP)
                 )
             )
@@ -60,26 +69,30 @@ class ZombieAttackHandler : AttackFunctionHandler {
         // Notify the user that the attack failed due to it being already attacked
         if (program.parentPort!!.attacking)
             return sendMessage(
-                program, applicationData.sourceIP, arrayOf(
-                    MessageHandler.PORT_ALREADY_ATTACKING,
-                    arrayOf<Any>(program.parentPort!!.number),
+                program,
+                applicationData.sourceIP,
+                StructuredMessagePayload(
+                    arrayOf<Any?>(MessageHandler.PORT_ALREADY_ATTACKING),
+                    arrayOf<Any?>(program.parentPort!!.number),
                     arrayOf<Any?>(program.windowHandle, program.sourceIP)
                 )
             )
 
         // Notify the user that the attack failed due to overheating
         sendMessage(
-            program, applicationData.sourceIP, arrayOf(
-                MessageHandler.ATTACK_FAIL_OVERHEATED,
-                arrayOf<Any?>(),
-                arrayOf<Any>(program.windowHandle)
+            program,
+            applicationData.sourceIP,
+            StructuredMessagePayload(
+                arrayOf<Any?>(MessageHandler.ATTACK_FAIL_OVERHEATED),
+                emptyArray<Any?>(),
+                arrayOf<Any?>(program.windowHandle)
             )
         )
     }
 
-    private fun sendMessage(program: AttackProgram, sourceIp: String, parameters: Array<Any>) {
+    private fun sendMessage(program: AttackProgram, sourceIp: String, payload: StructuredMessagePayload) {
         program.computerHandler!!.addData(
-            ApplicationData("message", parameters, 0, program.sourceIP),
+            ApplicationData(payload, 0, program.sourceIP),
             sourceIp
         )
     }

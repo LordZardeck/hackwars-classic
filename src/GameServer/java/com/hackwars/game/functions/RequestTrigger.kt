@@ -2,6 +2,8 @@ package com.hackwars.game.functions
 
 import game.ApplicationData
 import game.Computer
+import game.payload.TriggerWatchByIndexPayload
+import game.payloadAs
 
 /**
  * Represents a function that explicitly fires a watch by index.
@@ -15,12 +17,7 @@ import game.Computer
  */
 class RequestTrigger(computer: Computer) : Function(computer) {
     override fun execute(applicationData: ApplicationData) {
-        val parameters = applicationData.parameters as? Array<*> ?: return
-        val watchNumber = parameters.getOrNull(0) as? Int ?: return
-        @Suppress("UNCHECKED_CAST")
-        val triggerParameters = parameters.getOrNull(1) as? HashMap<Any, Any>
-        val targetIp = parameters.getOrNull(2) as? String ?: return
-
-        computer.watchHandler.triggerWatch(watchNumber, targetIp, triggerParameters)
+        val payload = applicationData.payloadAs<TriggerWatchByIndexPayload>()
+        computer.watchHandler.triggerWatch(payload.watchNumber, payload.targetIp, payload.triggerParameters)
     }
 }

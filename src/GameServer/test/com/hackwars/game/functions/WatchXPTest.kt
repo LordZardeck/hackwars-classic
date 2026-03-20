@@ -11,7 +11,7 @@ class WatchXPTest {
         val computer = FunctionTestSupport.baseComputer()
         computer.stats["Watch"] = 25f
 
-        WatchXP(computer).execute(ApplicationData("watchxp", 10f, 0, "source"))
+        WatchXP(computer).execute(FunctionTestSupport.floatCommand("watchxp", 10f))
 
         assertEquals(35f, computer.stats["Watch"])
         verify(computer).sendDamagePacket()

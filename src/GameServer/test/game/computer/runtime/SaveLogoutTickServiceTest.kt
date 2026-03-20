@@ -1,5 +1,9 @@
 package game.computer.runtime
 
+import game.payload.MessageTextPayload
+import game.payload.PettyCashTransferPayload
+import game.payload.RequestWebPagePayload
+import game.payload.WebPagePayload
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -46,14 +50,16 @@ class SaveLogoutTickServiceTest {
         state.loadRequester = "8.8.8.8"
         state.errorMessage = "load failed"
         state.pendingTasks += RuntimeQueuedTask(
-            function = "pettycash",
+            payload = PettyCashTransferPayload(42.5f),
             sourceIp = "3.3.3.3",
-            parameters = 42.5f,
             port = 9,
             sourcePort = 12,
             source = 1,
         )
-        state.pendingTasks += RuntimeQueuedTask("requestwebpage", "4.4.4.4")
+        state.pendingTasks += RuntimeQueuedTask(
+            payload = RequestWebPagePayload(null),
+            sourceIp = "4.4.4.4",
+        )
 
         val events = service.tick(state)
 
@@ -62,8 +68,7 @@ class SaveLogoutTickServiceTest {
             events.contains(
                 RuntimeTickEvent.ApplicationDataDispatchRequested(
                     applicationData = RuntimeApplicationDataDispatch(
-                        function = "pettycash",
-                        parameters = 42.5f,
+                        payload = PettyCashTransferPayload(42.5f),
                         port = 9,
                         sourceIp = "3.3.3.3",
                         sourcePort = 12,
@@ -77,8 +82,7 @@ class SaveLogoutTickServiceTest {
             events.contains(
                 RuntimeTickEvent.ApplicationDataDispatchRequested(
                     applicationData = RuntimeApplicationDataDispatch(
-                        function = "message",
-                        parameters = "load failed",
+                        payload = MessageTextPayload("load failed"),
                         sourceIp = "5.5.5.5",
                     ),
                     targetIp = "8.8.8.8",
@@ -86,7 +90,7 @@ class SaveLogoutTickServiceTest {
             )
         )
         assertTrue(events.contains(RuntimeTickEvent.UnloadRequested))
-        assertEquals(listOf(RuntimeQueuedTask("requestwebpage", "4.4.4.4")), state.pendingTasks)
+        assertEquals(listOf(RuntimeQueuedTask(RequestWebPagePayload(null), "4.4.4.4")), state.pendingTasks)
         assertFalse(state.loaded)
     }
 
@@ -98,30 +102,35 @@ class SaveLogoutTickServiceTest {
         state.loadFailure = true
         state.loadRequester = "8.8.8.8"
         state.errorMessage = "load failed"
-        state.pendingTasks += RuntimeQueuedTask("message", "3.3.3.3")
-        state.pendingTasks += RuntimeQueuedTask("pettycash", "4.4.4.4")
+        state.pendingTasks += RuntimeQueuedTask(
+            payload = MessageTextPayload("message"),
+            sourceIp = "3.3.3.3",
+        )
+        state.pendingTasks += RuntimeQueuedTask(
+            payload = PettyCashTransferPayload(0.0f),
+            sourceIp = "4.4.4.4",
+        )
 
         val events = service.tick(state)
 
         assertFalse(
             events.any {
                 it is RuntimeTickEvent.ApplicationDataDispatchRequested &&
-                    it.applicationData.function == "pettycash"
+                    it.applicationData.command.wireName() == "pettycash"
             }
         )
         assertTrue(
             events.contains(
                 RuntimeTickEvent.ApplicationDataDispatchRequested(
                     applicationData = RuntimeApplicationDataDispatch(
-                        function = "message",
-                        parameters = "load failed",
+                        payload = MessageTextPayload("load failed"),
                         sourceIp = "5.5.5.5",
                     ),
                     targetIp = "8.8.8.8",
                 )
             )
         )
-        assertEquals(listOf(RuntimeQueuedTask("pettycash", "4.4.4.4")), state.pendingTasks)
+        assertEquals(listOf(RuntimeQueuedTask(PettyCashTransferPayload(0.0f), "4.4.4.4")), state.pendingTasks)
     }
 
     @Test
@@ -132,23 +141,26 @@ class SaveLogoutTickServiceTest {
         state.loadFailure = true
         state.loadRequester = "8.8.8.8"
         state.errorMessage = "load failed"
-        state.pendingTasks += RuntimeQueuedTask("requestwebpage", "4.4.4.4")
+        state.pendingTasks += RuntimeQueuedTask(
+            payload = RequestWebPagePayload(null),
+            sourceIp = "4.4.4.4",
+        )
 
         val events = service.tick(state)
         val webpageDispatch = events.filterIsInstance<RuntimeTickEvent.ApplicationDataDispatchRequested>()
             .first { it.targetIp == "4.4.4.4" }
 
-        assertEquals("webpage", webpageDispatch.applicationData.function)
+        assertEquals("webpage", webpageDispatch.applicationData.command.wireName())
         assertEquals("5.5.5.5", webpageDispatch.applicationData.sourceIp)
-        val payload = webpageDispatch.applicationData.parameters as Array<*>
-        assertEquals("Server Not Found", payload[0])
-        assertEquals(0, payload[3])
+        val payload = webpageDispatch.applicationData.payload as WebPagePayload
+        assertEquals("Server Not Found", payload.title)
+        assertEquals(0, payload.packetId)
+        assertTrue(payload.body.contains("HTTP Status 408"))
         assertTrue(
             events.contains(
                 RuntimeTickEvent.ApplicationDataDispatchRequested(
                     applicationData = RuntimeApplicationDataDispatch(
-                        function = "message",
-                        parameters = "load failed",
+                        payload = MessageTextPayload("load failed"),
                         sourceIp = "5.5.5.5",
                     ),
                     targetIp = "8.8.8.8",

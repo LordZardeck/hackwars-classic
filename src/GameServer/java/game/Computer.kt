@@ -712,9 +712,11 @@ open class Computer : GameServerService {
                 //pettyCash=respawnMoney;
             } else if (HackType == Port.FTP) {
                 val HF = MyDropTable!!.generateDrop()
-                val Parameter: Array<Any?>? = arrayOf<Any?>("Public/", HF)
                 HF.setLocation("Public/")
-                MyComputerHandler!!.addData(ApplicationData("savefile", Parameter, 0, ip), ip)
+                MyComputerHandler!!.addData(
+                    ApplicationData(game.payload.SaveFileRequestPayload("Public/", HF), 0, ip),
+                    ip
+                )
             }
         }
     }
@@ -1513,8 +1515,9 @@ open class Computer : GameServerService {
         }
         operationCount += 1
         var add = true
+        val commandName = applicationData.command.wireName()
         if (locked) {
-            val packet: Any? = clientPackets[applicationData.getFunction()]
+            val packet: Any? = clientPackets[commandName]
             if (packet is Int && packet > 0) {
                 add = false
             }
@@ -1522,7 +1525,7 @@ open class Computer : GameServerService {
         if (!add) {
             return
         }
-        if (applicationData.getFunction() == "bank" || applicationData.getFunction() == "pettycash") {
+        if (commandName == "bank" || commandName == "pettycash") {
             submitPriority(applicationData)
         } else {
             submit(applicationData)
@@ -2080,7 +2083,7 @@ open class Computer : GameServerService {
         } else if (o is ApplicationData && Loaded) {
             var checkedWatch = false
             val MyApplicationData = o
-            val function = MyApplicationData.getFunction()
+            val function = MyApplicationData.command.wireName()
             var port = MyApplicationData.getPort()
 
             updateApplicationActivity(MyApplicationData, function)
@@ -2127,7 +2130,13 @@ open class Computer : GameServerService {
     private fun normalizeTransferPort(applicationData: ApplicationData, function: String, port: Int): Int {
         var port = port
         if (function == "requestsecondarydirectory" || function == "put" || function == "get" || function == "finalizeput") {
-            val targetIP = (applicationData.getParameters() as Array<Any?>?)!![0] as String
+            val targetIP = when (val payload = applicationData.payload) {
+                is game.payload.RequestSecondaryDirectoryPayload -> payload.targetIp
+                is game.payload.GetFilePayload -> payload.targetIp
+                is game.payload.PutFilePayload -> payload.targetIp
+                is game.payload.FinalizePutPayload -> payload.senderIp
+                else -> error("Expected FTP transfer payload for $function")
+            }
 
             if (targetIP != ip) {
                 port = defaultFTP
@@ -2135,33 +2144,27 @@ open class Computer : GameServerService {
                 if (P != null) {
                     if (P.getType() != Port.FTP) {
                         MyComputerHandler!!.addData(
-                            ApplicationData(
-                                "message",
-                                arrayOf<Any>(MessageHandler.PORT_WAS_NOT_FTP, arrayOf<Any?>(port, ip)),
-                                0,
-                                ip
-                            ), targetIP
+                            messageData(MessageHandler.PORT_WAS_NOT_FTP, ip, arrayOf(port, ip)), targetIP
                         )
                         if (function == "finalizeput") P.friendlyPut(applicationData)
                     } else if (P.getDummy()) {
                         MyComputerHandler!!.addData(
-                            ApplicationData(
-                                "message",
-                                arrayOf<Any>(
-                                    MessageHandler.PORT_WAS_DUMMY,
-                                    arrayOf<Any?>(port, ip),
-                                    arrayOf<Any>(applicationData.getSourcePort(), targetIP)
-                                ),
-                                0,
-                                ip
-                            ), targetIP
+                            messageData(
+                                MessageHandler.PORT_WAS_DUMMY,
+                                ip,
+                                arrayOf(port, ip),
+                                arrayOf(applicationData.getSourcePort(), targetIP)
+                            ),
+                            targetIP
                         )
                         if (function == "finalizeput") P.friendlyPut(applicationData)
                     } else if (!P.getOn()) {
                         MyComputerHandler!!.addData(
                             ApplicationData(
-                                "message",
-                                arrayOf<Any>(MessageHandler.PORT_NOT_ON, arrayOf<Any?>(port, ip)),
+                                game.payload.StructuredMessagePayload(
+                                    MessageHandler.PORT_NOT_ON,
+                                    arrayOf<Any?>(port, ip)
+                                ),
                                 0,
                                 ip
                             ), targetIP
@@ -2171,7 +2174,7 @@ open class Computer : GameServerService {
                 } else {
                     if (function == "finalizeput") P?.friendlyPut(applicationData)
                     MyComputerHandler!!.addData(
-                        ApplicationData("message", MessageHandler.FTP_NOT_FOUND, 0, ip),
+                        messageData(MessageHandler.FTP_NOT_FOUND, ip),
                         targetIP
                     )
                 }
@@ -2182,10 +2185,8 @@ open class Computer : GameServerService {
 
     private fun maybeLogIncomingMessage(applicationData: ApplicationData, function: String) {
         if (function == "logmessage") {
-            val message = (applicationData.getParameters() as Array<Any?>?)!![0] as String?
-            val ip = (applicationData.getParameters() as Array<Any?>?)!![1] as String?
-            val timestamp = (applicationData.getParameters() as Array<Any?>?)!![2] as Long
-            logMessage(message, ip, timestamp)
+            val payload = applicationData.requirePayload(RuntimeLogMessagePayload::class.java)
+            logMessage(payload.message, payload.ip, payload.timestamp)
         }
     }
 
@@ -2198,17 +2199,18 @@ open class Computer : GameServerService {
             currentWatchCost = MyWatchHandler!!.checkWatches(applicationData, Ports, pettyCash)
             return (true)
         } else {
-            if (applicationData.getFunction() == "damage") MyComputerHandler!!.addData(
+            if (applicationData.command.wireName() == "damage") MyComputerHandler!!.addData(
                 ApplicationData(
-                    "requestcancelattack", null, applicationData.getSourcePort(),
+                    game.payload.NoArgumentsPayload(game.payload.REQUEST_CANCEL_ATTACK_COMMAND), applicationData.getSourcePort(),
                     this.ip
                 ), applicationData.getSourceIP()
             )
 
             if (applicationData.getSourceIP() != ip) MyComputerHandler!!.addData(
                 ApplicationData(
-                    "message", arrayOf<Any>(
-                        MessageHandler.PORT_NOT_ON, arrayOf<Any?>(port, ip)
+                    game.payload.StructuredMessagePayload(
+                        MessageHandler.PORT_NOT_ON,
+                        arrayOf<Any?>(port, ip)
                     ), 0, ip
                 ), applicationData.getSourceIP()
             )
@@ -2270,13 +2272,8 @@ open class Computer : GameServerService {
 
         //Macro Protection.
         if (operationCount > 6000 && !this.isNPC()) {
-            RawComputerHandler!!.broadcast(
-                ApplicationData(
-                    "message",
-                    arrayOf<Any>(MessageHandler.PLAYER_BUSY, arrayOf<Any?>(ip)),
-                    0,
-                    ""
-                )
+                RawComputerHandler!!.broadcast(
+                messageData(MessageHandler.PLAYER_BUSY, "", arrayOf(ip))
             )
             operationCount = 0
         }
@@ -2371,7 +2368,13 @@ open class Computer : GameServerService {
             RuntimeCaptchaPayload((generated[1] as kotlin.String?)!!, pixels)
         }
         state.watchCostSupplier =
-            { MyWatchHandler!!.checkWatches(ApplicationData("null", null, 0, ip), Ports, pettyCash) }
+            {
+                MyWatchHandler!!.checkWatches(
+                    ApplicationData(game.payload.NoArgumentsPayload(ApplicationCommand.of("null")), 0, ip),
+                    Ports,
+                    pettyCash
+                )
+            }
         state.ports.addAll(buildRuntimePortSnapshots())
         return (state)
     }
@@ -2386,12 +2389,11 @@ open class Computer : GameServerService {
                 val applicationData = queued
                 runtimeTasks.add(
                     RuntimeQueuedTask(
-                        applicationData.getFunction(),
-                        applicationData.getSourceIP(),
-                        applicationData.getParameters(),
-                        applicationData.getPort(),
-                        applicationData.getSourcePort(),
-                        applicationData.getSource()
+                        payload = applicationData.payload,
+                        sourceIp = applicationData.sourceIP,
+                        port = applicationData.port,
+                        sourcePort = applicationData.sourcePort,
+                        source = applicationData.source
                     )
                 )
             }
@@ -2483,7 +2485,7 @@ open class Computer : GameServerService {
                     e.printStackTrace()
                 }
                 if (autoSave) {
-                    MyComputerHandler!!.addData(ApplicationData("requestequipment", 13, 0, ip), ip)
+                    MyComputerHandler!!.addData(ApplicationData(game.payload.RequestEquipmentPayload(13), 0, ip), ip)
                 }
             }
 
@@ -2501,13 +2503,11 @@ open class Computer : GameServerService {
                 targetIp: String
             ) {
                 val applicationData = ApplicationData(
-                    runtimeApplicationData.function,
-                    runtimeApplicationData.parameters,
+                    runtimeApplicationData.payload,
                     runtimeApplicationData.port,
                     runtimeApplicationData.sourceIp
-                )
-                applicationData.setSourcePort(runtimeApplicationData.sourcePort)
-                applicationData.setSource(runtimeApplicationData.source)
+                ).withSourcePort(runtimeApplicationData.sourcePort)
+                    .withSource(runtimeApplicationData.source)
                 MyComputerHandler!!.addData(applicationData, targetIp)
             }
 
@@ -2520,11 +2520,17 @@ open class Computer : GameServerService {
             }
 
             override fun dailyPayIssued(amount: Float, targetIP: String) {
-                MyComputerHandler!!.addData(ApplicationData("pettycash", arrayOf<Any>(amount, false), 0, ip), targetIP)
+                MyComputerHandler!!.addData(
+                    ApplicationData(game.payload.PettyCashTransferPayload(amount, 0.0f, false), 0, ip),
+                    targetIP
+                )
             }
 
             override fun httpXpIssued(amount: Float, targetIP: String) {
-                MyComputerHandler!!.addData(ApplicationData("httpxp", amount, 0, ip), targetIP)
+                MyComputerHandler!!.addData(
+                    ApplicationData(game.payload.FloatCommandPayload(ApplicationCommand.of("httpxp"), amount), 0, ip),
+                    targetIP
+                )
             }
 
             override fun bankMoneyAdded(amount: Float) {
@@ -2536,7 +2542,10 @@ open class Computer : GameServerService {
             override fun attackContinueRequested(portNumber: Int, targetPort: Int) {
                 val tempPort = Ports.get(portNumber) as Port?
                 if (tempPort != null) {
-                    tempPort.addApplicationData(ApplicationData("attackcontinue", null, targetPort, ""), now)
+                    tempPort.addApplicationData(
+                        ApplicationData(game.payload.NoArgumentsPayload(ApplicationCommand.of("attackcontinue")), targetPort, ""),
+                        now
+                    )
                 }
             }
 
@@ -2546,35 +2555,19 @@ open class Computer : GameServerService {
 
             override fun opponentOverheated(targetIp: String, windowHandle: Int, accessing: String) {
                 MyComputerHandler!!.addData(
-                    ApplicationData(
-                        "message",
-                        arrayOf<Any>(
-                            MessageHandler.OVERHEATED_OPPONENT,
-                            arrayOf<Any?>(ip),
-                            arrayOf<Any?>(windowHandle, accessing)
-                        ),
-                        0,
-                        ip
-                    ), targetIp
+                    messageData(MessageHandler.OVERHEATED_OPPONENT, ip, arrayOf(ip), arrayOf(windowHandle, accessing)),
+                    targetIp
                 )
                 MyComputerHandler!!.addData(
-                    ApplicationData(
-                        "message",
-                        arrayOf<Any>(MessageHandler.OVERHEATED_OPPONENT_GAME, arrayOf<Any?>(ip)),
-                        0,
-                        ip
-                    ), targetIp
+                    messageData(MessageHandler.OVERHEATED_OPPONENT_GAME, ip, arrayOf(ip)),
+                    targetIp
                 )
             }
 
             override fun zombieOverheated(targetIp: String, maliciousIp: String) {
                 MyComputerHandler!!.addData(
-                    ApplicationData(
-                        "message",
-                        arrayOf<Any>(MessageHandler.ZOMBIE_OVERHEATED, arrayOf<Any?>(targetIp)),
-                        0,
-                        targetIp
-                    ), maliciousIp
+                    messageData(MessageHandler.ZOMBIE_OVERHEATED, targetIp, arrayOf(targetIp)),
+                    maliciousIp
                 )
             }
 
@@ -2661,22 +2654,23 @@ open class Computer : GameServerService {
                 val queued = pollPendingTask()
                 if (queued is ApplicationData) {
                     val AD = queued
-                    if (AD.getFunction() == "pettycash") {
+                    if (AD.command.wireName() == "pettycash") {
                         MyComputerHandler!!.addData(AD, AD.getSourceIP())
                     }
 
-                    if (AD.getFunction() == "requestwebpage") {
+                    if (AD.command.wireName() == "requestwebpage") {
                         val PageTitle = "Server Not Found"
                         val PageBody =
                             "<html><head><title>Hack Wars - Error report</title><style><!--H1 {font-family:Tahoma,Arial,sans-serif;color:white;background-color:#525D76;font-size:22px;color:white} H2 {font-family:Tahoma,Arial,sans-serif;color:white;background-color:#525D76;font-size:16px;} H3 {font-family:Tahoma,Arial,sans-serif;color:white;background-color:#525D76;font-size:14px;} BODY {background-color:rgb(0,0,0);font-family:Tahoma,Arial,sans-serif;color:black;background-color:white;color:white;} B {font-family:Tahoma,Arial,sans-serif;color:white;background-color:#525D76;color:white;} P {color:white;font-family:Tahoma,Arial,sans-serif;background:white;color:black;font-size:12px;}A {color : black;}A.name {color : black;}HR {color : #525D76;}--></style> </head><body><h1 style=\"width:100%\">HTTP Status 408</h1><HR size=\"1\" noshade=\"noshade\"><p style=\"background-color:black;\"><b>type</b> HTTP Error</p><p style=\"background-color:black;\"><b>message</b> <u>Resource not found.</u></p><p style=\"background-color:black\"><b>description</b> <u>The HTTP server of the player you attempted to connect to does not seem to be on.</u></p><HR size=\"1\" noshade=\"noshade\"><h3>&copy; Hack Wars</h3></body></html>"
-                        val Files: Array<Any?>? = null
-                        val O: Array<Any?>? = arrayOf<Any?>(PageTitle, PageBody, Files, 0)
-                        MyComputerHandler!!.addData(ApplicationData("webpage", O, 0, ip), AD.getSourceIP())
+                        MyComputerHandler!!.addData(
+                            ApplicationData(game.payload.WebPagePayload(PageTitle, PageBody, null, 0), 0, ip),
+                            AD.getSourceIP()
+                        )
                     }
                 }
 
 
-                MyComputerHandler!!.addData(ApplicationData("message", errorMessage, 0, ip), loadRequester)
+                MyComputerHandler!!.addData(ApplicationData(game.payload.MessageTextPayload(errorMessage), 0, ip), loadRequester)
             }
 
             if (!LOAD_FAILURE) { //Only write to disk if the file didn't fail to load.
@@ -2719,7 +2713,7 @@ open class Computer : GameServerService {
                 } catch (e: Exception) {
                     e.printStackTrace()
                 }
-                MyComputerHandler!!.addData(ApplicationData("requestequipment", 13, 0, ip), ip)
+                MyComputerHandler!!.addData(ApplicationData(game.payload.RequestEquipmentPayload(13), 0, ip), ip)
             }
         }
     }
@@ -2779,18 +2773,20 @@ open class Computer : GameServerService {
                     logMessage(message, ip, lastPaid + PAY_PERIOD)
                 }
 
-                var MyPettyCash = ApplicationData("pettycash", arrayOf<Any>(amount, false), 0, ip)
+                var MyPettyCash = ApplicationData(game.payload.PettyCashTransferPayload(amount, 0.0f, false), 0, ip)
                 MyComputerHandler!!.addData(MyPettyCash, adRevenueTarget)
-                val MyHTTPXP = ApplicationData("httpxp", this.hTTPLevel * 10.0f, 0, ip)
+                val MyHTTPXP = ApplicationData(
+                    game.payload.FloatCommandPayload(ApplicationCommand.of("httpxp"), this.hTTPLevel * 10.0f),
+                    0,
+                    ip
+                )
                 MyComputerHandler!!.addData(MyHTTPXP, adRevenueTarget)
                 var message = "Transferred " + NumberFormat.getCurrencyInstance()
                     .format(amount.toDouble()) + " of daily pay from " + ip + "."
-                var logMessageParameters = arrayOf<Any?>(message, ip, lastPaid + PAY_PERIOD)
-                MyPettyCash = ApplicationData("logmessage", logMessageParameters, 0, ip)
+                MyPettyCash = ApplicationData(RuntimeLogMessagePayload(message, ip, lastPaid + PAY_PERIOD), 0, ip)
                 MyComputerHandler!!.addData(MyPettyCash, adRevenueTarget)
                 message = "Received $" + (dailyPaySize + mod) * 0.25 + " in guaranteed income to bank."
-                logMessageParameters = arrayOf<Any?>(message, ip, lastPaid + PAY_PERIOD)
-                MyPettyCash = ApplicationData("logmessage", logMessageParameters, 0, ip)
+                MyPettyCash = ApplicationData(RuntimeLogMessagePayload(message, ip, lastPaid + PAY_PERIOD), 0, ip)
                 MyComputerHandler!!.addData(MyPettyCash, ip)
                 bankMoney += ((dailyPaySize + mod) * 0.25).toFloat()
                 lastPaid += PAY_PERIOD
@@ -2815,7 +2811,11 @@ open class Computer : GameServerService {
             val startReportCPU = reportCPU
 
             if (!cpuLoadCalculated)  //Check the current watch cost.
-                currentWatchCost = MyWatchHandler!!.checkWatches(ApplicationData("null", null, 0, ip), Ports, pettyCash)
+                currentWatchCost = MyWatchHandler!!.checkWatches(
+                    ApplicationData(game.payload.NoArgumentsPayload(ApplicationCommand.of("null")), 0, ip),
+                    Ports,
+                    pettyCash
+                )
             cpuLoadCalculated = true
 
             val startCPU = currentCPU //What was the CPU cost at the start?
@@ -2857,38 +2857,23 @@ open class Computer : GameServerService {
                                 val TempProgram = TempPort.getProgram() as AttackProgram
                                 if (TempProgram.isZombie()) {
                                     MyComputerHandler!!.addData(
-                                        ApplicationData(
-                                            "message",
-                                            arrayOf<Any>(
-                                                MessageHandler.ZOMBIE_OVERHEATED,
-                                                arrayOf<Any?>(ip)
-                                            ),
-                                            0,
-                                            ip
-                                        ),
+                                        messageData(MessageHandler.ZOMBIE_OVERHEATED, ip, arrayOf(ip)),
                                         TempProgram.getMaliciousIP()
                                     )
                                 }
                                 //send a message to the other player that they are overheated.
                                 MyComputerHandler!!.addData(
-                                    ApplicationData(
-                                        "message",
-                                        arrayOf<Any>(
-                                            MessageHandler.OVERHEATED_OPPONENT,
-                                            arrayOf<Any?>(ip),
-                                            arrayOf<Any?>(TempPort.getLastDamageWindowHandle(), TempPort.getAccessing())
-                                        ),
-                                        0,
-                                        ip
-                                    ), TempProgram.getTargetIP()
+                                    messageData(
+                                        MessageHandler.OVERHEATED_OPPONENT,
+                                        ip,
+                                        arrayOf(ip),
+                                        arrayOf(TempPort.getLastDamageWindowHandle(), TempPort.getAccessing())
+                                    ),
+                                    TempProgram.getTargetIP()
                                 )
                                 MyComputerHandler!!.addData(
-                                    ApplicationData(
-                                        "message",
-                                        arrayOf<Any>(MessageHandler.OVERHEATED_OPPONENT_GAME, arrayOf<Any?>(ip)),
-                                        0,
-                                        ip
-                                    ), TempProgram.getTargetIP()
+                                    messageData(MessageHandler.OVERHEATED_OPPONENT_GAME, ip, arrayOf(ip)),
+                                    TempProgram.getTargetIP()
                                 )
                             }
                         }
@@ -2914,13 +2899,13 @@ open class Computer : GameServerService {
                     if (TempPort.getProgram() is AttackProgram) {
                         val AP = TempPort.getProgram() as AttackProgram
                         TempPort.addApplicationData(
-                            ApplicationData("attackcontinue", null, AP.getTargetPort(), ""),
+                            ApplicationData(game.payload.NoArgumentsPayload(ApplicationCommand.of("attackcontinue")), AP.getTargetPort(), ""),
                             MyTime!!.getCurrentTime()
                         )
                     } else {
                         val SP = TempPort.getProgram() as ShippingProgram
                         TempPort.addApplicationData(
-                            ApplicationData("attackcontinue", null, SP.getTargetPort(), ""),
+                            ApplicationData(game.payload.NoArgumentsPayload(ApplicationCommand.of("attackcontinue")), SP.getTargetPort(), ""),
                             MyTime!!.getCurrentTime()
                         )
                     }

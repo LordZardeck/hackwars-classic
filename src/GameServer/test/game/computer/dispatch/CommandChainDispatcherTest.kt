@@ -1,6 +1,6 @@
 package game.computer.dispatch
 
-import game.ApplicationData
+import com.hackwars.game.functions.FunctionTestSupport
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -11,11 +11,11 @@ class CommandChainDispatcherTest {
     fun chain_dispatches_firstMatchingRoute_only() {
         val seen = mutableListOf<String>()
         val dispatcher = CommandChainBuilder()
-            .onPredicate("first", { it.function == "ping" }) { seen += "first" }
-            .onPredicate("second", { it.function == "ping" }) { seen += "second" }
+            .onPredicate("first", { it.command.wireName() == "ping" }) { seen += "first" }
+            .onPredicate("second", { it.command.wireName() == "ping" }) { seen += "second" }
             .build()
 
-        val handled = dispatcher.dispatch(ApplicationData("ping", null, 0, "10.0.0.1"))
+        val handled = dispatcher.dispatch(FunctionTestSupport.noArgsCommand("ping", sourceIp = "10.0.0.1"))
 
         assertTrue(handled)
         assertEquals(listOf("first"), seen)
@@ -28,7 +28,7 @@ class CommandChainDispatcherTest {
             .onPredicate("never", { false }) { }
             .build()
 
-        val handled = dispatcher.dispatch(ApplicationData("noop", null, 0, "10.0.0.1"))
+        val handled = dispatcher.dispatch(FunctionTestSupport.noArgsCommand("noop", sourceIp = "10.0.0.1"))
 
         assertFalse(handled)
     }

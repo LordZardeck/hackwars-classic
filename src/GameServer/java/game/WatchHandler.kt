@@ -1,5 +1,10 @@
 package game
 
+import game.payload.DamagePayload
+import game.payload.PettyCashDeltaPayload
+import game.payload.PettyCashTransferPayload
+import game.payload.WatchXpPayload
+
 /**
  * Handles all the watches currently installed.
  */
@@ -34,8 +39,15 @@ class WatchHandler(private val computer: Computer?, private val computerHandler:
             watch.setTriggered(true)
             watch.execute(
                 ApplicationData(
-                    "damage",
-                    arrayOf<Any?>(0.0f, sourceIP, 0, false, sourceIP, 0, -1),
+                    DamagePayload(
+                        damage = 0.0f,
+                        targetIp = sourceIP,
+                        targetPort = 0,
+                        damageFromFireWall = false,
+                        zombieSource = sourceIP,
+                        windowHandle = 0,
+                        commodityId = -1
+                    ),
                     0,
                     sourceIP
                 )
@@ -62,8 +74,19 @@ class WatchHandler(private val computer: Computer?, private val computerHandler:
             TempWatch.targetPort = 0
             val TempPort = computer!!.ports.get(TempWatch.port) as Port?
             TempWatch.setPort(TempPort)
-            val O: Array<Any?>? = arrayOf<Any?>(0.0f, sourceIP, 0, false, sourceIP, 0, -1)
-            val AD = ApplicationData("damage", O, 0, sourceIP)
+            val AD = ApplicationData(
+                DamagePayload(
+                    damage = 0.0f,
+                    targetIp = sourceIP,
+                    targetPort = 0,
+                    damageFromFireWall = false,
+                    zombieSource = sourceIP,
+                    windowHandle = 0,
+                    commodityId = -1
+                ),
+                0,
+                sourceIP
+            )
             TempWatch.setTriggerParam(TriggerParam)
             TempWatch.setTriggered(true)
 
@@ -131,6 +154,7 @@ class WatchHandler(private val computer: Computer?, private val computerHandler:
      * Check the watches, and return the current CPU load.
      */
     fun checkWatches(applicationData: ApplicationData, ports: HashMap<*, *>, pettyCash: Float): Float {
+        val commandName = applicationData.command.wireName()
         var gainedXP = false
         var watchCost = 0.0f
         val MyIterator = watches.iterator()
@@ -142,22 +166,22 @@ class WatchHandler(private val computer: Computer?, private val computerHandler:
                 var overheated = false
                 if (TempPort != null) overheated = TempPort.getOverHeated()
 
-                if (!overheated || applicationData.function == "scansuccess") { //Make sure our port isn't overheated.
+                if (!overheated || commandName == "scansuccess") { //Make sure our port isn't overheated.
 
-                    if (applicationData.function == "damage") {
-                        val parameters = applicationData.parameters as Array<Any?>
+                    if (commandName == "damage") {
+                        val damagePayload = applicationData.payloadAs<DamagePayload>()
                         var zombieDamage =
                             false //Is the damge being dealt by a port that has been maliciously taken over?
-                        val zombieSource = parameters[4] as String?
+                        val zombieSource = damagePayload.zombieSource
                         if (zombieSource != null) {
                             zombieDamage = true
                         }
 
-                        var targetIP = parameters[1] as String?
+                        var targetIP = damagePayload.targetIp
                         if (zombieDamage) {
                             targetIP = zombieSource
                         }
-                        val targetPort = parameters[2] as Int
+                        val targetPort = damagePayload.targetPort
 
                         if (TempWatch.type == HEALTH) { //Fired when health reaches a certain quanity.
 
@@ -176,8 +200,7 @@ class WatchHandler(private val computer: Computer?, private val computerHandler:
                                     if (!gainedXP) {
                                         computerHandler!!.addData(
                                             ApplicationData(
-                                                "watchxp",
-                                                computer!!.watchLevel,
+                                                WatchXpPayload(computer!!.watchLevel),
                                                 0,
                                                 computer!!.getIP()
                                             ), computer!!.getIP()
@@ -191,14 +214,14 @@ class WatchHandler(private val computer: Computer?, private val computerHandler:
                     }
 
                     //Make sure the initial quantity value remains valid.
-                    if (applicationData.function == "bank") {
+                    if (commandName == "bank") {
                         if (TempWatch.type == PETTY_CASH) {
                             TempWatch.initialQuantity = pettyCash
                         }
                     }
 
                     //Fired when petty cash reaches a certain amount.
-                    if (applicationData.function == "pettycash") {
+                    if (commandName == "pettycash") {
                         val value = pettyCash
 
                         if (TempWatch.type == PETTY_CASH) {
@@ -213,13 +236,10 @@ class WatchHandler(private val computer: Computer?, private val computerHandler:
                                         else TempWatch.external = true
 
                                         val amount = value - TempWatch.initialQuantity
-                                        //float deposit=(Float)MyApplicationData.getParameters();
-                                        var deposit = 0.0f
-                                        if (applicationData.parameters is Float) deposit =
-                                            (applicationData.parameters as kotlin.Float?)!!
-                                        else {
-                                            val oD = applicationData.parameters as Array<Any?>
-                                            deposit = (oD[0] as kotlin.Float?)!!
+                                        val deposit = when (val payload = applicationData.payload) {
+                                            is PettyCashDeltaPayload -> payload.amount
+                                            is PettyCashTransferPayload -> payload.amount
+                                            else -> error("Expected pettycash payload for ${applicationData.command.wireName()}")
                                         }
 
                                         TempWatch.depositAmount = deposit
@@ -230,8 +250,7 @@ class WatchHandler(private val computer: Computer?, private val computerHandler:
                                         if (!gainedXP) {
                                             computerHandler!!.addData(
                                                 ApplicationData(
-                                                    "watchxp",
-                                                    amount / 50.0f,
+                                                    WatchXpPayload(amount / 50.0f),
                                                     0,
                                                     computer!!.getIP()
                                                 ), computer!!.getIP()
@@ -246,7 +265,7 @@ class WatchHandler(private val computer: Computer?, private val computerHandler:
                     }
 
                     //Fired when petty cash reaches a certain amount.
-                    if (applicationData.function == "scansuccess") {
+                    if (commandName == "scansuccess") {
                         val value = pettyCash
                         if (TempWatch.type == SCAN) {
                             //Set the source of the watch to internal or external.
@@ -260,8 +279,7 @@ class WatchHandler(private val computer: Computer?, private val computerHandler:
                             if (!gainedXP) {
                                 computerHandler!!.addData(
                                     ApplicationData(
-                                        "watchxp",
-                                        computer!!.watchLevel / 4.0f,
+                                        WatchXpPayload(computer!!.watchLevel / 4.0f),
                                         0,
                                         computer!!.getIP()
                                     ), computer!!.getIP()

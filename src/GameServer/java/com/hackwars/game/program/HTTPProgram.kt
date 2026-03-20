@@ -1,6 +1,9 @@
 package com.hackwars.game.program
 
 import game.*
+import game.payload.RequestWebPagePayload
+import game.payload.SubmitPayload
+import game.payload.WebPagePayload
 import hackscript.model.RunFactory
 
 /**
@@ -85,30 +88,36 @@ class HTTPProgram(computer: Computer?, computerHandler: NetworkSwitch?) : Progra
         hideStore = false
         var packetID: Int? = 0
 
-        if (applicationData.function == "requestwebpage") {
-            GetString = applicationData.parameters as HashMap<*, *>?
-            packetID = GetString!!.get("packetid") as Int?
-            targetIP = applicationData.sourceIP
-            script = enterScript
-        } else  //Prepare the put message.
-            if (applicationData.function == "exit") {
+        when (applicationData.command.wireName()) {
+            "requestwebpage" -> {
+                val payload = applicationData.readRequestWebPagePayload()
+                GetString = payload.requestParameters
+                packetID = GetString?.get("packetid") as Int?
+                targetIP = applicationData.sourceIP
+                script = enterScript
+            }
+
+            "exit" -> {
                 targetIP = applicationData.sourceIP
                 script = exitScript
-            } else  //Prepare the put message.
-                if (applicationData.function == "submit") {
-                    targetIP = applicationData.sourceIP
-                    Parameters = applicationData.parameters as HashMap<*, *>?
-                    packetID = Parameters!!.get("packetid") as Int?
-                    script = submitScript
+            }
 
-                    try {
-                        val HL = HackerLinker(this, computerHandler)
-                        RunFactory.runCode(script, HL, computer!!.MAX_OPS)
-                    } catch (e: Exception) {
-                    }
+            "submit" -> {
+                targetIP = applicationData.sourceIP
+                val payload = applicationData.readSubmitPayload()
+                Parameters = payload.submitParameters
+                packetID = Parameters?.get("packetid") as Int?
+                script = submitScript
 
-                    script = enterScript
+                try {
+                    val HL = HackerLinker(this, computerHandler)
+                    RunFactory.runCode(script, HL, computer!!.MAX_OPS)
+                } catch (e: Exception) {
                 }
+
+                script = enterScript
+            }
+        }
 
         if (script != null && script != "") {
             try {
@@ -118,7 +127,7 @@ class HTTPProgram(computer: Computer?, computerHandler: NetworkSwitch?) : Progra
             }
         }
 
-        if (applicationData.function != "exit")  //Serve the web-page.
+        if (applicationData.command.wireName() != "exit")  //Serve the web-page.
             serveWebPage(applicationData, packetID)
 
         Parameters = null
@@ -194,10 +203,8 @@ class HTTPProgram(computer: Computer?, computerHandler: NetworkSwitch?) : Progra
 
         if (hideStore) Files = null
 
-        val O: Array<Any?>? = arrayOf<Any?>(PageTitle, PageBody, Files, packetID)
-
         computerHandler!!.addData(
-            ApplicationData("webpage", O, 0, computer!!.ip),
+            ApplicationData(WebPagePayload(PageTitle, PageBody ?: "", Files, packetID), 0, computer!!.ip),
             MyApplicationData.sourceIP
         )
     }
@@ -227,5 +234,15 @@ class HTTPProgram(computer: Computer?, computerHandler: NetworkSwitch?) : Progra
         else returnMe += "<submit><![CDATA[" + submitScript + "]]></submit>\n"
 
         return (returnMe)
+    }
+
+    private fun ApplicationData.readRequestWebPagePayload(): RequestWebPagePayload {
+        return payload as? RequestWebPagePayload
+            ?: error("Expected RequestWebPagePayload for ${command.wireName()}")
+    }
+
+    private fun ApplicationData.readSubmitPayload(): SubmitPayload {
+        return payload as? SubmitPayload
+            ?: error("Expected SubmitPayload for ${command.wireName()}")
     }
 }

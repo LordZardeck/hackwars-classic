@@ -3,6 +3,8 @@ package com.hackwars.game.functions
 import game.ApplicationData
 import game.Computer
 import game.MessageHandler
+import game.payload.StringCommandPayload
+import game.payloadAs
 
 /**
  * Represents a function that creates a folder or directory in the file system of a computer.
@@ -18,9 +20,10 @@ import game.MessageHandler
  */
 class CreateFolder(computer: Computer) : Function(computer) {
     override fun execute(applicationData: ApplicationData) {
+        val payload = applicationData.payloadAs<StringCommandPayload>()
         computer.sendPacket()
 
-        val directory = applicationData.parameters as String?
+        val directory = payload.value
         if (!computer.fileSystem.addDirectory(directory))
             computer.addMessage(MessageHandler.SAVE_FAIL_HD_FULL)
 

@@ -21,13 +21,11 @@ class ChangeWatchPortTest {
         whenever(watchHandler.watches).thenReturn(arrayListOf(Any()))
         whenever(watchHandler.getWatch(0)).thenReturn(watch)
 
-        ChangeWatchPort(computer).execute(
-            ApplicationData("changewatchport", arrayOf<Any>(0, 443), 0, "source")
-        )
+        ChangeWatchPort(computer).execute(FunctionTestSupport.changeWatchPort(0, 443))
 
         verify(watch).port = 443
         val appCaptor = argumentCaptor<ApplicationData>()
         verify(networkSwitch).addData(appCaptor.capture(), eq("1.2.3.4"))
-        assertEquals(FetchWatches.FUNCTION, appCaptor.firstValue.function)
+        assertEquals(FetchWatches.FUNCTION, appCaptor.firstValue.command.wireName())
     }
 }

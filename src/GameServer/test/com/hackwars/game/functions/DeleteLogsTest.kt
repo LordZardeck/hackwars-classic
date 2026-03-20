@@ -1,6 +1,5 @@
 package com.hackwars.game.functions
 
-import game.ApplicationData
 import org.junit.Test
 import org.mockito.kotlin.verify
 
@@ -9,7 +8,7 @@ class DeleteLogsTest {
     fun execute_resetsLogs_andSendsPacket() {
         val computer = FunctionTestSupport.baseComputer()
 
-        DeleteLogs(computer).execute(ApplicationData("deletelogs", null, 0, "source"))
+        DeleteLogs(computer).execute(FunctionTestSupport.noArgsCommand("deletelogs"))
 
         verify(computer).resetLogs()
         verify(computer).sendPacket()

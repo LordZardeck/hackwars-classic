@@ -11,9 +11,7 @@ class RequestTriggerTest {
         val watchHandler = computer.watchHandler
         val triggerParam = hashMapOf<Any, Any>("key" to "value")
 
-        RequestTrigger(computer).execute(
-            ApplicationData("requesttrigger", arrayOf<Any>(3, triggerParam, "target-ip"), 0, "source")
-        )
+        RequestTrigger(computer).execute(FunctionTestSupport.requestTrigger(3, triggerParam, "target-ip"))
 
         verify(watchHandler).triggerWatch(3, "target-ip", triggerParam)
     }

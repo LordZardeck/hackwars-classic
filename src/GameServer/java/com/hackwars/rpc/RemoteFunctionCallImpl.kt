@@ -1,6 +1,8 @@
 package com.hackwars.rpc
 
 import assignments.RemoteFunctionCall
+import game.ApplicationCommand
+import game.ApplicationPayload
 
 /**
  * Exception thrown when a parameter provided to a function does not match the expected type or is invalid.
@@ -18,7 +20,7 @@ import assignments.RemoteFunctionCall
 class IllegalParameterException(val function: String, val position: Int, val expectedType: String, val actualType: String?) :
     Exception("Illegal parameter provided to $function function at position $position. Expected $expectedType, Actual ${actualType ?: "null"}")
 
-abstract class RemoteFunctionCallImpl {
+abstract class RemoteFunctionCallImpl : ApplicationPayload {
     companion object {
         /**
          * Retrieves a positional parameter from the provided `RemoteFunctionCall` object, casts it to the specified type,
@@ -48,5 +50,6 @@ abstract class RemoteFunctionCallImpl {
     }
 
     abstract val function: String
+    override fun getCommand(): ApplicationCommand = ApplicationCommand.of(function)
     abstract fun toRfc(): RemoteFunctionCall
 }

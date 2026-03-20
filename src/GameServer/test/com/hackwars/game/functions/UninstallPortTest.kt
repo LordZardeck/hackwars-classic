@@ -25,11 +25,11 @@ class UninstallPortTest {
         val ports = hashMapOf<Any?, Any?>(12 to port)
         whenever(computer.ports).thenReturn(ports)
 
-        UninstallPort(computer).execute(ApplicationData("uninstallport", 12, 0, "source"))
+        UninstallPort(computer).execute(FunctionTestSupport.intCommand("uninstallport", 12))
 
         assertFalse(ports.containsKey(12))
         val appCaptor = argumentCaptor<ApplicationData>()
         verify(networkSwitch).addData(appCaptor.capture(), eq("9.9.9.9"))
-        assertEquals("fetchports", appCaptor.firstValue.function)
+        assertEquals("fetchports", appCaptor.firstValue.command.wireName())
     }
 }

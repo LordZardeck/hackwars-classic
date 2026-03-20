@@ -11,7 +11,7 @@ class SetCodeTest {
         val packetAssignment = computer.packetAssignment
         val peakCode = hashMapOf<Any, Any>("line" to "print(\"hi\")")
 
-        SetCode(computer).execute(ApplicationData("code", peakCode, 0, "source"))
+        SetCode(computer).execute(FunctionTestSupport.mapCommand("code", peakCode))
 
         verify(computer).sendPacket()
         verify(packetAssignment).setPeakCode(peakCode)
