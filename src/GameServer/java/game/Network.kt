@@ -95,9 +95,7 @@ class Network internal constructor(
         val node = networkNodes[networkName] as HashMap<*, *>?
         if (node != null) {
             val players = node["players"] as HashMap<*, *>?
-            if (players != null) {
-                players.remove(playerIP)
-            }
+            players?.remove(playerIP)
         }
     }
 
