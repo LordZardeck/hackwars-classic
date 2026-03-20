@@ -12,13 +12,9 @@ import java.util.*
 object RequestFileHandler : RemoteCallHandler {
     override fun handle(rfc: RemoteFunctionCall, context: RemoteCallContext) {
         val parsedCall = RequestFile.fromRpc(rfc)
-        var ip = parsedCall.ip
-        ip = context.crypt(ip)
-        val path = parsedCall.path
-        val name = parsedCall.name
-        val Parameter: Array<String?>? = arrayOf<String?>(path, name)
+        val ip = context.crypt(parsedCall.ip)
         context.computerHandler.addData(
-            ApplicationData(RequestFile.FUNCTION, Parameter, 0, ip),
+            ApplicationData(parsedCall.copy(ip = ip), 0, ip),
             ip,
             ApplicationData.OUTSIDE
         )

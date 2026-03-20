@@ -2,6 +2,8 @@ package com.hackwars.game.functions
 
 import game.ApplicationData
 import game.Computer
+import game.payload.FloatCommandPayload
+import game.payloadAs
 
 /**
  * Represents a function that rewards repair experience.
@@ -23,7 +25,7 @@ class RepairXP(computer: Computer) : Function(computer) {
     }
 
     override fun execute(applicationData: ApplicationData) {
-        val amount = applicationData.parameters as? Float ?: return
+        val amount = applicationData.payloadAs<FloatCommandPayload>().value
         val currentXp = (computer.stats["Repair"] as? Float) ?: 0f
         val updatedXp = (amount * XP_MULTIPLIER + currentXp).coerceAtLeast(
             if (XP_MULTIPLIER < 0) MIN_XP else Float.NEGATIVE_INFINITY

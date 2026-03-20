@@ -1,6 +1,8 @@
 package com.hackwars.game.program
 
 import game.*
+import game.payload.FloatCommandPayload
+import game.payload.TransferPayload
 import hackscript.model.RunFactory
 
 /**
@@ -179,19 +181,19 @@ class Banking(computer: Computer?, computerHandler: NetworkSwitch?, ParentPort: 
      */
     override fun execute(applicationData: ApplicationData) {
         var data: String? = null
+        when (applicationData.command.wireName()) {
+            "deposit" -> {
+                amount = applicationData.readFloatPayload()
+                initialAmount = amount
+                if (amount > this@Banking.computer!!.pettyCash) amount = this@Banking.computer!!.pettyCash
+                data = depositScript
+                withdraw = false
+                deposit = true
+                transfer = false
+            }
 
-        //A 'deposit' function call.
-        if (applicationData.function == "deposit") {
-            amount = (applicationData.parameters as kotlin.Float?)!!
-            initialAmount = amount
-            if (amount > this@Banking.computer!!.pettyCash) amount = this@Banking.computer!!.pettyCash
-            data = depositScript
-            withdraw = false
-            deposit = true
-            transfer = false
-        } else  //A 'withdraw' function call.
-            if (applicationData.function == "withdraw") {
-                amount = (applicationData.parameters as kotlin.Float?)!!
+            "withdraw" -> {
+                amount = applicationData.readFloatPayload()
                 initialAmount = amount
                 if (amount > this@Banking.computer!!.bankMoney) {
                     amount = this@Banking.computer!!.bankMoney
@@ -200,26 +202,30 @@ class Banking(computer: Computer?, computerHandler: NetworkSwitch?, ParentPort: 
                 withdraw = true
                 deposit = false
                 transfer = false
-            } else  //A 'transfer' function call.
-                if (applicationData.function == "transfer") {
-                    val parameters = applicationData.parameters as Array<Any?>
-                    targetIP = parameters[0] as String
+            }
 
-                    //We make an exception for Alexi.
-                    if (this@Banking.computer!!.getTotalLevel() < 15 && targetIP != "900.800.7.012") { //Noob check.
-                        this@Banking.computer!!.addMessage(MessageHandler.TRANSFER_FAIL_NOOB)
-                        this@Banking.computer!!.sendPacket()
-                        return
-                    }
+            "transfer" -> {
+                val payload = applicationData.readTransferPayload()
+                targetIP = payload.targetIp
 
-                    amount = (parameters[1] as Float?)!!
-                    initialAmount = amount
-                    if (amount > this@Banking.computer!!.pettyCash) amount = this@Banking.computer!!.pettyCash
-                    data = transferScript
-                    withdraw = false
-                    transfer = true
-                    deposit = false
-                } else return
+                //We make an exception for Alexi.
+                if (this@Banking.computer!!.getTotalLevel() < 15 && targetIP != "900.800.7.012") { //Noob check.
+                    this@Banking.computer!!.addMessage(MessageHandler.TRANSFER_FAIL_NOOB)
+                    this@Banking.computer!!.sendPacket()
+                    return
+                }
+
+                amount = payload.amount
+                initialAmount = amount
+                if (amount > this@Banking.computer!!.pettyCash) amount = this@Banking.computer!!.pettyCash
+                data = transferScript
+                withdraw = false
+                transfer = true
+                deposit = false
+            }
+
+            else -> return
+        }
 
         try {
             val HL = HackerLinker(this, this@Banking.computerHandler)
@@ -279,5 +285,15 @@ class Banking(computer: Computer?, computerHandler: NetworkSwitch?, ParentPort: 
         returnMe += "]]></transfer>\n"
         returnMe += "</code>\n"
         return (returnMe)
+    }
+
+    private fun ApplicationData.readFloatPayload(): Float {
+        return (payload as? FloatCommandPayload)?.value
+            ?: error("Expected FloatCommandPayload for ${command.wireName()}")
+    }
+
+    private fun ApplicationData.readTransferPayload(): TransferPayload {
+        return payload as? TransferPayload
+            ?: error("Expected TransferPayload for ${command.wireName()}")
     }
 }

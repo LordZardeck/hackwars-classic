@@ -35,11 +35,12 @@ class IncomeTickServiceTest {
         assertTrue(events.contains(RuntimeTickEvent.BankMoneyAdded(275f)))
         val revenueLog = events.filterIsInstance<RuntimeTickEvent.ApplicationDataDispatchRequested>().single()
         assertEquals("7.7.7.7", revenueLog.targetIp)
-        assertEquals("logmessage", revenueLog.applicationData.function)
+        assertEquals("logmessage", revenueLog.applicationData.command.wireName())
         assertEquals("5.5.5.5", revenueLog.applicationData.sourceIp)
-        val payload = revenueLog.applicationData.parameters as Array<*>
-        assertEquals("5.5.5.5", payload[1])
-        assertEquals(19_000L, payload[2])
+        val payload = revenueLog.applicationData.payload as RuntimeLogMessagePayload
+        assertTrue(payload.message.contains("daily pay"))
+        assertEquals("5.5.5.5", payload.ip)
+        assertEquals(19_000L, payload.timestamp)
     }
 
     @Test

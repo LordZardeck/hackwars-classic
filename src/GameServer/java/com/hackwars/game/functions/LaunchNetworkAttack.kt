@@ -2,6 +2,9 @@ package com.hackwars.game.functions
 
 import game.ApplicationData
 import game.Computer
+import game.payload.LaunchNetworkAttackPayload
+import game.payload.TriggerWatchByNotePayload
+import game.payloadAs
 import hackscript.model.TypeInteger
 import hackscript.model.TypeString
 import hackscript.model.Variable
@@ -22,7 +25,8 @@ import hackscript.model.Variable
  */
 class LaunchNetworkAttack(computer: Computer) : Function(computer) {
     override fun execute(applicationData: ApplicationData) {
-        val npcIp = getPositionalParameter<String>(applicationData, 0)
+        val payload = applicationData.payloadAs<LaunchNetworkAttackPayload>()
+        val npcIp = payload.npcIp
         val triggerParameters = HashMap<String, Variable>()
 
         triggerParameters["playerip"] = TypeString(computer.getIP())
@@ -31,11 +35,13 @@ class LaunchNetworkAttack(computer: Computer) : Function(computer) {
         triggerParameters["defaulthttp"] = TypeInteger(computer.getDefaultHTTP())
         triggerParameters["defaultredirecting"] = TypeInteger(computer.getDefaultShipping())
 
-        val parameters = arrayOf("netbomb", triggerParameters, computer.getIP())
-
-        println("Launching attack with NPC $npcIp against ${parameters[2]}.")
+        println("Launching attack with NPC $npcIp against ${computer.getIP()}.")
         computer.computerHandler.addData(
-            ApplicationData("requesttriggernote", parameters, 0, computer.getIP()),
+            ApplicationData(
+                TriggerWatchByNotePayload("netbomb", HashMap(triggerParameters as Map<Any, Any>), computer.getIP()),
+                0,
+                computer.getIP()
+            ),
             npcIp
         )
     }

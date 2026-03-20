@@ -14,7 +14,7 @@ class HttpXPTest {
         whenever(computer.getVoteCount()).thenReturn(3)
         computer.stats["Webdesign"] = 10f
 
-        HttpXP(computer).execute(ApplicationData("httpxp", 500.7337f, 0, "source"))
+        HttpXP(computer).execute(FunctionTestSupport.floatCommand("httpxp", 500.7337f))
 
         verify(computer).setVoteCount(4)
         verify(computer).sendDamagePacket()

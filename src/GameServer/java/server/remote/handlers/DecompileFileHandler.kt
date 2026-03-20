@@ -12,14 +12,9 @@ import java.util.*
 object DecompileFileHandler : RemoteCallHandler {
     override fun handle(rfc: RemoteFunctionCall, context: RemoteCallContext) {
         val parsedCall = DecompileFile.fromRpc(rfc)
-        var ip = parsedCall.ip
-        ip = context.crypt(ip)
-        val location = parsedCall.location
-        val fileName = parsedCall.fileName
-        val compileCost = parsedCall.compileCost
-        val O: Array<Any?>? = arrayOf<Any?>(location, fileName, compileCost, ip)
+        val ip = context.crypt(parsedCall.ip)
         context.computerHandler.addData(
-            ApplicationData(DecompileFile.FUNCTION, O, 0, ip),
+            ApplicationData(parsedCall.copy(ip = ip), 0, ip),
             ip,
             ApplicationData.OUTSIDE
         )

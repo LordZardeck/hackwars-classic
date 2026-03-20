@@ -1,8 +1,10 @@
 package server.remote.handlers
 
 import assignments.RemoteFunctionCall
+import game.ApplicationCommand
 import game.ApplicationData
 import com.hackwars.rpc.*
+import game.payload.RequestWebPagePayload
 import server.remote.RemoteCallContext
 import server.remote.RemoteCallHandler
 import server.remote.RpcHandler
@@ -25,7 +27,7 @@ object RequestWebpageHandler : RemoteCallHandler {
             targetIp = "store" + context.serverID
 
         context.computerHandler.addData(
-            ApplicationData(RequestWebpage.FUNCTION, parameters, 0, sourceIp),
+            ApplicationData(RequestWebPagePayload(parameters), 0, sourceIp),
             targetIp,
             ApplicationData.OUTSIDE
         )

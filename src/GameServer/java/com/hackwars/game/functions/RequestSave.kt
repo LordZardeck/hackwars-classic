@@ -3,11 +3,14 @@ package com.hackwars.game.functions
 import game.ApplicationData
 import game.Computer
 import game.HackerFile
+import game.payload.RequestSavePayload
+import game.payloadAs
 import hackscript.model.TypeBoolean
 import hackscript.model.TypeFloat
 import hackscript.model.TypeInteger
 import hackscript.model.TypeString
 import hackscript.model.Variable
+import com.hackwars.rpc.SaveFile
 
 /**
  * Represents a function that serializes game state variables into a `.save` file.
@@ -25,9 +28,9 @@ import hackscript.model.Variable
  */
 class RequestSave(computer: Computer) : Function(computer) {
     override fun execute(applicationData: ApplicationData) {
-        val parameters = applicationData.parameters as? Array<*> ?: return
-        val fileName = parameters.getOrNull(0) as? String ?: return
-        val triggerParameters = parameters.getOrNull(1) as? HashMap<*, *>
+        val payload = applicationData.payloadAs<RequestSavePayload>()
+        val fileName = payload.fileName
+        val triggerParameters = payload.triggerParameters
 
         val newFile = HackerFile(HackerFile.TEXT)
         newFile.description = "A save file for $fileName."
@@ -62,7 +65,9 @@ class RequestSave(computer: Computer) : Function(computer) {
         newFile.content = attributes
         newFile.name = "$fileName.save"
 
-        val payload = arrayOf("", newFile)
-        computer.computerHandler.addData(ApplicationData("savefile", payload, 0, computer.getIP()), computer.getIP())
+        computer.computerHandler.addData(
+            ApplicationData(SaveFile(computer.getIP(), "", newFile), 0, computer.getIP()),
+            computer.getIP()
+        )
     }
 }

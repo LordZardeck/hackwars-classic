@@ -1,6 +1,8 @@
 package game
 
 import assignments.PacketAssignment
+import game.payload.CombatFirewallXpPayload
+import game.payload.DamagePayload
 import java.util.HashMap
 
 class NewFireWall() {
@@ -169,23 +171,28 @@ class NewFireWall() {
             } else {
                 fwAttackBack -= fwVariance
             }
-            val O = arrayOf<Any?>(
-                java.lang.Float(fwAttackBack),
-                parentPort!!.IP,
-                Integer(parentPort!!.number),
-                java.lang.Boolean(true),
-                null,
-                parentPort!!.windowHandle,
-                -1
-            )
-            val AD = ApplicationData("damage", O, port, parentPort!!.IP)
-            AD.sourcePort = parentPort!!.number
+            val AD = ApplicationData(
+                DamagePayload(
+                    damage = fwAttackBack,
+                    targetIp = parentPort!!.IP,
+                    targetPort = parentPort!!.number,
+                    damageFromFireWall = true,
+                    zombieSource = null,
+                    windowHandle = parentPort!!.windowHandle,
+                    commodityId = -1
+                ),
+                port,
+                parentPort!!.IP
+            ).withSourcePort(parentPort!!.number)
             MyComputerHandler!!.addData(AD, ip)
         }
 
         val xp = damage - mod_damage
         if (xp > 0) {
-            MyComputerHandler!!.addData(ApplicationData("firewallxp", java.lang.Float(xp), 0, ""), parentPort!!.IP)
+            MyComputerHandler!!.addData(
+                ApplicationData(CombatFirewallXpPayload(xp), 0, ""),
+                parentPort!!.IP
+            )
         }
 
         return mod_damage

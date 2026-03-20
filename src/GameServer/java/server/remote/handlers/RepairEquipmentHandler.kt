@@ -3,6 +3,7 @@ package server.remote.handlers
 import assignments.RemoteFunctionCall
 import game.ApplicationData
 import com.hackwars.rpc.*
+import game.payload.RepairEquipmentPayload
 import server.remote.RemoteCallContext
 import server.remote.RemoteCallHandler
 import server.remote.RpcHandler
@@ -12,21 +13,15 @@ import java.util.*
 object RepairEquipmentHandler : RemoteCallHandler {
     override fun handle(rfc: RemoteFunctionCall, context: RemoteCallContext) {
         val parsedCall = RepairEquipment.fromRpc(rfc)
-        var ip = parsedCall.ip
-        val position =
-            parsedCall.position
-        val name =
-            parsedCall.name
-        ip = context.crypt(ip)
-        val O: Array<Any?>? =
-            arrayOf<Any?>(position, name, rfc.getID())
+        val ip = context.crypt(parsedCall.ip)
         context.computerHandler.addData(
             ApplicationData(
-                RepairEquipment.FUNCTION,
-                O,
+                RepairEquipmentPayload(parsedCall.position ?: -1, parsedCall.name.orEmpty()),
                 0,
                 ip
-            ), ip, ApplicationData.OUTSIDE
+            ),
+            ip,
+            ApplicationData.OUTSIDE
         )
     }
 }

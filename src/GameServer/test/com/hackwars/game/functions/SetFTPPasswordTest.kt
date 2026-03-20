@@ -9,7 +9,7 @@ class SetFTPPasswordTest {
     fun execute_updatesPassword() {
         val computer = FunctionTestSupport.baseComputer()
 
-        SetFTPPassword(computer).execute(ApplicationData("setftppassword", "pw123", 0, "source"))
+        SetFTPPassword(computer).execute(FunctionTestSupport.stringCommand("setftppassword", "pw123"))
 
         verify(computer).setPassword("pw123")
     }

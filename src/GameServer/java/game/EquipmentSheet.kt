@@ -4,6 +4,8 @@ import java.text.DecimalFormat
 import java.text.NumberFormat
 import java.util.ArrayList
 import java.util.HashMap
+import game.payload.FloatCommandPayload
+import game.payload.SaveFileRequestPayload
 
 class EquipmentSheet(private val MyComputer: Computer) {
     private var bonusCount = 9
@@ -473,8 +475,10 @@ class EquipmentSheet(private val MyComputer: Computer) {
         }
 
         removeCardFromBonuses(equippedCard)
-        val Parameter = arrayOf<Any?>("", equippedCard)
-        MyComputer.computerHandler.addData(ApplicationData("savefile", Parameter, 0, MyComputer.getIP()), MyComputer.getIP())
+        MyComputer.computerHandler.addData(
+            ApplicationData(SaveFileRequestPayload("", equippedCard!!), 0, MyComputer.getIP()),
+            MyComputer.getIP()
+        )
 
         if (position == AGP) {
             AGPEquipped = null
@@ -631,7 +635,10 @@ class EquipmentSheet(private val MyComputer: Computer) {
                     xp += commodityUsed[i] * MyComputer.repairXP[i]
                 }
 
-                MyComputer.computerHandler.addData(ApplicationData("repairxp", java.lang.Float(xp), 0, MyComputer.getIP()), MyComputer.getIP())
+                MyComputer.computerHandler.addData(
+                    ApplicationData(FloatCommandPayload(ApplicationCommand.of("repairxp"), xp), 0, MyComputer.getIP()),
+                    MyComputer.getIP()
+                )
 
                 val Content = Equipment.getContent()
                 val max = (Content["maxquality"] as String).toFloat()

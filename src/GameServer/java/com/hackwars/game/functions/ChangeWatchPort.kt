@@ -2,6 +2,8 @@ package com.hackwars.game.functions
 
 import game.ApplicationData
 import game.Computer
+import game.payloadAs
+import com.hackwars.rpc.ChangeWatchPort as ChangeWatchPortPayload
 import com.hackwars.rpc.FetchWatches
 
 /**
@@ -18,13 +20,14 @@ import com.hackwars.rpc.FetchWatches
  */
 class ChangeWatchPort(computer: Computer) : Function(computer) {
     override fun execute(applicationData: ApplicationData) {
-        val targetWatch = getPositionalParameter<Int>(applicationData, 0)
-        val newPort = getPositionalParameter<Int>(applicationData, 1)
+        val payload = applicationData.payloadAs<ChangeWatchPortPayload>()
+        val targetWatch = payload.watchId ?: return
+        val newPort = payload.portId ?: return
 
         if (targetWatch < computer.watchHandler.watches.size) {
             computer.watchHandler.getWatch(targetWatch)?.port = newPort
             computer.computerHandler.addData(
-                ApplicationData(FetchWatches.FUNCTION, null, 0, computer.getIP()),
+                ApplicationData(FetchWatches(computer.getIP()), 0, computer.getIP()),
                 computer.getIP()
             )
         }

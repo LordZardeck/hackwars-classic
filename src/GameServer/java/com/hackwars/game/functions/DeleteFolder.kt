@@ -3,6 +3,8 @@ package com.hackwars.game.functions
 import game.ApplicationData
 import game.Computer
 import game.MessageHandler
+import game.payload.StringCommandPayload
+import game.payloadAs
 
 /**
  * Represents a function that removes a directory from the computer's file system.
@@ -20,9 +22,10 @@ import game.MessageHandler
  */
 class DeleteFolder(computer: Computer) : Function(computer) {
     override fun execute(applicationData: ApplicationData) {
+        val payload = applicationData.payloadAs<StringCommandPayload>()
         computer.sendPacket()
 
-        val directory = applicationData.parameters as String?
+        val directory = payload.value
         if (!computer.fileSystem.deleteDirectory(directory))
             computer.addMessage(MessageHandler.DELETE_FAIL_NON_EMPTY_FOLDER)
 

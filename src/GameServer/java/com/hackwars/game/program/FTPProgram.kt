@@ -1,6 +1,8 @@
 package com.hackwars.game.program
 
+import com.hackwars.rpc.SaveFile
 import game.*
+import game.payload.*
 import hackscript.model.RunFactory
 
 /**
@@ -74,30 +76,30 @@ class FTPProgram(
      */
     override fun execute(applicationData: ApplicationData) {
         var script: String? = ""
+        val function = applicationData.command.wireName()
 
-        //A DIRECTORY LISTING HAS BEEN REQUESTED FROM THE FILE SYSTEM.
-        if (applicationData.getFunction() == "requestsecondarydirectory") { //Request a directory listing.
-            val parameters = applicationData.getParameters() as Array<Any?>
-            val path = parameters[1] as String
-            val targetIP = parameters[0] as String
-            var Directory: Array<Any?>? = null
+        if (function == "requestsecondarydirectory") {
+            val payload = applicationData.payloadAs<RequestSecondaryDirectoryPayload>()
+            val path = payload.path
+            val targetIP = payload.targetIp
+            var directory: Array<Any?>
             if (this@FTPProgram.computer!!.getType() != Computer.NPC) {
-                Directory = MyFileSystem!!.getDirectory(path)
-                val Temp: Array<Any?>? = arrayOfNulls<Any>(Directory.size + 1)
-                Temp!![0] = (applicationData.getParameters() as Array<Any?>?)!![2] as Int? //Add an ID
-                for (i in Directory.indices) {
-                    Temp[i + 1] = Directory[i]
+                directory = MyFileSystem!!.getDirectory(path) ?: arrayOfNulls<Any>(0)
+                val temp: Array<Any?> = arrayOfNulls<Any>(directory.size + 1)
+                temp[0] = payload.requestId
+                for (i in directory.indices) {
+                    temp[i + 1] = directory[i]
                 }
-                Directory = Temp
+                directory = temp
             } else {
-                val id = (applicationData.getParameters() as Array<Any?>?)!![2] as Int? as Int //Add an ID
-                Directory = arrayOfNulls<Any>(2)
+                val id = payload.requestId
+                directory = arrayOfNulls<Any>(2)
                 val listing: Array<Any?>? = arrayOfNulls<Any>(7)
                 if (this@FTPProgram.computer!!.getDrop() == null) {
                     HF = this@FTPProgram.computer!!.getDropTable().generateDrop()
                     this@FTPProgram.computer!!.setDrop(HF)
                 }
-                Directory[0] = id
+                directory[0] = id
                 listing!![0] = HF!!.getName()
                 listing[1] = HF!!.getType()
                 listing[2] = HF!!.getQuantity()
@@ -105,244 +107,218 @@ class FTPProgram(
                 listing[4] = HF!!.getMaker()
                 listing[5] = HF!!.getCPUCost()
                 listing[6] = HF!!.getDescription()
-                Directory[1] = listing
+                directory[1] = listing
             }
 
             this@FTPProgram.computerHandler!!.addData(
-                ApplicationData(
-                    "delivereddirectory",
-                    arrayOf<Any>(Directory, this@FTPProgram.computer!!.isNPC()),
-                    0,
-                    this@FTPProgram.computer!!.getIP()
-                ), targetIP
+                if (this@FTPProgram.computer!!.isNPC()) {
+                    ApplicationData(DeliveredDirectoryToNpcPayload(directory, true), 0, this@FTPProgram.computer!!.getIP())
+                } else {
+                    ApplicationData(DeliveredDirectoryToPlayerPayload(directory), 0, this@FTPProgram.computer!!.getIP())
+                },
+                targetIP
             )
             return
-        } else if (applicationData.getFunction() == "malget") {
-            var HF: HackerFile? = null
-            val parameters = applicationData.getParameters() as Array<Any?>
-            this.targetIP = parameters[0] as String
-            var name = parameters[1] as String?
-            var stolenPort = 0
-            if (parameters.size == 6) {
-                stolenPort = (parameters[5] as Int?)!!
-            } else if (parameters.size == 7) {
-                stolenPort = (parameters[6] as Int?)!!
-            }
+        } else if (function == "malget") {
+            var transferred: HackerFile? = null
+            val payload = applicationData.payloadAs<MalGetPayload>()
+            this.targetIP = payload.targetIp
+            var name = payload.name
             if (this@FTPProgram.computer!!.getType() != Computer.NPC) {
-                if (name == null) { //Steal the first file found.
+                if (name == null) {
                     name = ""
-                    val O = this@FTPProgram.computer!!.fileSystem.getWebDirectory("Public/")
-                    for (i in O!!.indices) {
-                        if (O[i] is HackerFile) {
-                            name = (O[i] as HackerFile).getName()
+                    val files = this@FTPProgram.computer!!.fileSystem.getWebDirectory("Public/")
+                    for (i in files!!.indices) {
+                        if (files[i] is HackerFile) {
+                            name = (files[i] as HackerFile).getName()
                             break
                         }
                     }
                 }
-                val fetch_path = parameters[2] as String
-                this.path = parameters[3] as String
-                val password = parameters[4] as String?
+                val fetchPath = payload.fetchPath
+                this.path = payload.targetPath
 
-
-                if (fetch_path !== "Store/") {
-                    val THF = MyFileSystem!!.getFile(fetch_path, name)
-
+                if (fetchPath != "Store/") {
+                    val sourceFile = MyFileSystem!!.getFile(fetchPath, name)
                     var quantity = 1
-                    if (THF != null) {
-                        if (THF.isStacking()) {
-                            quantity = THF.getQuantity() - 1
+                    if (sourceFile != null) {
+                        if (sourceFile.isStacking()) {
+                            quantity = sourceFile.getQuantity() - 1
                         }
                     } else return
 
-                    THF.setQuantity(quantity)
-                    if (THF.getQuantity() <= 0 || !THF.isStacking()) {
-                        MyFileSystem!!.deleteFile(fetch_path, name)
+                    sourceFile.setQuantity(quantity)
+                    if (sourceFile.getQuantity() <= 0 || !sourceFile.isStacking()) {
+                        MyFileSystem!!.deleteFile(fetchPath, name)
                     }
 
-                    HF = THF.clone()
-                    HF.setQuantity(1)
-                    HF.setLocation(path)
+                    transferred = sourceFile.clone()
+                    transferred.setQuantity(1)
+                    transferred.setLocation(path)
                 }
             } else {
-                HF = this@FTPProgram.computer!!.getDrop()
-                if (HF == null) {
-                    HF = this@FTPProgram.computer!!.getDropTable().generateDrop()
+                transferred = this@FTPProgram.computer!!.getDrop()
+                if (transferred == null) {
+                    transferred = this@FTPProgram.computer!!.getDropTable().generateDrop()
                 }
             }
 
-            val packetAssignment = ParentPort!!.currentPacket!!
-            packetAssignment.setRequestPrimary(true, 8)
-            packetAssignment.setRequestSecondary(true, 8)
+            ParentPort!!.currentPacket!!.setRequestPrimary(true, 8)
+            ParentPort!!.currentPacket!!.setRequestSecondary(true, 8)
             this@FTPProgram.computer!!.setDrop(null)
-            val Parameter: Array<Any?>? =
-                arrayOf<Any?>("", HF, this@FTPProgram.computer!!.getIP(), ParentPort!!.lastDamageWindowHandle)
-            this@FTPProgram.computerHandler!!.addData(ApplicationData("savefile", Parameter, 0, this@FTPProgram.computer!!.getIP()), targetIP)
-
-
-            //MyComputer.respawn(Port.FTP);
+            this@FTPProgram.computerHandler!!.addData(
+                ApplicationData(
+                    SaveFile(targetIP, "", transferred),
+                    0,
+                    this@FTPProgram.computer!!.getIP()
+                ),
+                targetIP
+            )
             return
-        } else if (applicationData.getFunction() == "get") {
-            this.targetIP = (applicationData.getParameters() as Array<Any?>?)!![0] as String
-            val name = (applicationData.getParameters() as Array<Any?>?)!![1] as String?
-            val fetch_path = (applicationData.getParameters() as Array<Any?>?)!![2] as String?
-            this.path = (applicationData.getParameters() as Array<Any?>?)!![3] as String
-            val password = (applicationData.getParameters() as Array<Any?>?)!![4] as String
-            val getQuantity = (applicationData.getParameters() as Array<Any?>?)!![5] as Int
+        } else if (function == "get") {
+            val payload = applicationData.payloadAs<GetFilePayload>()
+            val targetIP = payload.targetIp
+            this.targetIP = targetIP
+            val name = payload.name
+            val fetchPath = payload.fetchPath
+            this.path = payload.targetPath
+            val password = payload.password
+            val getQuantity = payload.quantity
 
-            //Check whether you have permission to peform this action.
             if (targetIP != this@FTPProgram.computer!!.getIP()) {
                 if (password != this@FTPProgram.computer!!.getPassword()) {
                     this@FTPProgram.computerHandler!!.addData(
-                        ApplicationData(
-                            "message", MessageHandler.FTP_FAIL_PASSWORD_INCORRECT, 0,
-                            this.iP
-                        ), targetIP
+                        messageData(MessageHandler.FTP_FAIL_PASSWORD_INCORRECT, this.iP),
+                        targetIP
                     )
                     return
                 }
             }
 
-            val THF = MyFileSystem!!.getFile(path, name)
+            val sourceFile = MyFileSystem!!.getFile(path, name)
 
             var quantity = 1
-            if (THF != null) {
-                if (THF.isStacking()) {
-                    if (THF.getQuantity() < getQuantity) return
+            if (sourceFile != null) {
+                if (sourceFile.isStacking()) {
+                    if (sourceFile.getQuantity() < getQuantity) return
 
-                    quantity = THF.getQuantity() - getQuantity
+                    quantity = sourceFile.getQuantity() - getQuantity
                 }
             } else return
 
-            THF.setQuantity(quantity)
-            if (THF.getQuantity() <= 0 || !THF.isStacking()) {
+            sourceFile.setQuantity(quantity)
+            if (sourceFile.getQuantity() <= 0 || !sourceFile.isStacking()) {
                 MyFileSystem!!.deleteFile(path, name)
             }
 
-            HF = THF.clone()
+            HF = sourceFile.clone()
             HF!!.setQuantity(getQuantity)
-            HF!!.setLocation(fetch_path)
-            this.fetchPath = fetch_path
+            HF!!.setLocation(fetchPath)
+            this.fetchPath = fetchPath
 
             script = getScript
 
             if (targetIP != this@FTPProgram.computer!!.getIP()) this@FTPProgram.computer!!.computerHandler
-                .addData(ApplicationData("requestftpupdate", null, 0, this@FTPProgram.computer!!.getIP()), targetIP)
+                .addData(ApplicationData(RequestFtpUpdatePayload, 0, this@FTPProgram.computer!!.getIP()), targetIP)
             this@FTPProgram.computer!!.computerHandler
-                .addData(ApplicationData("requestftpupdate", null, 0, this@FTPProgram.computer!!.getIP()), this@FTPProgram.computer!!.getIP())
-        } else  //Prepare the put message.
-            if (applicationData.getFunction() == "put") {
-                val targetIP = (applicationData.getParameters() as Array<Any?>?)!![0] as String
-                val name = (applicationData.getParameters() as Array<Any?>?)!![1] as String?
-                val fetch_path = (applicationData.getParameters() as Array<Any?>?)!![2] as String
-                val HF = MyFileSystem!!.getFile(fetch_path, name)
-                val tpath = (applicationData.getParameters() as Array<Any?>?)!![3] as String?
-                val putQuantity = (applicationData.getParameters() as Array<Any?>?)!![5] as Int
+                .addData(ApplicationData(RequestFtpUpdatePayload, 0, this@FTPProgram.computer!!.getIP()), this@FTPProgram.computer!!.getIP())
+        } else if (function == "put") {
+            val payload = applicationData.payloadAs<PutFilePayload>()
+            val targetIP = payload.targetIp
+            val name = payload.name
+            val fetchPath = payload.fetchPath
+            val sourceFile = MyFileSystem!!.getFile(fetchPath, name)
+            val tpath = payload.targetPath
+            val putQuantity = payload.quantity
 
-                var SF: HackerFile? = null
+            var quantity = 1
+            if (sourceFile != null) {
+                if (sourceFile.isStacking()) {
+                    if (sourceFile.getQuantity() < putQuantity) return
 
-                var quantity = 1
-                if (HF != null) {
-                    if (HF.isStacking()) {
-                        if (HF.getQuantity() < putQuantity) return
-
-                        quantity = HF.getQuantity() - putQuantity
-                    }
-                } else return
-
-                HF.setQuantity(quantity)
-                if (HF.getQuantity() <= 0 || !HF.isStacking()) {
-                    MyFileSystem!!.deleteFile(fetch_path, name)
+                    quantity = sourceFile.getQuantity() - putQuantity
                 }
+            } else return
 
-                SF = HF.clone()
-                SF.setQuantity(putQuantity)
-                SF.setLocation(tpath)
+            sourceFile.setQuantity(quantity)
+            if (sourceFile.getQuantity() <= 0 || !sourceFile.isStacking()) {
+                MyFileSystem!!.deleteFile(fetchPath, name)
+            }
 
-                val Parameters: Array<Any?>? = arrayOf<Any?>(
-                    this@FTPProgram.computer!!.getIP(),
-                    (applicationData.getParameters() as Array<Any?>?)!![1],
-                    (applicationData.getParameters() as Array<Any?>?)!![2],
-                    (applicationData.getParameters() as Array<Any?>?)!![3],
-                    (applicationData.getParameters() as Array<Any?>?)!![4],
-                    SF
-                )
-                this@FTPProgram.computerHandler!!.addData(
-                    ApplicationData(
-                        "finalizeput",
-                        Parameters,
-                        ParentPort!!.getNumber(),
-                        this@FTPProgram.computer!!.getIP()
-                    ), targetIP
-                )
+            val sendFile = sourceFile.clone()
+            sendFile.setQuantity(putQuantity)
+            sendFile.setLocation(tpath)
 
-                if (targetIP != this@FTPProgram.computer!!.getIP()) this@FTPProgram.computerHandler!!.addData(
-                    ApplicationData(
-                        "requestftpupdate",
-                        null,
-                        0,
-                        this@FTPProgram.computer!!.getIP()
-                    ), targetIP
-                )
-                this@FTPProgram.computerHandler!!.addData(
-                    ApplicationData("requestftpupdate", null, 0, this@FTPProgram.computer!!.getIP()),
+            this@FTPProgram.computerHandler!!.addData(
+                ApplicationData(
+                    FinalizePutPayload(
+                        this@FTPProgram.computer!!.getIP(),
+                        name,
+                        fetchPath,
+                        tpath ?: "",
+                        payload.password,
+                        sendFile
+                    ),
+                    ParentPort!!.getNumber(),
                     this@FTPProgram.computer!!.getIP()
-                )
-            } else if (applicationData.getFunction() == "finalizeput") {
-                this.targetIP = this@FTPProgram.computer!!.getIP()
-                val name = (applicationData.getParameters() as Array<Any?>?)!![1] as String?
-                val fetch_path = (applicationData.getParameters() as Array<Any?>?)!![2] as String?
-                this.path = (applicationData.getParameters() as Array<Any?>?)!![3] as String
-                val password = (applicationData.getParameters() as Array<Any?>?)!![4] as String
-                HF = (applicationData.getParameters() as Array<Any?>?)!![5] as HackerFile?
+                ),
+                targetIP
+            )
 
-                //Check whether you have permission to peform this action.
-                if (this@FTPProgram.computer!!.fileSystem.getSpaceLeft() <= 0) {
+            if (targetIP != this@FTPProgram.computer!!.getIP()) this@FTPProgram.computerHandler!!.addData(
+                ApplicationData(RequestFtpUpdatePayload, 0, this@FTPProgram.computer!!.getIP()),
+                targetIP
+            )
+            this@FTPProgram.computerHandler!!.addData(
+                ApplicationData(RequestFtpUpdatePayload, 0, this@FTPProgram.computer!!.getIP()),
+                this@FTPProgram.computer!!.getIP()
+            )
+        } else if (function == "finalizeput") {
+            val payload = applicationData.payloadAs<FinalizePutPayload>()
+            this.targetIP = this@FTPProgram.computer!!.getIP()
+            val name = payload.name
+            val fetchPath = payload.fetchPath
+            this.path = payload.targetPath
+            val password = payload.password
+            HF = payload.file
+
+            if (this@FTPProgram.computer!!.fileSystem.getSpaceLeft() <= 0) {
+                this@FTPProgram.computerHandler!!.addData(
+                    messageData(MessageHandler.FTP_PUT_FAIL_HD_FULL, this.iP),
+                    applicationData.getSourceIP()
+                )
+                HF!!.setLocation("")
+                this@FTPProgram.computerHandler!!.addData(
+                    ApplicationData(SaveFile(applicationData.getSourceIP(), fetchPath, HF), 0, this.iP),
+                    applicationData.getSourceIP()
+                )
+                return
+            } else if (applicationData.getSourceIP() != this@FTPProgram.computer!!.getIP()) {
+                if (password != this@FTPProgram.computer!!.getPassword()) {
                     this@FTPProgram.computerHandler!!.addData(
-                        ApplicationData(
-                            "message", MessageHandler.FTP_PUT_FAIL_HD_FULL, 0,
-                            this.iP
-                        ), applicationData.getSourceIP()
+                        messageData(MessageHandler.FTP_FAIL_PASSWORD_INCORRECT, this.iP),
+                        applicationData.getSourceIP()
                     )
                     HF!!.setLocation("")
-                    val Parameters: Array<Any?>? = arrayOf<Any?>(fetch_path, HF)
                     this@FTPProgram.computerHandler!!.addData(
-                        ApplicationData("savefile", Parameters, 0, this.iP),
+                        ApplicationData(SaveFile(applicationData.getSourceIP(), fetchPath, HF), 0, this.iP),
                         applicationData.getSourceIP()
                     )
                     return
-                } else if (applicationData.getSourceIP() != this@FTPProgram.computer!!.getIP()) {
-                    if (password != this@FTPProgram.computer!!.getPassword()) {
-                        this@FTPProgram.computerHandler!!.addData(
-                            ApplicationData(
-                                "message", MessageHandler.FTP_FAIL_PASSWORD_INCORRECT, 0,
-                                this.iP
-                            ), applicationData.getSourceIP()
-                        )
-                        HF!!.setLocation("")
-                        val Parameters: Array<Any?>? = arrayOf<Any?>(fetch_path, HF)
-                        this@FTPProgram.computerHandler!!.addData(
-                            ApplicationData("savefile", Parameters, 0, this.iP),
-                            applicationData.getSourceIP()
-                        )
-                        return
-                    }
                 }
+            }
 
-                script = putScript
+            script = putScript
 
-                if (targetIP != this@FTPProgram.computer!!.getIP()) this@FTPProgram.computerHandler!!.addData(
-                    ApplicationData(
-                        "requestftpupdate",
-                        null,
-                        0,
-                        this@FTPProgram.computer!!.getIP()
-                    ), targetIP
-                )
-                this@FTPProgram.computerHandler!!.addData(
-                    ApplicationData("requestftpupdate", null, 0, this@FTPProgram.computer!!.getIP()),
-                    this@FTPProgram.computer!!.getIP()
-                )
-            } else return
+            if (targetIP != this@FTPProgram.computer!!.getIP()) this@FTPProgram.computerHandler!!.addData(
+                ApplicationData(RequestFtpUpdatePayload, 0, this@FTPProgram.computer!!.getIP()),
+                targetIP
+            )
+            this@FTPProgram.computerHandler!!.addData(
+                ApplicationData(RequestFtpUpdatePayload, 0, this@FTPProgram.computer!!.getIP()),
+                this@FTPProgram.computer!!.getIP()
+            )
+        } else return
 
         try {
             val HL = HackerLinker(this, this@FTPProgram.computerHandler)

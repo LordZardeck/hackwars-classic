@@ -14,13 +14,11 @@ class SetDefaultPortTest {
         val computer = FunctionTestSupport.baseComputer("7.7.7.7")
         val networkSwitch = computer.computerHandler
 
-        SetDefaultPort(computer).execute(
-            ApplicationData("setdefaultport", PacketPort.BANKING, 45, "source")
-        )
+        SetDefaultPort(computer).execute(FunctionTestSupport.intCommand("setdefaultport", PacketPort.BANKING, 45))
 
         verify(computer).setDefaultBank(45)
         val appCaptor = argumentCaptor<ApplicationData>()
         verify(networkSwitch).addData(appCaptor.capture(), eq("7.7.7.7"))
-        assertEquals("fetchports", appCaptor.firstValue.function)
+        assertEquals("fetchports", appCaptor.firstValue.command.wireName())
     }
 }

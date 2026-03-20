@@ -2,6 +2,10 @@ package com.hackwars.game.program.attack
 
 import com.hackwars.game.program.AttackProgram
 import game.ApplicationData
+import game.payload.AttackInitializePayload
+import game.payload.CancelAttackPayload
+import game.payload.PettyCashDeltaPayload
+import game.payloadAs
 
 class AttackInitializeHandler : AttackFunctionHandler {
     override val functionName: String = "attackinitialize"
@@ -12,7 +16,7 @@ class AttackInitializeHandler : AttackFunctionHandler {
         }
 
         program.computerHandler!!.addData(
-            ApplicationData("pettycash", -10.0f, 0, program.computer!!.ip),
+            ApplicationData(PettyCashDeltaPayload(-10.0f), 0, program.computer!!.ip),
             program.computer!!.ip
         )
 
@@ -20,18 +24,12 @@ class AttackInitializeHandler : AttackFunctionHandler {
         program.attackStart = program.computer!!.currentTime
         program.iterations = 0
 
-        val parameters = applicationData.parameters as Array<Any?>
-        val targetStats = parameters[0] as Array<Float?>
-        val targetWatch = parameters[1] as Boolean
-
-        if (parameters.size > 2) {
-            program.isNPC = parameters[2] as Boolean
-        }
-
-        program.parentPort!!.targetHP = targetStats[1]!!
-        program.parentPort!!.targetPettyCash = targetStats[2]!!
-        program.parentPort!!.targetCPUCost = targetStats[3]!!
-        program.parentPort!!.targetWatch = targetWatch
+        val payload = applicationData.payloadAs<AttackInitializePayload>()
+        program.parentPort!!.targetHP = payload.health
+        program.parentPort!!.targetPettyCash = payload.pettyCash
+        program.parentPort!!.targetCPUCost = payload.cpuCost
+        program.parentPort!!.targetWatch = payload.targetWatch
+        program.isNPC = payload.npc
 
         program.targetIP = applicationData.sourceIP
         program.targetPort = applicationData.sourcePort
@@ -41,7 +39,7 @@ class AttackInitializeHandler : AttackFunctionHandler {
 
         if (!program.zombie && !program.computer!!.checkBank()) {
             program.computerHandler!!.addData(
-                ApplicationData("cancelattack", null, program.getTargetPort(), program.sourceIP),
+                ApplicationData(CancelAttackPayload(null), program.getTargetPort(), program.sourceIP),
                 program.getTargetIP()
             )
             program.attacking = false

@@ -2,6 +2,8 @@ package com.hackwars.game.functions
 
 import game.ApplicationData
 import game.Computer
+import game.payload.FloatCommandPayload
+import game.payloadAs
 
 /**
  * Represents a function that rewards a player with "Bank" experience points (XP).
@@ -20,8 +22,9 @@ class BankXP(computer: Computer) : Function(computer) {
     }
 
     override fun execute(applicationData: ApplicationData) {
+        val payload = applicationData.payloadAs<FloatCommandPayload>()
         computer.sendDamagePacket()
-        computer.stats["Bank"] = (applicationData.parameters as? Float)?.let { amount ->
+        computer.stats["Bank"] = payload.value.let { amount ->
             amount * XP_MULTIPLIER + ((computer.stats["Bank"] as? Float) ?: 0f)
         }
     }

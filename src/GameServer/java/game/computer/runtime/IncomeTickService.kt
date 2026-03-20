@@ -39,8 +39,7 @@ class IncomeTickService {
             events += RuntimeTickEvent.HttpXpIssued(state.httpLevel * 10.0f, state.adRevenueTarget)
             events += RuntimeTickEvent.ApplicationDataDispatchRequested(
                 RuntimeApplicationDataDispatch(
-                    function = "logmessage",
-                    parameters = arrayOf<Any>(
+                    payload = RuntimeLogMessagePayload(
                         "Transferred ${java.text.NumberFormat.getCurrencyInstance().format(amount)} of daily pay from ${state.ip}.",
                         state.ip,
                         state.lastPaid + state.payPeriodMs

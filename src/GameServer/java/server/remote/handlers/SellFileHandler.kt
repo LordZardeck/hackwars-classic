@@ -12,20 +12,11 @@ import java.util.*
 object SellFileHandler : RemoteCallHandler {
     override fun handle(rfc: RemoteFunctionCall, context: RemoteCallContext) {
         val parsedCall = SellFile.fromRpc(rfc)
-        var ip = parsedCall.ip
-        ip = context.crypt(ip)
-        val location = parsedCall.location
-        val fileName = parsedCall.fileName
-        val compileCost = parsedCall.compileCost
-        val quantity = parsedCall.quantity
-        val O: Array<Any?>? = arrayOf<Any?>(location, fileName, compileCost, ip, quantity)
+        val ip = context.crypt(parsedCall.ip)
         context.computerHandler.addData(
-            ApplicationData(
-                SellFile.FUNCTION,
-                O,
-                0,
-                "store" + context.serverID
-            ), ip, ApplicationData.OUTSIDE
+            ApplicationData(parsedCall.copy(ip = ip), 0, "store" + context.serverID),
+            ip,
+            ApplicationData.OUTSIDE
         )
     }
 }

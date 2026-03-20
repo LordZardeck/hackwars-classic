@@ -13,8 +13,9 @@ class LegacyRunLoopApplicationDataRouterTest {
         val calls = mutableListOf<String>()
         val dispatcher = object : CommandDispatcher {
             override fun dispatch(applicationData: ApplicationData): Boolean {
-                calls += "dispatcher:${applicationData.function}"
-                return applicationData.function == "handled"
+                val command = applicationData.command.wireName()
+                calls += "dispatcher:$command"
+                return command == "handled"
             }
         }
         val legacyHandler = legacyHandler { _, _, _ ->
@@ -24,7 +25,7 @@ class LegacyRunLoopApplicationDataRouterTest {
 
         val handled = LegacyRunLoopApplicationDataRouter.dispatch(
             computer(),
-            ApplicationData("handled", null, 0, "10.0.0.1"),
+            FunctionTestSupport.noArgsCommand("handled", sourceIp = "10.0.0.1"),
             0,
             dispatcher,
             listOf(legacyHandler)
@@ -39,16 +40,16 @@ class LegacyRunLoopApplicationDataRouterTest {
         val calls = mutableListOf<String>()
         val dispatcher = object : CommandDispatcher {
             override fun dispatch(applicationData: ApplicationData): Boolean {
-                calls += "dispatcher:${applicationData.function}"
+                calls += "dispatcher:${applicationData.command.wireName()}"
                 return false
             }
         }
         val first = legacyHandler { _, applicationData, resolvedPort ->
-            calls += "first:${applicationData.function}:$resolvedPort"
+            calls += "first:${applicationData.command.wireName()}:$resolvedPort"
             false
         }
         val second = legacyHandler { _, applicationData, resolvedPort ->
-            calls += "second:${applicationData.function}:$resolvedPort"
+            calls += "second:${applicationData.command.wireName()}:$resolvedPort"
             true
         }
         val third = legacyHandler { _, _, _ ->
@@ -58,7 +59,7 @@ class LegacyRunLoopApplicationDataRouterTest {
 
         val handled = LegacyRunLoopApplicationDataRouter.dispatch(
             computer(),
-            ApplicationData("legacy", null, 0, "10.0.0.1"),
+            FunctionTestSupport.noArgsCommand("legacy", sourceIp = "10.0.0.1"),
             22,
             dispatcher,
             listOf(first, second, third)
@@ -80,22 +81,22 @@ class LegacyRunLoopApplicationDataRouterTest {
         val calls = mutableListOf<String>()
         val dispatcher = object : CommandDispatcher {
             override fun dispatch(applicationData: ApplicationData): Boolean {
-                calls += "dispatcher:${applicationData.function}"
+                calls += "dispatcher:${applicationData.command.wireName()}"
                 return false
             }
         }
         val first = legacyHandler { _, applicationData, resolvedPort ->
-            calls += "first:${applicationData.function}:$resolvedPort"
+            calls += "first:${applicationData.command.wireName()}:$resolvedPort"
             false
         }
         val second = legacyHandler { _, applicationData, resolvedPort ->
-            calls += "second:${applicationData.function}:$resolvedPort"
+            calls += "second:${applicationData.command.wireName()}:$resolvedPort"
             false
         }
 
         val handled = LegacyRunLoopApplicationDataRouter.dispatch(
             computer(),
-            ApplicationData("unhandled", null, 0, "10.0.0.1"),
+            FunctionTestSupport.noArgsCommand("unhandled", sourceIp = "10.0.0.1"),
             11,
             dispatcher,
             listOf(first, second)

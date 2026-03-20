@@ -11,32 +11,10 @@ import java.util.*
 @RpcHandler(ReplaceApplication.FUNCTION)
 object ReplaceApplicationHandler : RemoteCallHandler {
     override fun handle(rfc: RemoteFunctionCall, context: RemoteCallContext) {
-        val parsedCall =
-            ReplaceApplication.fromRpc(
-                rfc
-            )
-        var ip =
-            parsedCall.ip
-        ip = context.crypt(
-            ip)
-        val port =
-            parsedCall.port
-        val path =
-            parsedCall.path
-        val name =
-            parsedCall.name
-        val Parameter: Array<String?>? =
-            arrayOf<String?>(
-                path,
-                name
-            )
+        val parsedCall = ReplaceApplication.fromRpc(rfc)
+        val ip = context.crypt(parsedCall.ip)
         context.computerHandler.addData(
-            ApplicationData(
-                ReplaceApplication.FUNCTION,
-                Parameter,
-                port,
-                ip
-            ),
+            ApplicationData(parsedCall.copy(ip = ip), parsedCall.port, ip),
             ip,
             ApplicationData.OUTSIDE
         )

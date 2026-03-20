@@ -1,5 +1,6 @@
 package game.computer.runtime
 
+import game.payload.MessageTextPayload
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -12,8 +13,7 @@ class RuntimeTickEventApplierTest {
                 RuntimeTickEvent.PersistRequested(autoSave = true),
                 RuntimeTickEvent.ApplicationDataDispatchRequested(
                     applicationData = RuntimeApplicationDataDispatch(
-                        function = "message",
-                        parameters = "boom",
+                        payload = MessageTextPayload("boom"),
                         port = 4,
                         sourceIp = "1.1.1.1",
                         sourcePort = 9,
@@ -57,7 +57,7 @@ private class RecordingRuntimeTickEventSink : RuntimeTickEventSink {
     }
 
     override fun applicationDataDispatchRequested(applicationData: RuntimeApplicationDataDispatch, targetIp: String) {
-        calls += "dispatch:${applicationData.function}:$targetIp:${applicationData.port}:${applicationData.sourceIp}:${applicationData.sourcePort}:${applicationData.source}"
+        calls += "dispatch:${applicationData.command.wireName()}:$targetIp:${applicationData.port}:${applicationData.sourceIp}:${applicationData.sourcePort}:${applicationData.source}"
     }
 
     override fun logEntry(message: String, ip: String, timestamp: Long) {

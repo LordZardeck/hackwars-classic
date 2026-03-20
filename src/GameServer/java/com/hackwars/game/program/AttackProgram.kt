@@ -13,7 +13,19 @@ import com.hackwars.game.program.attack.AttackInitializeHandler
 import com.hackwars.game.program.attack.RequestAttackHandler
 import com.hackwars.game.program.attack.RequestCancelAttackHandler
 import com.hackwars.game.program.attack.ZombieAttackHandler
+import com.hackwars.rpc.RequestAttack
+import com.hackwars.rpc.RequestCancelAttack
 import game.*
+import game.payload.AddShowChoicesPayload
+import game.payload.ATTACK_CONTINUE_COMMAND
+import game.payload.AttackContinuePayload
+import game.payload.CancelAttackPayload
+import game.payload.DamagePayload
+import game.payload.AttackFinalizePayload
+import game.payload.AttackInitializePayload
+import game.payload.StructuredMessagePayload
+import game.payload.REQUEST_CANCEL_ATTACK_COMMAND
+import game.payload.ZombieAttackPayload
 import hackscript.model.RunFactory
 import org.slf4j.LoggerFactory
 
@@ -119,12 +131,12 @@ class AttackProgram(
         if (this.getTargetIP() != "") {
             if (!zombie) {
                 computerHandler!!.addData(
-                    ApplicationData("cancelattack", heal, this.getTargetPort(), this.iP),
+                    ApplicationData(CancelAttackPayload(heal), this.getTargetPort(), this.iP),
                     this.getTargetIP()
                 )
             } else {
                 computerHandler!!.addData(
-                    ApplicationData("cancelattack", heal, this.getTargetPort(), maliciousIP),
+                    ApplicationData(CancelAttackPayload(heal), this.getTargetPort(), maliciousIP),
                     this.getTargetIP()
                 )
             }
@@ -156,30 +168,34 @@ class AttackProgram(
         var damage = computer!!.getDamage("Attack")
 
         if (!zombie) {
-            val O: Array<Any?>? = arrayOf<Any?>(
-                damage + computer!!.equipmentSheet.getDamageBonus(),
-                parentPort!!.ip,
-                parentPort!!.number,
-                false,
-                null,
-                windowHandle,
-                -1
-            )
-            val AD = ApplicationData("damage", O, targetPort, computer!!.ip)
-            AD.sourcePort = parentPort!!.number
+            val AD = ApplicationData(
+                DamagePayload(
+                    damage + computer!!.equipmentSheet.getDamageBonus(),
+                    parentPort!!.ip,
+                    parentPort!!.number,
+                    false,
+                    null,
+                    windowHandle,
+                    -1
+                ),
+                targetPort,
+                computer!!.ip
+            ).withSourcePort(parentPort!!.number)
             computerHandler!!.addData(AD, targetIP)
         } else {
-            val O: Array<Any?>? = arrayOf<Any?>(
-                damage + computer!!.equipmentSheet.getDamageBonus(),
-                parentPort!!.ip,
-                parentPort!!.number,
-                false,
-                parentPort!!.ip,
-                windowHandle,
-                -1
-            )
-            val AD = ApplicationData("damage", O, targetPort, maliciousIP)
-            AD.sourcePort = parentPort!!.number
+            val AD = ApplicationData(
+                DamagePayload(
+                    damage + computer!!.equipmentSheet.getDamageBonus(),
+                    parentPort!!.ip,
+                    parentPort!!.number,
+                    false,
+                    parentPort!!.ip,
+                    windowHandle,
+                    -1
+                ),
+                targetPort,
+                maliciousIP
+            ).withSourcePort(parentPort!!.number)
             computerHandler!!.addData(AD, targetIP)
         }
 
@@ -311,7 +327,41 @@ class AttackProgram(
             return
         }
 
-        functionHandlers[applicationData.function]?.execute(this, applicationData)
+        if (applicationData.command == ATTACK_CONTINUE_COMMAND || applicationData.payload is AttackContinuePayload) {
+            functionHandlers["attackcontinue"]?.execute(this, applicationData)
+            return
+        }
+
+        when (applicationData.payload) {
+            is AttackInitializePayload -> {
+                functionHandlers["attackinitialize"]?.execute(this, applicationData)
+                return
+            }
+
+            is AttackFinalizePayload -> {
+                functionHandlers["attackfinalize"]?.execute(this, applicationData)
+                return
+            }
+
+            is RequestAttack -> {
+                functionHandlers["requestattack"]?.execute(this, applicationData)
+                return
+            }
+
+            is RequestCancelAttack -> {
+                functionHandlers["requestcancelattack"]?.execute(this, applicationData)
+                return
+            }
+
+            is ZombieAttackPayload -> {
+                functionHandlers["zombieattack"]?.execute(this, applicationData)
+                return
+            }
+        }
+
+        if (applicationData.command == REQUEST_CANCEL_ATTACK_COMMAND) {
+            functionHandlers["requestcancelattack"]?.execute(this, applicationData)
+        }
     }
 
     /**
@@ -440,7 +490,7 @@ class AttackProgram(
                 computer!!.sendPacket()
             } else {
                 computerHandler!!.addData(
-                    ApplicationData("addshowchoices", o, this.getTargetPort(), this.iP),
+                    ApplicationData(AddShowChoicesPayload(o), this.getTargetPort(), this.iP),
                     maliciousIP
                 )
                 computer!!.sendPacket()
@@ -479,15 +529,14 @@ class AttackProgram(
     internal fun handleAttackTimeout() {
         if (!zombie) {
             computerHandler?.addData(
-                ApplicationData("cancelattack", true, this.getTargetPort(), this.iP),
+                ApplicationData(CancelAttackPayload(true), this.getTargetPort(), this.iP),
                 this.getTargetIP()
             )
             computerHandler?.addData(
                 ApplicationData(
-                    "message",
-                    arrayOf<Any>(
-                        MessageHandler.ATTACK_EXCEEDED_TIMEOUT,
-                        arrayOf<Any?>(),
+                    StructuredMessagePayload(
+                        arrayOf<Any?>(MessageHandler.ATTACK_EXCEEDED_TIMEOUT),
+                        emptyArray<Any?>(),
                         arrayOf<Any?>(windowHandle, this.iP)
                     ),
                     0,
@@ -498,10 +547,9 @@ class AttackProgram(
         } else {
             computerHandler?.addData(
                 ApplicationData(
-                    "message",
-                    arrayOf<Any>(
-                        MessageHandler.ATTACK_EXCEEDED_TIMEOUT,
-                        arrayOf<Any?>(),
+                    StructuredMessagePayload(
+                        arrayOf<Any?>(MessageHandler.ATTACK_EXCEEDED_TIMEOUT),
+                        emptyArray<Any?>(),
                         arrayOf<Any?>(windowHandle, maliciousIP)
                     ),
                     0,
@@ -510,7 +558,7 @@ class AttackProgram(
                 maliciousIP
             )
             computerHandler?.addData(
-                ApplicationData("cancelattack", true, this.getTargetPort(), maliciousIP),
+                ApplicationData(CancelAttackPayload(true), this.getTargetPort(), maliciousIP),
                 this.getTargetIP()
             )
         }

@@ -11,23 +11,10 @@ import java.util.*
 @RpcHandler(ClueData.FUNCTION)
 object ClueDataHandler : RemoteCallHandler {
     override fun handle(rfc: RemoteFunctionCall, context: RemoteCallContext) {
-        val parsedCall =
-            ClueData.fromRpc(
-                rfc
-            )
-        var ip =
-            parsedCall.ip
-        ip = context.crypt(
-            ip)
-        val data =
-            parsedCall.data
+        val parsedCall = ClueData.fromRpc(rfc)
+        val ip = context.crypt(parsedCall.ip)
         context.computerHandler.addData(
-            ApplicationData(
-                ClueData.FUNCTION,
-                data,
-                0,
-                ip
-            ),
+            ApplicationData(parsedCall.copy(ip = ip), 0, ip),
             ip,
             ApplicationData.OUTSIDE
         )

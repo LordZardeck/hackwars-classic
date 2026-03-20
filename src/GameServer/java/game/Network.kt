@@ -2,17 +2,12 @@ package game
 
 import assignments.PacketNetwork
 import com.hackwars.data.service.GameWorldDataService
-import kotlinx.coroutines.CoroutineDispatcher
-import kotlinx.coroutines.CoroutineName
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.cancel
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
-import kotlinx.coroutines.launch
+import game.data.GameServerDataLocator
+import game.payload.LaunchNetworkAttackPayload
+import kotlinx.coroutines.*
 import org.slf4j.LoggerFactory
 import server.runtime.GameServerRuntime
 import server.runtime.GameServerService
-import game.data.GameServerDataLocator
 
 /**
  * Description: This is the Network singleton. It loads all the networks into existence.
@@ -290,8 +285,7 @@ class Network internal constructor(
                     try {
                         computerHandler?.addData(
                             ApplicationData(
-                                "launchNetworkAttack",
-                                parameter,
+                                LaunchNetworkAttackPayload(parameter[0] as String),
                                 0,
                                 players[attackMe] as String?
                             ),

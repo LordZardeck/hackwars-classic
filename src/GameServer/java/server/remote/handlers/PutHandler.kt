@@ -3,6 +3,7 @@ package server.remote.handlers
 import assignments.RemoteFunctionCall
 import game.ApplicationData
 import com.hackwars.rpc.*
+import game.payload.PutFilePayload
 import server.remote.RemoteCallContext
 import server.remote.RemoteCallHandler
 import server.remote.RpcHandler
@@ -15,16 +16,20 @@ object PutHandler : RemoteCallHandler {
         val ip = parsedCall.ip
         val port = parsedCall.port
         val name = parsedCall.name
-        val fetch_path = parsedCall.fetchPath
-        val put_path = parsedCall.putPath
-        var targetIP = parsedCall.targetIP
-        targetIP = context.crypt(targetIP)
-        val password = parsedCall.password
-        val quantity = parsedCall.quantity
-        val Parameter: Array<Any?>? =
-            arrayOf<Any?>(ip, name, fetch_path, put_path, password, quantity)
+        val targetIP = context.crypt(parsedCall.targetIP)
         context.computerHandler.addData(
-            ApplicationData(Put.FUNCTION, Parameter, port, targetIP),
+            ApplicationData(
+                PutFilePayload(
+                    targetIp = ip.orEmpty(),
+                    name = name,
+                    fetchPath = parsedCall.fetchPath.orEmpty(),
+                    targetPath = parsedCall.putPath,
+                    password = parsedCall.password.orEmpty(),
+                    quantity = parsedCall.quantity ?: 1
+                ),
+                port,
+                targetIP
+            ),
             targetIP,
             ApplicationData.OUTSIDE
         )

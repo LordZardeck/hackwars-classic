@@ -3,6 +3,7 @@ package server.remote.handlers
 import assignments.RemoteFunctionCall
 import game.ApplicationData
 import com.hackwars.rpc.*
+import game.payload.TransferPayload
 import server.remote.RemoteCallContext
 import server.remote.RemoteCallHandler
 import server.remote.RpcHandler
@@ -12,14 +13,9 @@ import java.util.*
 object TransferHandler : RemoteCallHandler {
     override fun handle(rfc: RemoteFunctionCall, context: RemoteCallContext) {
         val parsedCall = Transfer.fromRpc(rfc)
-        val amount = parsedCall.amount
-        var ip = parsedCall.ip
-        ip = context.crypt(ip)
-        val target_ip = parsedCall.targetIp
-        val port = parsedCall.port
-        val tO: Array<Any?>? = arrayOf<Any?>(target_ip, amount)
+        val ip = context.crypt(parsedCall.ip)
         context.computerHandler.addData(
-            ApplicationData(Transfer.FUNCTION, tO, port, ip),
+            ApplicationData(TransferPayload(parsedCall.targetIp.orEmpty(), parsedCall.amount), parsedCall.port, ip),
             ip,
             ApplicationData.OUTSIDE
         )

@@ -1,14 +1,15 @@
 package game
 
+import com.hackwars.rpc.FetchPorts
+import game.payload.InstallScriptPayload
+import game.payload.RequestInstallScriptPayload
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import org.mockito.kotlin.any
 import org.mockito.kotlin.argumentCaptor
 import org.mockito.kotlin.mock
-import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.verifyNoInteractions
 import org.mockito.kotlin.whenever
@@ -21,7 +22,7 @@ class LegacyScriptInstallCommandsTest {
     fun dispatch_returnsFalseForNonOwnedCommand() {
         val fixture = baseComputer("1.1.1.1")
 
-        val handled = handler.dispatch(fixture.computer, ApplicationData("fetchports", null, 0, "source"), 0)
+        val handled = handler.dispatch(fixture.computer, ApplicationData(FetchPorts("source"), 0, "source"), 0)
 
         assertFalse(handled)
     }
@@ -41,12 +42,7 @@ class LegacyScriptInstallCommandsTest {
         val maliciousParameters = arrayOf<Any>("target", 5.0f)
         val handled = handler.dispatch(
             fixture.computer,
-            ApplicationData(
-                "requestinstallscript",
-                arrayOf("9.9.9.9", 44, "Public/", "bank", maliciousParameters),
-                0,
-                "source"
-            ),
+            ApplicationData(RequestInstallScriptPayload("9.9.9.9", 44, "Public/", "bank", maliciousParameters), 0, "source"),
             0
         )
 
@@ -59,12 +55,12 @@ class LegacyScriptInstallCommandsTest {
         verify(fixture.networkSwitch).addData(dataCaptor.capture(), ipCaptor.capture())
         assertEquals("9.9.9.9", ipCaptor.firstValue)
         val forwarded = dataCaptor.firstValue
-        assertEquals("installScript", forwarded.getFunction())
-        assertEquals(44, forwarded.getPort())
-        assertEquals("2.2.2.2", forwarded.getSourceIP())
-        val payload = forwarded.getParameters() as Array<*>
-        assertSame(content, payload[0])
-        assertSame(maliciousParameters, payload[1])
+        assertEquals("installScript", forwarded.command.wireName())
+        assertEquals(44, forwarded.port)
+        assertEquals("2.2.2.2", forwarded.sourceIP)
+        val payload = forwarded.payload as InstallScriptPayload
+        assertSame(content, payload.script)
+        assertSame(maliciousParameters, payload.maliciousParameters)
     }
 
     @Test
@@ -74,12 +70,7 @@ class LegacyScriptInstallCommandsTest {
 
         val handled = handler.dispatch(
             fixture.computer,
-            ApplicationData(
-                "requestinstallscript",
-                arrayOf("8.8.8.8", 12, "Public/", "missing", emptyArray<Any>()),
-                0,
-                "source"
-            ),
+            ApplicationData(RequestInstallScriptPayload("8.8.8.8", 12, "Public/", "missing", emptyArray<Any?>()), 0, "source"),
             0
         )
 

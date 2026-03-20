@@ -4,6 +4,9 @@ import game.ApplicationData
 import game.Computer
 import game.MessageHandler
 import game.Port
+import game.payload.IntCommandPayload
+import game.payloadAs
+import com.hackwars.rpc.FetchPorts
 
 /**
  * Represents a function that uninstalls an existing port.
@@ -24,7 +27,7 @@ class UninstallPort(computer: Computer) : Function(computer) {
         val maxCpu = Computer.CPU_CHART[computer.cpuType] + computer.equipmentSheet.getCPUBonus()
         if (computer.cpuLoad > maxCpu) return
 
-        val deletePort = applicationData.parameters as? Int ?: return
+        val deletePort = applicationData.payloadAs<IntCommandPayload>().value
         val portIterator = computer.ports.entries.iterator()
 
         while (portIterator.hasNext()) {
@@ -55,6 +58,6 @@ class UninstallPort(computer: Computer) : Function(computer) {
             }
         }
 
-        computer.computerHandler.addData(ApplicationData("fetchports", null, 0, computer.getIP()), computer.getIP())
+        computer.computerHandler.addData(ApplicationData(FetchPorts(computer.getIP()), 0, computer.getIP()), computer.getIP())
     }
 }

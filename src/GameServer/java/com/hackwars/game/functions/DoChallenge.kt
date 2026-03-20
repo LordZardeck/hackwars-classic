@@ -2,6 +2,8 @@ package com.hackwars.game.functions
 
 import game.ApplicationData
 import game.Computer
+import game.payload.DoChallengePayload
+import game.payloadAs
 
 /**
  * Represents a function that launches a challenge run from script-provided parameters.
@@ -19,11 +21,9 @@ import game.Computer
  */
 class DoChallenge(computer: Computer) : Function(computer) {
     override fun execute(applicationData: ApplicationData) {
-        val challengeParameters = applicationData.parameters as? Array<*> ?: return
-        val challengeId = challengeParameters.getOrNull(1) as? String ?: return
-        val challengeFile = challengeParameters.getOrNull(0) as? String ?: return
+        val payload = applicationData.payloadAs<DoChallengePayload>()
 
-        computer.doChallengeRPC(challengeId, challengeFile)
+        computer.doChallengeRPC(payload.challengeId, payload.challengeFile)
         computer.sendPacket()
     }
 }

@@ -1,6 +1,6 @@
 package game.computer.dispatch
 
-import game.ApplicationData
+import com.hackwars.game.functions.FunctionTestSupport
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -12,13 +12,13 @@ class FallbackCommandDispatcherTest {
         val primary = CommandRegistry()
             .register("legacy") { seen += "primary" }
         val fallback = CommandChainBuilder()
-            .onPredicate("any", { it.function == "fallback" }) { seen += "fallback" }
+            .onPredicate("any", { it.command.wireName() == "fallback" }) { seen += "fallback" }
             .build()
 
         val dispatcher = FallbackCommandDispatcher(primary, fallback)
 
-        assertTrue(dispatcher.dispatch(ApplicationData("legacy", null, 0, "10.0.0.1")))
-        assertTrue(dispatcher.dispatch(ApplicationData("fallback", null, 0, "10.0.0.1")))
+        assertTrue(dispatcher.dispatch(FunctionTestSupport.noArgsCommand("legacy", sourceIp = "10.0.0.1")))
+        assertTrue(dispatcher.dispatch(FunctionTestSupport.noArgsCommand("fallback", sourceIp = "10.0.0.1")))
 
         assertEquals(listOf("primary", "fallback"), seen)
     }

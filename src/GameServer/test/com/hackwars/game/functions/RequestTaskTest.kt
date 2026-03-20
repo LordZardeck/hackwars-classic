@@ -13,9 +13,7 @@ class RequestTaskTest {
         whenever(computer.currentQuests).thenReturn(quests)
         whenever(computer.checkQuest(7)).thenReturn(false)
 
-        RequestTask(computer).execute(
-            ApplicationData("requesttask", arrayOf<Any>("file", 7, "taskA"), 0, "source")
-        )
+        RequestTask(computer).execute(FunctionTestSupport.requestTask("file", 7, "taskA"))
 
         val updated = quests[7] as Array<*>
         val taskMap = updated[0] as HashMap<*, *>

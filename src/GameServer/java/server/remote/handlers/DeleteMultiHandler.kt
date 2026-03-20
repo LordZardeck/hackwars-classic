@@ -12,13 +12,9 @@ import java.util.*
 object DeleteMultiHandler : RemoteCallHandler {
     override fun handle(rfc: RemoteFunctionCall, context: RemoteCallContext) {
         val parsedCall = DeleteMulti.fromRpc(rfc)
-        var ip = parsedCall.ip
-        ip = context.crypt(ip)
-
-        val allFiles = parsedCall.allFiles
-        val parameters: Array<Any?>? = arrayOf<Any?>(allFiles)
+        val ip = context.crypt(parsedCall.ip)
         context.computerHandler.addData(
-            ApplicationData(DeleteMulti.FUNCTION, parameters, 0, ip),
+            ApplicationData(parsedCall.copy(ip = ip), 0, ip),
             ip,
             ApplicationData.OUTSIDE
         )

@@ -2,6 +2,12 @@ package game
 
 import assignments.PacketAssignment
 import assignments.PacketPort
+import com.hackwars.rpc.DeleteFirewall
+import com.hackwars.rpc.FetchPorts
+import com.hackwars.rpc.InstallApplication
+import com.hackwars.rpc.InstallFirewall
+import com.hackwars.rpc.ReplaceApplication
+import com.hackwars.rpc.RequestSecondaryDirectory
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -29,7 +35,7 @@ class LegacyPortApplicationCommandsTest {
 
         val handled = handler.dispatch(
             fixture.computer,
-            ApplicationData("requestsecondarydirectory", arrayOf("9.9.9.9", "Public/", 7), 0, "source"),
+            ApplicationData(RequestSecondaryDirectory("1.1.1.1", "Public/", "9.9.9.9", 7), 13, "1.1.1.1"),
             13
         )
 
@@ -47,7 +53,7 @@ class LegacyPortApplicationCommandsTest {
 
         val handled = handler.dispatch(
             fixture.computer,
-            ApplicationData("fetchports", null, 0, "source"),
+            ApplicationData(FetchPorts("2.2.2.2"), 0, "2.2.2.2"),
             0
         )
 
@@ -75,7 +81,7 @@ class LegacyPortApplicationCommandsTest {
 
         val handled = handler.dispatch(
             fixture.computer,
-            ApplicationData("deletefirewall", 22, 0, "source"),
+            ApplicationData(DeleteFirewall("3.3.3.3", 22), 0, "3.3.3.3"),
             0
         )
 
@@ -106,7 +112,7 @@ class LegacyPortApplicationCommandsTest {
 
         val handled = handler.dispatch(
             fixture.computer,
-            ApplicationData("installfirewall", arrayOf("Public/", "wall"), 0, "source"),
+            ApplicationData(InstallFirewall("4.4.4.4", 17, "Public/", "wall"), 17, "4.4.4.4"),
             17
         )
 
@@ -125,7 +131,7 @@ class LegacyPortApplicationCommandsTest {
 
         val handled = handler.dispatch(
             fixture.computer,
-            ApplicationData("installapplication", arrayOf("Public/", "bank"), 0, "source"),
+            ApplicationData(InstallApplication("5.5.5.5", Computer.MEMORY_CHART[0].toInt(), "Public/", "bank"), 0, "5.5.5.5"),
             Computer.MEMORY_CHART[0].toInt()
         )
 
@@ -150,7 +156,7 @@ class LegacyPortApplicationCommandsTest {
 
         val handled = handler.dispatch(
             fixture.computer,
-            ApplicationData("installapplication", arrayOf("Public/", "bank"), 0, "source"),
+            ApplicationData(InstallApplication("5.5.5.6", 6, "Public/", "bank"), 6, "5.5.5.6"),
             6
         )
 
@@ -172,7 +178,7 @@ class LegacyPortApplicationCommandsTest {
 
         val handled = handler.dispatch(
             fixture.computer,
-            ApplicationData("replaceapplication", arrayOf("Public/", "ftp"), 0, "source"),
+            ApplicationData(ReplaceApplication("6.6.6.6", 18, "Public/", "ftp"), 18, "6.6.6.6"),
             18
         )
 
@@ -203,7 +209,7 @@ class LegacyPortApplicationCommandsTest {
 
         val handled = handler.dispatch(
             fixture.computer,
-            ApplicationData("replaceapplication", arrayOf("Public/", "bank"), 0, "source"),
+            ApplicationData(ReplaceApplication("6.6.6.7", 18, "Public/", "bank"), 18, "6.6.6.7"),
             18
         )
 
@@ -239,7 +245,7 @@ class LegacyPortApplicationCommandsTest {
 
         val handled = handler.dispatch(
             fixture.computer,
-            ApplicationData("installfirewall", arrayOf("Public/", "wall"), 0, "source"),
+            ApplicationData(InstallFirewall("6.6.6.8", 19, "Public/", "wall"), 19, "6.6.6.8"),
             19
         )
 
@@ -296,7 +302,7 @@ class LegacyPortApplicationCommandsTest {
         val ipCaptor = argumentCaptor<String>()
         verify(networkSwitch).addData(captor.capture(), ipCaptor.capture())
         assertEquals(ip, ipCaptor.firstValue)
-        assertEquals("fetchports", captor.firstValue.getFunction())
+        assertEquals("fetchports", captor.firstValue.command.wireName())
     }
 
     private fun setField(target: Any, name: String, value: Any?) {

@@ -11,35 +11,10 @@ import java.util.*
 @RpcHandler(InstallWatch.FUNCTION)
 object InstallWatchHandler : RemoteCallHandler {
     override fun handle(rfc: RemoteFunctionCall, context: RemoteCallContext) {
-        val parsedCall =
-            InstallWatch.fromRpc(
-                rfc
-            )
-        var ip =
-            parsedCall.ip
-        ip = context.crypt(
-            ip)
-        val path =
-            parsedCall.path
-        val name =
-            parsedCall.name
-        val type =
-            parsedCall.type
-        val port =
-            parsedCall.port
-        val Parameter: Array<Any?>? =
-            arrayOf<Any?>(
-                path,
-                name,
-                type
-            )
+        val parsedCall = InstallWatch.fromRpc(rfc)
+        val ip = context.crypt(parsedCall.ip)
         context.computerHandler.addData(
-            ApplicationData(
-                InstallWatch.FUNCTION,
-                Parameter,
-                port,
-                ip
-            ),
+            ApplicationData(parsedCall.copy(ip = ip), parsedCall.port, ip),
             ip,
             ApplicationData.OUTSIDE
         )

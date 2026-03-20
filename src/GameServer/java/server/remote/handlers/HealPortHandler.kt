@@ -3,6 +3,7 @@ package server.remote.handlers
 import assignments.RemoteFunctionCall
 import game.ApplicationData
 import com.hackwars.rpc.*
+import game.payload.HealPayload
 import server.remote.RemoteCallContext
 import server.remote.RemoteCallHandler
 import server.remote.RpcHandler
@@ -14,7 +15,7 @@ object HealPortHandler : RemoteCallHandler {
         val healPortCall = HealPort.fromRpc(rfc)
         val ip = context.crypt(healPortCall.encryptedIp)
         context.computerHandler.addData(
-            ApplicationData(HealPort.FUNCTION, null, healPortCall.port, ip),
+            ApplicationData(HealPayload, healPortCall.port, ip),
             ip,
             ApplicationData.OUTSIDE
         )

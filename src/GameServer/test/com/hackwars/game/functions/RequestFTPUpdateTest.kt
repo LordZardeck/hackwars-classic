@@ -1,6 +1,5 @@
 package com.hackwars.game.functions
 
-import game.ApplicationData
 import org.junit.Test
 import org.mockito.kotlin.verify
 
@@ -10,7 +9,7 @@ class RequestFTPUpdateTest {
         val computer = FunctionTestSupport.baseComputer()
         val packetAssignment = computer.packetAssignment
 
-        RequestFTPUpdate(computer).execute(ApplicationData("requestftpupdate", null, 0, "source"))
+        RequestFTPUpdate(computer).execute(FunctionTestSupport.noArgsCommand("requestftpupdate"))
 
         verify(packetAssignment).setRequestPrimary(true, 8)
         verify(packetAssignment).setRequestSecondary(true, 8)

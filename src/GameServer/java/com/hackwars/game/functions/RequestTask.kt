@@ -2,6 +2,8 @@ package com.hackwars.game.functions
 
 import game.ApplicationData
 import game.Computer
+import game.payload.RequestTaskPayload
+import game.payloadAs
 
 /**
  * Represents a function that marks a quest task as completed.
@@ -19,9 +21,9 @@ import game.Computer
  */
 class RequestTask(computer: Computer) : Function(computer) {
     override fun execute(applicationData: ApplicationData) {
-        val parameters = applicationData.parameters as? Array<*> ?: return
-        val questId = parameters.getOrNull(1) as? Int ?: return
-        val taskName = parameters.getOrNull(2) as? String ?: return
+        val payload = applicationData.payloadAs<RequestTaskPayload>()
+        val questId = payload.questId
+        val taskName = payload.taskName
 
         if (computer.checkQuest(questId)) return
 

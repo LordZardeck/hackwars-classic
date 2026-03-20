@@ -1,8 +1,10 @@
 package game
 
 import assignments.PacketWatch
+import com.hackwars.rpc.FetchPorts
 import com.hackwars.game.program.Program
 import com.hackwars.game.program.WatchProgram
+import game.payload.BooleanCommandPayload
 import hackscript.model.TypeString
 import hackscript.model.Variable
 import java.util.*
@@ -214,7 +216,10 @@ class Watch(private var computer: Computer?) {
                 val ip = computer!!.getIP()
                 val port = TempPort.getNumber()
                 val on = false
-                computer!!.computerHandler.addData(ApplicationData("portonoff", on, port, ip), ip)
+                computer!!.computerHandler.addData(
+                    ApplicationData(BooleanCommandPayload(ApplicationCommand.of("portonoff"), on), port, ip),
+                    ip
+                )
             }
             ii++
         }
@@ -230,7 +235,10 @@ class Watch(private var computer: Computer?) {
         if (TempPort != null) {
             val ip = computer!!.getIP()
             val on = false
-            computer!!.computerHandler.addData(ApplicationData("portonoff", on, port, ip), ip)
+            computer!!.computerHandler.addData(
+                ApplicationData(BooleanCommandPayload(ApplicationCommand.of("portonoff"), on), port, ip),
+                ip
+            )
         }
     }
 
@@ -247,7 +255,10 @@ class Watch(private var computer: Computer?) {
                 val ip = computer!!.getIP()
                 val port = TempPort.getNumber()
                 val on = true
-                computer!!.computerHandler.addData(ApplicationData("portonoff", on, port, ip), ip)
+                computer!!.computerHandler.addData(
+                    ApplicationData(BooleanCommandPayload(ApplicationCommand.of("portonoff"), on), port, ip),
+                    ip
+                )
             }
             ii++
         }
@@ -263,19 +274,24 @@ class Watch(private var computer: Computer?) {
         if (TempPort != null) {
             val ip = computer!!.getIP()
             val on = true
-            computer!!.computerHandler.addData(ApplicationData("portonoff", on, port, ip), ip)
+            computer!!.computerHandler.addData(
+                ApplicationData(BooleanCommandPayload(ApplicationCommand.of("portonoff"), on), port, ip),
+                ip
+            )
         }
     }
 
     /**
      * Get the IP of the computer associated with this watch.
      */
-    val iP get() = (computer!!.getIP())
+    val iP: String
+        get() = computer!!.getIP()
 
     /**
      * Get the port number associated with this watch.
      */
-    val number get() = MyPort?.number ?: 0
+    val number: Int
+        get() = MyPort?.number ?: 0
 
     /**
      * Set the port that this program is installed on.
@@ -306,10 +322,10 @@ class Watch(private var computer: Computer?) {
         portArray?.forEach { observedPorts.add(it) }
     }
 
+    /**
+     * Get the packet version of the watch.
+     */
     val packetWatch: PacketWatch
-        /**
-         * Get the packet version of the watch.
-         */
         get() {
             val returnMe = PacketWatch()
             returnMe.setType(type)
@@ -320,7 +336,7 @@ class Watch(private var computer: Computer?) {
             returnMe.setSearchFireWall(searchFireWall)
             returnMe.setQuantity(quantity)
             returnMe.setObservedPorts(observedPorts)
-            return (returnMe)
+            return returnMe
         }
 
     /**

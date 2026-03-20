@@ -3,6 +3,9 @@ package com.hackwars.game.functions
 import game.ApplicationData
 import game.Computer
 import game.Port
+import game.payload.BooleanCommandPayload
+import game.payloadAs
+import com.hackwars.rpc.FetchPorts
 
 /**
  * Represents a function that toggles the dummy-port flag for a port.
@@ -17,7 +20,7 @@ import game.Port
 class SetDummyPort(computer: Computer) : Function(computer) {
     override fun execute(applicationData: ApplicationData) {
         val targetPort = applicationData.port
-        val shouldBeDummy = applicationData.parameters as? Boolean ?: return
+        val shouldBeDummy = applicationData.payloadAs<BooleanCommandPayload>().value
         val port = computer.ports[targetPort] as? Port
 
         if (port != null && !port.attacking && port.accessing.isEmpty()) {
@@ -34,6 +37,6 @@ class SetDummyPort(computer: Computer) : Function(computer) {
             }
         }
 
-        computer.computerHandler.addData(ApplicationData("fetchports", null, 0, computer.getIP()), computer.getIP())
+        computer.computerHandler.addData(ApplicationData(FetchPorts(computer.getIP()), 0, computer.getIP()), computer.getIP())
     }
 }

@@ -1,23 +1,29 @@
 package com.hackwars.game.program.attack
 
 import com.hackwars.game.program.AttackProgram
+import com.hackwars.rpc.RequestAttack
 import game.ApplicationData
 import game.MessageHandler
+import game.messageData
+import game.payload.ATTACK_COMMAND
+import game.payload.LocalPortEntryPayload
+import game.payload.MessageTextPayload
+import game.payload.StructuredMessagePayload
+import game.payloadAs
 
 class RequestAttackHandler : AttackFunctionHandler {
     override val functionName: String = "requestattack"
 
     override fun execute(program: AttackProgram, applicationData: ApplicationData) {
-        val parameters = applicationData.parameters as Array<Any?>
-        val windowHandle = parameters[5] as Int
+        val payload = applicationData.payloadAs<RequestAttack>()
+        val windowHandle = payload.windowHandle ?: 0
 
         if (program.parentPort!!.attacking) {
             program.computerHandler!!.addData(
                 ApplicationData(
-                    "message",
-                    arrayOf<Any>(
-                        MessageHandler.PORT_ALREADY_ATTACKING,
-                        arrayOf<Any>(program.parentPort!!.number),
+                    StructuredMessagePayload(
+                        arrayOf<Any?>(MessageHandler.PORT_ALREADY_ATTACKING),
+                        arrayOf<Any?>(program.parentPort!!.number),
                         arrayOf<Any?>(windowHandle, program.sourceIP)
                     ),
                     0,
@@ -31,10 +37,9 @@ class RequestAttackHandler : AttackFunctionHandler {
         if (program.parentPort!!.overHeated) {
             program.computerHandler!!.addData(
                 ApplicationData(
-                    "message",
-                    arrayOf<Any>(
-                        MessageHandler.ATTACK_FAIL_OVERHEATED,
-                        arrayOf<Any?>(),
+                    StructuredMessagePayload(
+                        arrayOf<Any?>(MessageHandler.ATTACK_FAIL_OVERHEATED),
+                        emptyArray<Any?>(),
                         arrayOf<Any?>(windowHandle, program.sourceIP)
                     ),
                     0,
@@ -50,7 +55,7 @@ class RequestAttackHandler : AttackFunctionHandler {
 
         if (!program.computer!!.checkBank()) {
             program.computerHandler!!.addData(
-                ApplicationData("message", MessageHandler.ACTIVE_BANK_NOT_FOUND, 0, program.sourceIP),
+                messageData(MessageHandler.ACTIVE_BANK_NOT_FOUND, program.sourceIP),
                 program.sourceIP
             )
             return
@@ -61,24 +66,28 @@ class RequestAttackHandler : AttackFunctionHandler {
             return
         }
 
-        program.targetIP = parameters[0] as String
-        program.targetPort = parameters[1] as Int
+        program.targetIP = payload.targetIP
+        program.targetPort = payload.targetPort
 
-        if (parameters.size > 2) {
-            program.resetSecondaryTargets(program.targetPort, parameters[2] as Array<Int?>)
+        payload.secondaryPorts?.let { secondaryPorts ->
+            program.resetSecondaryTargets(program.targetPort, secondaryPorts)
         }
 
-        if (parameters.size > 3) {
-            program.maliciousCode = parameters[3] as Array<Array<String?>?>
+        payload.scripts?.let { scripts ->
+            program.maliciousCode = scripts
         }
 
-        if (parameters[4] != null) {
-            program.maliciousParameters = parameters[4] as Array<Any?>
+        payload.extraInfo?.let { extraInfo ->
+            program.maliciousParameters = extraInfo
             program.pettyCashTarget = program.maliciousParameters!![3] as Float
         }
 
-        val request = ApplicationData("attack", program.computer!!.network, program.targetPort, applicationData.sourceIP)
-        request.sourcePort = program.parentPort!!.number
+        val request = ApplicationData(
+            LocalPortEntryPayload(ATTACK_COMMAND, program.computer!!.network),
+            program.targetPort,
+            applicationData.sourceIP
+        )
+            .withSourcePort(program.parentPort!!.number)
         program.computerHandler!!.addData(request, program.targetIP)
     }
 }

@@ -1,6 +1,7 @@
 package game
 
 import assignments.PacketAssignment
+import com.hackwars.game.functions.FunctionTestSupport
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertSame
@@ -8,6 +9,14 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.util.ArrayList
 import java.util.HashMap
+import game.payload.ContinuePurchasePayload
+import game.payload.PettyCashDeltaPayload
+import game.payload.PettyCashTransferPayload
+import game.payload.RequestPurchasePayload
+import game.payload.RequestWebPagePayload
+import game.payload.SavePagePayload
+import game.payload.SetPreferencesPayload
+import game.payload.WebPagePayload
 import util.Time
 
 class LegacyEconomyWebSocialCommandsTest {
@@ -17,7 +26,7 @@ class LegacyEconomyWebSocialCommandsTest {
         try {
             val handled = fixture.handler.dispatch(
                 fixture.computer,
-                ApplicationData("unhandled", null, 0, fixture.computer.ip),
+                FunctionTestSupport.noArgsCommand("unhandled", sourceIp = fixture.computer.ip),
                 0
             )
 
@@ -36,7 +45,7 @@ class LegacyEconomyWebSocialCommandsTest {
 
             val handled = fixture.handler.dispatch(
                 fixture.computer,
-                ApplicationData("setpreferences", arrayOf("ignored", preferences), 0, fixture.computer.ip),
+                ApplicationData(SetPreferencesPayload(preferences), 0, fixture.computer.ip),
                 0
             )
 
@@ -57,7 +66,7 @@ class LegacyEconomyWebSocialCommandsTest {
 
             val handled = fixture.handler.dispatch(
                 fixture.computer,
-                ApplicationData("requestpage", null, 0, fixture.computer.ip),
+                FunctionTestSupport.noArgsCommand("requestpage", sourceIp = fixture.computer.ip),
                 0
             )
 
@@ -79,7 +88,7 @@ class LegacyEconomyWebSocialCommandsTest {
 
             val handled = fixture.handler.dispatch(
                 fixture.computer,
-                ApplicationData("savepage", arrayOf("Title", builder.toString()), 0, fixture.computer.ip),
+                ApplicationData(SavePagePayload("Title", builder.toString()), 0, fixture.computer.ip),
                 0
             )
 
@@ -103,7 +112,7 @@ class LegacyEconomyWebSocialCommandsTest {
 
             val handled = fixture.handler.dispatch(
                 fixture.computer,
-                ApplicationData("pettycash", 50.0f, 0, "2.2.2.2"),
+                ApplicationData(PettyCashTransferPayload(50.0f), 0, "2.2.2.2"),
                 0
             )
 
@@ -112,7 +121,8 @@ class LegacyEconomyWebSocialCommandsTest {
             assertEquals(1, fixture.dispatches.size)
             val dispatch = fixture.dispatches[0]
             assertEquals("2.2.2.2", dispatch.targetIp)
-            assertEquals("message", dispatch.applicationData.getFunction())
+            assertEquals("message", dispatch.applicationData.command.wireName())
+            assertTrue(dispatch.applicationData.payload is game.payload.StructuredMessagePayload)
             assertEquals(1, fixture.computer.getMessages()!!.size)
             assertTrue(fixture.latestMessageText().contains("Received transfer of $50.00 from 2.2.2.2."))
         } finally {
@@ -127,17 +137,17 @@ class LegacyEconomyWebSocialCommandsTest {
             fixture.seedSkillStats(100000.0f)
             val handled = fixture.handler.dispatch(
                 fixture.computer,
-                ApplicationData("pettycash", arrayOf(50.0f, 50.0f), 0, "2.2.2.2"),
+                ApplicationData(PettyCashTransferPayload(50.0f, 50.0f, false), 0, "2.2.2.2"),
                 0
             )
 
             assertTrue(handled)
             assertEquals(0.0f, fixture.computer.pettyCash, 0.0001f)
             assertEquals(2, fixture.dispatches.size)
-            assertEquals("pettycash", fixture.dispatches[0].applicationData.getFunction())
-            assertEquals(50.0f, fixture.dispatches[0].applicationData.getParameters())
-            assertEquals("message", fixture.dispatches[1].applicationData.getFunction())
-            assertSame(MessageHandler.TRANSFER_SEND_FAIL_BANK_PORT, fixture.dispatches[1].applicationData.getParameters())
+            assertEquals("pettycash", fixture.dispatches[0].applicationData.command.wireName())
+            assertTrue(fixture.dispatches[0].applicationData.payload is PettyCashDeltaPayload)
+            assertEquals("message", fixture.dispatches[1].applicationData.command.wireName())
+            assertTrue(fixture.dispatches[1].applicationData.payload is game.payload.StructuredMessagePayload)
             assertTrue(fixture.latestMessageText().contains("Could not recieve transfer of $50.00 from 2.2.2.2."))
         } finally {
             fixture.close()
@@ -153,7 +163,7 @@ class LegacyEconomyWebSocialCommandsTest {
 
             val handled = fixture.handler.dispatch(
                 fixture.computer,
-                ApplicationData("requestpurchase", arrayOf("bundle.bin", 2), 0, "buyer-ip"),
+                ApplicationData(RequestPurchasePayload("bundle.bin", 2), 0, "buyer-ip"),
                 0
             )
 
@@ -162,13 +172,13 @@ class LegacyEconomyWebSocialCommandsTest {
             assertEquals(1, fixture.dispatches.size)
             val dispatch = fixture.dispatches[0]
             assertEquals("buyer-ip", dispatch.targetIp)
-            assertEquals("continuepurchase", dispatch.applicationData.getFunction())
-            val payload = dispatch.applicationData.getParameters() as Array<*>
-            val reserved = payload[0] as HackerFile
+            assertEquals("continuepurchase", dispatch.applicationData.command.wireName())
+            val payload = dispatch.applicationData.payload as ContinuePurchasePayload
+            val reserved = payload.file
             assertEquals("bundle.bin", reserved.getName())
             assertEquals(2, reserved.getQuantity())
-            assertEquals("store-revenue", payload[1])
-            assertEquals(fixture.computer.type, payload[2])
+            assertEquals("store-revenue", payload.revenueTarget)
+            assertEquals(fixture.computer.type, payload.sellerType)
         } finally {
             fixture.close()
         }
@@ -190,21 +200,21 @@ class LegacyEconomyWebSocialCommandsTest {
 
             val handled = fixture.handler.dispatch(
                 fixture.computer,
-                ApplicationData("continuepurchase", arrayOf(file, "seller-bank", 0), 0, "seller-site"),
+                ApplicationData(ContinuePurchasePayload(file, "seller-bank", 0), 0, "seller-site"),
                 0
             )
 
             assertTrue(handled)
             assertEquals(5, fixture.dispatches.size)
-            assertEquals("savefile", fixture.dispatches[0].applicationData.getFunction())
+            assertEquals("savefile", fixture.dispatches[0].applicationData.command.wireName())
             assertEquals(fixture.computer.ip, fixture.dispatches[0].targetIp)
-            assertEquals("pettycash", fixture.dispatches[1].applicationData.getFunction())
+            assertEquals("pettycash", fixture.dispatches[1].applicationData.command.wireName())
             assertEquals(fixture.computer.ip, fixture.dispatches[1].targetIp)
-            assertEquals("pettycash", fixture.dispatches[2].applicationData.getFunction())
+            assertEquals("pettycash", fixture.dispatches[2].applicationData.command.wireName())
             assertEquals("seller-bank", fixture.dispatches[2].targetIp)
-            assertEquals("requestwebpage", fixture.dispatches[3].applicationData.getFunction())
+            assertEquals("requestwebpage", fixture.dispatches[3].applicationData.command.wireName())
             assertEquals("seller-site", fixture.dispatches[3].targetIp)
-            assertEquals("requestequipment", fixture.dispatches[4].applicationData.getFunction())
+            assertEquals("requestequipment", fixture.dispatches[4].applicationData.command.wireName())
             assertEquals(fixture.computer.ip, fixture.dispatches[4].targetIp)
             assertTrue(fixture.latestMessageText().contains("You have successfully purchased 1 guide.txt"))
         } finally {
@@ -221,7 +231,7 @@ class LegacyEconomyWebSocialCommandsTest {
 
             val handled = fixture.handler.dispatch(
                 fixture.computer,
-                ApplicationData("requestwebpage", parameters, 0, "browser-ip"),
+                ApplicationData(RequestWebPagePayload(parameters), 0, "browser-ip"),
                 0
             )
 
@@ -229,11 +239,11 @@ class LegacyEconomyWebSocialCommandsTest {
             assertEquals(1, fixture.dispatches.size)
             val dispatch = fixture.dispatches[0]
             assertEquals("browser-ip", dispatch.targetIp)
-            assertEquals("webpage", dispatch.applicationData.getFunction())
-            val payload = dispatch.applicationData.getParameters() as Array<*>
-            assertEquals("Server Not Found", payload[0])
-            assertTrue((payload[1] as String).contains("HTTP Status 408"))
-            assertEquals(77, payload[3])
+            assertEquals("webpage", dispatch.applicationData.command.wireName())
+            val payload = dispatch.applicationData.payload as WebPagePayload
+            assertEquals("Server Not Found", payload.title)
+            assertTrue(payload.body.contains("HTTP Status 408"))
+            assertEquals(77, payload.packetId)
         } finally {
             fixture.close()
         }

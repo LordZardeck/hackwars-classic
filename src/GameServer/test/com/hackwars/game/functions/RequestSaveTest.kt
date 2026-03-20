@@ -1,5 +1,6 @@
 package com.hackwars.game.functions
 
+import com.hackwars.rpc.SaveFile
 import game.ApplicationData
 import game.HackerFile
 import hackscript.model.TypeBoolean
@@ -25,16 +26,14 @@ class RequestSaveTest {
             "b" to TypeBoolean(true)
         )
 
-        RequestSave(computer).execute(
-            ApplicationData("requestsave", arrayOf<Any>("slotA", trigger), 0, "source")
-        )
+        RequestSave(computer).execute(FunctionTestSupport.requestSave("slotA", HashMap(trigger)))
 
         val appCaptor = argumentCaptor<ApplicationData>()
         verify(networkSwitch).addData(appCaptor.capture(), eq("5.5.5.5"))
         val dispatched = appCaptor.firstValue
-        assertEquals("savefile", dispatched.function)
-        val payload = dispatched.parameters as Array<*>
-        val savedFile = payload[1] as HackerFile
+        assertEquals("savefile", dispatched.command.wireName())
+        val payload = dispatched.payload as SaveFile
+        val savedFile = payload.name as HackerFile
         assertEquals("slotA.save", savedFile.name)
         assertEquals("slotA", savedFile.maker)
         val content = savedFile.content as HashMap<*, *>

@@ -7,6 +7,12 @@ import com.hackwars.game.program.FTPProgram
 import com.hackwars.game.program.HTTPProgram
 import com.hackwars.game.program.Program
 import com.hackwars.game.program.ShippingProgram
+import com.hackwars.rpc.DeleteFirewall
+import com.hackwars.rpc.FetchPorts
+import com.hackwars.rpc.InstallApplication
+import com.hackwars.rpc.InstallFirewall
+import com.hackwars.rpc.ReplaceApplication
+import game.payloadAs
 import java.util.HashMap
 import java.util.Map
 
@@ -16,7 +22,7 @@ import java.util.Map
  */
 class LegacyPortApplicationCommands : LegacyApplicationDataHandler {
     override fun dispatch(computer: Computer, applicationData: ApplicationData, resolvedPort: Int): Boolean {
-        val function = applicationData.function
+        val function = applicationData.command.wireName()
 
         if ("deletefirewall" == function) {
             handleDeleteFirewall(computer, applicationData)
@@ -49,7 +55,7 @@ class LegacyPortApplicationCommands : LegacyApplicationDataHandler {
     private fun handleDeleteFirewall(computer: Computer, applicationData: ApplicationData) {
         val maxCPU = Computer.CPU_CHART[computer.cputype] + computer.MyEquipmentSheet.getCPUBonus()
         if (computer.cPULoad <= maxCPU) {
-            val targetPort = applicationData.parameters as Int
+            val targetPort = applicationData.payloadAs<DeleteFirewall>().portID ?: return
 
             val portIterator = computer.Ports.entries.iterator()
             while (portIterator.hasNext()) {
@@ -77,9 +83,9 @@ class LegacyPortApplicationCommands : LegacyApplicationDataHandler {
     }
 
     private fun handleInstallFirewall(computer: Computer, applicationData: ApplicationData, resolvedPort: Int) {
-        val parameters = applicationData.parameters as Array<Any?>
-        val path = parameters[0] as String
-        val name = parameters[1] as String
+        val payload = applicationData.payloadAs<InstallFirewall>()
+        val path = payload.path ?: return
+        val name = payload.name ?: return
         val hackerFile = computer.MyFileSystem.getFile(path, name)
 
         if (hackerFile != null) {
@@ -120,38 +126,37 @@ class LegacyPortApplicationCommands : LegacyApplicationDataHandler {
     }
 
     private fun handleReplaceApplication(computer: Computer, applicationData: ApplicationData, resolvedPort: Int) {
-        val parameters = applicationData.parameters as Array<Any?>
-        val path = parameters[0] as String
-        val name = parameters[1] as String
+        val payload = applicationData.payloadAs<ReplaceApplication>()
+        val path = payload.path ?: return
+        val name = payload.name ?: return
         val hackerFile = computer.MyFileSystem.getFile(path, name)
 
         if (hackerFile != null) {
-            var port = findPort(computer, resolvedPort)
+            var port: Port? = findPort(computer, resolvedPort) ?: return
+            val currentPort = port ?: return
 
-            val cpuCheck = computer.cPULoad + hackerFile.getCPUCost() - port!!.getBaseCPUCost()
+            val cpuCheck = computer.cPULoad + hackerFile.getCPUCost() - currentPort.getBaseCPUCost()
             val maxCPU = Computer.CPU_CHART[computer.cputype] + computer.MyEquipmentSheet.getCPUBonus()
             if (cpuCheck <= maxCPU) {
-                if (port != null) {
-                    var allow = true
-                    var message: Array<Any?>? = null
+                var allow = true
+                var message: Array<Any?>? = null
 
-                    if (port.getAccessing() != "") {
-                        allow = false
-                        message = MessageHandler.REPLACE_APPLICATION_UNDER_ATTACK
-                    }
-                    if (port.getAttacking()) {
-                        allow = false
-                        message = MessageHandler.REPLACE_APPLICATION_ATTACKING
-                    }
-                    if (port.getOverHeated()) {
-                        allow = false
-                        message = MessageHandler.REPLACE_APPLICATION_OVERHEATED
-                    }
+                if (currentPort.getAccessing() != "") {
+                    allow = false
+                    message = MessageHandler.REPLACE_APPLICATION_UNDER_ATTACK
+                }
+                if (currentPort.getAttacking()) {
+                    allow = false
+                    message = MessageHandler.REPLACE_APPLICATION_ATTACKING
+                }
+                if (currentPort.getOverHeated()) {
+                    allow = false
+                    message = MessageHandler.REPLACE_APPLICATION_OVERHEATED
+                }
 
-                    if (!allow) {
-                        computer.addMessage(message)
-                        port = null
-                    }
+                if (!allow) {
+                    computer.addMessage(message)
+                    port = null
                 }
 
                 if (port != null) {
@@ -197,9 +202,9 @@ class LegacyPortApplicationCommands : LegacyApplicationDataHandler {
 
     private fun handleInstallApplication(computer: Computer, applicationData: ApplicationData, resolvedPort: Int) {
         if (resolvedPort < Computer.MEMORY_CHART[computer.memorytype].toInt()) {
-            val parameters = applicationData.parameters as Array<Any?>
-            val path = parameters[0] as String
-            val name = parameters[1] as String
+            val payload = applicationData.payloadAs<InstallApplication>()
+            val path = payload.path ?: return
+            val name = payload.name ?: return
             val hackerFile = computer.MyFileSystem.getFile(path, name)
 
             if (hackerFile != null) {
@@ -304,6 +309,6 @@ class LegacyPortApplicationCommands : LegacyApplicationDataHandler {
     }
 
     private fun refreshPorts(computer: Computer) {
-        computer.MyComputerHandler.addData(ApplicationData("fetchports", null, 0, computer.ip), computer.ip)
+        computer.MyComputerHandler.addData(ApplicationData(FetchPorts(computer.ip), 0, computer.ip), computer.ip)
     }
 }

@@ -14,9 +14,7 @@ class DeleteFolderTest {
         val packetAssignment = computer.packetAssignment
         whenever(fileSystem.deleteDirectory("/tmp/non-empty")).thenReturn(false)
 
-        DeleteFolder(computer).execute(
-            ApplicationData("deletefolder", "/tmp/non-empty", 0, "source")
-        )
+        DeleteFolder(computer).execute(FunctionTestSupport.stringCommand("deletefolder", "/tmp/non-empty"))
 
         verify(computer).sendPacket()
         verify(computer).addMessage(MessageHandler.DELETE_FAIL_NON_EMPTY_FOLDER)

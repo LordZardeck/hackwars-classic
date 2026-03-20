@@ -11,15 +11,15 @@ import server.remote.RpcHandler
 object ChangeWatchPortHandler : RemoteCallHandler {
     override fun handle(rfc: RemoteFunctionCall, context: RemoteCallContext) {
         val parsedCall = ChangeWatchPort.fromRpc(rfc)
+        val ip = context.crypt(parsedCall.ip)
 
         context.computerHandler.addData(
             ApplicationData(
-                ChangeWatchPort.FUNCTION,
-                arrayOf(parsedCall.watchId, parsedCall.portId),
+                parsedCall,
                 0,
-                context.crypt(parsedCall.ip)
+                ip
             ),
-            context.crypt(parsedCall.ip),
+            ip,
             ApplicationData.OUTSIDE
         )
     }

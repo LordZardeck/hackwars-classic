@@ -3,6 +3,8 @@ package com.hackwars.game.functions
 import game.ApplicationData
 import game.Computer
 import game.Port
+import game.payload.StringCommandPayload
+import game.payloadAs
 
 /**
  * Represents a function that updates the note attached to a specific port.
@@ -17,7 +19,7 @@ import game.Port
 class SavePortNote(computer: Computer) : Function(computer) {
     override fun execute(applicationData: ApplicationData) {
         val targetPort = applicationData.port
-        val note = applicationData.parameters as? String ?: return
+        val note = applicationData.payloadAs<StringCommandPayload>().value ?: return
 
         for (portEntry in computer.ports.values) {
             val port = portEntry as? Port ?: continue

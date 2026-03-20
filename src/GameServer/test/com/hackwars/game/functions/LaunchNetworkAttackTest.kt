@@ -1,6 +1,7 @@
 package com.hackwars.game.functions
 
 import game.ApplicationData
+import game.payload.TriggerWatchByNotePayload
 import hackscript.model.TypeInteger
 import hackscript.model.TypeString
 import org.junit.Assert.assertEquals
@@ -16,17 +17,15 @@ class LaunchNetworkAttackTest {
         val computer = FunctionTestSupport.baseComputer("2.2.2.2")
         val networkSwitch = computer.computerHandler
 
-        LaunchNetworkAttack(computer).execute(
-            ApplicationData("launchNetworkAttack", arrayOf<Any>("9.9.9.9"), 0, "source")
-        )
+        LaunchNetworkAttack(computer).execute(FunctionTestSupport.launchNetworkAttack("9.9.9.9"))
 
         val appCaptor = argumentCaptor<ApplicationData>()
         verify(networkSwitch).addData(appCaptor.capture(), eq("9.9.9.9"))
         val dispatched = appCaptor.firstValue
-        assertEquals("requesttriggernote", dispatched.function)
-        val payload = dispatched.parameters as Array<*>
-        assertEquals("netbomb", payload[0])
-        val trigger = payload[1] as HashMap<*, *>
+        assertEquals("requesttriggernote", dispatched.command.wireName())
+        val payload = dispatched.payload as TriggerWatchByNotePayload
+        assertEquals("netbomb", payload.watchNote)
+        val trigger = payload.triggerParameters as HashMap<*, *>
         assertTrue(trigger["playerip"] is TypeString)
         assertTrue(trigger["defaultattack"] is TypeInteger)
         assertTrue(trigger["defaultbank"] is TypeInteger)

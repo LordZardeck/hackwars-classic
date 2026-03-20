@@ -125,8 +125,8 @@ class ComputerHandler @JvmOverloads constructor(
     }
 
     fun addData(applicationData: Any?, ip: String?, source: Int) {
-        (applicationData as? ApplicationData)?.source = source
-        addData(applicationData, ip)
+        val resolved = (applicationData as? ApplicationData)?.withSource(source) ?: applicationData
+        addData(resolved, ip)
     }
 
     fun addData(applicationData: Any?, ip: String?) {

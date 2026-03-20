@@ -11,7 +11,7 @@ class BankXPTest {
         val computer = FunctionTestSupport.baseComputer()
         computer.stats["Bank"] = 20f
 
-        BankXP(computer).execute(ApplicationData("bankxp", 5f, 0, "source"))
+        BankXP(computer).execute(FunctionTestSupport.floatCommand("bankxp", 5f))
 
         assertEquals(25f, computer.stats["Bank"])
         verify(computer).sendDamagePacket()

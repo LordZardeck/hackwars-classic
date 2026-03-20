@@ -20,6 +20,7 @@ import org.slf4j.LoggerFactory
 import server.remote.RemoteCallContext
 import server.remote.invokeOnServer
 import server.runtime.GameServerRuntime
+import game.payload.PingPayload
 import util.Encryption
 import util.PlayFabTokenVerifier.AuthResult
 import util.SessionTokenVerifiers
@@ -140,7 +141,7 @@ class HackerServer(e: MessageServer, serverID: String) : MessageCoordinator(e), 
     }
 
     private fun processPingAssignment(assignment: PingAssignment) {
-        MyComputerHandler?.addData(ApplicationData("ping", null, 0, assignment.user), assignment.user)
+        MyComputerHandler?.addData(ApplicationData(PingPayload, 0, assignment.user), assignment.user)
 
         //Return a packet to the server.
         this.addData(arrayOf<Any>(PingAssignment(0, "bcoe"), assignment.reporterID))

@@ -1,5 +1,9 @@
 package game.computer.runtime
 
+import game.ApplicationCommand
+import game.payload.MessageTextPayload
+import game.payload.WebPagePayload
+
 class SaveLogoutTickService {
     companion object {
         private const val LOAD_FAILURE_WEBPAGE_TITLE = "Server Not Found"
@@ -19,12 +23,11 @@ class SaveLogoutTickService {
         if (expired) {
             if (state.loadFailure && state.loadRequester.isNotBlank() && state.loadRequester != state.ip) {
                 state.pendingTasks.firstOrNull()?.let { queued ->
-                    when (queued.function) {
-                        "pettycash" -> {
+                    when (queued.command) {
+                        ApplicationCommand.of("pettycash") -> {
                             events += RuntimeTickEvent.ApplicationDataDispatchRequested(
                                 applicationData = RuntimeApplicationDataDispatch(
-                                    function = queued.function,
-                                    parameters = queued.parameters,
+                                    payload = queued.payload,
                                     port = queued.port,
                                     sourceIp = queued.sourceIp,
                                     sourcePort = queued.sourcePort,
@@ -34,17 +37,15 @@ class SaveLogoutTickService {
                             )
                         }
 
-                        "requestwebpage" -> {
+                        ApplicationCommand.of("requestwebpage") -> {
                             events += RuntimeTickEvent.ApplicationDataDispatchRequested(
                                 applicationData = RuntimeApplicationDataDispatch(
-                                    function = "webpage",
-                                    parameters = arrayOf<Any?>(
+                                    payload = WebPagePayload(
                                         LOAD_FAILURE_WEBPAGE_TITLE,
                                         LOAD_FAILURE_WEBPAGE_BODY,
                                         null,
                                         0,
                                     ),
-                                    port = 0,
                                     sourceIp = state.ip,
                                 ),
                                 targetIp = queued.sourceIp,
@@ -55,9 +56,7 @@ class SaveLogoutTickService {
                 }
                 events += RuntimeTickEvent.ApplicationDataDispatchRequested(
                     applicationData = RuntimeApplicationDataDispatch(
-                        function = "message",
-                        parameters = state.errorMessage,
-                        port = 0,
+                        payload = MessageTextPayload(state.errorMessage),
                         sourceIp = state.ip,
                     ),
                     targetIp = state.loadRequester,

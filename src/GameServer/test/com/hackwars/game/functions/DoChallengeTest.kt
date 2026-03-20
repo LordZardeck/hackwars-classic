@@ -9,9 +9,7 @@ class DoChallengeTest {
     fun execute_runsChallengeAndSendsPacket() {
         val computer = FunctionTestSupport.baseComputer()
 
-        DoChallenge(computer).execute(
-            ApplicationData("dochallenge", arrayOf<Any>("challenge-file", "challenge-id"), 0, "source")
-        )
+        DoChallenge(computer).execute(FunctionTestSupport.doChallenge("challenge-file", "challenge-id"))
 
         verify(computer).doChallengeRPC("challenge-id", "challenge-file")
         verify(computer).sendPacket()

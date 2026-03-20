@@ -1,5 +1,8 @@
 package game
 
+import game.payload.InstallScriptPayload
+import game.payload.RequestInstallScriptPayload
+import game.payloadAs
 import java.util.HashMap
 
 /**
@@ -8,27 +11,25 @@ import java.util.HashMap
  */
 class LegacyScriptInstallCommands : LegacyApplicationDataHandler {
     override fun dispatch(computer: Computer, applicationData: ApplicationData, resolvedPort: Int): Boolean {
-        if ("requestinstallscript" != applicationData.function) {
+        if ("requestinstallscript" != applicationData.command.wireName()) {
             return false
         }
 
-        val parameters = applicationData.parameters as Array<Any?>
-        val targetIP = parameters[0] as String
-        val targetPort = (parameters[1] as Number).toInt()
-        val path = parameters[2] as String
-        val file = parameters[3] as String
-        val maliciousParameters = parameters[4]
+        val payload = applicationData.payloadAs<RequestInstallScriptPayload>()
 
-        val hackerFile = computer.MyFileSystem.getFile(path, file)
+        val hackerFile = computer.MyFileSystem.getFile(payload.path, payload.file)
         if (hackerFile != null) {
             hackerFile.setQuantity(hackerFile.getQuantity() - 1)
             if (hackerFile.getQuantity() <= 0) {
-                computer.MyFileSystem.deleteFile(path, file)
+                computer.MyFileSystem.deleteFile(payload.path, payload.file)
             }
 
             val content = hackerFile.getContent() as HashMap<*, *>
-            val payload = arrayOf<Any?>(content, maliciousParameters)
-            computer.MyComputerHandler.addData(ApplicationData("installScript", payload, targetPort, computer.ip), targetIP)
+            val forwardedPayload = InstallScriptPayload(content, payload.maliciousParameters)
+            computer.MyComputerHandler.addData(
+                ApplicationData(forwardedPayload, payload.targetPort, computer.ip),
+                payload.targetIp
+            )
         }
 
         computer.systemChange = true

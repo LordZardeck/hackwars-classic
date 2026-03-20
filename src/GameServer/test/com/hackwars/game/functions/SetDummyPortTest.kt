@@ -21,11 +21,11 @@ class SetDummyPortTest {
         whenever(port.overHeated).thenReturn(false)
         whenever(computer.ports).thenReturn(hashMapOf(31 to port))
 
-        SetDummyPort(computer).execute(ApplicationData("setdummyport", true, 31, "source"))
+        SetDummyPort(computer).execute(FunctionTestSupport.booleanCommand("setdummyport", true, 31))
 
         verify(port).setDummy(true)
         val appCaptor = argumentCaptor<ApplicationData>()
         verify(networkSwitch).addData(appCaptor.capture(), eq("8.8.8.8"))
-        assertEquals("fetchports", appCaptor.firstValue.function)
+        assertEquals("fetchports", appCaptor.firstValue.command.wireName())
     }
 }

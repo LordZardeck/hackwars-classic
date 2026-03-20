@@ -3,6 +3,7 @@ package server.remote.handlers
 import assignments.RemoteFunctionCall
 import game.ApplicationData
 import com.hackwars.rpc.*
+import game.payload.ChangeDailyPayPayload
 import server.remote.RemoteCallContext
 import server.remote.RemoteCallHandler
 import server.remote.RpcHandler
@@ -15,8 +16,10 @@ object ChangeDailyPayHandler : RemoteCallHandler {
 
         context.computerHandler.addData(
             ApplicationData(
-                ChangeDailyPay.FUNCTION,
-                arrayOf<Any?>(parsedCall.change, parsedCall.attackPort),
+                ChangeDailyPayPayload(
+                    targetIp = parsedCall.change?.let(context::crypt).orEmpty(),
+                    windowHandle = parsedCall.attackPort
+                ),
                 parsedCall.port,
                 context.crypt(parsedCall.finalizeIP)
             ),

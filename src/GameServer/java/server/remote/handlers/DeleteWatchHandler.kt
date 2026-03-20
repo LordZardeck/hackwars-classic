@@ -11,27 +11,10 @@ import java.util.*
 @RpcHandler(DeleteWatch.FUNCTION)
 object DeleteWatchHandler : RemoteCallHandler {
     override fun handle(rfc: RemoteFunctionCall, context: RemoteCallContext) {
-        val parsedCall =
-            DeleteWatch.fromRpc(
-                rfc
-            )
-        var ip =
-            parsedCall.ip
-        ip = context.crypt(
-            ip)
-        val watchID =
-            parsedCall.watchID
-        val O: Any =
-            arrayOf<Any?>(
-                watchID
-            )
+        val parsedCall = DeleteWatch.fromRpc(rfc)
+        val ip = context.crypt(parsedCall.ip)
         context.computerHandler.addData(
-            ApplicationData(
-                DeleteWatch.FUNCTION,
-                O,
-                0,
-                ip
-            ),
+            ApplicationData(parsedCall.copy(ip = ip), 0, ip),
             ip,
             ApplicationData.OUTSIDE
         )
