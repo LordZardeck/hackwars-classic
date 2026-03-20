@@ -457,7 +457,7 @@ public class HackerRPC extends HttpServlet implements DataHandler {
         boolean success = true;
         long startTime = MyTime.getCurrentTime();
 
-        while (R.getID() == -1) {
+        while (R.getClientId() == -1) {
             if (MyTime.getCurrentTime() - startTime > TIME_OUT) {
                 success = false;
                 break;

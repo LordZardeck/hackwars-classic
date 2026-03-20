@@ -18,7 +18,7 @@ public final class ChatProtocolClient implements AutoCloseable {
     public void awaitConnected(Duration timeout) throws InterruptedException {
         long deadline = System.nanoTime() + timeout.toNanos();
         while (System.nanoTime() < deadline) {
-            if (messageClient.getID() != -1) {
+            if (messageClient.getClientId() != -1) {
                 return;
             }
             Thread.sleep(10L);

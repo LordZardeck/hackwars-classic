@@ -257,7 +257,7 @@ open class GameState : DataHandler, Runnable {
             ConfigurationState.GameServer.OutPort,
             200000,
         )
-        gameServerMessageClient?.setDataHandler(this)
+        gameServerMessageClient?.dataHandler = this
 
         println("ABOUT TO CREATE CHAT REPORTER")
         chatServerMessageClient = MessageClient(
@@ -265,14 +265,14 @@ open class GameState : DataHandler, Runnable {
             ConfigurationState.ChatServer.OutPort,
             200000,
         )
-        chatServerMessageClient?.setDataHandler(this)
+        chatServerMessageClient?.dataHandler = this
         println("CREATED REPORTER & CHAT REPORTER")
 
         //Wait for handshake from server.
         var success = true
         var startTime = MyTime.currentTime
         println("Attempting to Connect to Server")
-        while (gameServerMessageClient!!.id == -1) {
+        while (gameServerMessageClient!!.clientId == -1) {
             if (MyTime.currentTime - startTime > TIME_OUT) {
                 success = false
                 break
@@ -280,19 +280,19 @@ open class GameState : DataHandler, Runnable {
             delay(10)
         }
         startTime = MyTime.currentTime
-        println("Connection ID: " + gameServerMessageClient!!.id)
+        println("Connection ID: " + gameServerMessageClient!!.clientId)
         println("Connecting to Chat")
-        while (chatServerMessageClient!!.id == -1) {
+        while (chatServerMessageClient!!.clientId == -1) {
             if (MyTime.currentTime - startTime > CHAT_TIME_OUT) {
                 success = false
                 break
             }
             delay(10)
         }
-        if (success && gameServerMessageClient?.id == -1) {
+        if (success && gameServerMessageClient?.clientId == -1) {
             success = false
         }
-        if (success && chatServerMessageClient?.id == -1) {
+        if (success && chatServerMessageClient?.clientId == -1) {
             success = false
         }
         if (!success) {

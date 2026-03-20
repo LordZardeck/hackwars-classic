@@ -1,209 +1,174 @@
-package com.plink.dolphinnet;
+package com.plink.dolphinnet
 
-import org.jetbrains.annotations.NotNull;
-
-import java.net.*;
-import java.util.ArrayList;
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.launch
+import org.slf4j.LoggerFactory
+import java.net.Socket
+import kotlin.concurrent.Volatile
 
 /**
- * <b>DolphinNet<br />
- * Benjamin E. Coe (2006)</b><br /><br />
- * <p>
- * The Reporter acts as the client and connects to a central server (Editor). It simply receives Assignments
- * and throws them into a runnable thread. It continually checks the threads for completion and
- * returns finished Assignments (instance variables having been filled out) to the Editor (server).
- * <br /><br />
- * The Future: Some method should be implemented for distributing new implementations of Assignments
- * to the Reporter. As of right now the Assignment class must be present on the client and server
- * side.
+ * A client implementation for managing assignments and communicating with a server.
+ * The `MessageClient` class manages a connection to a server and processes data
+ * asynchronously using coroutines.
+ *
+ * @constructor Initializes a `MessageClient` with the provided server address, port,
+ * and socket timeout.
+ * @param address The server address to connect to.
+ * @param port The port of the server.
+ * @param socketTimeOut The socket timeout, in milliseconds.
  */
-public class MessageClient implements Runnable {
-    private int id = -1;
+class MessageClient(address: String?, port: Int, socketTimeOut: Int) {
+    companion object {
+        private val Logger = LoggerFactory.getLogger(MessageClient::class.java)
+    }
 
-    private DataHandler DH;
-    private final ArrayList<RunAssignment> processes = new ArrayList<>();
-    private volatile Thread t = null;
-    private ClientConnection connection = null;
-    private boolean killAllAssignments = false;
+    /**
+     * Represents the unique identifier of a client in the system. This value is initialized
+     * to -1, indicating that it has not yet been set. It plays a critical role in tracking
+     * and identifying clients within the context of the `MessageClient` class operations.
+     *
+     * This property is read-only externally and can only be modified within the class.
+     */
+    var clientId: Int = -1
+        private set
+    /**
+     * A variable that serves as a reference to a nullable implementation of the `DataHandler` interface.
+     * The `DataHandler` interface is designed to distribute data-sets and manage assignment-related data operations
+     * in a reporter-client system. This variable may be used to process and handle data for assignments
+     * within the `MessageClient` class.
+     *
+     * This variable is expected to:
+     * - Enable access to operations for adding, resetting, and retrieving data.
+     * - Facilitate the handling of finished assignments by integrating with the appropriate implementation.
+     *
+     * The instance referenced by this variable can be set dynamically or left as `null`
+     * depending on the operational requirements of the `MessageClient`.
+     */
+    var dataHandler: DataHandler? = null
 
-    private class ClientConnection extends DuplexConnection {
-        ClientConnection(Socket socket) {
-            super(socket);
+    private val runAssignmentsJobScope = SupervisorJob()
+    private val runAssignmentsScope = CoroutineScope(runAssignmentsJobScope + Dispatchers.IO)
+    private val runAssignmentsChannel = Channel<Assignment>(Channel.UNLIMITED)
+    /**
+     * Represents a background job that continuously processes assignments received through the `runAssignmentsChannel`.
+     * This coroutine is launched within the `runAssignmentsScope` and operates in a loop until it is explicitly canceled
+     * or encounters a failure while receiving assignments.
+     *
+     * The job performs the following operations:
+     * - Attempts to receive the next assignment from the `runAssignmentsChannel`.
+     * - If an exception occurs while receiving, the job is marked as canceled, and an error is logged.
+     * - For each successfully received assignment:
+     *   - Calls the `execute` method of the assignment, passing in the `dataHandler`, to perform the task associated with the assignment.
+     *   - Adds the resulting data from the execution to the `dataHandler` using its `addData` method.
+     *   - Updates the `reporterID` of the assignment to match the unique client ID of the current `MessageClient`.
+     *
+     * The job is an integral part of the `MessageClient`'s operations, facilitating the continuous processing of tasks
+     * assigned to it through the channel.
+     */
+    private val runAssignmentsJob = runAssignmentsScope.launch {
+        var canceled = false
+
+        while (!canceled) {
+            val nextAssignment =
+                runCatching { runAssignmentsChannel.receive() }
+                    .onFailure { exception ->
+                        canceled = true
+                        Logger.error("Unable to receive any more assignments to process", exception)
+                    }
+                    .getOrNull() ?: continue
+
+            dataHandler?.addData(nextAssignment.execute(dataHandler))
+            nextAssignment.reporterID = this@MessageClient.clientId
         }
+    }
+    private var connection = ClientConnection(Socket(address, port))
 
-        public void onReceiveObject(@NotNull Object data) {
-            try {
-                if (data instanceof Assignment) {
-                    MessageClient.this.addAssignment((Assignment) data);
-                } else if (data instanceof Integer io) {
-                    if (io > -1) {
-                        MessageClient.this.setID(io);
-                    } else {
-                        MessageClient.this.killAllAssignments();
+    private inner class ClientConnection(socket: Socket) : DuplexConnection(socket) {
+        /**
+         * Handles the reception of an object and processes it based on its type.
+         *
+         * For objects of type `Assignment`, the method invokes the `runAssignment` method
+         * in the associated `MessageClient` instance to process the assignment.
+         *
+         * For objects of type `Int`, the method updates the `clientId` of the `MessageClient`
+         * instance if the integer value is non-negative. Otherwise, it terminates
+         * all ongoing assignments by invoking the `killAllAssignments` method.
+         *
+         * Logs an error if any exception occurs during the execution.
+         *
+         * @param data The object received for processing. It is expected to be either of type `Assignment`
+         *             for task-related operations or of type `Int` for updating the client ID
+         *             or signaling assignment termination.
+         */
+        override fun onReceiveObject(data: Any) {
+            runCatching {
+                when (data) {
+                    is Assignment -> this@MessageClient.runAssignment(data)
+                    is Int -> {
+                        if (data > -1) {
+                            this@MessageClient.clientId = data
+                            return
+                        }
+
+                        this@MessageClient.killAllAssignments()
                     }
                 }
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
+            }.onFailure { Logger.error("Error receiving data", it) }
         }
     }
 
-    public void clean() {
-        kill();
-    }
-
-    //Our threading inner class.
-    private class RunAssignment implements Runnable {
-        private volatile Thread t;
-        private Assignment assignment;
-        private boolean finished = false;
-
-        /// //////////
-        //Constructor.
-        RunAssignment(Assignment assignment) {
-            this.assignment = assignment;
-            t = new Thread(this);
-            t.start();
-        }
-
-        /// //////////
-        // Getters.
-        public Assignment getAssignment() {
-            return (assignment);
-        }
-
-        public boolean isFinished() {
-            return (finished);
-        }
-
-        /// //////////
-        //Methods.
-        public void kill() {
-            finished = true;
-            t = null;
-            assignment.kill();
-        }
-
-        public void run() {
-            Thread thisThread = Thread.currentThread();
-            while (thisThread == t) {
-                Object T = null;
-                if (!finished)
-                    T = (Object) assignment.execute(DH);
-                if (DH != null)
-                    DH.addData(T);
-                assignment.setReporterID(getID());
-
-                kill();
-
-                try {
-                    Thread.sleep(100);
-                } catch (Exception e) {
-
-                }
-            }
-        }
-    }
-
-    public int getID() {
-        return id;
-    }
-
-    public void setID(int id) {
-        this.id = id;
-    }
-
-    public void setDataHandler(DataHandler DH) {
-        this.DH = DH;
-    }
-
-    public void kill() {
-        t = null;
-        if (connection != null) {
-            connection.close();
-            connection = null;
-        }
-        DH = null;
-        processes.clear();
+    fun clean() {
+        connection.close()
+        dataHandler = null
+        killAllAssignments()
+        runAssignmentsJob.cancel()
     }
 
     /**
      * Kill all the assignments that are currently running.
      */
-    public synchronized void killAllAssignments() {
-        killAllAssignments = true;
+    @Synchronized
+    fun killAllAssignments() {
+        while (runAssignmentsChannel.tryReceive().isSuccess) {
+            // Discard the received element
+        }
     }
 
-    public MessageClient(String address, int port, int socketTimeOut) {
-        //Set up the server.
-        try {
-            connection = new ClientConnection(new Socket(address, port));
-            connection.connect(socketTimeOut);
-        } catch (Exception e) {
-        }
-
-        //Set up the execution thread.
-        t = new Thread(this);
-        t.start();
-    }
-
-    public void run() {
-        Thread thisThread = Thread.currentThread();
-        while (thisThread == t) {
-            if (processes == null) {
-                break;
-            }
-            if (killAllAssignments) {
-                for (int i = 0; i < processes.size(); i++) {
-                    RunAssignment temp = (RunAssignment) processes.get(i);
-                    temp.kill();
-                    Assignment A = temp.getAssignment();
-                    //FinishedAssignments.add(A);
-                    processes.remove(i);
-                    break;
-                }
-                killAllAssignments = false;
-            }
-            for (int i = 0; i < processes.size(); i++) {
-                RunAssignment temp = (RunAssignment) processes.get(i);
-                if (temp != null)
-                    if (temp.isFinished()) {
-                        temp.kill();
-                        Assignment A = temp.getAssignment();
-                        //FinishedAssignments.add(new ZippedAssignment(0,A));
-                        processes.remove(i);
-                        break;
-                    }
-            }
-            try {
-                Thread.sleep(100);
-            } catch (Exception e) {
-
-            }
-        }
-        DH = null;
+    init {
+        Logger.info("Connecting to server $address:$port...")
+        runCatching { connection.connect(socketTimeOut) }
+            .onFailure { Logger.error("Unable to connect to server $address:$port", it) }
     }
 
     /**
-     * Adds an assignment to the assignment list for execution.
+     * Assigns the given assignment to the current client and sends it through the run assignments channel.
+     *
+     * This method is synchronized to ensure thread safety during the assignment process.
+     *
+     * @param assignment The assignment to be processed, where the reporterID is set to the ID of the current client
+     *                   before being sent through the runAssignmentsChannel.
      */
-    public synchronized void addAssignment(Assignment assignment) {
-        try {
-            if (processes == null) {
-                return;
-            }
-            assignment.setReporterID(getID());
-            processes.add(new RunAssignment(assignment));
-        } catch (Exception e) {
-            //	e.printStackTrace();
-        }
+    @Synchronized
+    fun runAssignment(assignment: Assignment) {
+        assignment.reporterID = this.clientId
+        runAssignmentsChannel.trySend(assignment)
     }
 
     /**
-     * Add an external finished assignment to the list.
+     * Marks the given assignment as finished by setting its `reporterID` to the current client's ID
+     * and sends the assignment through the established connection.
+     *
+     * This method is synchronized to ensure thread safety when handling the assignment data.
+     *
+     * @param assignment The assignment to be marked as finished and sent. The reporter ID is updated
+     *                   to match the ID of the current client before transmission.
      */
-    public synchronized void addFinishedAssignment(Assignment assignment) {
-        assignment.setReporterID(getID());
-        connection.sendData(assignment);
+    @Synchronized
+    fun addFinishedAssignment(assignment: Assignment) {
+        assignment.reporterID = this.clientId
+        connection.sendData(assignment)
     }
 }

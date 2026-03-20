@@ -48,7 +48,7 @@ public class ServerConnectionSingleton implements Runnable, DataHandler {
         boolean success = true;
         long startTime = MyTime.getCurrentTime();
 
-        while (R.getID() == -1) {
+        while (R.getClientId() == -1) {
             if (MyTime.getCurrentTime() - startTime > TIME_OUT) {
                 success = false;
                 break;
@@ -94,7 +94,7 @@ public class ServerConnectionSingleton implements Runnable, DataHandler {
         while (true) {
             try {
                 if (MyTime.getCurrentTime() - lastPing > PINGTIME) {
-                    if (R != null && R.getID() != -1) {
+                    if (R != null && R.getClientId() != -1) {
                         lastPing = MyTime.getCurrentTime();
                         R.addFinishedAssignment(new PingAssignment(0, ""));
                         System.out.println("Pinging.");

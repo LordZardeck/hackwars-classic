@@ -38,7 +38,7 @@ public class MessageTransportTest {
         coordinator.addAssignment(new DataAssignment(100, "game-state"));
 
         dataHandler.awaitData("game-state");
-        Assert.assertEquals(0, client.getID());
+        Assert.assertEquals(0, client.getClientId());
     }
 
     @Test
@@ -110,7 +110,7 @@ public class MessageTransportTest {
     private void waitForClientId(final MessageClient client, final int expectedId) throws Exception {
         waitForCondition(new Condition() {
             public boolean evaluate() {
-                return client.getID() == expectedId;
+                return client.getClientId() == expectedId;
             }
         }, "client ID " + expectedId);
     }
