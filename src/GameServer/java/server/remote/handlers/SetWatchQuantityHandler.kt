@@ -11,30 +11,10 @@ import java.util.*
 @RpcHandler(SetWatchQuantity.FUNCTION)
 object SetWatchQuantityHandler : RemoteCallHandler {
     override fun handle(rfc: RemoteFunctionCall, context: RemoteCallContext) {
-        val parsedCall =
-            SetWatchQuantity.fromRpc(
-                rfc
-            )
-        var ip =
-            parsedCall.ip
-        ip = context.crypt(
-            ip)
-        val watchID =
-            parsedCall.watchID
-        val quantity =
-            parsedCall.quantity
-        val O: Any =
-            arrayOf<Any?>(
-                watchID,
-                quantity
-            )
+        val parsedCall = SetWatchQuantity.fromRpc(rfc)
+        val ip = context.crypt(parsedCall.ip)
         context.computerHandler.addData(
-            ApplicationData(
-                SetWatchQuantity.FUNCTION,
-                O,
-                0,
-                ip
-            ),
+            ApplicationData(parsedCall.copy(ip = ip), 0, ip),
             ip,
             ApplicationData.OUTSIDE
         )

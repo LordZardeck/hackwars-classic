@@ -13,23 +13,11 @@ object RequestAttackHandler : RemoteCallHandler {
     override fun handle(rfc: RemoteFunctionCall, context: RemoteCallContext) {
         val parsedCall = RequestAttack.fromRpc(rfc)
         val targetIP = parsedCall.targetIP
-        val targetPort = parsedCall.targetPort
-        var sourceIP = parsedCall.sourceIP
-        sourceIP = context.crypt(sourceIP)
-
-        val sourcePort = parsedCall.sourcePort
-
-        val secondaryPorts = parsedCall.secondaryPorts
-        val scripts = parsedCall.scripts
-        val extraInfo = parsedCall.extraInfo
-        val windowHandle = parsedCall.windowHandle
-
-        val Parameters: Array<Any?>? =
-            arrayOf<Any?>(targetIP, targetPort, secondaryPorts, scripts, extraInfo, windowHandle)
-        val AD = ApplicationData(RequestAttack.FUNCTION, Parameters, sourcePort, sourceIP)
+        val sourceIP = context.crypt(parsedCall.sourceIP)
+        val applicationData = ApplicationData(parsedCall.copy(sourceIP = sourceIP), parsedCall.sourcePort, sourceIP)
 
         if (targetIP != sourceIP && targetIP.indexOf(RequestAttack.FUNCTION) == -1) context.computerHandler.addData(
-            AD,
+            applicationData,
             sourceIP,
             ApplicationData.OUTSIDE
         )

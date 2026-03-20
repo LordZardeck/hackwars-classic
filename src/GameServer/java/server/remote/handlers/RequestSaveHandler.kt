@@ -3,6 +3,7 @@ package server.remote.handlers
 import assignments.RemoteFunctionCall
 import game.ApplicationData
 import com.hackwars.rpc.*
+import game.payload.RequestSavePayload
 import server.remote.RemoteCallContext
 import server.remote.RemoteCallHandler
 import server.remote.RpcHandler
@@ -12,24 +13,16 @@ import java.util.*
 object RequestSaveHandler : RemoteCallHandler {
     override fun handle(rfc: RemoteFunctionCall, context: RemoteCallContext) {
         val parsedCall = RequestSave.fromRpc(rfc)
-        val fileName = parsedCall.fileName
-        val TriggerParam =
-            parsedCall.triggerParam
-        val targetIP =
-            parsedCall.targetIP
-        val O: Any = arrayOf<Any?>(
-            fileName,
-            TriggerParam
-        )
+        @Suppress("UNCHECKED_CAST")
+        val triggerParam = parsedCall.triggerParam as? HashMap<Any, Any>
 
         context.computerHandler.addData(
             ApplicationData(
-                RequestSave.FUNCTION,
-                O,
+                RequestSavePayload(parsedCall.fileName.orEmpty(), triggerParam),
                 0,
-                targetIP
+                parsedCall.targetIP.orEmpty()
             ),
-            targetIP,
+            parsedCall.targetIP,
             ApplicationData.OUTSIDE
         )
     }

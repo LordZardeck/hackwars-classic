@@ -3,6 +3,7 @@ package server.remote.handlers
 import assignments.RemoteFunctionCall
 import game.ApplicationData
 import com.hackwars.rpc.*
+import game.payload.MalGetPayload
 import server.remote.RemoteCallContext
 import server.remote.RemoteCallHandler
 import server.remote.RpcHandler
@@ -14,16 +15,22 @@ object MalGetHandler : RemoteCallHandler {
         val parsedCall = MalGet.fromRpc(rfc)
         val ip = parsedCall.ip
         val port = parsedCall.port
-        val name = parsedCall.name
-        val fetch_path = parsedCall.fetchPath
-        val put_path = parsedCall.putPath
-        var targetIP = parsedCall.targetIP
         val attackPort = parsedCall.attackPort
-        targetIP = context.crypt(targetIP)
-        val Parameter: Array<Any?>? =
-            arrayOf<Any?>(targetIP, name, fetch_path, put_path, "", port, attackPort)
+        val targetIP = context.crypt(parsedCall.targetIP)
         context.computerHandler.addData(
-            ApplicationData(MalGet.FUNCTION, Parameter, port, targetIP),
+            ApplicationData(
+                MalGetPayload(
+                    targetIp = targetIP,
+                    name = parsedCall.name,
+                    fetchPath = parsedCall.fetchPath.orEmpty(),
+                    targetPath = parsedCall.putPath.orEmpty(),
+                    password = "",
+                    sourcePort = port,
+                    attackPort = attackPort
+                ),
+                port,
+                targetIP
+            ),
             ip,
             ApplicationData.OUTSIDE
         )

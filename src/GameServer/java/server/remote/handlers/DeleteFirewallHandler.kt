@@ -11,23 +11,10 @@ import java.util.*
 @RpcHandler(DeleteFirewall.FUNCTION)
 object DeleteFirewallHandler : RemoteCallHandler {
     override fun handle(rfc: RemoteFunctionCall, context: RemoteCallContext) {
-        val parsedCall =
-            DeleteFirewall.fromRpc(
-                rfc
-            )
-        var ip =
-            parsedCall.ip
-        ip = context.crypt(
-            ip)
-        val portID =
-            parsedCall.portID
+        val parsedCall = DeleteFirewall.fromRpc(rfc)
+        val ip = context.crypt(parsedCall.ip)
         context.computerHandler.addData(
-            ApplicationData(
-                DeleteFirewall.FUNCTION,
-                portID,
-                0,
-                ip
-            ),
+            ApplicationData(parsedCall.copy(ip = ip), 0, ip),
             ip,
             ApplicationData.OUTSIDE
         )

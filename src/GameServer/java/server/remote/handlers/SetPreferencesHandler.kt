@@ -3,6 +3,7 @@ package server.remote.handlers
 import assignments.RemoteFunctionCall
 import game.ApplicationData
 import com.hackwars.rpc.*
+import game.payload.SetPreferencesPayload
 import server.remote.RemoteCallContext
 import server.remote.RemoteCallHandler
 import server.remote.RpcHandler
@@ -12,13 +13,13 @@ import java.util.*
 object SetPreferencesHandler : RemoteCallHandler {
     override fun handle(rfc: RemoteFunctionCall, context: RemoteCallContext) {
         val parsedCall = SetPreferences.fromRpc(rfc)
-        var ip = parsedCall.ip
-        ip = context.crypt(ip)
-        val preferences =
-            parsedCall.preferences
-        val O = arrayOf<Any?>(ip, preferences)
+        val ip = context.crypt(parsedCall.ip)
         context.computerHandler.addData(
-            ApplicationData(SetPreferences.FUNCTION, O, 0, ip),
+            ApplicationData(
+                SetPreferencesPayload(HashMap(parsedCall.preferences ?: emptyMap<Any?, Any?>())),
+                0,
+                ip
+            ),
             ip,
             ApplicationData.OUTSIDE
         )

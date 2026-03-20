@@ -21,6 +21,7 @@ import com.hackwars.rpc.DecompileFile
 import com.hackwars.rpc.RequestFile
 import com.hackwars.rpc.RequestGame
 import com.hackwars.rpc.SaveFile
+import com.hackwars.rpc.SellFile
 import com.hackwars.rpc.SellFileMulti
 import com.hackwars.rpc.SetFileDescription
 import com.hackwars.rpc.SetFilePrice
@@ -360,75 +361,86 @@ class LegacyFilesystemInventoryCommands : LegacyApplicationDataHandler {
                 }
                 return true
             }
+            is SellFile -> {
+                val path = payload.location.orEmpty()
+                val name = payload.fileName.orEmpty()
+                val file = computer.MyFileSystem.getFile(path, name)?.clone() ?: return true
+                handleSellFile(computer, SellFilePayload(path, file, payload.compileCost ?: 0.0f, payload.quantity ?: 1))
+                return true
+            }
             is SellFilePayload -> {
-                var success = true
-                val path = payload.path
-                val file = payload.file
-                val existingFile = computer.MyFileSystem.getFile(path, file.name)
-
-                var sellPrice = 0.0f
-                var minimumSellPrice = 0.0f
-                if (file.type != HackerFile.NEW_FIREWALL) {
-                    minimumSellPrice = Computer.makers[file.maker] as Float
-                }
-
-                file.setQuantity(1)
-                var compilePrice = payload.compileCost
-                val playerLevels = HashMap<Any?, Any?>()
-                playerLevels["Attack"] = Integer.valueOf(100)
-                playerLevels["Merchanting"] = Integer.valueOf(100)
-                playerLevels["Watch"] = Integer.valueOf(100)
-                playerLevels["HTTP"] = Integer.valueOf(100)
-                playerLevels["Redirecting"] = Integer.valueOf(100)
-
-                try {
-                    val result = executeCompileApplication(computer, file.type, file.getContent(), playerLevels)
-                    if (result != null && (result["error"] as String).length == 0) {
-                        compilePrice = (result["price"] as Double).toFloat()
-                    }
-                } catch (_: Exception) {
-                    compilePrice = 0.0f
-                }
-
-                val quantity = payload.quantity
-                if (file.type == HackerFile.AGP || file.type == HackerFile.PCI) {
-                    if (file.maker == "Medium") {
-                        sellPrice = 2000.0f
-                    } else if (file.maker == "High") {
-                        sellPrice = 20000.0f
-                    } else if (file.maker == "Rare") {
-                        sellPrice = 200000.0f
-                    }
-                } else if (existingFile != null) {
-                    sellPrice = compilePrice * 2.0f - (compilePrice * 0.01f * (1.0f + existingFile.quantity))
-                } else {
-                    sellPrice = compilePrice * 2.0f - (compilePrice * 0.01f)
-                }
-
-                if (sellPrice < minimumSellPrice) {
-                    sellPrice = minimumSellPrice
-                }
-
-                file.setPrice(sellPrice)
-
-                if (file.type == HackerFile.NEW_FIREWALL) {
-                    success = false
-                }
-
-                if (success) {
-                    file.setLocation("Store/")
-                    computer.saveFile(file, existingFile, path)
-
-                    if (file.type == HackerFile.PCI || file.type == HackerFile.AGP) {
-                        computer.PA.setRequestHardware(true)
-                    }
-                }
-                computer.systemChange = true
+                handleSellFile(computer, payload)
                 return true
             }
             else -> return false
         }
 
+    }
+
+    private fun handleSellFile(computer: Computer, payload: SellFilePayload) {
+        var success = true
+        val path = payload.path
+        val file = payload.file
+        val existingFile = computer.MyFileSystem.getFile(path, file.name)
+
+        var sellPrice = 0.0f
+        var minimumSellPrice = 0.0f
+        if (file.type != HackerFile.NEW_FIREWALL) {
+            minimumSellPrice = Computer.makers[file.maker] as Float
+        }
+
+        file.setQuantity(1)
+        var compilePrice = payload.compileCost
+        val playerLevels = HashMap<Any?, Any?>()
+        playerLevels["Attack"] = Integer.valueOf(100)
+        playerLevels["Merchanting"] = Integer.valueOf(100)
+        playerLevels["Watch"] = Integer.valueOf(100)
+        playerLevels["HTTP"] = Integer.valueOf(100)
+        playerLevels["Redirecting"] = Integer.valueOf(100)
+
+        try {
+            val result = executeCompileApplication(computer, file.type, file.getContent(), playerLevels)
+            if (result != null && (result["error"] as String).length == 0) {
+                compilePrice = (result["price"] as Double).toFloat()
+            }
+        } catch (_: Exception) {
+            compilePrice = 0.0f
+        }
+
+        val quantity = payload.quantity
+        if (file.type == HackerFile.AGP || file.type == HackerFile.PCI) {
+            if (file.maker == "Medium") {
+                sellPrice = 2000.0f
+            } else if (file.maker == "High") {
+                sellPrice = 20000.0f
+            } else if (file.maker == "Rare") {
+                sellPrice = 200000.0f
+            }
+        } else if (existingFile != null) {
+            sellPrice = compilePrice * 2.0f - (compilePrice * 0.01f * (1.0f + existingFile.quantity))
+        } else {
+            sellPrice = compilePrice * 2.0f - (compilePrice * 0.01f)
+        }
+
+        if (sellPrice < minimumSellPrice) {
+            sellPrice = minimumSellPrice
+        }
+
+        file.setPrice(sellPrice)
+
+        if (file.type == HackerFile.NEW_FIREWALL) {
+            success = false
+        }
+
+        if (success) {
+            file.setLocation("Store/")
+            computer.saveFile(file, existingFile, path)
+
+            if (file.type == HackerFile.PCI || file.type == HackerFile.AGP) {
+                computer.PA.setRequestHardware(true)
+            }
+        }
+        computer.systemChange = true
     }
 
     private fun executeCompileApplication(

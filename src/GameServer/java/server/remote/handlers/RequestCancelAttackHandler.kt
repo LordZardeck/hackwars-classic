@@ -11,23 +11,10 @@ import java.util.*
 @RpcHandler(RequestCancelAttack.FUNCTION)
 object RequestCancelAttackHandler : RemoteCallHandler {
     override fun handle(rfc: RemoteFunctionCall, context: RemoteCallContext) {
-        val parsedCall =
-            RequestCancelAttack.fromRpc(
-                rfc
-            )
-        var ip =
-            parsedCall.ip
-        ip = context.crypt(
-            ip)
-        val port =
-            parsedCall.port
+        val parsedCall = RequestCancelAttack.fromRpc(rfc)
+        val ip = context.crypt(parsedCall.ip)
         context.computerHandler.addData(
-            ApplicationData(
-                RequestCancelAttack.FUNCTION,
-                null,
-                port,
-                ip
-            ),
+            ApplicationData(parsedCall.copy(ip = ip), parsedCall.port, ip),
             ip,
             ApplicationData.OUTSIDE
         )

@@ -3,6 +3,7 @@ package server.remote.handlers
 import assignments.RemoteFunctionCall
 import game.ApplicationData
 import com.hackwars.rpc.*
+import game.payload.CombatMakeBountyPayload
 import server.remote.RemoteCallContext
 import server.remote.RemoteCallHandler
 import server.remote.RpcHandler
@@ -11,40 +12,19 @@ import java.util.*
 @RpcHandler(MakeBounty.FUNCTION)
 object MakeBountyHandler : RemoteCallHandler {
     override fun handle(rfc: RemoteFunctionCall, context: RemoteCallContext) {
-        val parsedCall =
-            MakeBounty.fromRpc(rfc)
-        var source_ip =
-            parsedCall.sourceIp
-        source_ip = context.crypt(
-            source_ip)
-        val anonymous =
-            parsedCall.anonymous
-        val target =
-            parsedCall.target
-        val type =
-            parsedCall.type
-        val fname =
-            parsedCall.fname
-        val folder =
-            parsedCall.folder
-        val iterations =
-            parsedCall.iterations
-        val reward =
-            parsedCall.reward
-        val O: Array<Any?>? =
-            arrayOf<Any?>(
-                anonymous,
-                target,
-                type,
-                fname,
-                folder,
-                iterations,
-                reward
-            )
+        val parsedCall = MakeBounty.fromRpc(rfc)
+        val source_ip = context.crypt(parsedCall.sourceIp)
         context.computerHandler.addData(
             ApplicationData(
-                MakeBounty.FUNCTION,
-                O,
+                CombatMakeBountyPayload(
+                    anonymous = parsedCall.anonymous ?: false,
+                    target = parsedCall.target.orEmpty(),
+                    type = parsedCall.type ?: 0,
+                    fileName = parsedCall.fname.orEmpty(),
+                    filePath = parsedCall.folder.orEmpty(),
+                    iterations = parsedCall.iterations ?: 0,
+                    reward = parsedCall.reward ?: 0.0f
+                ),
                 0,
                 source_ip
             ),

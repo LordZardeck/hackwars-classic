@@ -3,6 +3,7 @@ package server.remote.handlers
 import assignments.RemoteFunctionCall
 import game.ApplicationData
 import com.hackwars.rpc.*
+import game.payload.TriggerWatchByNotePayload
 import server.remote.RemoteCallContext
 import server.remote.RemoteCallHandler
 import server.remote.RpcHandler
@@ -12,25 +13,20 @@ import java.util.*
 object RequestTriggerHandler : RemoteCallHandler {
     override fun handle(rfc: RemoteFunctionCall, context: RemoteCallContext) {
         val parsedCall = RequestTrigger.fromRpc(rfc)
-        val watchNote = parsedCall.watchNote
-        val TriggerParam =
-            parsedCall.triggerParam
-        val sourceIP =
-            parsedCall.sourceIP
-        val targetIP =
-            parsedCall.targetIP
-        val O: Any = arrayOf<Any?>(
-            watchNote,
-            TriggerParam,
-            sourceIP
-        )
+        @Suppress("UNCHECKED_CAST")
+        val triggerParam = parsedCall.triggerParam as? HashMap<Any, Any>
         context.computerHandler.addData(
             ApplicationData(
-                RequestTrigger.FUNCTION,
-                O,
+                TriggerWatchByNotePayload(
+                    parsedCall.watchNote.orEmpty(),
+                    triggerParam,
+                    parsedCall.sourceIP.orEmpty()
+                ),
                 0,
-                sourceIP
-            ), targetIP, ApplicationData.OUTSIDE
+                parsedCall.sourceIP.orEmpty()
+            ),
+            parsedCall.targetIP,
+            ApplicationData.OUTSIDE
         )
     }
 }

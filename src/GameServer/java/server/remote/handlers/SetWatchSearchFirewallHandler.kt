@@ -11,30 +11,10 @@ import java.util.*
 @RpcHandler(SetWatchSearchFirewall.FUNCTION)
 object SetWatchSearchFirewallHandler : RemoteCallHandler {
     override fun handle(rfc: RemoteFunctionCall, context: RemoteCallContext) {
-        val parsedCall =
-            SetWatchSearchFirewall.fromRpc(
-                rfc
-            )
-        var ip =
-            parsedCall.ip
-        ip = context.crypt(
-            ip)
-        val watchID =
-            parsedCall.watchID
-        val searchFireWall =
-            parsedCall.searchFireWall
-        val O: Any =
-            arrayOf<Any?>(
-                watchID,
-                searchFireWall
-            )
+        val parsedCall = SetWatchSearchFirewall.fromRpc(rfc)
+        val ip = context.crypt(parsedCall.ip)
         context.computerHandler.addData(
-            ApplicationData(
-                SetWatchSearchFirewall.FUNCTION,
-                O,
-                0,
-                ip
-            ),
+            ApplicationData(parsedCall.copy(ip = ip), 0, ip),
             ip,
             ApplicationData.OUTSIDE
         )

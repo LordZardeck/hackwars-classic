@@ -3,6 +3,7 @@ package server.remote.handlers
 import assignments.RemoteFunctionCall
 import game.ApplicationData
 import com.hackwars.rpc.*
+import game.payload.RequestPurchasePayload
 import server.remote.RemoteCallContext
 import server.remote.RemoteCallHandler
 import server.remote.RpcHandler
@@ -13,16 +14,7 @@ object RequestPurchaseHandler : RemoteCallHandler {
     override fun handle(rfc: RemoteFunctionCall, context: RemoteCallContext) {
         val parsedCall = RequestPurchase.fromRpc(rfc)
         var target_ip = parsedCall.targetIp
-        var source_ip =
-            parsedCall.sourceIp
-        source_ip = context.crypt(source_ip)
-
-        val file_name =
-            parsedCall.fileName
-        val quantity =
-            parsedCall.quantity
-        val O: Array<Any?>? =
-            arrayOf<Any?>(file_name, quantity)
+        val source_ip = context.crypt(parsedCall.sourceIp)
 
         if (target_ip.length >= 5) if (target_ip.substring(
                 0,
@@ -32,11 +24,12 @@ object RequestPurchaseHandler : RemoteCallHandler {
 
         context.computerHandler.addData(
             ApplicationData(
-                RequestPurchase.FUNCTION,
-                O,
+                RequestPurchasePayload(parsedCall.fileName.orEmpty(), parsedCall.quantity ?: 0),
                 0,
                 source_ip
-            ), target_ip, ApplicationData.OUTSIDE
+            ),
+            target_ip,
+            ApplicationData.OUTSIDE
         )
     }
 }
