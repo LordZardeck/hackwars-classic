@@ -4,6 +4,7 @@ import assignments.DamageAssignment
 import assignments.LoginFailedAssignment
 import assignments.LoginSuccessAssignment
 import assignments.PacketAssignment
+import assignments.PacketNetwork
 import com.hackwars.game.functions.*
 import com.hackwars.game.functions.Function
 import com.hackwars.game.program.AttackProgram
@@ -19,7 +20,21 @@ import game.computer.session.LoginRequest
 import game.computer.session.PlayStatisticsRequest
 import game.runchallenge.ChallengeRunner
 import hackscript.model.Variable
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineName
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.coroutines.yield
 import org.w3c.dom.Node
+import org.slf4j.LoggerFactory
+import server.runtime.GameServerRuntime
+import server.runtime.GameServerService
 import util.LoadXML
 import util.Time
 import view.Task
@@ -27,7 +42,6 @@ import java.io.BufferedWriter
 import java.io.FileWriter
 import java.text.NumberFormat
 import java.util.*
-import java.util.concurrent.Semaphore
 import kotlin.math.max
 
 /**
@@ -39,7 +53,7 @@ import kotlin.math.max
  * This class is a beast, know it well lest ye be bitten.
  */
 
-open class Computer : Runnable {
+open class Computer : GameServerService {
     var MAX_OPS: Int = 4096
 
     @JvmField
@@ -123,8 +137,6 @@ open class Computer : Runnable {
     @set:JvmName("setOverheatStartValue")
     var overheatStart: Long = -1 //Keep track of when an overheat started.
     lateinit var MyTime: Time //Central time keeping thread.
-    @JvmField
-    var MyThread: Thread? = null //The thread associated with this class.
 
     var GUI_READY: Boolean =
         false //This variable is used by the 3D chat to determine whether the GUI is in a state ready to start receiving walking packets.
@@ -134,8 +146,6 @@ open class Computer : Runnable {
     @get:JvmName("getLoadedValue")
     @set:JvmName("setLoadedValue")
     var Loaded: Boolean = false //Has the computer started loading.
-    @JvmField
-    var run: Boolean = true //Used to set whether this computer's thread is running.
     var LOG_UPDATE: Boolean = false //Has the player's DB been updated?
     @JvmField
     var locked: Boolean = false //Has the account been locked down?
@@ -190,10 +200,19 @@ open class Computer : Runnable {
     @JvmField
     var MyMakeBounty: MakeBounty? = null //Used for handling bounties.
 
-    //Current tasks that have been sent in for this computer to perform.
-    val available: Semaphore = Semaphore(1, true) //Make it thread safe.
-    @JvmField
-    var Tasks: java.util.ArrayList<Any?> = java.util.ArrayList() //The array of tasks.
+    private val queueLock = Any()
+    private val priorityTasks = ArrayDeque<Any?>()
+    private val queuedTasks = ArrayDeque<Any?>()
+    private var runtime: GameServerRuntime? = null
+    private var ownsRuntime = false
+    private var serviceScope: CoroutineScope? = null
+    private var processorJob: Job? = null
+    private var maintenanceJob: Job? = null
+    private var mailboxSignal: Channel<Unit> = Channel(Channel.CONFLATED)
+    private var actorDispatcher: CoroutineDispatcher? = null
+    private var started = false
+    private var active = false
+    private var lastPacketGateLogAt: Long = 0L
 
     //Array of messages since last packet.
     @JvmField
@@ -202,6 +221,7 @@ open class Computer : Runnable {
     //Array list of damage updates.
     @JvmField
     var Damage: java.util.ArrayList<Any?> = java.util.ArrayList()
+    private var currentPacketNetwork: PacketNetwork? = null
 
     //Array list of show choices requests from finalized attacks.
     @JvmField
@@ -1169,14 +1189,67 @@ open class Computer : Runnable {
      * Set whether this computer's thread should currently be running.
      */
     fun setRun(run: Boolean) {
-        Network.getInstance(MyComputerHandler)
-            .removeFromNetwork(network, ip) //Remove the player from their current network.
-        this.run = run
-        val thread = MyThread
-        if (thread != null) {
-            thread.interrupt()
+        if (run) {
+            start()
+            return
         }
-        MyThread = null
+        MyComputerHandler.let { handler ->
+            Network.getInstance(handler).removeFromNetwork(network, ip)
+        }
+        shutdown()
+    }
+
+    @Synchronized
+    fun start(runtime: GameServerRuntime? = null) {
+        if (started) {
+            return
+        }
+
+        val resolvedRuntime = runtime ?: this.runtime ?: GameServerRuntime().also {
+            ownsRuntime = true
+        }
+        this.runtime = resolvedRuntime
+        actorDispatcher = Dispatchers.Default.limitedParallelism(1)
+        serviceScope = CoroutineScope(
+            resolvedRuntime.scope.coroutineContext +
+                (actorDispatcher ?: Dispatchers.Default) +
+                CoroutineName("Computer-$ip")
+        )
+        mailboxSignal = Channel(Channel.CONFLATED)
+        active = true
+        started = true
+
+        val scope = serviceScope ?: return
+        processorJob = scope.launch {
+            processMailboxLoop()
+        }
+        Logger.info("Computer runtime started for ip={}", ip)
+        signalMailbox()
+    }
+
+    override fun start() {
+        start(runtime)
+    }
+
+    override fun shutdown() {
+        active = false
+        mailboxSignal.close()
+        processorJob?.cancel()
+    }
+
+    override suspend fun join() {
+        processorJob?.join()
+        if (ownsRuntime) {
+            runtime?.close()
+            ownsRuntime = false
+        }
+        started = false
+    }
+
+    fun joinBlocking() {
+        runBlocking {
+            join()
+        }
     }
 
     val makeClue: MakeClue?
@@ -1191,6 +1264,63 @@ open class Computer : Runnable {
 
     fun returnPlayer(profile: String?) {
         this.profile = profile
+    }
+
+    fun clearPendingTasks() {
+        synchronized(queueLock) {
+            priorityTasks.clear()
+            queuedTasks.clear()
+        }
+    }
+
+    fun snapshotPendingTasks(): List<Any?> {
+        synchronized(queueLock) {
+            return priorityTasks.toList() + queuedTasks.toList()
+        }
+    }
+
+    fun pendingTaskCount(): Int {
+        synchronized(queueLock) {
+            return priorityTasks.size + queuedTasks.size
+        }
+    }
+
+    private fun submit(item: Any?) {
+        enqueue(item, priority = false)
+    }
+
+    fun submitPriority(item: Any?) {
+        enqueue(item, priority = true)
+    }
+
+    private fun enqueue(item: Any?, priority: Boolean) {
+        if (item == null) {
+            return
+        }
+        synchronized(queueLock) {
+            if (priority) {
+                priorityTasks.addFirst(item)
+            } else {
+                queuedTasks.addLast(item)
+            }
+        }
+        signalMailbox()
+    }
+
+    private fun signalMailbox() {
+        mailboxSignal.trySend(Unit)
+    }
+
+    private fun pollPendingTask(): Any? {
+        synchronized(queueLock) {
+            if (priorityTasks.isNotEmpty()) {
+                return priorityTasks.removeFirst()
+            }
+            if (queuedTasks.isNotEmpty()) {
+                return queuedTasks.removeFirst()
+            }
+        }
+        return null
     }
 
     /**
@@ -1231,8 +1361,6 @@ open class Computer : Runnable {
         MyWatchHandler = WatchHandler(self, MyComputerHandler)
 
         while (lastAccessed == 0L) this.lastAccessed = MyTime.getCurrentTime()
-        MyThread = Thread(this, "Computer - " + ip)
-        MyThread!!.start()
     }
 
     /**
@@ -1277,8 +1405,6 @@ open class Computer : Runnable {
         MyWatchHandler = WatchHandler(self, MyComputerHandler)
 
         while (lastAccessed == 0L) this.lastAccessed = MyTime.getCurrentTime()
-        MyThread = Thread(this, "Computer - " + ip)
-        MyThread!!.start()
     }
 
 
@@ -1289,41 +1415,27 @@ open class Computer : Runnable {
     @JvmField
     var RESEND_CAPTCHA: Boolean = false
     fun setConnectionID(connectionID: Int, loginPassword: String) {
-        try {
-            available.acquire()
-            RESEND_CAPTCHA = true
-            this.lastAccessed = MyTime!!.getCurrentTime()
-            loadRequester = ""
-            Tasks.add(0, setConnectionIDTask(this, connectionID, crypt(loginPassword.toByteArray(), clientHash)))
-            available.release()
+        RESEND_CAPTCHA = true
+        this.lastAccessed = MyTime!!.getCurrentTime()
+        loadRequester = ""
+        submitPriority(setConnectionIDTask(this, connectionID, crypt(loginPassword.toByteArray(), clientHash)))
 
-            if (REMOTE_XMLRPC_ENABLED) {
-                try {
-                    sessionService.requestFunctionPacks(ip)
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                }
+        if (REMOTE_XMLRPC_ENABLED) {
+            try {
+                sessionService.requestFunctionPacks(ip)
+            } catch (e: Exception) {
+                e.printStackTrace()
             }
-            FileIO = true
-        } catch (e: Exception) {
-            available.release()
-            e.printStackTrace()
         }
+        FileIO = true
     }
 
     fun setConnectionID(connectionID: Int) {
-        try {
-            available.acquire()
-            RESEND_CAPTCHA = true
-            this.lastAccessed = MyTime!!.getCurrentTime()
-            loadRequester = ""
-            Tasks.add(0, setConnectionIDTask(this, connectionID, null))
-            available.release()
-            FileIO = true
-        } catch (e: Exception) {
-            available.release()
-            e.printStackTrace()
-        }
+        RESEND_CAPTCHA = true
+        this.lastAccessed = MyTime!!.getCurrentTime()
+        loadRequester = ""
+        submitPriority(setConnectionIDTask(this, connectionID, null))
+        FileIO = true
     }
 
     /**
@@ -1359,8 +1471,8 @@ open class Computer : Runnable {
                 MyHackerServer!!.addData(O)
                 //Make sure we resend the network information.
                 if (network != null) {
-                    Network.getInstance(MyComputerHandler).getNetworkInformation(network)
-                    PA.setPacketNetwork(Network.getInstance(MyComputerHandler).getNetworkInformation(network))
+                    applyFallbackPacketNetwork("legacy-login")
+                    refreshPacketNetworkAsync("legacy-login")
                 }
 
 
@@ -1395,39 +1507,25 @@ open class Computer : Runnable {
      * computer's processing stack.
      */
     fun addData(MyApplicationData: Any?) {
-        try {
-            available.acquire()
-            if (Tasks.size < 50) {
-                operationCount += 1 //Keep track of how many operations have been peformed while this player is logged in.
-                val MAD = MyApplicationData as ApplicationData
-                //We must make sure that the transactional data gets moved to the front of the list.
-                var applicationData = false
-                if (MyApplicationData is ApplicationData) applicationData = true
-
-
-                //if(!applicationData||!locked||!((ApplicationData)MyApplicationData).getSourceIP().equals(ip)||((ApplicationData)MyApplicationData).getSource()!=ApplicationData.OUTSIDE||connectionID==-1){
-                var add = true
-                if (locked) {
-                    val packet: Any? = clientPackets.get(MAD.getFunction())
-                    if (packet != null) {
-                        val count = packet as Int
-                        if (count > 0) {
-                            add = false
-                        }
-                    }
-                }
-                if (add) {
-                    if (MAD.getFunction() == "bank" || MAD.getFunction() == "pettycash") Tasks.add(0, MyApplicationData)
-                    else Tasks.add(MyApplicationData)
-                }
-
-
-                //}
+        val applicationData = MyApplicationData as? ApplicationData ?: return
+        if (pendingTaskCount() >= 50) {
+            return
+        }
+        operationCount += 1
+        var add = true
+        if (locked) {
+            val packet: Any? = clientPackets[applicationData.getFunction()]
+            if (packet is Int && packet > 0) {
+                add = false
             }
-            available.release()
-        } catch (e: Exception) {
-            e.printStackTrace()
-            available.release()
+        }
+        if (!add) {
+            return
+        }
+        if (applicationData.getFunction() == "bank" || applicationData.getFunction() == "pettycash") {
+            submitPriority(applicationData)
+        } else {
+            submit(applicationData)
         }
     }
 
@@ -1667,16 +1765,10 @@ open class Computer : Runnable {
      * Tells the computer to begin loading player data in its thread.
      */
     fun loadSave() {
-        try {
-            if (!Loading) {
-                available.acquire()
-                Loading = true
-                Tasks.add(0, loadSaveTask(this))
-                available.release()
-            }
-        } catch (e: Exception) {
-            available.release()
-            e.printStackTrace()
+        if (!Loading) {
+            Loading = true
+            Logger.info("Queueing loadSave for ip={} connectionId={}", ip, connectionID)
+            submitPriority(loadSaveTask(this))
         }
     }
 
@@ -1933,38 +2025,52 @@ open class Computer : Runnable {
     private var iterationCount = 0
     private var cpuLoadCalculated = false
 
-    @Synchronized
-    override fun run() {
-        while (run) {
-            iterationCount++
-            val startTime = MyTime!!.getCurrentTime()
-
-            try {
-                //LOCK OUR LIST AND POP ONE ENTRY.
-                available.acquire()
-                //Iterator MyIterator=Tasks.iterator();
-                var o: Any? = null
-                //if(MyIterator.hasNext()){
-                if (Tasks.size > 0) {
-                    //o=MyIterator.next();
-                    o = Tasks.get(0)
-                    if ((Loaded && !LOAD_FAILURE) || o !is ApplicationData) {
-                        //MyIterator.remove();
-                        Tasks.removeAt(0)
+    private suspend fun processMailboxLoop() {
+        Logger.info("Computer maintenance loop started for ip={}", ip)
+        var nextMaintenanceAt = MyTime!!.getCurrentTime()
+        while (active) {
+            var processedTask = false
+            while (true) {
+                val now = MyTime!!.getCurrentTime()
+                if (now >= nextMaintenanceAt) {
+                    iterationCount++
+                    try {
+                        runLoopMaintenanceTick()
+                    } catch (e: Exception) {
+                        Logger.error("Computer maintenance tick failed for ip={}", ip, e)
                     }
+                    nextMaintenanceAt = now + MAINTENANCE_INTERVAL_MS
                 }
-                available.release()
 
-                if (!countDown || MyTime!!.getCurrentTime() - countDownStart < COUNTDOWN_LENGTH)  //Has a coundown taken place and the server timed out?
-                    if (o != null) {
-                        processQueuedItem(o, startTime)
+                val queuedItem = pollPendingTask() ?: break
+                processedTask = true
+                val startTime = MyTime!!.getCurrentTime()
+                try {
+                    if (!countDown || MyTime!!.getCurrentTime() - countDownStart < COUNTDOWN_LENGTH) {
+                        processQueuedItem(queuedItem, startTime)
                     }
-            } catch (e: Exception) {
-                e.printStackTrace()
+                } catch (e: Exception) {
+                    Logger.error("Computer mailbox task failed for ip={} taskType={}", ip, queuedItem?.javaClass?.simpleName ?: "null", e)
+                }
             }
-            runLoopMaintenance(startTime)
+
+            if (!active) {
+                break
+            }
+
+            if (!processedTask && pendingTaskCount() == 0) {
+                val now = MyTime!!.getCurrentTime()
+                val waitTime = maxOf(1L, nextMaintenanceAt - now)
+                val signal = withTimeoutOrNull(waitTime) {
+                    mailboxSignal.receiveCatching().getOrNull()
+                }
+                if (signal == null && !active) {
+                    break
+                }
+            } else {
+                yield()
+            }
         }
-        println("Stopping thread" + ip)
     }
 
     private fun processQueuedItem(o: Any?, startTime: Long) {
@@ -2122,9 +2228,41 @@ open class Computer : Runnable {
             lastAccessed = startTime
         }
         if (!checkedWatch) currentWatchCost = MyWatchHandler!!.checkWatches(applicationData, Ports, pettyCash)
+        if (function == "requestdirectory" || function == "requestequipment" || function == "fetchports") {
+            flushStandardPacketNow("processed:$function")
+        }
     }
 
-    private fun runLoopMaintenance(startTime: Long) {
+    internal fun flushStandardPacketNow(reason: String) {
+        if (connectionID < 0 || !Loaded || Loading) {
+            Logger.info(
+                "Skipping forced standard packet flush for ip={} reason={} loaded={} loading={} connectionId={}",
+                ip,
+                reason,
+                Loaded,
+                Loading,
+                connectionID
+            )
+            return
+        }
+        if (!cpuLoadCalculated) {
+            cpuLoadCalculated = true
+        }
+        lastSent = MyTime!!.getCurrentTime() - PACKET_TIMEOUT - 1
+        Logger.info(
+            "Forcing standard packet flush for ip={} reason={} systemChange={} healthChange={} connectionId={}",
+            ip,
+            reason,
+            systemChange,
+            healthChange,
+            connectionID
+        )
+        sendStandardPacket()
+    }
+
+    private fun runLoopMaintenanceTick() {
+        runAttackLogic()
+
         //Check whether or not a packet should currently be sent.
         sendStandardPacket()
         runRuntimeCoordinatorTick()
@@ -2144,37 +2282,13 @@ open class Computer : Runnable {
         }
 
 
-        //Sleep to cut down on processor load.
-        if (Tasks.size == 0) {
-            try {
-                val endTime = MyTime!!.getCurrentTime()
-                if (SLEEP_TIME - (endTime - startTime) > 0) Thread.sleep(SLEEP_TIME - (endTime - startTime))
-            } catch (e: InterruptedException) {
-                if (run) {
-                    e.printStackTrace()
-                }
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-        } else {
-            if (Tasks.size > 10) {
-                CentralLogging.getInstance().addOutput("Username: " + userName + " IP:" + ip + " Spamming?\n")
-            }
+        if (pendingTaskCount() > 10) {
+            CentralLogging.getInstance().addOutput("Username: " + userName + " IP:" + ip + " Spamming?\n")
         }
 
 
         //Dispatch a 3D chat update.
         if (getLoaded() && !getLoading() && type != NPC && GUI_READY) sendChatPacket()
-
-        try {
-            Thread.sleep(50)
-        } catch (e: InterruptedException) {
-            if (run) {
-                e.printStackTrace()
-            }
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
     }
 
     private fun runRuntimeCoordinatorTick() {
@@ -2264,7 +2378,7 @@ open class Computer : Runnable {
 
     private fun buildRuntimeQueuedTasks(): MutableList<RuntimeQueuedTask> {
         val runtimeTasks = java.util.ArrayList<RuntimeQueuedTask>()
-        val queuedItems = java.util.ArrayList<Any?>(Tasks)
+        val queuedItems = java.util.ArrayList<Any?>(snapshotPendingTasks())
         val iterator: MutableIterator<Any?> = queuedItems.iterator()
         while (iterator.hasNext()) {
             val queued = iterator.next()
@@ -2544,26 +2658,21 @@ open class Computer : Runnable {
         if ((MyTime!!.getCurrentTime() - lastAccessed > COMPUTER_TIMEOUT || LOGOUT || LOAD_FAILURE || (countDown && MyTime!!.getCurrentTime() - countDownStart > COUNTDOWN_LENGTH)) && Loaded) {
             //Message the player who requested this load with the error message.
             if ((loadRequester != ip) && LOAD_FAILURE && (loadRequester != "")) {
-                val MyIterator = Tasks.iterator()
-                var o: Any? = null
-                if (MyIterator.hasNext()) {
-                    o = MyIterator.next()
-                    if (o is ApplicationData) {
-                        val AD = o
-                        if (AD.getFunction() == "pettycash") {
-                            MyComputerHandler!!.addData(AD, AD.getSourceIP())
-                        }
-
-                        if (AD.getFunction() == "requestwebpage") {
-                            val PageTitle = "Server Not Found"
-                            val PageBody =
-                                "<html><head><title>Hack Wars - Error report</title><style><!--H1 {font-family:Tahoma,Arial,sans-serif;color:white;background-color:#525D76;font-size:22px;color:white} H2 {font-family:Tahoma,Arial,sans-serif;color:white;background-color:#525D76;font-size:16px;} H3 {font-family:Tahoma,Arial,sans-serif;color:white;background-color:#525D76;font-size:14px;} BODY {background-color:rgb(0,0,0);font-family:Tahoma,Arial,sans-serif;color:black;background-color:white;color:white;} B {font-family:Tahoma,Arial,sans-serif;color:white;background-color:#525D76;color:white;} P {color:white;font-family:Tahoma,Arial,sans-serif;background:white;color:black;font-size:12px;}A {color : black;}A.name {color : black;}HR {color : #525D76;}--></style> </head><body><h1 style=\"width:100%\">HTTP Status 408</h1><HR size=\"1\" noshade=\"noshade\"><p style=\"background-color:black;\"><b>type</b> HTTP Error</p><p style=\"background-color:black;\"><b>message</b> <u>Resource not found.</u></p><p style=\"background-color:black\"><b>description</b> <u>The HTTP server of the player you attempted to connect to does not seem to be on.</u></p><HR size=\"1\" noshade=\"noshade\"><h3>&copy; Hack Wars</h3></body></html>"
-                            val Files: Array<Any?>? = null
-                            val O: Array<Any?>? = arrayOf<Any?>(PageTitle, PageBody, Files, 0)
-                            MyComputerHandler!!.addData(ApplicationData("webpage", O, 0, ip), AD.getSourceIP())
-                        }
+                val queued = pollPendingTask()
+                if (queued is ApplicationData) {
+                    val AD = queued
+                    if (AD.getFunction() == "pettycash") {
+                        MyComputerHandler!!.addData(AD, AD.getSourceIP())
                     }
-                    MyIterator.remove()
+
+                    if (AD.getFunction() == "requestwebpage") {
+                        val PageTitle = "Server Not Found"
+                        val PageBody =
+                            "<html><head><title>Hack Wars - Error report</title><style><!--H1 {font-family:Tahoma,Arial,sans-serif;color:white;background-color:#525D76;font-size:22px;color:white} H2 {font-family:Tahoma,Arial,sans-serif;color:white;background-color:#525D76;font-size:16px;} H3 {font-family:Tahoma,Arial,sans-serif;color:white;background-color:#525D76;font-size:14px;} BODY {background-color:rgb(0,0,0);font-family:Tahoma,Arial,sans-serif;color:black;background-color:white;color:white;} B {font-family:Tahoma,Arial,sans-serif;color:white;background-color:#525D76;color:white;} P {color:white;font-family:Tahoma,Arial,sans-serif;background:white;color:black;font-size:12px;}A {color : black;}A.name {color : black;}HR {color : #525D76;}--></style> </head><body><h1 style=\"width:100%\">HTTP Status 408</h1><HR size=\"1\" noshade=\"noshade\"><p style=\"background-color:black;\"><b>type</b> HTTP Error</p><p style=\"background-color:black;\"><b>message</b> <u>Resource not found.</u></p><p style=\"background-color:black\"><b>description</b> <u>The HTTP server of the player you attempted to connect to does not seem to be on.</u></p><HR size=\"1\" noshade=\"noshade\"><h3>&copy; Hack Wars</h3></body></html>"
+                        val Files: Array<Any?>? = null
+                        val O: Array<Any?>? = arrayOf<Any?>(PageTitle, PageBody, Files, 0)
+                        MyComputerHandler!!.addData(ApplicationData("webpage", O, 0, ip), AD.getSourceIP())
+                    }
                 }
 
 
@@ -2866,12 +2975,37 @@ open class Computer : Runnable {
         /**
          * AT THE END OF THE PACKET TIMEOUT DISPATCH A PACKET TO THE CLIENT.
          */
-        if (systemChange || healthChange) if (cpuLoadCalculated && getLoaded() && !getLoading() && MyTime!!.getCurrentTime() - lastSent > PACKET_TIMEOUT && connectionID >= 0) {
+        val now = MyTime!!.getCurrentTime()
+        val shouldSend = systemChange || healthChange
+        val loaded = getLoaded()
+        val loading = getLoading()
+        val sinceLastSent = now - lastSent
+        val sendGateOpen = cpuLoadCalculated && loaded && !loading && sinceLastSent > PACKET_TIMEOUT && connectionID >= 0
+
+        if (shouldSend && !sendGateOpen && now - lastPacketGateLogAt > 2000) {
+            lastPacketGateLogAt = now
+            Logger.info(
+                "Standard packet blocked for ip={} systemChange={} healthChange={} cpuLoadCalculated={} loaded={} loading={} connectionId={} sinceLastSent={} lastAttackAge={}",
+                ip,
+                systemChange,
+                healthChange,
+                cpuLoadCalculated,
+                loaded,
+                loading,
+                connectionID,
+                sinceLastSent,
+                now - lastAttack
+            )
+        }
+
+        if (shouldSend) if (sendGateOpen) {
             if (systemChange) {
                 systemChange = false
-                standardPacketBuilder.populate(PA, buildStandardPacketSnapshot())
+                val snapshot = buildStandardPacketSnapshot()
+                standardPacketBuilder.populate(PA, snapshot)
                 Messages.clear()
                 Choices.clear()
+                val includedPreferences = sendPreferences
                 if (LOG_UPDATE) {
                     LOG_UPDATE = false
                 }
@@ -2880,22 +3014,107 @@ open class Computer : Runnable {
                 }
 
                 val O: Array<Any?>? = arrayOf<Any?>(PA, connectionID)
+                Logger.debug(
+                    "Dispatching standard packet for ip={} connectionId={} messages={} preferences={}",
+                    ip,
+                    connectionID,
+                    snapshot.messages.size,
+                    includedPreferences
+                )
+                Logger.info(
+                    "Standard packet contents for ip={} connectionId={} requestPrimary={} requestHardware={} directory={} secondaryDirectory={} packetPorts={} packetNetwork={}",
+                    ip,
+                    connectionID,
+                    PA.requestPrimary(),
+                    PA.requestHardware,
+                    PA.directory != null,
+                    PA.secondaryDirectory != null,
+                    PA.packetPorts?.size ?: 0,
+                    PA.packetNetwork != null
+                )
 
                 MyHackerServer!!.addData(O)
                 lastSent = MyTime!!.getCurrentTime()
                 PA = PacketAssignment(0)
+                currentPacketNetwork?.let(PA::setPacketNetwork)
             }
 
             if (healthChange) {
                 healthChange = false
-                damagePacketBuilder.populate(DA, buildDamagePacketSnapshot())
+                val snapshot = buildDamagePacketSnapshot()
+                damagePacketBuilder.populate(DA, snapshot)
                 Damage.clear()
 
                 val O: Array<Any?>? = arrayOf<Any?>(DA, connectionID)
+                Logger.debug(
+                    "Dispatching damage packet for ip={} connectionId={} damageEvents={} healthUpdates={}",
+                    ip,
+                    connectionID,
+                    snapshot.damageEntries.size,
+                    snapshot.healthUpdates.size
+                )
                 MyHackerServer!!.addData(O)
                 lastSent = MyTime!!.getCurrentTime()
                 DA = DamageAssignment(0)
             }
+        }
+    }
+
+    internal fun applyFallbackPacketNetwork(reason: String) {
+        val packetNetwork = PacketNetwork()
+        packetNetwork.name = network ?: Network.ROOT_NETWORK
+        packetNetwork.setAttackNPCs(ArrayList<Any?>())
+        packetNetwork.questNPCs = ArrayList<Any?>()
+        packetNetwork.miningNPCs = ArrayList<Any?>()
+        packetNetwork.storeNPCs = ArrayList<Any?>()
+        packetNetwork.storeIP = store ?: ""
+        applyPersistentPacketNetwork(packetNetwork)
+        Logger.info(
+            "Applied fallback packet network for ip={} reason={} network={} storeIp={}",
+            ip,
+            reason,
+            packetNetwork.name,
+            packetNetwork.storeIP
+        )
+    }
+
+    private fun applyPersistentPacketNetwork(packetNetwork: PacketNetwork) {
+        currentPacketNetwork = packetNetwork
+        PA.setPacketNetwork(packetNetwork)
+    }
+
+    internal fun refreshPacketNetworkAsync(reason: String) {
+        val resolvedRuntime = runtime
+        if (resolvedRuntime == null) {
+            Logger.warn("Skipping async packet network refresh for ip={} reason={} because runtime is unavailable", ip, reason)
+            return
+        }
+
+        Logger.info("Scheduling async packet network refresh for ip={} reason={}", ip, reason)
+        resolvedRuntime.scope.launch(resolvedRuntime.ioDispatcher + CoroutineName("ComputerNetworkRefresh-$ip")) {
+            val packetNetwork = runCatching {
+                Network.getInstance(MyComputerHandler).getNetworkInformation(network)
+            }.onFailure {
+                Logger.error("Failed to resolve packet network for ip={} reason={}", ip, reason, it)
+            }.getOrNull() ?: return@launch
+
+            submitPriority(object : Task {
+                override fun execute() {
+                    applyPersistentPacketNetwork(packetNetwork)
+                    store = packetNetwork.storeIP
+                    systemChange = true
+                    Logger.info(
+                        "Applied resolved packet network for ip={} reason={} regular={} quest={} mining={} store={}",
+                        ip,
+                        reason,
+                        packetNetwork.regularNPCs?.size ?: 0,
+                        packetNetwork.questNPCs?.size ?: 0,
+                        packetNetwork.miningNPCs?.size ?: 0,
+                        packetNetwork.storeNPCs?.size ?: 0
+                    )
+                    flushStandardPacketNow("network:$reason")
+                }
+            })
         }
     }
 
@@ -3066,7 +3285,8 @@ open class Computer : Runnable {
     }
 
     companion object {
-        //Runnable is an interface that allows us to make this class be a thread.
+        private val Logger = LoggerFactory.getLogger(Computer::class.java)
+
         private fun getPropertySafe(key: String, fallback: String?): String? {
             try {
                 return System.getProperty(key, fallback)
@@ -3275,6 +3495,7 @@ open class Computer : Runnable {
         const val NPC: Int = 1
         const val COUNTDOWN_LENGTH: Long = 180000 //How long should a countdown take?
 
+        const val MAINTENANCE_INTERVAL_MS: Long = 50
         const val SLEEP_TIME: Long = 50 //How often can we process a remote call?
         const val OVER_HEAT_TIME: Long = 60000 //How long should an overheat take place for.
 
@@ -3332,6 +3553,10 @@ internal class ComputerLoadCoordinator(
     private val persistenceSupport: LegacyComputerPersistenceSupport,
     private val postLoadBootstrap: ComputerPostLoadBootstrap = ComputerPostLoadBootstrap()
 ) {
+    companion object {
+        private val Logger = LoggerFactory.getLogger(ComputerLoadCoordinator::class.java)
+    }
+
     constructor(
         sessionService: ComputerSessionService,
         xmlComputerPersistence: XmlComputerPersistence,
@@ -3340,6 +3565,7 @@ internal class ComputerLoadCoordinator(
 
     fun execute(computer: Computer) {
         try {
+            Logger.info("Starting load coordinator for ip={} connectionId={}", computer.ip, computer.connectionID)
             authenticatePendingConnection(computer)
 
             val activeLoad = !computer.loadRequester.isNullOrEmpty()
@@ -3362,15 +3588,18 @@ internal class ComputerLoadCoordinator(
             val xml = sessionService.loadLocalSaveXml(computer.ip, activeLoad)
             val snapshot = xmlComputerPersistence.parse(xml)
             persistenceSupport.restoreSnapshot(computer, snapshot)
+            Logger.info("Finished load restore for ip={} activeLoad={}", computer.ip, activeLoad)
         } catch (e: Exception) {
             computer.errorMessage = e.message?.takeIf { it.isNotEmpty() }
                 ?: "Unable to load local account data for ip=${computer.ip}."
+            Logger.error("Load coordinator failed for ip={}", computer.ip, e)
             e.printStackTrace()
             computer.LOAD_FAILURE = true
         }
 
         computer.Loaded = true
         computer.Loading = false
+        Logger.info("Applying post-load bootstrap for ip={} loadFailure={}", computer.ip, computer.LOAD_FAILURE)
         postLoadBootstrap.apply(computer)
     }
 
@@ -3380,6 +3609,7 @@ internal class ComputerLoadCoordinator(
         }
 
         if (!computer.checkLogin()) {
+            Logger.warn("Pending connection authentication failed for ip={} connectionId={}", computer.ip, computer.connectionID)
             computer.MyHackerServer!!.addData(arrayOf(LoginFailedAssignment(0), computer.connectionID))
             computer.connectionID = -1
             return
@@ -3388,24 +3618,41 @@ internal class ComputerLoadCoordinator(
         val randomKey = computer.MyHackerServer!!.getRandomKey(computer.ip, computer.getClientHash(), computer.publicKey)
         val loginSuccessAssignment = LoginSuccessAssignment(0, computer.ip, randomKey[0] as String, computer.isNPC())
         loginSuccessAssignment.setPublicKey(randomKey[1] as ByteArray)
+        Logger.info("Authenticated pending connection for ip={}, dispatching LoginSuccessAssignment", computer.ip)
         computer.MyHackerServer!!.addData(arrayOf(loginSuccessAssignment, computer.connectionID))
     }
 }
 
 internal class ComputerPostLoadBootstrap {
+    companion object {
+        private val Logger = LoggerFactory.getLogger(ComputerPostLoadBootstrap::class.java)
+    }
+
     fun apply(computer: Computer) {
         if (computer.connectionID == -1) {
+            Logger.info("Skipping post-load bootstrap for ip={} because connection is closed", computer.ip)
             return
         }
 
         if (computer.LOAD_FAILURE) {
+            Logger.warn("Post-load bootstrap sending login failure for ip={}", computer.ip)
             computer.MyHackerServer!!.addData(arrayOf(LoginFailedAssignment(0), computer.connectionID))
             computer.connectionID = -1
             return
         }
 
+        Logger.info("Post-load bootstrap registering loaded computer ip={}", computer.ip)
         computer.MyComputerHandler.getMyComputerHandler().addComputer(computer)
-        computer.PA.setPacketNetwork(Network.getInstance(computer.MyComputerHandler).getNetworkInformation(computer.network))
+        Logger.info("Post-load bootstrap registered loaded computer ip={}", computer.ip)
+        computer.applyFallbackPacketNetwork("post-load bootstrap")
+        Logger.info("Post-load bootstrap configured packet network ip={}", computer.ip)
+        computer.refreshPacketNetworkAsync("post-load bootstrap")
+        computer.PA.setRequestPrimary(true, 1)
         computer.sendPreferences = true
+        computer.systemChange = true
+        computer.healthChange = true
+        computer.LOG_UPDATE = true
+        Logger.info("Post-load bootstrap forcing initial packet flush ip={}", computer.ip)
+        computer.flushStandardPacketNow("post-load bootstrap")
     }
 }

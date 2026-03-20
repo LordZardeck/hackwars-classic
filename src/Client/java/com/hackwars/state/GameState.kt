@@ -180,7 +180,15 @@ open class GameState : DataHandler, Runnable {
             }
 
             when (o) {
-                is PacketAssignment, is DamageAssignment -> packets.add(o)
+                is PacketAssignment -> {
+                    println(
+                        "Received PacketAssignment after login: requestPrimary=${o.requestPrimary()} requestHardware=${o.requestHardware} " +
+                            "directory=${o.directory != null} secondaryDirectory=${o.secondaryDirectory != null} " +
+                            "packetPorts=${o.packetPorts?.size ?: 0} messages=${o.messages?.size ?: 0}"
+                    )
+                    synchronized(packets) { packets.add(o) }
+                }
+                is DamageAssignment -> synchronized(packets) { packets.add(o) }
                 is ArrayMessageOut -> runCatching { hackerState?.chatController?.processMessage(o) }.onFailure {
                     it.printStackTrace()
                 }
@@ -200,13 +208,18 @@ open class GameState : DataHandler, Runnable {
 
         when (o) {
             is PacketAssignment -> {
-                packets.add(o)
+                println(
+                    "Received PacketAssignment before finished creating: requestPrimary=${o.requestPrimary()} requestHardware=${o.requestHardware} " +
+                        "directory=${o.directory != null} secondaryDirectory=${o.secondaryDirectory != null} " +
+                        "packetPorts=${o.packetPorts?.size ?: 0} messages=${o.messages?.size ?: 0}"
+                )
+                synchronized(packets) { packets.add(o) }
                 println("Received a packet before finished creating")
             }
 
-            is DamageAssignment -> packets.add(o)
+            is DamageAssignment -> synchronized(packets) { packets.add(o) }
             is ArrayMessageOut -> {
-                packets.add(o)
+                synchronized(packets) { packets.add(o) }
                 println("Got Array Message Out Before Loaded")
             }
 
@@ -322,6 +335,8 @@ open class GameState : DataHandler, Runnable {
 
     fun finishedLoading() {
         open = true
+        val bufferedPackets = synchronized(packets) { packets.size }
+        println("Finished loading UI, buffered packets=$bufferedPackets")
         fireFinishedLoadingEvent()
     }
 
@@ -362,9 +377,24 @@ open class GameState : DataHandler, Runnable {
             } catch (e: Exception) {
                 e.printStackTrace()
             }
-            if (hackerState?.loading != null) {
-                for (j in packets.indices) {
-                    packets[j] = when (val packet = packets[j]) {
+            if (hackerState?.loading == false) {
+                val bufferedItems = synchronized(packets) {
+                    if (packets.isEmpty()) {
+                        emptyList()
+                    } else {
+                        val snapshot = packets.toList()
+                        packets.clear()
+                        snapshot
+                    }
+                }
+
+                if (bufferedItems.isNotEmpty()) {
+                    val itemSummary = bufferedItems.groupingBy { it?.javaClass?.simpleName ?: "null" }.eachCount()
+                    println("Draining buffered items: $itemSummary")
+                }
+
+                for (packet in bufferedItems) {
+                    when (packet) {
                         is PacketAssignment -> hackerPacketListener.onPacketAssignment(
                             AssignmentEvent(this, packet)
                         )
@@ -373,12 +403,11 @@ open class GameState : DataHandler, Runnable {
                             AssignmentEvent(this, packet)
                         )
 
-                        else -> packet
-                    }.takeUnless { it is Unit }
+                        is ArrayMessageOut -> runCatching {
+                            hackerState?.chatController?.processMessage(packet)
+                        }.onFailure { it.printStackTrace() }
+                    }
                 }
-
-                //Remove processed packets.
-                packets.iterator().run { while (hasNext()) next() ?: remove() }
             }
             if (hackerState != null) {
                 runCatching {

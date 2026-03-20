@@ -17,6 +17,11 @@ class HackerPacketListener(private val onFunctionCall: (RemoteFunctionCall) -> U
 
     override fun onPacketAssignment(event: AssignmentEvent<PacketAssignment>) {
         val assignment = event.assignment
+        println(
+            "Applying PacketAssignment: requestPrimary=${assignment.requestPrimary()} requestHardware=${assignment.requestHardware} " +
+                "directory=${assignment.directory != null} secondaryDirectory=${assignment.secondaryDirectory != null} " +
+                "packetPorts=${assignment.packetPorts?.size ?: 0} messages=${assignment.messages?.size ?: 0}"
+        )
 
         synchronized(lock) {
             receiver?.let { receiver ->

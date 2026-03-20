@@ -2,446 +2,383 @@ package hackersearch.util
 
 import com.plink.dolphinstem.ItemData
 import com.plink.dolphinstem.TextSource
-import com.plink.dolphinstem.WordBinaryList
 import com.plink.dolphinstem.WordData
 import hackersearch.assignments.SearchAssignment
 import hackersearch.assignments.SearchResult
 import hackersearch.assignments.SearchResultAssignment
 import hackersearch.server.SearchServer
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.channels.Channel
 import org.w3c.dom.Node
+import server.runtime.GameServerRuntime
+import server.runtime.GameServerService
 import util.LoadXML
-import util.Time
 import util.sql
 import java.util.ArrayList
-import java.util.Iterator
-import java.util.concurrent.Semaphore
+import java.util.HashMap
+import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicInteger
+import kotlin.math.min
 
-open class SearchHandler(MyServer: SearchServer?) : Runnable {
-    private var MyTime: Time? = null
-    private var ExecuteStack = ArrayList<Any?>()
-    private var MyThread: Thread? = null
-    private var MyServer: SearchServer? = null
-    private val available = Semaphore(1, true)
-    private var MyInverseLookup = InverseLookup()
-    private var DocumentFrequency = WordBinaryList()
-    private var SDBL = SiteDataBinaryList()
-    private var currentlyIndexed = 0
-    private var fileCount = 0
-    private var fileList: Array<String?>? = null
-    private var count = 0
-    private var Connection = "127.0.0.1"
-    private var DB = "hackwars"
-    private var Username = "root"
-    private var Password = ""
+open class SearchHandler(
+    private var myServer: SearchServer?,
+    runtime: GameServerRuntime? = null
+) : GameServerService {
+    private val Connection = "127.0.0.1"
+    private val DB = "hackwars"
+    private val Username = "root"
+    private val Password = ""
+    private val ownsRuntime = runtime == null
+    private val runtime: GameServerRuntime = runtime ?: GameServerRuntime()
+    private val commands = Channel<SearchCommand>(Channel.UNLIMITED)
+    private val started = AtomicBoolean(false)
+    private val shutdownRequested = AtomicBoolean(false)
+    private val pendingOperations = AtomicInteger(0)
+    private var workerJob: Job? = null
+    private var snapshot = SearchSnapshot()
 
-    init {
-        this.MyTime = Time.getInstance()
-        this.MyServer = MyServer
-
-        try {
-            fileCount = 0
-            val C = sql(Connection, DB, Username, Password)
-            var result: ArrayList<Any?>? = null
-            val Q = "select max(num) from user;"
-            result = C.process(Q)
-            if (result != null) {
-                fileCount = Integer.parseInt(result[0] as String)
-            }
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
-
-        MyThread = Thread(this)
-        MyThread!!.start()
+    fun bindServer(server: SearchServer?) {
+        myServer = server
     }
 
-    @Suppress("unused")
-    inner class requestSearchTask(private var MySearchAssignment: SearchAssignment?) : Task {
-        private var EliminateDuplicate = WordBinaryList()
+    override fun start() {
+        start(true)
+    }
 
-        override fun execute() {
+    fun start(primeFromDatabase: Boolean = true) {
+        if (!started.compareAndSet(false, true)) {
+            return
         }
 
-        fun executeBlocking(): SearchResultAssignment {
-            var result: SearchResultAssignment? = null
-            val SearchTerms = MySearchAssignment!!.getVector()
-            if (SearchTerms != null) {
-                val Results = arrayOfNulls<WordIndex>(SearchTerms.getData().size)
-                for (i in 0 until SearchTerms.getData().size) {
-                    Results[i] = MyInverseLookup.get(((SearchTerms.getData()[i]) as WordData).getData()) as WordIndex?
-                }
-
-                result = calculatePageRank(Results, SearchTerms)
-                if (result == null) {
-                    result = SearchResultAssignment(0)
-                }
-            }
-
-            val Results = result!!.getResults()
-            for (i in 0 until Results.size) {
-                val SR = Results[i] as SearchResult
-            }
-
-            return result!!
+        if (primeFromDatabase) {
+            bootstrapFromDatabase()
         }
 
-        private fun calculatePageRank(Results: Array<WordIndex?>?, SearchTerms: WordBinaryList): SearchResultAssignment {
-            val returnMe = SearchResultAssignment(MySearchAssignment!!.getID())
-            for (i in 0 until SearchTerms.getData().size) {
-                returnMe.addSearchTerm(((SearchTerms.getData()[i]) as WordData).getData())
-            }
-            val SearchResults = RankBinaryList()
+        workerJob = runtime.serialScope("SearchHandler").launch {
+            processCommands()
+        }
+    }
 
-            if (Results != null) {
-                if (Results.isEmpty()) {
-                    return returnMe
-                }
+    override fun shutdown() {
+        if (!shutdownRequested.compareAndSet(false, true)) {
+            return
+        }
 
-                val Counters = IntArray(Results.size)
-                val Sites = arrayOfNulls<SiteIndex>(Results.size)
+        commands.close()
+    }
 
-                var stop = false
-                while (!stop) {
-                    for (i in Results.indices) {
-                        if (Results[i] != null) {
-                            Sites[i] = if (Counters[i] < Results[i]!!.getSiteBinaryList().getData().size) {
-                                Results[i]!!.getSiteBinaryList().getData()[Counters[i]] as SiteIndex
-                            } else {
-                                null
-                            }
-                        } else {
-                            Sites[i] = null
-                        }
-                    }
+    override suspend fun join() {
+        workerJob?.join()
+        if (ownsRuntime) {
+            runtime.close()
+        }
+    }
 
-                    var Minimum = Sites[0]
-                    var minimumIndex = 0
-                    for (i in 1 until Sites.size) {
-                        if (Minimum == null) {
-                            Minimum = Sites[i]
-                            minimumIndex = i
-                        } else if (Sites[i] != null) {
-                            if (Sites[i]!!.getAddress().compareTo(Minimum.getAddress()) < 0) {
-                                Minimum = Sites[i]
-                                minimumIndex = i
-                            }
-                        }
-                    }
+    suspend fun awaitIdle() {
+        if (!started.get() || shutdownRequested.get()) {
+            return
+        }
 
-                    if (Minimum == null) {
-                        break
-                    }
+        val barrier = CompletableDeferred<Unit>()
+        commands.send(SearchCommand.Barrier(barrier))
+        barrier.await()
+    }
 
-                    val AddMe = Minimum.clone()
-                    var mcount = 0
-                    for (i in Sites.indices) {
-                        if (Sites[i] != null) {
-                            val temp = Sites[i]
-                            if (temp!!.getAddress().equals(Minimum.getAddress())) {
-                                if (i != minimumIndex) {
-                                    AddMe.setRank(AddMe.getRank() + temp.getRank())
-                                }
-                                Counters[i]++
-                                mcount++
-                            }
-                        }
-                    }
-                    if (mcount == Sites.size) {
-                        AddMe.setRank(AddMe.getRank() / 3.0)
-                        SearchResults.add(AddMe)
-                    }
+    fun requestSearch(mySearchAssignment: SearchAssignment): SearchResultAssignment {
+        val currentSnapshot = snapshot
+        val searchTerms = mySearchAssignment.getVector()
+            ?.getData()
+            ?.mapNotNull { it as? WordData }
+            ?.mapNotNull { word -> word.getData()?.toString()?.lowercase() }
+            .orEmpty()
 
-                    stop = true
-                    for (i in Results.indices) {
-                        if (Results[i] != null) {
-                            if (Counters[i] < Results[i]!!.getSiteBinaryList().getData().size) {
-                                stop = false
-                                break
-                            }
-                        }
-                    }
-                }
-            }
+        val returnMe = SearchResultAssignment(mySearchAssignment.getID())
+        searchTerms.forEach(returnMe::addSearchTerm)
 
-            var result: ArrayList<Any?>? = null
-            if (SearchResults.getData().size - MySearchAssignment!!.getIndex() > 0) {
-                val upperBound = Math.min(ReturnCount, SearchResults.getData().size - MySearchAssignment!!.getIndex()) + MySearchAssignment!!.getIndex()
-                for (i in MySearchAssignment!!.getIndex() until upperBound) {
-                    val SI = SearchResults.getData()[i] as SiteIndex
-                    val SD = SDBL.get(SI.getAddress()) as SiteData
-
-                    val title = SD.getTitle()
-                    val description = SD.getDescription()
-                    val SR = SearchResult()
-                    SR.setAddress(SD.getAddress())
-                    SR.setTitle(title)
-                    SR.setDescription(description)
-                    returnMe.addResult(SR)
-                }
-            }
-
-            returnMe.setCurrent(MySearchAssignment!!.getIndex())
-            returnMe.setSize(SearchResults.getData().size)
-
+        if (searchTerms.isEmpty()) {
+            returnMe.setCurrent(mySearchAssignment.getIndex())
+            returnMe.setSize(0)
             return returnMe
         }
-    }
 
-    fun requestSearch(MySearchAssignment: SearchAssignment): SearchResultAssignment {
-        try {
-            available.acquire()
-            val RST = requestSearchTask(MySearchAssignment)
-            return RST.executeBlocking()
-        } catch (e: Exception) {
-            e.printStackTrace()
-        } finally {
-            available.release()
+        val ranked = currentSnapshot.pagesByAddress.values
+            .mapNotNull { page ->
+                val score = page.score(searchTerms)
+                if (score > 0.0) {
+                    page to score
+                } else {
+                    null
+                }
+            }
+            .sortedWith(
+                compareByDescending<Pair<IndexedPage, Double>> { it.second }
+                    .thenBy { it.first.address }
+            )
+
+        val startIndex = mySearchAssignment.getIndex().coerceAtLeast(0)
+        if (startIndex >= ranked.size) {
+            returnMe.setCurrent(startIndex)
+            returnMe.setSize(ranked.size)
+            return returnMe
         }
-        @Suppress("UNREACHABLE_CODE")
-        return null as SearchResultAssignment
-    }
 
-    inner class indexPageTask(private var title: String?, private var address: String?, private var content: String?) : Task {
-        override fun execute() {
-            title = title!!.replace(Regex("\\<.*?\\>"), "")
-            title = title!!.replace(Regex("\\&.*?;"), "")
-            content = content!!.replace(Regex("\\<.*?\\>"), "")
-            content = content!!.replace(Regex("\\&.*?;"), "")
-
-            if (SDBL.get(address) != null) {
-                val SD = SDBL.get(address) as SiteData
-                val WBL = SD.getTerms()
-                for (i in 0 until WBL.getData().size) {
-                    val WD = WBL.getData()[i] as WordData
-                    val WI = MyInverseLookup.get(WD.getData()) as WordIndex
-                    val SBL = WI.getSiteBinaryList()
-                    val SI = SBL.get(SD.getAddress()) as SiteIndex
-                    WI.removeSite(SI)
-
-                    if (SBL.getData().size == 0) {
-                        MyInverseLookup.remove(WD.getData())
-                    }
-
-                    val DFWD = DocumentFrequency.get(WD.getData()) as WordData?
-                    if (DFWD != null) {
-                        DFWD.setFrequency(DFWD.getFrequency() - 1.0)
-                        if (DFWD.getFrequency() <= 0.0) {
-                            DocumentFrequency.remove(WD.getData())
-                        }
-                    }
-                }
-                SDBL.remove(address)
-            }
-
-            var WBL: WordBinaryList? = null
-            val PrimeMe = ArrayList<Any?>()
-            PrimeMe.add(content)
-            val Prime = TextSource("source", PrimeMe)
-            Prime.setStopWordFile(STOP_WORD_LOCATION)
-            Prime.prime()
-            val temp = Prime.getItems()
-
-            if (temp != null) {
-                if (temp.size > 0) {
-                    WBL = (temp[0] as ItemData).getVectorData()
-                }
-            }
-
-            if (WBL != null) {
-                DocumentFrequency.addList(WBL)
-
-                var tCount = 0.0f
-                for (i in 0 until WBL.getData().size) {
-                    tCount += (WBL.getData()[i] as WordData).getFrequency().toFloat()
-                }
-
-                val WBLRanked = WordBinaryListByRank()
-                for (i in 0 until WBL.getData().size) {
-                    val WD = WBL.getData()[i] as WordData
-                    val DF = WD.getFrequency() / tCount
-                    val WDIDF = DocumentFrequency.get(WD.getData()) as WordData
-                    val IDF = Math.log(WDIDF.getFrequency() * currentlyIndexed)
-                    WD.setFrequency(DF * IDF)
-                    WBLRanked.add(WD)
-                }
-
-                WBL = WordBinaryList()
-                for (i in 0 until WBLRanked.getData().size) {
-                    WBL.add(WBLRanked.getData()[i] as WordData)
-                    if (i == 512) {
-                        break
-                    }
-                }
-
-                val SD = SiteData()
-                var description = content!!
-                if (description.length >= 128) {
-                    description = description.substring(0, 128) + "..."
-                }
-                SD.setDescription(description)
-                SD.setTitle(title)
-                SD.setAddress(address)
-                SD.setTerms(WBL)
-                SDBL.add(SD)
-
-                for (i in 0 until WBL.getData().size) {
-                    val WD = WBL.getData()[i] as WordData
-                    val SI = SiteIndex()
-                    SI.setAddress(address)
-                    SI.setRank(WD.getFrequency())
-                    val WI = MyInverseLookup.get(WD.getData()) as WordIndex?
-                    var RBL: RankBinaryList? = null
-                    var SBL: SiteBinaryList? = null
-
-                    if (WI != null) {
-                        RBL = WI.getRankBinaryList()
-
-                        while (RBL.get(SI.getRank()) != null) {
-                            SI.setRank(SI.getRank() + 0.0000001)
-                        }
-
-                        SBL = WI.getSiteBinaryList()
-                        WI.addSite(SI)
-                    } else if (MyInverseLookup.getData().size < 100000) {
-                        val NewWI = WordIndex(WD.getData(), "")
-                        NewWI.addSite(SI)
-                        MyInverseLookup.add(NewWI)
-                    }
-                }
-            }
+        val upperBound = min(startIndex + ReturnCount, ranked.size)
+        for (i in startIndex until upperBound) {
+            val page = ranked[i].first
+            val result = SearchResult()
+            result.setAddress(page.address)
+            result.setTitle(page.title)
+            result.setDescription(page.description)
+            returnMe.addResult(result)
         }
+
+        returnMe.setCurrent(startIndex)
+        returnMe.setSize(ranked.size)
+        return returnMe
     }
 
     fun indexPage(title: String, address: String, content: String) {
-        try {
-            available.acquire()
-            ExecuteStack.add(indexPageTask(title, address, content))
-            currentlyIndexed++
-        } catch (e: Exception) {
-            e.printStackTrace()
-        } finally {
-            available.release()
+        if (shutdownRequested.get()) {
+            return
         }
-    }
 
-    override fun run() {
-        while (true) {
-            val startTime = MyTime!!.getCurrentTime()
-            try {
-                available.acquire()
-                val MyIterator = ExecuteStack.iterator()
+        if (!started.get()) {
+            applyIndexedPage(title, address, content)
+            return
+        }
 
-                while (MyIterator.hasNext()) {
-                    val MyTask = MyIterator.next() as Task
-                    MyTask.execute()
-                    MyIterator.remove()
-                }
-
-                available.release()
-
-                if (currentlyIndexed < fileCount + 1) {
-                    try {
-                        val LX = LoadXML()
-                        var Data = ""
-                        var ip = ""
-                        val C = sql(Connection, DB, Username, Password)
-                        var result: ArrayList<Any?>? = null
-                        var Q = "select stats,ip from user where num=" + (currentlyIndexed + 1) + ";"
-                        result = C.process(Q)
-                        if (result != null) {
-                            Data = result[0] as String
-                            ip = result[1] as String
-                        }
-                        Q = "SELECT TO_DAYS(NOW())-TO_DAYS(last_logged_in),npc FROM hackerforum.users WHERE ip='" + ip + "'"
-                        result = C.process(Q)
-                        if ((Integer.parseInt(result!![0] as String) < 14) || ((result[1] as String).equals('Y'))) {
-                            LX.loadByteArray(Data.toByteArray())
-
-                            var address = ""
-                            var title = ""
-                            var content = ""
-
-                            var N: Node? = LX.findNodeRecursive("ip", 0)
-                            N = LX.findNodeRecursive(N, "#text", 0)
-                            if (N != null) {
-                                address = N.nodeValue
-                            }
-
-                            N = LX.findNodeRecursive("title", 0)
-                            N = LX.findNodeRecursive(N, "#text", 0)
-                            if (N != null) {
-                                title = N.nodeValue
-                            }
-
-                            N = LX.findNodeRecursive("body", 0)
-                            N = LX.findNodeRecursive(N, "#text", 0)
-                            if (N != null) {
-                                content = N.nodeValue
-                            }
-
-                            content = content.replace(Regex("\\<.*?\\>"), "")
-                            content = content.replace(Regex("\\&.*?;"), "")
-                            content = content.replace(Regex("\\n"), "")
-
-                            indexPage(title, address, content.lowercase())
-
-                            if (currentlyIndexed == fileCount) {
-                                fileList = null
-                            }
-                            if (count % 100 == 0) {
-                                System.out.println("Current Index: " + count)
-                            }
-                            count++
-                        } else {
-                            if (count % 100 == 0) {
-                                System.out.println("Current Index: " + count)
-                            }
-                            currentlyIndexed++
-                            count++
-                        }
-                        C.close()
-                    } catch (e: Exception) {
-                        currentlyIndexed++
-                        count++
-                    }
-                }
-            } catch (e: Exception) {
-            } finally {
-                available.release()
-            }
-
-            try {
-                val endTime = MyTime!!.getCurrentTime()
-                if (sleepTime - (endTime - startTime) > 0) {
-                    Thread.sleep(sleepTime - (endTime - startTime))
-                }
-            } catch (e: Exception) {
-            }
+        pendingOperations.incrementAndGet()
+        if (!commands.trySend(SearchCommand.IndexPage(title, address, content)).isSuccess) {
+            pendingOperations.decrementAndGet()
+            applyIndexedPage(title, address, content)
         }
     }
 
     fun getLoaded(): Boolean {
-        if (currentlyIndexed >= fileCount && ExecuteStack.size == 0) {
-            return true
-        }
-        return false
+        return started.get() && pendingOperations.get() == 0
     }
+
+    private suspend fun processCommands() {
+        for (command in commands) {
+            when (command) {
+                is SearchCommand.IndexPage -> {
+                    runCatching {
+                        applyIndexedPage(command.title, command.address, command.content)
+                    }.onFailure {
+                        it.printStackTrace()
+                    }
+                    pendingOperations.decrementAndGet()
+                }
+                is SearchCommand.Barrier -> {
+                    command.completion.complete(Unit)
+                }
+            }
+        }
+    }
+
+    private fun applyIndexedPage(title: String?, address: String?, content: String?) {
+        val safeAddress = address?.trim().orEmpty()
+        if (safeAddress.isEmpty()) {
+            return
+        }
+
+        val sanitizedTitle = sanitizeText(title ?: "")
+        val sanitizedContent = sanitizeText(content ?: "")
+        val normalizedContent = sanitizedContent.lowercase()
+        val terms = extractTerms(normalizedContent)
+        val description = if (sanitizedContent.length >= 128) {
+            sanitizedContent.substring(0, 128) + "..."
+        } else {
+            sanitizedContent
+        }
+
+        snapshot = snapshot.withIndexedPage(
+            IndexedPage(
+                title = sanitizedTitle,
+                address = safeAddress,
+                description = description,
+                termWeights = terms
+            )
+        )
+    }
+
+    private fun extractTerms(content: String): Map<String, Double> {
+        if (content.isBlank()) {
+            return emptyMap()
+        }
+
+        return runCatching {
+            val primeMe = ArrayList<Any?>()
+            primeMe.add(content)
+            val prime = TextSource("source", primeMe)
+            prime.setStopWordFile(STOP_WORD_LOCATION)
+            prime.prime()
+            val temp = prime.getItems()
+            val vector = if (temp != null && temp.isNotEmpty()) {
+                (temp[0] as ItemData).getVectorData()
+            } else {
+                null
+            }
+
+            val terms = mutableMapOf<String, Double>()
+            vector?.getData()?.forEach { item ->
+                val word = item as? WordData ?: return@forEach
+                val token = word.getData()?.toString()?.lowercase().orEmpty()
+                if (token.isNotEmpty()) {
+                    terms[token] = (terms[token] ?: 0.0) + word.getFrequency().toDouble()
+                }
+            }
+            terms
+        }.getOrElse {
+            emptyMap()
+        }
+    }
+
+    private fun bootstrapFromDatabase() {
+        try {
+            val c = sql(Connection, DB, Username, Password)
+            try {
+                val result = c.process("select max(num) from user;")
+                val fileCount = result?.firstOrNull()?.toString()?.toIntOrNull() ?: 0
+
+                var indexedCount = 0
+                for (num in 1..fileCount) {
+                    val dataResult = c.process("select stats,ip from user where num=$num;")
+                    val data = dataResult?.getOrNull(0)?.toString().orEmpty()
+                    val ip = dataResult?.getOrNull(1)?.toString().orEmpty()
+                    if (data.isBlank() || ip.isBlank()) {
+                        continue
+                    }
+
+                    val metaResult = c.process(
+                        "SELECT TO_DAYS(NOW())-TO_DAYS(last_logged_in),npc FROM hackerforum.users WHERE ip='$ip'"
+                    )
+                    val isActive = metaResult?.getOrNull(0)?.toString()?.toIntOrNull() ?: 0
+                    val isNpc = metaResult?.getOrNull(1)?.toString() == "Y"
+                    if (isActive < 14 && !isNpc) {
+                        continue
+                    }
+
+                    val loaded = loadBootstrapPage(data)
+                    if (loaded != null) {
+                        applyIndexedPage(loaded.title, loaded.address, loaded.content)
+                        indexedCount++
+                    }
+                }
+
+                snapshot = snapshot.copy(fileCount = fileCount, indexedCount = indexedCount)
+            } finally {
+                c.close()
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    private fun loadBootstrapPage(data: String): BootstrapPage? {
+        return runCatching {
+            val loader = LoadXML()
+            loader.loadByteArray(data.toByteArray())
+
+            var address = ""
+            var title = ""
+            var content = ""
+
+            var node: Node? = loader.findNodeRecursive("ip", 0)
+            node = loader.findNodeRecursive(node, "#text", 0)
+            if (node != null) {
+                address = node.nodeValue
+            }
+
+            node = loader.findNodeRecursive("title", 0)
+            node = loader.findNodeRecursive(node, "#text", 0)
+            if (node != null) {
+                title = node.nodeValue
+            }
+
+            node = loader.findNodeRecursive("body", 0)
+            node = loader.findNodeRecursive(node, "#text", 0)
+            if (node != null) {
+                content = node.nodeValue
+            }
+
+            content = sanitizeText(content).lowercase()
+            BootstrapPage(title, address, content)
+        }.getOrNull()
+    }
+
+    private fun sanitizeText(value: String): String {
+        return value
+            .replace(Regex("\\<.*?\\>"), "")
+            .replace(Regex("\\&.*?;"), "")
+            .replace(Regex("\\n"), "")
+    }
+
+    private sealed class SearchCommand {
+        data class IndexPage(val title: String?, val address: String?, val content: String?) : SearchCommand()
+        data class Barrier(val completion: CompletableDeferred<Unit>) : SearchCommand()
+    }
+
+    private data class IndexedPage(
+        val title: String,
+        val address: String,
+        val description: String,
+        val termWeights: Map<String, Double>
+    ) {
+        fun score(queryTerms: List<String>): Double {
+            if (termWeights.isEmpty() || queryTerms.isEmpty()) {
+                return 0.0
+            }
+
+            return queryTerms.sumOf { term -> termWeights[term] ?: 0.0 }
+        }
+    }
+
+    private data class SearchSnapshot(
+        val pagesByAddress: Map<String, IndexedPage> = emptyMap(),
+        val fileCount: Int = 0,
+        val indexedCount: Int = 0
+    ) {
+        fun withIndexedPage(page: IndexedPage): SearchSnapshot {
+            val nextPages = HashMap(pagesByAddress)
+            val isNew = nextPages.put(page.address, page) == null
+            return copy(
+                pagesByAddress = nextPages,
+                indexedCount = if (isNew) indexedCount + 1 else indexedCount
+            )
+        }
+    }
+
+    private data class BootstrapPage(
+        val title: String,
+        val address: String,
+        val content: String
+    )
 
     companion object {
         const val STOP_WORD_LOCATION = "stop_words.txt"
-        private const val sleepTime = 50L
         private const val ReturnCount = 10
 
         @JvmField
         var MySearchHandler: SearchHandler? = null
 
         @JvmStatic
-        fun getInstance(MyServer: SearchServer?): SearchHandler {
+        fun getInstance(myServer: SearchServer?, runtime: GameServerRuntime? = null): SearchHandler {
             if (MySearchHandler == null) {
-                MySearchHandler = SearchHandler(MyServer)
+                MySearchHandler = SearchHandler(myServer, runtime)
+            } else {
+                MySearchHandler!!.bindServer(myServer)
             }
 
+            MySearchHandler!!.start()
             return MySearchHandler!!
+        }
+
+        @JvmStatic
+        fun resetForTests() {
+            MySearchHandler = null
         }
     }
 }

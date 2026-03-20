@@ -246,7 +246,7 @@ class LegacyEconomyWebSocialCommandsTest {
         val dispatches = ArrayList<CapturedDispatch>()
 
         init {
-            stopComputerThread(computer)
+            stopComputerRuntime(computer)
             computer.connectionID = 1
             computer.systemChange = false
             computer.pageTitle = ""
@@ -259,7 +259,7 @@ class LegacyEconomyWebSocialCommandsTest {
         }
 
         fun close() {
-            stopComputerThread(computer)
+            stopComputerRuntime(computer)
             time.clean()
         }
 
@@ -318,18 +318,9 @@ class LegacyEconomyWebSocialCommandsTest {
     }
 
     companion object {
-        private fun stopComputerThread(computer: Computer) {
-            computer.run = false
-            val thread = computer.MyThread
-            if (thread != null) {
-                thread.interrupt()
-                try {
-                    thread.join(200)
-                } catch (e: InterruptedException) {
-                    Thread.currentThread().interrupt()
-                }
-            }
-            computer.MyThread = null
+        private fun stopComputerRuntime(computer: Computer) {
+            computer.shutdown()
+            computer.joinBlocking()
         }
     }
 }

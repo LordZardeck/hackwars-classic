@@ -124,7 +124,7 @@ class NewFireWall() {
             return damage
         }
         val myComputer = parentPort!!.myComputer
-        val targetComputer = MyComputerHandler!!.getMyComputerHandler().getComputer(ip)
+        val targetComputer = MyComputerHandler!!.getMyComputerHandler().getComputer(ip) ?: return damage
         val myFirewallLevel = myComputer.getLevel((myComputer.stats["FireWall"] as Float).toFloat())
         val targetFirewallLevel = targetComputer.getLevel((targetComputer.stats["FireWall"] as Float).toFloat())
         var missPct = (targetFirewallLevel - myFirewallLevel) * COMPLETE_MISS_PCT / 100.0

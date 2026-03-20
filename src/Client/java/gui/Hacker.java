@@ -335,9 +335,11 @@ public class Hacker implements ActionListener, WindowListener, ComponentListener
         //HMMO=new HacktendoMMO(this);
         //HMMO.openGame("game.xml");
 
-        //This requests the initial equipment and the message is used server-side to determine the GUI is actually ready.
+        // Bootstrap the visible client state after login.
         Object[] params = new Object[]{encryptedIP};
-        setRequestedDirectory(EQUIPMENT);
+        Object[] directoryParams = new Object[]{encryptedIP, currentFolder};
+        setRequestedDirectory(HOME);
+        myGameState.addFunctionCall(new RemoteFunctionCall(HOME, "requestdirectory", directoryParams));
         myGameState.addFunctionCall(new RemoteFunctionCall(EQUIPMENT, "requestequipment", params));
         myGameState.addFunctionCall(new RemoteFunctionCall(0, "fetchports", params));
 

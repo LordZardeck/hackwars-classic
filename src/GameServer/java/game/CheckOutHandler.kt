@@ -8,30 +8,17 @@ import java.net.URL
 import java.util.ArrayList
 
 /**
- * Description: This class looks for data to be saved and makes a connection to the Tomcat server/MySQL and
- * saves a profile.
+ * Description: This class processes a single queued save request by talking to Tomcat/MySQL.
+ * The coroutine scheduler now owns the worker lifecycle; this class only owns the save logic.
  */
-open class CheckOutHandler : Runnable {
+open class CheckOutHandler {
     private var Connection = "127.0.0.1"
     private var DB = "hackwars"
     private var Username = "root"
     private var Password = ""
-    private var lastSave = 0L
-    private var MyThread: Thread? = null
-    private var running = false
-
-    init {
-        this.start()
-    }
-
-    private fun start() {
-        MyThread = Thread(this, "CheckOutHandler")
-        running = true
-        MyThread!!.start()
-    }
 
     //Fetches a profile from the DB based on IP.
-    fun fetchProfile(ip: String, checkActive: Boolean): String? {
+    open fun fetchProfile(ip: String, checkActive: Boolean): String? {
         val c = sql(Connection, DB, Username, Password)
         var result: ArrayList<*>? = null
         try {
@@ -51,9 +38,13 @@ open class CheckOutHandler : Runnable {
             }
             val q = "select stats from user where ip=\"$ip\""
             result = c.process(q)
-            c.close()
         } catch (e: Exception) {
             e.printStackTrace()
+        } finally {
+            try {
+                c.close()
+            } catch (_: Exception) {
+            }
         }
 
         return if (result == null) {
@@ -63,78 +54,71 @@ open class CheckOutHandler : Runnable {
         }
     }
 
-    //Thread processes current save tasks.
-    @Synchronized
-    override fun run() {
-        while (running) {
-            try {
-                val o = MysqlHandler.getWork()
-                if (o != null) {
-                    val ip = o[0] as String
-                    val computer = o[1] as Computer
-                    var content = computer.outputXML()
-                    val pageChanged = o[3] as Boolean
-                    val pageTitle = o[4] as String
-                    val pageBody = o[5] as String
+    open fun processWork(o: Array<Any?>) {
+        val ip = o[0] as String
+        val computer = o[1] as Computer
+        var content = readComputerOutput(computer)
+        val pageChanged = o[3] as Boolean
+        val pageTitle = o[4] as String
+        val pageBody = o[5] as String
 
-                    println("Starting Saving $ip")
+        println("Starting Saving $ip")
 
-                    try {
-                        if (pageChanged) {
-                            println("Page Changed!")
-
-                            val config = XmlRpcClientConfigImpl()
-                            config.serverURL = URL(LocalWebConfig.getXmlRpcUrl())
-                            val client = XmlRpcClient()
-                            client.setConfig(config)
-                            println("xmlrpc started")
-
-                            val params = arrayOf("asdbas0d98a0sd9fa8sasdlbo", ip, content, java.lang.Boolean(pageChanged), pageTitle, pageBody)
-                            client.execute("hackerRPC.saveProfile", params)
-                        } else {
-                            if (fetchProfile(ip, false) == null) {
-                                val c = sql(Connection, DB, Username, Password)
-                                val q = "insert into user values(\"$ip\",\"${content.replace("\"", "\\\\\"")}\",NULL);"
-                                c.process(q)
-                                c.close()
-                            } else {
-                                val c = sql(Connection, DB, Username, Password)
-                                content = content.replace("\\", "\\\\")
-                                content = content.replace("\"", "\\\\\"")
-
-                                val q = "update user set stats=\"$content\" where ip=\"$ip\";"
-
-                                println("Just got to the process step.")
-
-                                c.process(q)
-                                c.close()
-                            }
-                        }
-                    } catch (e: Exception) {
-                        e.printStackTrace()
-                    }
-                    SAVE_COUNTER--
-                    println("Finished Saving $ip, accounts left to save = $SAVE_COUNTER")
-                    System.gc()
-                    lastSave = ServerRuntimeState.now()
+        try {
+            if (pageChanged) {
+                println("Page Changed!")
+                saveProfileViaXmlRpc(ip, content, pageChanged, pageTitle, pageBody)
+            } else {
+                if (fetchProfile(ip, false) == null) {
+                    insertProfile(ip, content)
+                } else {
+                    updateProfile(ip, content)
                 }
-
-                if ((!ServerRuntimeState.isRunning() && SAVE_COUNTER == 0 && ServerRuntimeState.now() - lastSave > maxZeroTimeout) || (!ServerRuntimeState.isRunning() && ServerRuntimeState.now() - ServerRuntimeState.getShutdownAt() > maxTimeout)) {
-                    System.exit(0)
-                }
-
-                Thread.sleep(sleepTime)
-            } catch (e: Exception) {
             }
+        } catch (e: Exception) {
+            e.printStackTrace()
         }
+
+        System.gc()
+        println("Finished Saving $ip")
     }
 
-    companion object {
-        @JvmField
-        var SAVE_COUNTER = 0
+    protected open fun readComputerOutput(computer: Computer): String {
+        return computer.outputXML()
+    }
 
-        private const val maxTimeout = 350000L
-        private const val maxZeroTimeout = 20000L
-        private const val sleepTime = 500L
+    protected open fun saveProfileViaXmlRpc(
+        ip: String,
+        content: String,
+        pageChanged: Boolean,
+        pageTitle: String,
+        pageBody: String
+    ) {
+        val config = XmlRpcClientConfigImpl()
+        config.serverURL = URL(LocalWebConfig.getXmlRpcUrl())
+        val client = XmlRpcClient()
+        client.setConfig(config)
+        println("xmlrpc started")
+
+        val params = arrayOf("asdbas0d98a0sd9fa8sasdlbo", ip, content, java.lang.Boolean(pageChanged), pageTitle, pageBody)
+        client.execute("hackerRPC.saveProfile", params)
+    }
+
+    protected open fun insertProfile(ip: String, content: String) {
+        val c = sql(Connection, DB, Username, Password)
+        val q = "insert into user values(\"$ip\",\"${content.replace("\"", "\\\\\"")}\",NULL);"
+        c.process(q)
+        c.close()
+    }
+
+    protected open fun updateProfile(ip: String, content: String) {
+        val c = sql(Connection, DB, Username, Password)
+        val escapedContent = content.replace("\\", "\\\\").replace("\"", "\\\\\"")
+        val q = "update user set stats=\"$escapedContent\" where ip=\"$ip\";"
+
+        println("Just got to the process step.")
+
+        c.process(q)
+        c.close()
     }
 }

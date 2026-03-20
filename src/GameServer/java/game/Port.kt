@@ -533,7 +533,7 @@ class Port(
                 } else if (!fireWall!!.getPettyCashFail(MyApplicationData.getSourceIP())) {
                     if (finalizeAllowed(MyApplicationData)) {
                         val amount = myComputer.getPettyCash() * fireWall!!.getPettyCashReduction(MyApplicationData.getSourceIP())
-                        if (myComputerHandler.getMyComputerHandler().getComputer(MyApplicationData.getSourceIP()).checkBank()) {
+                        if (myComputerHandler.getMyComputerHandler().getComputer(MyApplicationData.getSourceIP())?.checkBank() == true) {
                             myComputerHandler.addData(ApplicationData("pettycash", java.lang.Float(-1.0 * amount), 0, ip), ip)
                             myComputerHandler.addData(ApplicationData("pettycash", java.lang.Float(amount), 0, MyApplicationData.getSourceIP()), MyApplicationData.getSourceIP())
                             myComputerHandler.addData(

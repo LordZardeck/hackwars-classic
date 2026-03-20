@@ -10,13 +10,16 @@ import com.plink.dolphinnet.Editor
 import com.plink.dolphinnet.IParty
 import com.plink.dolphinnet.assignments.ZippedAssignment
 import game.*
-import kotlinx.coroutines.*
+import kotlinx.coroutines.CoroutineName
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.onFailure
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import server.remote.RemoteCallContext
 import server.remote.invokeOnServer
+import server.runtime.GameServerRuntime
 import util.Encryption
 import util.PlayFabTokenVerifier.AuthResult
 import util.SessionTokenVerifiers
@@ -43,9 +46,10 @@ class HackerServer(e: Editor, serverID: String) : IParty(e), HackerServerBridge 
     //Data.
     private val Keys = HashMap<Any?, Any?>()
     private val IPs = HashMap<Any?, Any?>()
+    private val runtime = GameServerRuntime()
     private var MyComputerHandler: ComputerHandler? = null
     private val taskQueue = Channel<Any?>(Channel.UNLIMITED)
-    private val serverScope = CoroutineScope(SupervisorJob() + Dispatchers.Default.limitedParallelism(1))
+    private val serverScope = runtime.serialScope("HackerServer")
     private var serverJob: Job? = null
     private var serverID = ""
     private val MyEncryption = Encryption()
@@ -71,6 +75,11 @@ class HackerServer(e: Editor, serverID: String) : IParty(e), HackerServerBridge 
      * Dispatch a packet assignment.
      */
     fun dispatchPacket(assignment: Assignment?, connectionID: Int) {
+        Logger.debug(
+            "Dispatching {} to connectionId={}",
+            assignment?.javaClass?.simpleName ?: "null",
+            connectionID
+        )
         (editor.clients.get(connectionID) as ClientData?)?.addJob(assignment)
     }
 
@@ -94,8 +103,15 @@ class HackerServer(e: Editor, serverID: String) : IParty(e), HackerServerBridge 
             .getOrNull()
             ?: return dispatchPacket(LoginFailedAssignment(0), assignment.reporterID)
 
+        Logger.info(
+            "Processing login for ip={} playFabId={} reporterId={}",
+            authResult.playerIp,
+            authResult.playFabId,
+            assignment.reporterID
+        )
 
         MyComputerHandler?.getComputer(authResult.playerIp)?.let { computer ->
+            Logger.info("Reusing loaded computer for ip={}", authResult.playerIp)
             computer.setClientHash(clientKey)
             computer.setPublicKey(assignment.publicKey)
             computer.setPlayFabAuthenticated(authResult.playFabId)
@@ -116,6 +132,7 @@ class HackerServer(e: Editor, serverID: String) : IParty(e), HackerServerBridge 
             true
         ).also { computerHandler.addComputer(it) }
 
+        Logger.info("Created new computer for ip={}, scheduling load", authResult.playerIp)
         computer.setClientHash(clientKey)
         computer.setPublicKey(assignment.publicKey)
         computer.setPlayFabAuthenticated(authResult.playFabId)
@@ -166,11 +183,11 @@ class HackerServer(e: Editor, serverID: String) : IParty(e), HackerServerBridge 
      * Grabs work from the server and dispatches it via the computer handler to
      * individual 'PCs' playing the game.
      */
-    private fun processTasks() {
+    private suspend fun processTasks() {
         Logger.info("Game Server Started")
 
         while (true) {
-            val task = runBlocking { taskQueue.receive() } ?: continue
+            val task = taskQueue.receive() ?: continue
 
             runCatching {
                 when (task) {
@@ -179,7 +196,16 @@ class HackerServer(e: Editor, serverID: String) : IParty(e), HackerServerBridge 
                     is RemoteFunctionCall -> processRemoteFunctionCall(task)
                     is Array<*> -> processGenericJob(task)
                 }
-            }.onFailure { Logger.error("Error while processing task", it) }
+            }.onFailure {
+                val taskType = when(task) {
+                    is LoginAssignment -> "LoginAssignment"
+                    is PingAssignment -> "PingAssignment"
+                    is RemoteFunctionCall -> "RemoteFunctionCall"
+                    is Array<*> -> "GenericJob"
+                    else -> "Unknown"
+                }
+                Logger.error("Error while processing $taskType task", it)
+            }
         }
     }
 
@@ -189,8 +215,12 @@ class HackerServer(e: Editor, serverID: String) : IParty(e), HackerServerBridge 
         ServerRuntimeState.setClock(MyTime)
         ServerRuntimeState.setRunning(on)
         ServerRuntimeState.setShutdownAt(SHUTDOWN_AT)
-        MyComputerHandler = ComputerHandler(MyTime, this)
+        MyComputerHandler = ComputerHandler(MyTime, this).also { it.start(runtime) }
         serverJob = serverScope.launch(CoroutineName("HackerServer")) { processTasks() }
+    }
+
+    fun getRuntime(): GameServerRuntime {
+        return runtime
     }
 
     /**

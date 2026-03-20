@@ -66,7 +66,7 @@ class LegacyWatchEquipmentCommandsTest {
             val watch = Watch(fixture.computer)
             watch.type = (Watch.HEALTH)
             fixture.computer.MyWatchHandler.addWatch(watch)
-            fixture.computer.Tasks.clear()
+            fixture.computer.clearPendingTasks()
 
             val handled = fixture.handler.dispatch(
                 fixture.computer,
@@ -91,7 +91,7 @@ class LegacyWatchEquipmentCommandsTest {
             watch.actualCpuCost = (3.0f)
             watch.on = (false)
             fixture.computer.MyWatchHandler.addWatch(watch)
-            fixture.computer.Tasks.clear()
+            fixture.computer.clearPendingTasks()
 
             val handled = fixture.handler.dispatch(
                 fixture.computer,
@@ -113,7 +113,7 @@ class LegacyWatchEquipmentCommandsTest {
         try {
             val watch = Watch(fixture.computer)
             fixture.computer.MyWatchHandler.addWatch(watch)
-            fixture.computer.Tasks.clear()
+            fixture.computer.clearPendingTasks()
 
             val handled = fixture.handler.dispatch(
                 fixture.computer,
@@ -161,8 +161,9 @@ class LegacyWatchEquipmentCommandsTest {
     }
 
     private fun assertQueuedFetchWatches(fixture: TestFixture) {
-        assertEquals(1, fixture.computer.Tasks.size)
-        val queued = fixture.computer.Tasks[0] as ApplicationData
+        val queuedTasks = fixture.computer.snapshotPendingTasks()
+        assertEquals(1, queuedTasks.size)
+        val queued = queuedTasks[0] as ApplicationData
         assertEquals("fetchwatches", queued.function)
     }
 
@@ -172,12 +173,12 @@ class LegacyWatchEquipmentCommandsTest {
         val handler = LegacyWatchEquipmentCommands()
 
         init {
-            stopComputerThread(computer)
-            computer.Tasks.clear()
+            stopComputerRuntime(computer)
+            computer.clearPendingTasks()
         }
 
         fun close() {
-            stopComputerThread(computer)
+            stopComputerRuntime(computer)
             time.clean()
         }
 
@@ -196,18 +197,9 @@ class LegacyWatchEquipmentCommandsTest {
     }
 
     companion object {
-        private fun stopComputerThread(computer: Computer) {
-            computer.run = false
-            val thread = computer.MyThread
-            if (thread != null) {
-                thread.interrupt()
-                try {
-                    thread.join(200)
-                } catch (_: InterruptedException) {
-                    Thread.currentThread().interrupt()
-                }
-            }
-            computer.MyThread = null
+        private fun stopComputerRuntime(computer: Computer) {
+            computer.shutdown()
+            computer.joinBlocking()
         }
     }
 }
