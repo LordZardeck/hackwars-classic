@@ -69,9 +69,8 @@ class ConnectionManager : IAssignmentEventDispatcher by AssignmentEventDispatche
         Logger.debug("Initializing connection to game server")
         gameServerMessageClient = MessageClient(
             System.getProperty("hackwars.gameServer.address", "127.0.0.1"),
-            200000,
-            System.getProperty("hackwars.gameServer.inPort", "10021").toInt(),
             System.getProperty("hackwars.gameServer.outPort", "10020").toInt(),
+            200000,
         )
     }
 
@@ -79,9 +78,8 @@ class ConnectionManager : IAssignmentEventDispatcher by AssignmentEventDispatche
         Logger.debug("Initializing connection to chat server")
         chatServerMessageClient = MessageClient(
             System.getProperty("hackwars.chatServer.address", "127.0.0.1"),
-            200000,
-            System.getProperty("hackwars.chatServer.inPort", "10026").toInt(),
             System.getProperty("hackwars.chatServer.outPort", "10025").toInt(),
+            200000,
         )
     }
 

@@ -399,7 +399,7 @@ public class HackerRPC extends HttpServlet implements DataHandler {
      */
     public String shutdownServer(String username, Integer id, String server) {
         if (username.equals("bcoe") && (int) id == 850335) {
-            MessageClient R = new MessageClient(server, 200000, 10021, 10020);
+            MessageClient R = new MessageClient(server, 10020, 200000);
 
             R.setDataHandler(this);
             connect(R, "", "", "", false);

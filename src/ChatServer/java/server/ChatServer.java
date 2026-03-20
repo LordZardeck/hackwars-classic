@@ -88,7 +88,7 @@ public class ChatServer extends MessageCoordinator implements Runnable {
 
     static void main() {
         try {
-            MessageServer E = new MessageServer(2048, 1000, 10025, 10026);//Creates a new server for distributing tasks.
+            MessageServer E = new MessageServer(1000, 10025);//Creates a new server for distributing tasks.
             E.setClientJobSize(4);
             new ChatServer(E);
         } catch (Exception e) {
@@ -125,14 +125,7 @@ public class ChatServer extends MessageCoordinator implements Runnable {
             if (o instanceof Object[]) {
                 Assignment DispatchMe = (Assignment) ((Object[]) o)[0];
                 int connectionID = (Integer) ((Object[]) o)[1];
-
-                //System.out.println("Sending Logout Assignment.");
-                ClientBinaryList MyClientBinaryList = this.getEditor().getClients();
-                ClientData MyClientData = (ClientData) MyClientBinaryList.get(new Integer(connectionID));
-                if (MyClientData != null) {
-                    MyClientData.addJob(DispatchMe);
-                }
-                //System.out.println("Assignment sent.");
+                this.getMessageServer().addAssignment(connectionID, DispatchMe);
             } else if (o instanceof LoginAssignment) {
                 Assignment MyAssignment = (Assignment) o;
                 LoginAssignment MyLoginAssignment = (LoginAssignment) MyAssignment;
@@ -159,13 +152,8 @@ public class ChatServer extends MessageCoordinator implements Runnable {
                 dispatchPacket(new PingAssignment(0, ""), MyAssignment.getReporterID());
                 MyUserHandler.pingPlayer((PingAssignment) MyAssignment);
                 //System.out.println("Finished Pinging player.");
-            } else if (o instanceof Integer) {
-                int connectionID = (Integer) o;
-                ClientBinaryList MyClientBinaryList = this.getEditor().getClients();
-                ClientData MyClientData = (ClientData) MyClientBinaryList.get(new Integer(connectionID));
-                if (MyClientData != null) {
-                    MyClientData.addJob(new LoginAssignment(0, "", "", ""));
-                }
+            } else if (o instanceof Integer connectionId) {
+                this.getMessageServer().addAssignment(connectionId, new LoginAssignment(0, "", "", ""));
             }
 
         }

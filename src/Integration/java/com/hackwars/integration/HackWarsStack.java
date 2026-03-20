@@ -51,11 +51,11 @@ public final class HackWarsStack implements AutoCloseable {
         });
         ComputerSessionOverrides.installLocalSaveOverride((ip, active) -> scenario.getPlayerIp().equals(ip) ? scenario.getSaveXml() : null);
 
-        gameMessageServer = new MessageServer(2048, 1000, config.getGameOutPort(), config.getGameInPort());
+        gameMessageServer = new MessageServer(1000, config.getGameOutPort());
         gameMessageServer.setClientJobSize(4);
         gameServer = new server.HackerServer(gameMessageServer, "integration");
 
-        chatMessageServer = new MessageServer(2048, 1000, config.getChatOutPort(), config.getChatInPort());
+        chatMessageServer = new MessageServer(1000, config.getChatOutPort());
         chatMessageServer.setClientJobSize(4);
         chatServer = new ChatServer(chatMessageServer);
 

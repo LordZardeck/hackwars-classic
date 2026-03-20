@@ -1,5 +1,7 @@
 package com.plink.dolphinnet;
 
+import org.jetbrains.annotations.NotNull;
+
 import java.net.*;
 import java.util.ArrayList;
 
@@ -16,43 +18,50 @@ import java.util.ArrayList;
  * side.
  */
 public class MessageClient implements Runnable {
-
-    /// ////////////////////////////////
-    //Data.
     private int id = -1;
 
     private DataHandler DH;
-    private ArrayList Processes = null;
-    private ArrayList FinishedAssignments = null;
+    private final ArrayList<RunAssignment> processes = new ArrayList<>();
     private volatile Thread t = null;
-    private ClientInboundConnection in = null;
-    private ClientOutboundConnection out = null;
-    private int socketTimeOut = 10000;
-    private int timeOut = 180000;
+    private ClientConnection connection = null;
     private boolean killAllAssignments = false;
 
+    private class ClientConnection extends DuplexConnection {
+        ClientConnection(Socket socket) {
+            super(socket);
+        }
+
+        public void onReceiveObject(@NotNull Object data) {
+            try {
+                if (data instanceof Assignment) {
+                    MessageClient.this.addAssignment((Assignment) data);
+                } else if (data instanceof Integer io) {
+                    if (io > -1) {
+                        MessageClient.this.setID(io);
+                    } else {
+                        MessageClient.this.killAllAssignments();
+                    }
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
     public void clean() {
-        DH = null;
-        in.clean();
-        out.clean();
-        t = null;
+        kill();
     }
 
-    public int getFinishedCount() {
-        System.out.println("Processes: " + Processes.size());
-        return (FinishedAssignments.size());
-    }
-
-    //Our theading inner class.
+    //Our threading inner class.
     private class RunAssignment implements Runnable {
         private volatile Thread t;
-        private Assignment A;
+        private Assignment assignment;
         private boolean finished = false;
 
         /// //////////
         //Constructor.
-        RunAssignment(Assignment A) {
-            this.A = A;
+        RunAssignment(Assignment assignment) {
+            this.assignment = assignment;
             t = new Thread(this);
             t.start();
         }
@@ -60,7 +69,7 @@ public class MessageClient implements Runnable {
         /// //////////
         // Getters.
         public Assignment getAssignment() {
-            return (A);
+            return (assignment);
         }
 
         public boolean isFinished() {
@@ -72,7 +81,7 @@ public class MessageClient implements Runnable {
         public void kill() {
             finished = true;
             t = null;
-            A.kill();
+            assignment.kill();
         }
 
         public void run() {
@@ -80,10 +89,10 @@ public class MessageClient implements Runnable {
             while (thisThread == t) {
                 Object T = null;
                 if (!finished)
-                    T = (Object) A.execute(DH);
+                    T = (Object) assignment.execute(DH);
                 if (DH != null)
                     DH.addData(T);
-                A.setReporterID(getID());
+                assignment.setReporterID(getID());
 
                 kill();
 
@@ -96,16 +105,8 @@ public class MessageClient implements Runnable {
         }
     }
 
-    /// ///////////////////////////
-    // Getters.
     public int getID() {
-        return (id);
-    }
-
-    /// ////////////////////////////
-    // Setters.
-    public void setSocketTimeOut(int socketTimeOut) {
-        this.socketTimeOut = socketTimeOut;
+        return id;
     }
 
     public void setID(int id) {
@@ -118,11 +119,12 @@ public class MessageClient implements Runnable {
 
     public void kill() {
         t = null;
-        in.kill();
-        out.kill();
+        if (connection != null) {
+            connection.close();
+            connection = null;
+        }
         DH = null;
-        Processes = null;
-        FinishedAssignments = null;
+        processes.clear();
     }
 
     /**
@@ -132,35 +134,12 @@ public class MessageClient implements Runnable {
         killAllAssignments = true;
     }
 
-    /// ///////////////////////////.
-    // Constructor.
-    public MessageClient(String address, int socketTimeOut, int inPort, int outPort) {
-        this.id = -1;
-        this.socketTimeOut = socketTimeOut;
-
-        ////////////
-        Processes = new ArrayList();
-        FinishedAssignments = new ArrayList();
-
+    public MessageClient(String address, int port, int socketTimeOut) {
         //Set up the server.
         try {
-            //Create the inboud socket.
-            Socket s = new Socket(address, inPort);
-            in = new ClientInboundConnection(this, s);
-            in.setID(id);
-            in.setTimeOut(timeOut);
-            in.init(150000);
-            in.execute();
-
-            //Create the outbound socket.
-            Socket s2 = new Socket(address, outPort);
-            out = new ClientOutboundConnection(this, s2);
-            out.setID(id);
-            out.setTimeOut(timeOut);
-            out.init(150000);
-            out.execute();
+            connection = new ClientConnection(new Socket(address, port));
+            connection.connect(socketTimeOut);
         } catch (Exception e) {
-            //	e.printStackTrace();
         }
 
         //Set up the execution thread.
@@ -168,30 +147,31 @@ public class MessageClient implements Runnable {
         t.start();
     }
 
-    /// ///////////////////////////
-    // Methods.
     public void run() {
         Thread thisThread = Thread.currentThread();
         while (thisThread == t) {
+            if (processes == null) {
+                break;
+            }
             if (killAllAssignments) {
-                for (int i = 0; i < Processes.size(); i++) {
-                    RunAssignment temp = (RunAssignment) Processes.get(i);
+                for (int i = 0; i < processes.size(); i++) {
+                    RunAssignment temp = (RunAssignment) processes.get(i);
                     temp.kill();
                     Assignment A = temp.getAssignment();
                     //FinishedAssignments.add(A);
-                    Processes.remove(i);
+                    processes.remove(i);
                     break;
                 }
                 killAllAssignments = false;
             }
-            for (int i = 0; i < Processes.size(); i++) {
-                RunAssignment temp = (RunAssignment) Processes.get(i);
+            for (int i = 0; i < processes.size(); i++) {
+                RunAssignment temp = (RunAssignment) processes.get(i);
                 if (temp != null)
                     if (temp.isFinished()) {
                         temp.kill();
                         Assignment A = temp.getAssignment();
                         //FinishedAssignments.add(new ZippedAssignment(0,A));
-                        Processes.remove(i);
+                        processes.remove(i);
                         break;
                     }
             }
@@ -205,22 +185,15 @@ public class MessageClient implements Runnable {
     }
 
     /**
-     * Set the timeout for connections to server.
-     */
-    public void setTimeOut(int timeOut) {
-        this.timeOut = timeOut;
-        in.setTimeOut(timeOut);
-        out.setTimeOut(timeOut);
-    }
-
-    /**
      * Adds an assignment to the assignment list for execution.
      */
-    public synchronized void addAssignment(Assignment A) {
+    public synchronized void addAssignment(Assignment assignment) {
         try {
-            A.setReporterID(getID());
-            RunAssignment R = new RunAssignment(A);
-            Processes.add(R);
+            if (processes == null) {
+                return;
+            }
+            assignment.setReporterID(getID());
+            processes.add(new RunAssignment(assignment));
         } catch (Exception e) {
             //	e.printStackTrace();
         }
@@ -229,17 +202,8 @@ public class MessageClient implements Runnable {
     /**
      * Add an external finished assignment to the list.
      */
-    public synchronized void addFinishedAssignment(Assignment A) {
-        A.setReporterID(getID());
-        FinishedAssignments.add(A);
-    }
-
-    /**
-     * Get an assignment from the completed assignment list.
-     */
-    public synchronized Object getAssignment() {
-        if (FinishedAssignments.size() <= 0)
-            return (null);
-        return (FinishedAssignments.remove(0));
+    public synchronized void addFinishedAssignment(Assignment assignment) {
+        assignment.setReporterID(getID());
+        connection.sendData(assignment);
     }
 }

@@ -1,5 +1,7 @@
 package com.plink.dolphinnet;
 
+import org.jetbrains.annotations.NotNull;
+
 import java.util.*;
 import java.net.*;
 
@@ -13,232 +15,174 @@ import java.net.*;
  */
 
 public class MessageServer implements Runnable {
-    //Data.
-    private ArrayList assignments;
-    private ClientBinaryList Clients = null;
-    private int maxAssignments = 1024;
-    private int clientJobSize = 2;
-    private MessageCoordinator IP = null;
-    private Thread t = null;
-    //Sockets Data.
-    private ServerSocket SReceive = null;
-    private ServerSocket SSend = null;
-    private int receiveSocket = 1011;
-    private int sendSocket = 1010;
-    private int socketTimeOut = 1000;
-    private int outSocketTimeOut = 150000;
-    private int inSocketTimeOut = 150000;
-    private int timeOut = 180000;
-    private int acount = 0;
-    private int lastConnect = 0;
+    private class ServerConnection extends DuplexConnection {
+        private static final int MISSING_CLIENT_ID = -1;
+        private int id = MISSING_CLIENT_ID;
 
-    /// ///////////////
-    //Constuctors.
-    public MessageServer() {
-        //Create the queue that assignments will be posted to.
-        assignments = new ArrayList();
-        Clients = new ClientBinaryList();
-        try {
-            //Create sockets for sending and receiving.
-            SSend = new ServerSocket(sendSocket);
-            SReceive = new ServerSocket(receiveSocket);
-            SSend.setSoTimeout(socketTimeOut);
-            SReceive.setSoTimeout(socketTimeOut);
-        } catch (Exception e) {
-            e.printStackTrace();
+        ServerConnection(Socket socket) {
+            super(socket);
         }
-        //Initialize the server thread.
-        t = new Thread(this, "com/plink/dolphinnet/Editor");
-        t.start();
+
+        @Override
+        public void connect(int socketTimeOut) {
+            super.connect(socketTimeOut);
+
+            if(!getConnectionClosed()) {
+                id = registerClient(this);
+            }
+        }
+
+        @Override
+        public void close() {
+            super.close();
+
+            MessageServer.this.removeClient(id);
+        }
+
+        public synchronized void onReceiveObject(@NotNull Object data) {
+            if (data instanceof Assignment) {
+                MessageServer.this.returnAssignment((Assignment) data);
+            } else if (data instanceof Integer) {
+                MessageServer.this.killAll();
+            }
+        }
     }
 
-    public MessageServer(int maxAssignments, int socketTimeOut, int receiveSocket, int sendSocket) {
+    private static final int CONNECTION_SOCKET_TIMEOUT = 150000;
+
+    //Data.
+    private ArrayList assignments;
+    private MessageCoordinator messageCoordinator = null;
+    private volatile Thread t = null;
+    private final HashMap<Integer, ServerConnection> connections = new HashMap<>();
+    //Sockets Data.
+    private ServerSocket SReceive = null;
+    private int receiveSocket = 1011;
+    private int socketTimeOut = 1000;
+    private int clientIdCounter = 0;
+    private volatile boolean running = false;
+
+    public MessageServer(int socketTimeOut, int receiveSocket) {
         //Create the array that assignments will be posted to.
         assignments = new ArrayList();
-        Clients = new ClientBinaryList();
 
         //Set instance variables based on constructor.
         this.socketTimeOut = socketTimeOut;
-        this.maxAssignments = maxAssignments;
         this.receiveSocket = receiveSocket;
-        this.sendSocket = sendSocket;
 
+        start();
+    }
+
+    private void start() {
         //Create the server end sockets.
         try {
-            //Create sockets for sending and receiving.
-            SSend = new ServerSocket(sendSocket);
             SReceive = new ServerSocket(receiveSocket);
-            SSend.setSoTimeout(socketTimeOut);
             SReceive.setSoTimeout(socketTimeOut);
         } catch (Exception e) {
             e.printStackTrace();
         }
         //Initialize the server thread.
+        running = true;
         t = new Thread(this, "com/plink/dolphinnet/Editor");
         t.start();
-    }
-
-    //////////////////////////////////
-    // Setters.
-
-    /**
-     * Set the timeout length for connections to server.
-     */
-    public void setTimeOut(int timeOut) {
-        this.timeOut = timeOut;
     }
 
     /**
      * Add the current IParty that is to receive results from the Editor.
      */
-    public void setIParty(MessageCoordinator IP) {
-        this.IP = IP;
+    public void setMessageCoordinator(MessageCoordinator messageCoordinator) {
+        this.messageCoordinator = messageCoordinator;
     }
 
     public void setMaxAssignments(int maxAssignments) {
-        this.maxAssignments = maxAssignments;
     }
 
     public void setClientJobSize(int clientJobSize) {
-        this.clientJobSize = clientJobSize;
-    }
-
-    /**
-     * Add a new Assignment to the assignments list.
-     */
-    public synchronized void addAssignment(Assignment A) throws Exception {
-        if (IP == null)
-            throw (new Exception("No IParty has yet been attached."));
-        if (assignments.size() >= maxAssignments)
-            throw (new Exception("Assignment list is full."));
-        assignments.add((Object) A);
-
-        //Logging.
-        //System.out.println("Assignment has been added to assignment queue.");
     }
 
     /**
      * Send an assignment to a specific client.
      */
-    public synchronized void addAssignment(int ClientID, Assignment A) {
-        ClientBinaryList MyClientBinaryList = getClients();
-        ClientData MyClientData = (ClientData) MyClientBinaryList.get(new Integer(ClientID));
-        if (MyClientData != null) {
-            MyClientData.addJob(A);
+    public synchronized void addAssignment(int clientId, Assignment assignment) {
+        connections.get(clientId).sendData(assignment);
+    }
+
+    /**
+     * Return an assignment to the current MessageCoordinator.
+     */
+    public synchronized void returnAssignment(Assignment assignment) {
+        if (messageCoordinator != null) {
+            messageCoordinator.returnAssignment(assignment);
         }
-    }
-
-    /**
-     * Return an assignment to the current IParty.
-     */
-    public synchronized void returnAssignment(Assignment A) {
-        int id = A.getReporterID();
-        IP.returnAssignment(A);
-        ClientData Client = (ClientData) Clients.get((Object) new Integer(id));
-        //if(client.getJobCount()<clientJobSize)
-        Client.setJobCount(Client.getJobCount() + 1);
-
-        //Logging.
-        //System.out.println("Assignment Returned.");
-        Client.removeOutAssignment(A);
-    }
-
-    /**
-     * Fetch an Assignment for a Reporter (client).
-     */
-    public synchronized Object getAssignment(int id) {
-        ClientData Client = (ClientData) Clients.get((Object) new Integer(id));
-
-        //Kill all running assignments.
-        if (Client.getKill()) {
-            Client.setKill(false);
-            return (new Integer(-1));
-        }
-
-        //Client has no job space.
-        //if(client.getJobCount()<=0)
-        //	return(null);
-
-        //Get assignment from local assignment list.
-        Object temp = Client.getJob();
-        if (temp != null) {
-            if (temp instanceof Assignment) {
-                //client.setJobCount(client.getJobCount()-1);
-                Client.addOutAssignment((Assignment) temp);
-            }
-            //System.out.println("Dispatching Assignment.");
-            return (temp);
-        }
-
-        if (assignments.size() <= 0)
-            return (null);
-
-        Client.setJobCount(Client.getJobCount() - 1);
-
-        //Logging.
-        //System.out.println("Dispatching Assignment");
-
-        temp = assignments.remove(0);
-        Client.addOutAssignment((Assignment) temp);
-        return ((Assignment) temp);
-    }
-
-    /**
-     * Registers a client with the distributed server.
-     */
-    public synchronized void addClient(int id) {
-        Clients.add((Object) new ClientData(id, clientJobSize));
-        System.out.println("Client " + id + " Attached");
-        acount++;
-    }
-
-    /**
-     * Get the current id that should be used for the client.
-     */
-    public synchronized int getID() {
-        return (acount);
     }
 
     /**
      * Remove a client from the server.
      */
     public synchronized void removeClient(int id) {
-        ClientData Client = (ClientData) Clients.get((Object) new Integer(id));
-        Client.fail(IP);
-        Clients.remove((Object) new Integer(id));
+        connections.remove(id);
     }
 
     /**
      * Kill all the Assignments that are currently running.
      */
     public synchronized void killAll() {
-        ArrayList Data = Clients.getData();
-        for (int i = 0; i < Data.size(); i++) {
-            ClientData temp = (ClientData) Data.get(i);
-            temp.setKill(true);
+        assignments.clear();
+    }
+
+    public synchronized int getBoundPort() {
+        if (SReceive == null) {
+            return (receiveSocket);
         }
-        int size = assignments.size();
-        for (int i = 0; i < size; i++)
-            assignments.remove(0);
+        return (SReceive.getLocalPort());
+    }
+
+    public void close() {
+        kill();
+    }
+
+    public void kill() {
+        running = false;
+        Thread moribund = t;
+        t = null;
+
+        if (moribund != null) {
+            moribund.interrupt();
+        }
+
+        try {
+            if (SReceive != null) {
+                SReceive.close();
+            }
+        } catch (Exception e) {
+        }
+
+        ArrayList activeConnections = new ArrayList(connections.values());
+        for (int i = 0; i < activeConnections.size(); i++) {
+            ServerConnection connection = (ServerConnection) activeConnections.get(i);
+            connection.close();
+        }
+        connections.clear();
+        assignments.clear();
+    }
+
+    private synchronized int registerClient(ServerConnection connection) {
+        int id = clientIdCounter++;
+        connections.put(id, connection);
+        // Inform the client of their connection id
+        connection.sendData(id);
+        return id;
     }
 
     /**
-     * Get the list of current clients.
-     */
-    public synchronized ClientBinaryList getClients() {
-        return (Clients);
-    }
-
-    /**
-     * The run method listens for a connection on the Send and Receive ports.
+     * The run method listens for a connection on the canonical server port.
      */
     private int gCount = 0;
 
     public void run() {
-        while (true) {
-            //Check for a client to pass data to.
+        Thread thisThread = Thread.currentThread();
+        while (running && thisThread == t) {
             try {
-                //Garbabe collect every 100 iterations (inSocketTimeOut * 1000).
                 if (gCount == 1000) {
                     System.out.println("Garbage collecting.");
                     System.runFinalization();
@@ -247,23 +191,15 @@ public class MessageServer implements Runnable {
                 } else
                     gCount++;
 
-                Socket temp = SSend.accept();
-                ServerOutboundConnection out = new ServerOutboundConnection(this, temp);
-                out.init(outSocketTimeOut);
-                out.setTimeOut(timeOut);
-                out.execute();
-                System.out.println("Creating Send Port.");
-            } catch (Exception e) {
-            }
-
-            //Check for a client to receive data from.
-            try {
                 Socket temp = SReceive.accept();
-                ServerInboundConnection in = new ServerInboundConnection(this, temp);
-                in.init(inSocketTimeOut);
-                in.setTimeOut(timeOut);
-                in.execute();
-                System.out.println("Creating Receive Port.");
+                ServerConnection connection = new ServerConnection(temp);
+                connection.connect(CONNECTION_SOCKET_TIMEOUT);
+                System.out.println("Creating Duplex Port.");
+            } catch (SocketTimeoutException timeout) {
+            } catch (SocketException socketClosed) {
+                if (running) {
+                    socketClosed.printStackTrace();
+                }
             } catch (Exception e) {
             }
 

@@ -24,7 +24,7 @@ public class ServerConnectionSingleton implements Runnable, DataHandler {
     private Thread MyThread = null;
 
     private ServerConnectionSingleton() {
-        R = new MessageClient(server, 200000, 10021, 10020);
+        R = new MessageClient(server, 10020, 200000);
         R.setDataHandler(this);
         connect(R, "", "", "", false);
         lastPing = MyTime.getCurrentTime();

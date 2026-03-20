@@ -29,12 +29,12 @@ abstract public class MessageCoordinator {
      */
     public MessageCoordinator(MessageServer messageServer) {
         this.messageServer = messageServer;
-        messageServer.setIParty(this);
+        messageServer.setMessageCoordinator(this);
     }
 
     /// //////////////////////////
     // Getters.
-    public MessageServer getEditor() {
+    public MessageServer getMessageServer() {
         return (messageServer);
     }
     /////////////////////////////
@@ -45,7 +45,7 @@ abstract public class MessageCoordinator {
      */
     public void setEditor(MessageServer messageServer) {
         this.messageServer = messageServer;
-        messageServer.setIParty(this);
+        messageServer.setMessageCoordinator(this);
     }
     /////////////////////////////
     // Methods.
@@ -54,23 +54,15 @@ abstract public class MessageCoordinator {
      * Add an assignment to the Editor for processing.
      */
     public void addAssignment(Assignment a) throws Exception {
-        try {
-            messageServer.addAssignment(a);
-        } catch (Exception e) {
-            throw (e);
-        }
+       throw new Exception("Deprecated. Use addAssignment(int clientId, Assignment assignment)");
     }
 
 
     /**
      * Add an assignment to a specific client for processing.
      */
-    public void addAssignment(int ClientID, Assignment a) throws Exception {
-        try {
-            messageServer.addAssignment(ClientID, a);
-        } catch (Exception e) {
-            throw (e);
-        }
+    public void addAssignment(int clientId, Assignment assignment) {
+        messageServer.addAssignment(clientId, assignment);
     }
 
     /**

@@ -16,7 +16,7 @@ public final class GameProtocolClient implements AutoCloseable {
     private LoginSuccessAssignment loginSuccess;
 
     public GameProtocolClient(IntegrationStackConfig config) {
-        this.messageClient = new MessageClient(config.getAddress(), 200000, config.getGameInPort(), config.getGameOutPort());
+        this.messageClient = new MessageClient(config.getAddress(), config.getGameOutPort(), 200000);
         this.messageClient.setDataHandler(inbox);
     }
 

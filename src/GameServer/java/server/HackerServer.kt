@@ -5,7 +5,6 @@ import assignments.LoginFailedAssignment
 import assignments.PingAssignment
 import assignments.RemoteFunctionCall
 import com.plink.dolphinnet.Assignment
-import com.plink.dolphinnet.ClientData
 import com.plink.dolphinnet.MessageServer
 import com.plink.dolphinnet.MessageCoordinator
 import com.plink.dolphinnet.assignments.ZippedAssignment
@@ -74,13 +73,13 @@ class HackerServer(e: MessageServer, serverID: String) : MessageCoordinator(e), 
     /**
      * Dispatch a packet assignment.
      */
-    fun dispatchPacket(assignment: Assignment?, connectionID: Int) {
+    fun dispatchPacket(assignment: Assignment?, connectionId: Int) {
         Logger.debug(
             "Dispatching {} to connectionId={}",
             assignment?.javaClass?.simpleName ?: "null",
-            connectionID
+            connectionId
         )
-        (editor.clients.get(connectionID) as ClientData?)?.addJob(assignment)
+        messageServer.addAssignment(connectionId, assignment)
     }
 
     /** Receive a completed assignment. */
@@ -173,9 +172,7 @@ class HackerServer(e: MessageServer, serverID: String) : MessageCoordinator(e), 
     private fun processGenericJob(job: Array<*>) {
         val (assignment, connectionID) = job
         if (job.size >= 2 && assignment is Assignment && connectionID is Int) {
-            (editor.clients.get(connectionID) as? ClientData)?.run {
-                addJob(ZippedAssignment(0, assignment))
-            }
+            messageServer.addAssignment(connectionID, ZippedAssignment(0, assignment))
         }
     }
 
@@ -264,7 +261,7 @@ class HackerServer(e: MessageServer, serverID: String) : MessageCoordinator(e), 
 
 fun main(args: Array<String>) {
     try {
-        val messageServer = MessageServer(2048, 1000, 10020, 10021) //Creates a new server for distributing tasks.
+        val messageServer = MessageServer(1000, 10020) //Creates a new server for distributing tasks.
         messageServer.setClientJobSize(4)
         HackerServer(messageServer, args[0])
     } catch (e: Exception) {

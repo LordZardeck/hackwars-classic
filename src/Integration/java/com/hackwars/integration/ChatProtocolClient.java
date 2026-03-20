@@ -11,7 +11,7 @@ public final class ChatProtocolClient implements AutoCloseable {
     private final AssignmentInbox inbox = new AssignmentInbox();
 
     public ChatProtocolClient(IntegrationStackConfig config) {
-        this.messageClient = new MessageClient(config.getAddress(), 200000, config.getChatInPort(), config.getChatOutPort());
+        this.messageClient = new MessageClient(config.getAddress(), config.getChatOutPort(), 200000);
         this.messageClient.setDataHandler(inbox);
     }
 

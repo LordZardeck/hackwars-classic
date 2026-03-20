@@ -254,18 +254,16 @@ open class GameState : DataHandler, Runnable {
         println("ABOUT TO CREATE REPORTER")
         gameServerMessageClient = MessageClient(
             ConfigurationState.GameServer.Address,
-            200000,
-            ConfigurationState.GameServer.InPort,
             ConfigurationState.GameServer.OutPort,
+            200000,
         )
         gameServerMessageClient?.setDataHandler(this)
 
         println("ABOUT TO CREATE CHAT REPORTER")
         chatServerMessageClient = MessageClient(
             ConfigurationState.ChatServer.Address,
-            200000,
-            ConfigurationState.ChatServer.InPort,
             ConfigurationState.ChatServer.OutPort,
+            200000,
         )
         chatServerMessageClient?.setDataHandler(this)
         println("CREATED REPORTER & CHAT REPORTER")
