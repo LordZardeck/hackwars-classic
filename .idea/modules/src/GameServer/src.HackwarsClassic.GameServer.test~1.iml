@@ -44,7 +44,9 @@
     <output-test url="file://$MODULE_DIR$/../../../../src/GameServer/build/classes/java/test" />
     <exclude-output />
     <content url="file://$MODULE_DIR$/../../../../src/GameServer/build/generated/ksp/test/java" />
-    <content url="file://$MODULE_DIR$/../../../../src/GameServer/build/generated/ksp/test/kotlin" />
+    <content url="file://$MODULE_DIR$/../../../../src/GameServer/build/generated/ksp/test/kotlin">
+      <sourceFolder url="file://$MODULE_DIR$/../../../../src/GameServer/build/generated/ksp/test/kotlin" isTestSource="true" />
+    </content>
     <content url="file://$MODULE_DIR$/../../../../src/GameServer/test">
       <sourceFolder url="file://$MODULE_DIR$/../../../../src/GameServer/test" isTestSource="true" />
     </content>
