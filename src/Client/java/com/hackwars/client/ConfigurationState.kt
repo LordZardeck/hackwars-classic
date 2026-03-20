@@ -12,8 +12,4 @@ object ConfigurationState {
         val InPort = System.getProperty("hackwars.chatServer.inPort", "10026").toInt()
         val OutPort = System.getProperty("hackwars.chatServer.outPort", "10025").toInt()
     }
-
-    object XMLRPCServer {
-        @JvmField val Address: String = System.getProperty("hackwars.xmlrpcServer.address", "127.0.0.1")
-    }
 }

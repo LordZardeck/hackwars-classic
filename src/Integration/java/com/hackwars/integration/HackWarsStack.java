@@ -37,7 +37,6 @@ public final class HackWarsStack implements AutoCloseable {
         System.setProperty("hackwars.chatServer.address", config.getAddress());
         System.setProperty("hackwars.chatServer.inPort", String.valueOf(config.getChatInPort()));
         System.setProperty("hackwars.chatServer.outPort", String.valueOf(config.getChatOutPort()));
-        System.setProperty("hackwars.remoteXmlRpc", "false");
 
         SessionTokenVerifiers.install(new SessionTokenVerifier() {
             @Override

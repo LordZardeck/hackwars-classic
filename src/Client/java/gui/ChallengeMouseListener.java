@@ -11,7 +11,6 @@ import java.awt.*;
 import java.awt.event.*;
 
 import assignments.*;
-import com.hackwars.client.ConfigurationState;
 import view.*;
 
 import java.text.*;
@@ -43,15 +42,8 @@ public class ChallengeMouseListener implements MouseListener {
     }
 
     public void mouseClicked(MouseEvent e) {
-        //System.out.println("Clicked id "+id);
-
-        String link = "http://" + ConfigurationState.XMLRPCServer.Address + "/help/challenges.php?id=" + id;
-        ChallengeDetails CD = new ChallengeDetails(MyHacker, link);
-        MyHacker.getPanel().add(CD);
-        CD.setVisible(true);
-        CD.moveToFront();
-
+        // TODO: Removed legacy challenge help endpoint: /help/challenges.php?id=<id>
+        MyHacker.showMessage("Challenge details are unavailable in this build.");
     }
 
 }
-

@@ -85,14 +85,13 @@ public class ManageBookmarks extends Application implements TableModelListener {
     public void tableChanged(TableModelEvent e) {
         int row = e.getFirstRow();
         int column = e.getColumn();
-        //TableModel model = (TableModel)e.getSource();
+        if (column < 0 || row < 0) {
+            return;
+        }
         String columnName = model.getColumnName(column);
         String data = (String) model.getValueAt(row, column);
-        Object[] selected = (Object[]) bookmarks[row];
-        int id = Integer.parseInt((String) selected[3]);
-        Object[] params = new Object[]{id, data};
-        XMLRPCCall.execute("http://www.hackwars.net/xmlrpc/bookmarks.php", "editBookmark", params);
-        //System.out.println(data);
+        // TODO: Removed legacy remote bookmarks endpoint: http://www.hackwars.net/xmlrpc/bookmarks.php
+        MyHacker.updateBookmark(row, data);
         webBrowser.editBookmark(row, data);
     }
 
@@ -100,12 +99,9 @@ public class ManageBookmarks extends Application implements TableModelListener {
         if (e.getActionCommand().equals("delete")) {
             int row = table.getSelectedRow();
             Object[] selected = (Object[]) bookmarks[row];
-            int id = Integer.parseInt((String) selected[3]);
-            //System.out.println("DELETE ID: "+id);
-
-            Object[] params = new Object[]{id};
-            XMLRPCCall.execute("http://www.hackwars.net/xmlrpc/bookmarks.php", "deleteBookmark", params);
+            // TODO: Removed legacy remote bookmarks endpoint: http://www.hackwars.net/xmlrpc/bookmarks.php
             model.removeRow(row);
+            MyHacker.removeBookmark(row);
             webBrowser.removeBookmark(row);
 
         }

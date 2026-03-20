@@ -37,39 +37,7 @@ mysql -h 127.0.0.1 -P 3306 -u root < /tmp/hwdb_20260312/chat.sql
 mysql -h 127.0.0.1 -P 3306 -u root < /tmp/hwdb_20260312/hackwars_drupal.sql
 ```
 
-## 3) Build Deployable WAR
-
-```bash
-./gradlew :Tomcat:war
-```
-
-Output:
-
-```text
-build/libs/hackwars.war
-```
-
-## 4) Deploy WAR To Managed Tomcat (`build/tomcat`)
-
-```bash
-./gradlew :Tomcat:deployWar
-```
-
-This installs Tomcat under `build/tomcat` if needed, then copies `build/libs/hackwars.war` into that Tomcat's `webapps/`.
-
-Run managed Tomcat:
-
-```bash
-./gradlew :Tomcat:runTomcat
-```
-
-Stop managed Tomcat:
-
-```bash
-./gradlew :Tomcat:stopTomcat
-```
-
-## 5) Run Socket Services (2 terminals)
+## 3) Run Socket Services (2 terminals)
 
 Terminal A:
 
@@ -83,13 +51,13 @@ Terminal B:
 ./gradlew :ChatServer:runChatServer
 ```
 
-## 6) Launch Client
+## 4) Launch Client
 
 ```bash
 ./gradlew :Client:runClientDesktop
 ```
 
-## 7) Build Native Client App (Current OS)
+## 5) Build Native Client App (Current OS)
 
 ```bash
 ./gradlew :Client:packageClientNative

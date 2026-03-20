@@ -154,30 +154,17 @@ public class Sound implements Runnable {
                         try {
                             File CF = null;
                             if (loaded.get(new Integer(index)) == null) {
-                                Object[] object = new Object[]{(Integer) index};
-                                String file = (String) XMLRPCCall.execute("http://www.hackwars.net/xmlrpc/sounds.php", "getFile", object);
-                                String check = tmpDir + file;
-                                CF = new File(check);
-                                if (!CF.exists()) {
-
-                                    InputStream in = new URL(URL + file).openStream();
-                                    FileOutputStream FOS = new FileOutputStream(tmpDir + file);
-                                    int i = 0;
-                                    byte buffer[] = new byte[512];
-                                    while ((i = in.read(buffer)) > 0)
-                                        FOS.write(buffer, 0, i);
-                                    FOS.close();
-                                }
-                                loaded.put(new Integer(index), check);
+                                // TODO: Removed legacy remote sound endpoint: http://www.hackwars.net/xmlrpc/sounds.php
+                                loaded.put(new Integer(index), "");
                             } else {
                                 CF = new File((String) loaded.get(new Integer(index)));
                             }
-                            //System.out.println("Playing "+file);
-                            //URL f = new URL(file);
-                            AudioInputStream AIS = AudioSystem.getAudioInputStream(CF);
-                            Clip c = AudioSystem.getClip();
-                            c.open(AIS);
-                            c.start();
+                            if (CF != null && CF.exists()) {
+                                AudioInputStream AIS = AudioSystem.getAudioInputStream(CF);
+                                Clip c = AudioSystem.getClip();
+                                c.open(AIS);
+                                c.start();
+                            }
 
                         } catch (Exception e) {
                         }

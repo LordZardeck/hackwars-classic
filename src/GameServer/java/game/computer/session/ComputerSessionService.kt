@@ -4,16 +4,12 @@ import com.hackwars.data.service.GameAuthDataService
 import com.hackwars.data.service.GameProfileDataService
 import com.hackwars.data.service.GameTelemetryDataService
 import game.data.GameServerDataLocator
-import org.w3c.dom.Node
-import util.LoadXML
-import util.LocalWebConfig
 
 class ComputerSessionService(
     private val config: ComputerSessionConfig = ComputerSessionConfig(),
     private val authDataService: GameAuthDataService? = null,
     private val profileDataService: GameProfileDataService? = null,
     private val telemetryDataService: GameTelemetryDataService? = null,
-    private val xmlRpcGateway: XmlRpcGateway = DefaultXmlRpcGateway(),
     private val passwordSource: PasswordSource = FilePasswordSource(config.passwordFilePath),
     private val captchaImageSource: CaptchaImageSource = DefaultCaptchaImageSource(),
     private val captchaKeyGenerator: CaptchaKeyGenerator = RandomCaptchaKeyGenerator(),
@@ -79,89 +75,17 @@ class ComputerSessionService(
     fun loadLocalSaveXml(ip: String, active: Boolean): String {
         ComputerSessionOverrides.localSaveXml(ip, active)?.let { return it }
 
-        val passwordSuffix = passwordSource.readPassword()?.let { "&pass=$it" } ?: ""
-        val loadXml = LoadXML()
-        val failures = StringBuilder()
-        var lastError: Exception? = null
-
-        for (url in localLoginUrls(ip, active, passwordSuffix)) {
-            try {
-                loadXml.loadURL(url)
-                val xmlError = extractLoadXmlError(loadXml)
-                if (xmlError == null) {
-                    return loadXml.toString()
-                }
-                lastError = Exception("Local login endpoint returned error: $xmlError")
-                failures.append("URL ").append(url).append(" returned error: ").append(xmlError).append(". ")
-                if (active) {
-                    break
-                }
-            } catch (e: Exception) {
-                lastError = e
-                failures.append("URL ").append(url).append(" failed: ").append(e.message).append(". ")
-            }
-        }
-
         try {
+            // TODO: Removed legacy local login endpoint: http://127.0.0.1:8080/hackwars/login.html?ip=<ip>&serverID=1
             val xml = profileDataService().findProfileXmlByIp(ip)
             if (!xml.isNullOrBlank()) {
                 return xml
             }
-            failures.append("DB fallback failed: No user.stats row found for ip=$ip. ")
         } catch (e: Exception) {
-            failures.append("DB fallback failed: ").append(e.message).append(". ")
-            lastError = e
+            throw Exception("Unable to load local account data for ip=$ip from the database: ${e.message}", e)
         }
 
-        val detail = "Unable to load local account data for ip=$ip. $failures"
-        throw Exception(detail, lastError)
-    }
-
-    fun requestFunctionPacks(ip: String): RemoteFunctionPackResult {
-        if (!config.remoteXmlRpcEnabled) {
-            return RemoteFunctionPackResult(
-                enabled = false,
-                maxOps = config.freeMaxOps,
-                fileSizeLimit = config.freeFileSizeLimit,
-            )
-        }
-
-        return try {
-            val result = xmlRpcGateway.execute(
-                config.remoteFunctionPacksUrl,
-                config.remoteFunctionPacksMethod,
-                arrayOf(ip as Any?),
-            )
-            if (result is Array<*> && result.size > 3) {
-                val upgraded = result[2] as? Boolean ?: false
-                val inactive = result[3] as? Boolean ?: false
-                RemoteFunctionPackResult(
-                    enabled = true,
-                    upgradedAccount = upgraded,
-                    inactive = inactive,
-                    maxOps = if (upgraded) config.payMaxOps else config.freeMaxOps,
-                    fileSizeLimit = if (upgraded) config.payFileSizeLimit else config.freeFileSizeLimit,
-                    rawResult = result,
-                )
-            } else {
-                RemoteFunctionPackResult(
-                    enabled = true,
-                    maxOps = config.freeMaxOps,
-                    fileSizeLimit = config.freeFileSizeLimit,
-                    rawResult = result,
-                )
-            }
-        } catch (_: Exception) {
-            RemoteFunctionPackResult(
-                enabled = true,
-                maxOps = config.freeMaxOps,
-                fileSizeLimit = config.freeFileSizeLimit,
-            )
-        }
-    }
-
-    fun executeRemote(url: String, method: String, params: Array<Any?>): Any? {
-        return xmlRpcGateway.execute(url, method, params)
+        throw Exception("Unable to load local account data for ip=$ip. No user.stats row found.")
     }
 
     fun generateCaptcha(): CaptchaChallenge {
@@ -230,34 +154,5 @@ class ComputerSessionService(
 
     private fun recordPlayStatWindow(ip: String, startTime: Long, endTime: Long) {
         recordPlayWindow(ip, startTime, endTime)
-    }
-
-    private fun localLoginUrls(ip: String, active: Boolean, addPass: String): List<String> {
-        val suffix = buildString {
-            append("/login.html?ip=").append(ip).append("&serverID=1")
-            if (active) {
-                append("&active=true")
-            }
-            append(addPass)
-        }
-
-        val base = LocalWebConfig.getBaseUrl()
-        val withContext = base + suffix
-        return if (base.endsWith("/hackwars")) {
-            listOf(withContext)
-        } else {
-            listOf(withContext, "$base/hackwars$suffix")
-        }
-    }
-
-    private fun extractLoadXmlError(loadXml: LoadXML): String? {
-        return try {
-            val errorNode = loadXml.findNodeRecursive("error", 0) ?: return null
-            val messageNode = loadXml.findNodeRecursive(errorNode, "message", 0) ?: return "Unknown remote error."
-            val textNode: Node = loadXml.findNodeRecursive(messageNode, "#text", 0) ?: return "Unknown remote error."
-            textNode.nodeValue ?: "Unknown remote error."
-        } catch (_: Exception) {
-            "Unknown remote error."
-        }
     }
 }

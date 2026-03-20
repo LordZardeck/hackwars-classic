@@ -5,11 +5,9 @@ package client;
  * Performs the loading step necessary to bootstrap the gui.
  */
 
-import com.hackwars.client.ConfigurationState;
 import com.hackwars.state.GameState;
 import gui.CentredBackgroundBorder;
 import org.jetbrains.annotations.NotNull;
-import util.XmlRpcProxy;
 
 import javax.imageio.ImageIO;
 import javax.swing.*;
@@ -26,8 +24,6 @@ import java.net.URL;
 public class Launcher extends JPanel implements ActionListener, GameState.MessageEventListener, GameState.FinishLoadingEventListener, GameState.ExitProgramEventListener {
     private static final String DEFAULT_PLAYER_IP = "192.168.2.002";
     private boolean LoaderSet = false;
-    private boolean remoteAuth = false;
-    private String checkDateRpcURL = "";
     private String loginBackgroundURL = "";
     private String fallbackPlayerIP = DEFAULT_PLAYER_IP;
     private JLabel message = null;
@@ -67,9 +63,6 @@ public class Launcher extends JPanel implements ActionListener, GameState.Messag
 
     private void loadConfiguration() {
         fallbackPlayerIP = getConfigValue("playerIP", "hackwars.player.ip", DEFAULT_PLAYER_IP);
-        remoteAuth = "true".equalsIgnoreCase(getConfigValue("remoteAuth", "hackwars.remoteAuth", "false"));
-        checkDateRpcURL = getConfigValue("checkDateRpcURL", "hackwars.checkDateRpcURL", "http://" + ConfigurationState.XMLRPCServer.Address + "/xmlrpc/checkdate.php");
-        String loginRpcURL = getConfigValue("loginRpcURL", "hackwars.loginRpcURL", "http://" + ConfigurationState.XMLRPCServer.Address + "/xmlrpc/loginrpc.php");
         loginBackgroundURL = getConfigValue("loginBackgroundURL", "hackwars.loginBackgroundURL", "");
     }
 
@@ -139,18 +132,6 @@ public class Launcher extends JPanel implements ActionListener, GameState.Messag
         layout.putConstraint(SpringLayout.WEST, message, 22, SpringLayout.WEST, panel);
         height += message.getPreferredSize().height + 5;
 
-        Object[] response = null;
-        if (remoteAuth) {
-            try {
-                Object[] params = {clientDate};
-                response = (Object[]) XmlRpcProxy.execute(checkDateRpcURL, "login", params);
-                if (response != null && response.length > 1 && response[0] instanceof Boolean && ((Boolean) response[0]).booleanValue() == false && response[1] instanceof String) {
-                    setMessage((String) response[1]);
-                }
-            } catch (Exception ex) {
-                setMessage("<html><font color=\"#FF6600\">Remote auth unavailable, using local mode.</font></html>");
-            }
-        }
         label = new JLabel("Username: ");
         panel.add(label);
         layout.putConstraint(SpringLayout.NORTH, label, height, SpringLayout.NORTH, panel);
@@ -211,24 +192,6 @@ public class Launcher extends JPanel implements ActionListener, GameState.Messag
         if (username == null || username.trim().length() == 0) {
             correct = false;
             message = "<html><font color=\"#FF0000\">Please enter a username.</font></html>";
-        } else if (remoteAuth) {
-            Object[] response = new Object[]{};
-            try {
-                Object[] params = {username, password, clientDate};
-                response = (Object[]) XmlRpcProxy.execute("login", params);
-                if (response != null && response.length > 0 && response[0] instanceof Boolean) {
-                    correct = ((Boolean) response[0]).booleanValue();
-                    if (response.length > 1 && response[1] instanceof String && ((String) response[1]).trim().length() > 0) {
-                        ip = (String) response[1];
-                    }
-                    if (response.length > 4 && response[4] instanceof String) {
-                        message = (String) response[4];
-                    }
-                }
-            } catch (Exception ex) {
-                correct = true;
-                message = "<html><font color=\"#FF6600\">Remote login failed, using local mode.</font></html>";
-            }
         }
         if (correct) {
             System.out.println("Login Successful");

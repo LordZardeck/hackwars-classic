@@ -204,8 +204,8 @@ public class Inventory extends JButton implements MouseListener, ActionListener 
             myGameState.addFunctionCall(new RemoteFunctionCall(Hacker.EQUIPMENT, "installequipment", params));
         }
         if (e.getActionCommand().equals("Purchase")) {
-            Object[] params = {ip};
-            String result = (String) XMLRPCCall.execute("http://www.hackwars.net/xmlrpc/domain.php", "domainLookup", params);
+            // TODO: Removed legacy remote domain lookup endpoint: http://www.hackwars.net/xmlrpc/domain.php
+            String result = util.LegacyRemoteDefaults.normalizeDomain(ip);
             Object objects[] = {result, MyHacker.getEncryptedIP(), fileName, 1};
             myGameState.setFunction("requestpurchase");
             myGameState.addFunctionCall(new RemoteFunctionCall(Hacker.BROWSER, "requestpurchase", objects));

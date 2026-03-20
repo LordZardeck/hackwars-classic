@@ -776,18 +776,6 @@ public class Home extends Application implements ComponentListener, TableModelLi
         if (storeBuyPrice != 0.0f) {
             float price = storeBuyPrice;
             float compilingcost = 0.0f;
-			/*if(type!=HackerFile.FIREWALL&&type!=HackerFile.AGP&&type!=HackerFile.PCI){
-				HashMap HM = file.getContent();
-				try {
-					HashMap levels = new HashMap();
-					levels.put("Attack",new Integer(100));
-					levels.put("Merchanting",new Integer(100));
-					levels.put("Watch",new Integer(100));
-					Object[] params = new Object[]{new Integer(type),HM,levels};
-						HashMap result = (HashMap)XMLRPCCall.execute("http://"+ConfigurationState.XMLRPCServer.Address+":8080/xmlrpc","hackerRPC.compileApplication",params);
-					compilingcost = (float)(double)(Double)result.get("price");
-				} catch(Exception ex){ex.printStackTrace();}
-			}*/
 
             allFiles[0] = new Object[]{folder, fileName, maker, quantity};
             // check to see that there's a bank port on
@@ -1062,16 +1050,6 @@ public class Home extends Application implements ComponentListener, TableModelLi
                             options[1]);
                     if (n == 0) {
                         float compilingcost = 0.0f;
-								/*HashMap HM = file.getContent();	
-								try{
-									HashMap levels = new HashMap();
-									levels.put("Attack",new Integer(100));
-									levels.put("Merchanting",new Integer(100));
-									levels.put("Watch",new Integer(100));
-									Object[] params = new Object[]{new Integer(type),HM,levels};
-										HashMap result = (HashMap)XMLRPCCall.execute("http://"+ConfigurationState.XMLRPCServer.Address+":8080/xmlrpc","hackerRPC.compileApplication",params);
-									compilingcost = (float)(double)(Double)result.get("price");
-								}catch(Exception ex){ex.printStackTrace();}	*/
                         //Object[] selected = (Object[])shownDirectory[table.getSelectedRow()];
                         Object objects[] = new Object[]{MyHacker.getEncryptedIP(), folder, name, compilingcost * 0.9f};
                         GameState myGameState = MyHacker.getView();

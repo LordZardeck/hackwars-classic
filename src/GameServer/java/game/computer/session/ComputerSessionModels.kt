@@ -1,16 +1,9 @@
 package game.computer.session
 
 data class ComputerSessionConfig(
-    val remoteXmlRpcEnabled: Boolean = false,
     val localAuthFallbackEnabled: Boolean = true,
-    val remoteFunctionPacksUrl: String = "http://www.hackwars.net/xmlrpc/functions.php",
-    val remoteFunctionPacksMethod: String = "getFunctionPacks",
     val passwordFilePath: String = "password.ini",
     val captchaUrlPattern: String = "http://www.hackwars.net/securimage/securimage_show.php?id=%s",
-    val freeMaxOps: Int = 4096,
-    val payMaxOps: Int = 16384,
-    val freeFileSizeLimit: Int = 60000,
-    val payFileSizeLimit: Int = 240000,
     val pingTimeoutMillis: Long = 20000,
     val clientPacketTimeoutMillis: Long = 600000,
 )
@@ -26,15 +19,6 @@ data class LoginRequest(
 data class LoginResult(
     val accepted: Boolean,
     val sendPreferences: Boolean,
-)
-
-data class RemoteFunctionPackResult(
-    val enabled: Boolean,
-    val upgradedAccount: Boolean = false,
-    val inactive: Boolean = false,
-    val maxOps: Int,
-    val fileSizeLimit: Int,
-    val rawResult: Any? = null,
 )
 
 data class CaptchaChallenge(

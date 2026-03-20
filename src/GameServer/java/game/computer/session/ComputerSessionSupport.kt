@@ -6,16 +6,6 @@ import java.io.FileReader
 import java.net.URL
 import javax.imageio.ImageIO
 
-interface XmlRpcGateway {
-    fun execute(url: String, method: String, params: Array<Any?>): Any?
-}
-
-class DefaultXmlRpcGateway : XmlRpcGateway {
-    override fun execute(url: String, method: String, params: Array<Any?>): Any? {
-        return util.XmlRpcProxy.execute(url, method, params)
-    }
-}
-
 interface PasswordSource {
     fun readPassword(): String?
 }

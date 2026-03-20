@@ -11,7 +11,6 @@ import java.awt.*;
 import java.awt.event.*;
 
 import assignments.*;
-import com.hackwars.client.ConfigurationState;
 import view.*;
 
 import java.text.*;
@@ -20,10 +19,7 @@ import java.math.*;
 import browser.*;
 import game.*;
 
-import java.net.URL;
 import java.util.*;
-import javax.imageio.*;
-import java.io.*;
 
 public class PersonalSettings extends Application implements ComponentListener {
     private final String[] images = {"images/nopic.png", "images/Snow_001.png", "images/Bill_001.png", "images/Necro_001.png", "images/Johan_001.png", "images/Butch_001.png", "images/Jansen_001.png", "images/Gunner001.png", "images/N00b001.png", "images/GothGirl_001.png", "images/Rep_001.png"};
@@ -84,37 +80,14 @@ public class PersonalSettings extends Application implements ComponentListener {
     }
 
     public void getProfilePanel(JPanel p) {
-        String image = "";
-        int width = 0;
-        int height = 0;
+        String image = images[0];
+        int width = 160;
+        int height = 160;
         String description = "";
         String location = "";
-        String ip = "";
-        try {
-            Object[] params = new Object[]{username};
-            HashMap result = (HashMap) XMLRPCCall.execute("http://" + ConfigurationState.XMLRPCServer.Address + "/xmlrpc/profile.php", "getProfile", params);
-            image = "http://www.team-captin.com/" + result.get("image");
-            getImageIndex((String) result.get("image"));
-            width = (int) (Integer) result.get("width");
-            height = (int) (Integer) result.get("height");
-            height = 160;
-            description = (String) result.get("description");
-            location = (String) result.get("location");
-            ip = (String) result.get("ip");
-            //System.out.println(description);
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-        //System.out.println(image);
-        this.ip = ip;
-        //ImageViewerPanel imagePanel = new ImageViewerPanel();
-        //aImage aI = new aImage(image,imagePanel);
-        //imagePanel.setAImage(aI);
-        try {
-            imagePanel.setBorder(new CentredBackgroundBorder(ImageIO.read(new URL(image)), imagePanel));
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+        this.ip = username.equals(MyHacker.getUsername()) ? MyHacker.getIP() : "";
+        getImageIndex(image);
+        imagePanel.setBorder(new CentredBackgroundBorder(ImageLoader.getImage(image), imagePanel));
         p.setLayout(null);
         p.add(imagePanel);
         imagePanel.setBounds(5, 5, width, height);
@@ -283,33 +256,10 @@ public class PersonalSettings extends Application implements ComponentListener {
         cp.setLayout(null);
         JScrollPane sp = new JScrollPane(cp);
         int y = 10;
-        try {
-            Object[] params = new Object[]{MyHacker.getIP()};
-            Object[] result = (Object[]) XMLRPCCall.execute("http://" + ConfigurationState.XMLRPCServer.Address + "/help/apilist.php", "listChallenges", params);
-            //for(int j=0;j<5;j++){
-            for (int i = 0; i < result.length; i++) {
-                HashMap HM = (HashMap) result[i];
-                JLabel challenge = new JLabel("<html><u>" + (String) HM.get("name") + "</u></html>");
-                cp.add(challenge);
-                challenge.setForeground(Color.blue);
-                challenge.addMouseListener(new ChallengeMouseListener(MyHacker, (int) (Integer) HM.get("id")));
-                challenge.setBounds(5, y, challenge.getPreferredSize().width, challenge.getPreferredSize().height);
-                JButton button = new JButton(ImageLoader.getImageIcon("images/dummyoff.png"));
-                button.setBorderPainted(false);
-                button.setEnabled(false);
-                button.setContentAreaFilled(false);
-                cp.add(button);
-                button.setBounds(getBounds().width - 62, y, 16, 16);
-                if ((boolean) (Boolean) HM.get("done")) {
-                    button.setIcon(ImageLoader.getImageIcon("images/dummyon.png"));
-                }
-                y += challenge.getPreferredSize().height + 5;
-            }
-            //}
-            //System.out.println(description);
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+        JLabel unavailable = new JLabel("Challenge history is unavailable in this build.");
+        cp.add(unavailable);
+        unavailable.setBounds(5, y, unavailable.getPreferredSize().width, unavailable.getPreferredSize().height);
+        y += unavailable.getPreferredSize().height + 10;
         cp.setPreferredSize(new Dimension(getBounds().width - 30, y + 10));
         cp.setBackground(Color.white);
         p.add(sp);
@@ -358,54 +308,29 @@ public class PersonalSettings extends Application implements ComponentListener {
             AP.setVisible(true);
         }
         if (e.getActionCommand().equals("prev")) {
-            //System.out.println("Previous Image");
-            String image = "http://www.team-captin.com/" + images[imageIndex - 1];
-            try {
-                imagePanel.setBorder(new CentredBackgroundBorder(ImageIO.read(new URL(image)), imagePanel));
-            } catch (Exception ex) {
-                ex.printStackTrace();
-            }
+            String image = images[imageIndex - 1];
+            imagePanel.setBorder(new CentredBackgroundBorder(ImageLoader.getImage(image), imagePanel));
             imageIndex--;
             next.setEnabled(true);
             if (imageIndex == 0)
                 prev.setEnabled(false);
         }
         if (e.getActionCommand().equals("next")) {
-            //System.out.println("Next Image");
-            String image = "http://www.team-captin.com/" + images[imageIndex + 1];
-            try {
-                imagePanel.setBorder(new CentredBackgroundBorder(ImageIO.read(new URL(image)), imagePanel));
-            } catch (Exception ex) {
-                ex.printStackTrace();
-            }
+            String image = images[imageIndex + 1];
+            imagePanel.setBorder(new CentredBackgroundBorder(ImageLoader.getImage(image), imagePanel));
             imageIndex++;
             prev.setEnabled(true);
             if (imageIndex == images.length - 1)
                 next.setEnabled(false);
         }
         if (e.getActionCommand().equals("saveImage")) {
-            try {
-                Object[] params = new Object[]{username, images[imageIndex]};
-                XMLRPCCall.execute("http://" + ConfigurationState.XMLRPCServer.Address + "/xmlrpc/profile.php", "saveImage", params);
-            } catch (Exception ex) {
-                ex.printStackTrace();
-            }
+            // TODO: Removed legacy remote profile endpoint: http://127.0.0.1/xmlrpc/profile.php
         }
         if (e.getActionCommand().equals("saveDescription")) {
-            try {
-                Object[] params = new Object[]{username, ta.getText()};
-                XMLRPCCall.execute("http://" + ConfigurationState.XMLRPCServer.Address + "/xmlrpc/profile.php", "saveDescription", params);
-            } catch (Exception ex) {
-                ex.printStackTrace();
-            }
+            // TODO: Removed legacy remote profile endpoint: http://127.0.0.1/xmlrpc/profile.php
         }
         if (e.getActionCommand().equals("saveLocation")) {
-            try {
-                Object[] params = new Object[]{username, tf.getText()};
-                XMLRPCCall.execute("http://" + ConfigurationState.XMLRPCServer.Address + "/xmlrpc/profile.php", "saveLocation", params);
-            } catch (Exception ex) {
-                ex.printStackTrace();
-            }
+            // TODO: Removed legacy remote profile endpoint: http://127.0.0.1/xmlrpc/profile.php
         }
 
     }

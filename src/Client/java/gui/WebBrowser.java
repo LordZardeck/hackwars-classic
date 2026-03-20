@@ -64,8 +64,12 @@ public class WebBrowser extends Application implements ComponentListener {
     private String currentTitle = "";
     private JLabel votesLeftLabel;
 
-    private String xmlRpcUnavailableHtml(String title) {
-        return "<html><body><h2>" + title + "</h2><p>Could not reach the XML-RPC endpoint.</p></body></html>";
+    private String legacyRemoteUnavailableHtml(String title) {
+        return LegacyRemoteDefaults.unavailableHtml(title, "Legacy web content is unavailable in this build.");
+    }
+
+    private String normalizeDomain(String value) {
+        return LegacyRemoteDefaults.normalizeDomain(value);
     }
 
     public WebBrowser(String name, boolean resize, boolean max, boolean close, boolean iconify, JDesktopPane mainPanel, Hacker MyHacker) {
@@ -283,19 +287,14 @@ public class WebBrowser extends Application implements ComponentListener {
         browse.setParent(this);
         //browse.setEditorKit(new HTMLEditorKit());
         try {
-            Object[] params = new Object[]{"", ""};
-            String result = (String) XMLRPCCall.execute(LocalWebConfig.getXmlRpcUrl(), "hackerRPC.doSearch", params);
-            if (result == null) {
-                result = xmlRpcUnavailableHtml("Search unavailable");
-            }
+            // TODO: Removed legacy remote search endpoint: http://127.0.0.1:8080/hackwars/xmlrpc -> hackerRPC.doSearch
+            String result = legacyRemoteUnavailableHtml("Search unavailable");
             browse.parseDocument(result, this);
         } catch (Exception e) {
             e.printStackTrace();
         }
         urlField.setText("Search");
         ips[0] = "Search";
-        //System.out.println(ConfigurationState.XMLRPCServer.Address);
-        //forumPanel = new ForumPanel("http://"+ConfigurationState.XMLRPCServer.Address+"/forum/",this.getBounds(),this,MyHacker);
 
         tb = new JTabbedPane();
         JScrollPane scrollPane = new JScrollPane(browse.getView());
@@ -747,19 +746,9 @@ public class WebBrowser extends Application implements ComponentListener {
     }
 
     public void newSearch(String value, String page) {
-        //System.out.println("Form Input Name: "+name);
-        //System.out.println("Form Input Value: "+value);
-        //value = HTMLFilter.getURLSafe(value);
         try {
-            //browse.parseDocument(new URL(LocalWebConfig.getBaseUrl(ConfigurationState.XMLRPCServer.Address)+"/login.html?mode=search&query="+value));
-            //XML-RPC STUFF
-            //value = value.replaceAll("%20"," ");
-            Object[] params = new Object[]{value, page};
-            String result = (String) XMLRPCCall.execute(LocalWebConfig.getXmlRpcUrl(), "hackerRPC.doSearch", params);
-            if (result == null) {
-                result = xmlRpcUnavailableHtml("Search unavailable");
-            }
-            //System.out.println("Parsing new search -- "+result);
+            // TODO: Removed legacy remote search endpoint: http://127.0.0.1:8080/hackwars/xmlrpc -> hackerRPC.doSearch
+            String result = legacyRemoteUnavailableHtml("Search unavailable");
             tb.setTitleAt(tb.getSelectedIndex(), "Search");
             browse.parseDocument(result, this);
         } catch (Exception ex) {
@@ -768,14 +757,12 @@ public class WebBrowser extends Application implements ComponentListener {
     }
 
     public void submitForm(FormInput[] formInputs) {
-        //System.out.println("Submitting Form");
         HashMap send = new HashMap();
         for (int i = 0; i < formInputs.length; i++) {
-            //System.out.println(formInputs[i].getName()+"   "+formInputs[i].getValue());
             send.put(formInputs[i].getName(), formInputs[i].getTextValue());
         }
-        Object[] params = new Object[]{urlField.getText().split("\\?")[0].trim()};
-        String result = (String) XMLRPCCall.execute("http://www.hackwars.net/xmlrpc/domain.php", "domainLookup", params);
+        // TODO: Removed legacy remote domain lookup endpoint: http://www.hackwars.net/xmlrpc/domain.php
+        String result = normalizeDomain(urlField.getText().split("\\?")[0].trim());
         Object objects[] = new Object[]{result, MyHacker.getEncryptedIP(), send};
         myGameState.setFunction("submit");
         myGameState.addFunctionCall(new RemoteFunctionCall(Hacker.BROWSER, "submit", objects));
@@ -824,8 +811,7 @@ public class WebBrowser extends Application implements ComponentListener {
                 }
                 Object objects[];
                 if (!ips[position - 1].toLowerCase().equals("search") && !ips[position - 1].equals(MyHacker.getStoreIP())) {
-                    Object[] params = new Object[]{ips[position - 1].split("\\?")[0].trim()};
-                    String result = (String) XMLRPCCall.execute("http://www.hackwars.net/xmlrpc/domain.php", "domainLookup", params);
+                    String result = normalizeDomain(ips[position - 1].split("\\?")[0].trim());
                     objects = new Object[]{result, MyHacker.getEncryptedIP()};
                     myGameState.setFunction("exit");
                     myGameState.addFunctionCall(new RemoteFunctionCall(0, "exit", objects));
@@ -842,13 +828,12 @@ public class WebBrowser extends Application implements ComponentListener {
                         //System.out.println(query[0]+"   "+query[1]);
                     }
                 }
-                Object[] params = new Object[]{href.getPath().replaceAll("/", "").trim(), HM};
-                String result = (String) XMLRPCCall.execute("http://www.hackwars.net/xmlrpc/domain.php", "domainLookup", params);
-                if (result == null) {
-                    browse.parseDocument(xmlRpcUnavailableHtml("Site lookup unavailable"), this);
+                // TODO: Removed legacy remote domain lookup endpoint: http://www.hackwars.net/xmlrpc/domain.php
+                String result = normalizeDomain(href.getPath().replaceAll("/", "").trim());
+                if (result.length() == 0) {
+                    browse.parseDocument(legacyRemoteUnavailableHtml("Site lookup unavailable"), this);
                     return;
                 }
-                //System.out.println(HM.get("q"));
                 objects = new Object[]{result.trim(), MyHacker.getEncryptedIP(), HM};
                 myGameState.setFunction("requestwebpage");
                 myGameState.addFunctionCall(new RemoteFunctionCall(Hacker.BROWSER, "requestwebpage", objects));
@@ -887,8 +872,7 @@ public class WebBrowser extends Application implements ComponentListener {
                 Object[] objects;
                 if (position != 0) {
                     if (!ips[position - 1].toLowerCase().equals("search") && !ips[position - 1].equals(MyHacker.getStoreIP())) {
-                        Object[] params = new Object[]{ips[position - 1].split("\\?")[0].trim()};
-                        String result = (String) XMLRPCCall.execute("http://www.hackwars.net/xmlrpc/domain.php", "domainLookup", params);
+                        String result = normalizeDomain(ips[position - 1].split("\\?")[0].trim());
                         objects = new Object[]{result, MyHacker.getEncryptedIP()};
                         myGameState.setFunction("exit");
                         myGameState.addFunctionCall(new RemoteFunctionCall(0, "exit", objects));
@@ -915,10 +899,10 @@ public class WebBrowser extends Application implements ComponentListener {
                     }
                 }
                 //System.out.println(href);
-                Object[] params = new Object[]{href.getHost().replaceAll("/", "").trim()};
-                String result = (String) XMLRPCCall.execute("http://www.hackwars.net/xmlrpc/domain.php", "domainLookup", params);
-                if (result == null) {
-                    browse.parseDocument(xmlRpcUnavailableHtml("Site lookup unavailable"), this);
+                // TODO: Removed legacy remote domain lookup endpoint: http://www.hackwars.net/xmlrpc/domain.php
+                String result = normalizeDomain(href.getHost().replaceAll("/", "").trim());
+                if (result.length() == 0) {
+                    browse.parseDocument(legacyRemoteUnavailableHtml("Site lookup unavailable"), this);
                     return;
                 }
                 objects = new Object[]{result, MyHacker.getEncryptedIP(), HM};
@@ -1051,8 +1035,8 @@ public class WebBrowser extends Application implements ComponentListener {
 
         }
         if (ac.equals("Vote")) {
-            Object[] params = new Object[]{urlField.getText().trim()};
-            String result = (String) XMLRPCCall.execute("http://www.hackwars.net/xmlrpc/domain.php", "domainLookup", params);
+            // TODO: Removed legacy remote domain lookup endpoint: http://www.hackwars.net/xmlrpc/domain.php
+            String result = normalizeDomain(urlField.getText().trim());
             Object[] objects = {result, MyHacker.getEncryptedIP()};
             myGameState.setFunction("vote");
             myGameState.addFunctionCall(new RemoteFunctionCall(0, "vote", objects));
@@ -1068,10 +1052,8 @@ public class WebBrowser extends Application implements ComponentListener {
                         currentTitle);
 
                 if (s != null) {
-                    Object[] params = new Object[]{MyHacker.getIP(), urlField.getText(), s, ""};
-                    String id = (String) XMLRPCCall.execute("http://www.hackwars.net/xmlrpc/bookmarks.php", "addBookmark", params);
-
-                    //createMenu();
+                    // TODO: Removed legacy remote bookmarks endpoint: http://www.hackwars.net/xmlrpc/bookmarks.php
+                    String id = String.valueOf(System.nanoTime());
                     JMenuItem menuItem = new JMenuItem(s);
                     bookmarksMenu.add(menuItem, bookmarksMenu.getItemCount() - 3);
                     menuItem.addActionListener(this);

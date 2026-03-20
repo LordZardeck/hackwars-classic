@@ -17,7 +17,6 @@
             <option value="$PROJECT_DIR$/src/Networking" />
             <option value="$PROJECT_DIR$/src/RpcDispatchAnnotations" />
             <option value="$PROJECT_DIR$/src/RpcDispatchKsp" />
-            <option value="$PROJECT_DIR$/src/Tomcat" />
           </set>
         </option>
       </GradleProjectSettings>

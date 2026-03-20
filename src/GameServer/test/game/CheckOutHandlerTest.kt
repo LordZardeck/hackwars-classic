@@ -9,7 +9,7 @@ import org.mockito.kotlin.mock
 
 class CheckOutHandlerTest {
     @Test
-    fun processWork_routesToXmlRpcWhenThePageChanged() {
+    fun processWork_persistsLocallyWhenThePageChanged() {
         val auth = FakeAuthDataService()
         val profile = FakeProfileDataService()
         val handler = RecordingCheckOutHandler(auth, profile)
@@ -17,7 +17,7 @@ class CheckOutHandlerTest {
 
         handler.processWork(work)
 
-        assertEquals("xmlrpc", handler.branch)
+        assertEquals("insert", handler.branch)
         assertEquals("10.0.0.1", handler.ip)
         assertEquals("xml-data", handler.content)
     }
@@ -74,18 +74,6 @@ class CheckOutHandlerTest {
 
         override fun readComputerOutput(computer: Computer): String {
             return "xml-data"
-        }
-
-        override fun saveProfileViaXmlRpc(
-            ip: String,
-            content: String,
-            pageChanged: Boolean,
-            pageTitle: String,
-            pageBody: String
-        ) {
-            branch = "xmlrpc"
-            this.ip = ip
-            this.content = content
         }
 
         override fun insertProfile(ip: String, content: String) {

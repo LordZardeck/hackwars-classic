@@ -48,52 +48,20 @@ class LegacyEconomyWebSocialCommands : LegacyApplicationDataHandler {
             }
 
             "sendemail" -> {
-                val message = applicationData.getParameters() as String
-                if (computer.checkBank()) {
-                    if (computer.pettyCash >= 100.0f) {
-                        try {
-                            val params = arrayOf<Any?>(computer.ip, message)
-                            computer.sessionService.executeRemote("http://www.hackwars.net/xmlrpc/mail.php", "sendEmail", params)
-                        } catch (_: Exception) {
-                        }
-                        computer.getComputerHandler().addData(ApplicationData("pettycash", -100.0f, 0, computer.ip), computer.ip)
-                    }
-                }
+                applicationData.getParameters() as String
+                // TODO: Removed legacy remote mail endpoint: http://www.hackwars.net/xmlrpc/mail.php
                 true
             }
 
             "sendfacebook" -> {
-                val params = applicationData.getParameters() as Array<*>
-                val message = params[0] as String
-                val targetIP = params[1] as String
-                try {
-                    computer.sessionService.executeRemote(
-                        "http://www.hackwars.net/xmlrpc/facebook.php",
-                        "sendFacebook",
-                        arrayOf<Any?>(computer.ip, targetIP, message)
-                    )
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                }
+                applicationData.getParameters() as Array<*>
+                // TODO: Removed legacy remote social endpoint: http://www.hackwars.net/xmlrpc/facebook.php
                 true
             }
 
             "facebookupdate" -> {
                 applicationData.getParameters() as String
-                try {
-                    computer.sessionService.executeRemote(
-                        "http://www.hackwars.net/xmlrpc/facebook.php",
-                        "updateFacebook",
-                        arrayOf<Any?>(
-                            computer.ip,
-                            computer.pettyCash.toDouble(),
-                            computer.bankMoney.toDouble(),
-                            computer.defaultBank
-                        )
-                    )
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                }
+                // TODO: Removed legacy remote social endpoint: http://www.hackwars.net/xmlrpc/facebook.php
                 true
             }
 

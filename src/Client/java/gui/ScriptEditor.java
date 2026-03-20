@@ -9,7 +9,6 @@ import javax.swing.event.*;
 import java.awt.*;
 import java.awt.event.*;
 
-import com.hackwars.client.ConfigurationState;
 import com.hackwars.state.GameState;
 import game.*;
 
@@ -21,7 +20,7 @@ import java.text.*;
 
 import hackscript.model.*;
 import jsyntaxpane.*;
-import util.LocalWebConfig;
+import util.LegacyRemoteDefaults;
 
 public class ScriptEditor extends Application {
     private final int TEXT_LIMIT = 60000;
@@ -1249,10 +1248,9 @@ public class ScriptEditor extends Application {
                     levels.put("Redirect", new Integer(MyHacker.getStatsPanel().getRedirectIcon().getLevel()));
 
                     try {
-                        Object[] params = new Object[]{new Integer(type), HM, levels};
-                        HashMap result = (HashMap) XMLRPCCall.execute(LocalWebConfig.getXmlRpcUrl(), "hackerRPC.compileApplication", params);
+                        // TODO: Removed legacy compile pricing endpoint: http://127.0.0.1:8080/hackwars/xmlrpc -> hackerRPC.compileApplication
+                        HashMap result = LegacyRemoteDefaults.compileApplicationResult();
                         if (((String) (result.get("error"))).length() > 0)
-                            //System.out.println(result.get("error"));
                             JOptionPane.showMessageDialog(this,
                                     result.get("error"),
                                     "Compiling Error",
@@ -1426,8 +1424,8 @@ public class ScriptEditor extends Application {
                     levels.put("HTTP", new Integer(MyHacker.getStatsPanel().getHTTPIcon().getLevel()));
                     levels.put("Redirect", new Integer(MyHacker.getStatsPanel().getRedirectIcon().getLevel()));
                     try {
-                        Object[] params = new Object[]{new Integer(type), HM, levels};
-                        HashMap result = (HashMap) XMLRPCCall.execute(LocalWebConfig.getXmlRpcUrl(ConfigurationState.XMLRPCServer.Address), "hackerRPC.compileApplication", params);
+                        // TODO: Removed legacy compile pricing endpoint: http://127.0.0.1:8080/hackwars/xmlrpc -> hackerRPC.compileApplication
+                        HashMap result = LegacyRemoteDefaults.compileApplicationResult();
                         if (((String) (result.get("error"))).length() > 0)
                             JOptionPane.showMessageDialog(this,
                                     result.get("error"),

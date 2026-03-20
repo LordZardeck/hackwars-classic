@@ -15,8 +15,6 @@ import org.w3c.dom.NamedNodeMap;
 
 import java.util.concurrent.Semaphore;
 
-import org.apache.xmlrpc.client.XmlRpcClient;
-import org.apache.xmlrpc.client.XmlRpcClientConfigImpl;
 import assignments.*;
 
 import java.io.*;

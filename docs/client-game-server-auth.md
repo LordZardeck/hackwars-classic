@@ -52,16 +52,6 @@ After login success:
 - Server tries to decrypt `byteFunction`; if decrypt fails, the plaintext `function` field can still be present.
 - Parameters are mostly not encrypted at transport level; IP-like fields are tokenized via `encryptedIP`.
 
-## Optional Pre-Check In Launcher
-
-`Launcher` supports optional remote XML-RPC login (`remoteAuth=true`) before socket login:
-
-- check-date call: `checkDateRpcURL`
-- login call: `loginRpcURL`
-- can return alternate player IP
-
-This is a gate/check step in the launcher, not the game socket server authentication itself. If remote auth is unavailable, launcher falls back to local mode.
-
 ## Important Notes
 
 - Transport is Java object serialization over raw TCP sockets (legacy DolphinNet), not TLS.

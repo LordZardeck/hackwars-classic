@@ -1,13 +1,11 @@
 package game
 
-import game.computer.session.ComputerSessionService
 import hackscript.model.TypeBoolean
 import hackscript.model.TypeFloat
 import hackscript.model.TypeInteger
 import hackscript.model.TypeString
 import hackscript.model.Variable
-import util.LocalWebConfig
-import java.lang.reflect.Field
+import util.LegacyRemoteDefaults
 import java.util.HashMap
 
 /**
@@ -433,17 +431,15 @@ class LegacyFilesystemInventoryCommands : LegacyApplicationDataHandler {
         content: HashMap<*, *>,
         levels: HashMap<*, *>
     ): HashMap<*, *>? {
-        val params = arrayOf<Any?>(Integer.valueOf(type), content, levels)
-        return getSessionService(computer).executeRemote(
-            LocalWebConfig.getXmlRpcUrl(),
-            "hackerRPC.compileApplication",
-            params
-        ) as HashMap<*, *>?
-    }
-
-    private fun getSessionService(computer: Computer): ComputerSessionService {
-        val field: Field = Computer::class.java.getDeclaredField("sessionService")
-        field.isAccessible = true
-        return field.get(computer) as ComputerSessionService
+        @Suppress("UNUSED_PARAMETER")
+        val ignoredComputer = computer
+        @Suppress("UNUSED_PARAMETER")
+        val ignoredType = type
+        @Suppress("UNUSED_PARAMETER")
+        val ignoredContent = content
+        @Suppress("UNUSED_PARAMETER")
+        val ignoredLevels = levels
+        // TODO: Removed legacy compile pricing endpoint: http://127.0.0.1:8080/hackwars/xmlrpc -> hackerRPC.compileApplication
+        return LegacyRemoteDefaults.compileApplicationResult()
     }
 }

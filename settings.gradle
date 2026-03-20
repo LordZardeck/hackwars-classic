@@ -20,10 +20,6 @@ include ':Client'
 project(':Client').projectDir = file('src/Client')
 project(':Client').buildFileName = 'client.gradle'
 
-include ':Tomcat'
-project(':Tomcat').projectDir = file('src/Tomcat')
-project(':Tomcat').buildFileName = 'tomcat.gradle'
-
 include ':Networking'
 project(':Networking').projectDir = file('src/Networking')
 project(':Networking').buildFileName = 'networking.gradle'

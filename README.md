@@ -19,10 +19,8 @@ it now runs within a dedicated desktop app.
 - `src/GameServer/java`: game server module sources.
 - `src/Client/java`: desktop client module sources.
 - `src/Networking`: shared Protocol Buffers contracts and networking utilities.
-- `src/Tomcat/java`: Tomcat integration module sources.
 - `src/HackWars/java`: shared HackWars code used by multiple modules.
 - `src/main/resources`: runtime data files (images, DB zips, config, etc.).
-- `src/main/webapp`: web application assets and `WEB-INF/web.xml`.
 
 ## Auth Documentation
 

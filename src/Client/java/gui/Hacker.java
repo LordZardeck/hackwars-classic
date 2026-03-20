@@ -236,21 +236,12 @@ public class Hacker implements ActionListener, WindowListener, ComponentListener
         //LS.setBounds(200,200,200,150);
         //frame.repaint();
         //LS.repaint();
-        //get Function Packs here
         if (!offline) {
-            // TODO: @lordzardeck reverse engineer what this endpoint used to do and re-implement
-            // Object[] functions = (Object[]) XMLRPCCall.execute("http://www.hackwars.net/xmlrpc/functions.php", "getFunctionPacks", new Object[]{ip});
-            Object[] functions = null;
-            if (functions != null && functions.length > 2 && functions[2] instanceof Boolean) {
-                //paidHacktendo=(Boolean)functions[1];
-                proPack = (Boolean) functions[2];
-            } else {
-                proPack = false;
-            }
+            // TODO: Removed legacy remote function pack endpoint: http://www.hackwars.net/xmlrpc/functions.php
+            proPack = false;
         } else {
             proPack = false;
         }
-        //proPack=false;
 
         frame.add(panel);
         panel.setBounds(0, 0, frameSize.width - 50, frameSize.height - 50);
@@ -304,32 +295,7 @@ public class Hacker implements ActionListener, WindowListener, ComponentListener
         myGameState.finishedLoading();
         statList = new StatsList(this);
 
-        if (!offline) {
-            // TODO: @lordzardeck reverse engineer what this endpoint used to do and re-implement
-            // Object[] settings = (Object[]) XMLRPCCall.execute("http://www.hackwars.net/xmlrpc/settings.php", "getSettings", new Object[]{ip});
-            Object[] settings = null;
-            if (settings != null) {
-                Object[] portC = (Object[]) settings[4];//new Object[]{true,true,true,true,true,true,true,true,true,true};
-                portColumns = new boolean[10];
-                for (int i = 0; i < portC.length; i++) {
-                    portColumns[i] = (boolean) (Boolean) portC[i];
-                    //System.out.println(i+" "+portColumns[i]);
-                }
-                //portColumns[9] = true;
-                Object[] bookmarks_xml_rpc = (Object[]) XMLRPCCall.execute("http://www.hackwars.net/xmlrpc/bookmarks.php", "getBookmarks", new Object[]{ip});
-                if (bookmarks_xml_rpc != null) {
-                    for (int i = 0; i < bookmarks_xml_rpc.length; i++) {
-                        bookmarks.add(bookmarks_xml_rpc[i]);
-
-                    }
-                }
-            } else {
-                portColumns = new boolean[]{true, true, true, true, true, true, true, true, true, true, true};
-            }
-        } else {
-            portColumns = new boolean[]{true, true, true, true, true, true, true, true, true, true, true};
-            //showTutorial = false;
-        }
+        portColumns = new boolean[]{true, true, true, true, true, true, true, true, true, true, true};
 
         //Bootstrap the 3D chat component.
         //HMMO=new HacktendoMMO(this);
@@ -495,6 +461,15 @@ public class Hacker implements ActionListener, WindowListener, ComponentListener
 
     public void addBookmark(String domain, String name, String folder, String id) {
         bookmarks.add(new Object[]{domain, name, folder, id});
+    }
+
+    public void updateBookmark(int index, String name) {
+        Object[] bookmark = (Object[]) bookmarks.get(index);
+        bookmark[1] = name;
+    }
+
+    public void removeBookmark(int index) {
+        bookmarks.remove(index);
     }
 
     public boolean getProPack() {
@@ -1623,10 +1598,7 @@ public class Hacker implements ActionListener, WindowListener, ComponentListener
 
     public void setPortColumns(boolean[] columns) {
         this.portColumns = columns;
-        Object[] o = new Object[columns.length];
-        for (int i = 0; i < o.length; i++)
-            o[i] = new Boolean(columns[i]);
-        XMLRPCCall.execute("http://www.hackwars.net/xmlrpc/settings.php", "setPortColumns", new Object[]{ip, o});
+        // TODO: Removed legacy remote settings endpoint: http://www.hackwars.net/xmlrpc/settings.php
     }
 
     public void setCountDown(int count) {

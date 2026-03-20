@@ -4,31 +4,13 @@ import com.hackwars.data.model.ForumLoginSnapshot
 import com.hackwars.data.service.GameAuthDataService
 import com.hackwars.data.service.GameProfileDataService
 import com.hackwars.data.service.GameTelemetryDataService
-import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
-import org.junit.Before
 import org.junit.Test
 import java.awt.image.BufferedImage
 
 class ComputerSessionServiceTest {
-    private var previousBaseUrl: String? = null
-
-    @Before
-    fun captureBaseUrlProperty() {
-        previousBaseUrl = System.getProperty("hackwars.localWebBaseUrl")
-    }
-
-    @After
-    fun restoreBaseUrlProperty() {
-        if (previousBaseUrl == null) {
-            System.clearProperty("hackwars.localWebBaseUrl")
-        } else {
-            System.setProperty("hackwars.localWebBaseUrl", previousBaseUrl)
-        }
-    }
-
     @Test
     fun `play fab auth short circuits and requests preferences`() {
         val auth = FakeAuthDataService()
@@ -157,25 +139,6 @@ class ComputerSessionServiceTest {
     }
 
     @Test
-    fun `remote function packs expands upgrade limits`() {
-        val gateway = RecordingXmlRpcGateway(
-            response = arrayOf("ok", "ignored", true, false)
-        )
-        val service = service(
-            config = ComputerSessionConfig(remoteXmlRpcEnabled = true),
-            xmlRpcGateway = gateway,
-        )
-
-        val result = service.requestFunctionPacks("10.0.0.1")
-
-        assertTrue(result.enabled)
-        assertTrue(result.upgradedAccount)
-        assertFalse(result.inactive)
-        assertEquals(16384, result.maxOps)
-        assertEquals(240000, result.fileSizeLimit)
-    }
-
-    @Test
     fun `captcha challenge returns pixels and key`() {
         val image = BufferedImage(175, 45, BufferedImage.TYPE_INT_ARGB)
         image.setRGB(0, 0, 0x00FF00)
@@ -235,7 +198,7 @@ class ComputerSessionServiceTest {
     }
 
     @Test
-    fun `load local save xml falls back to the database when the endpoint returns an error`() {
+    fun `load local save xml reads directly from the database`() {
         val saveXml = """
             <?xml version="1.0" encoding="UTF-8"?>
             <save><ip>10.0.0.1</ip></save>
@@ -243,25 +206,15 @@ class ComputerSessionServiceTest {
         val profile = FakeProfileDataService(
             xmlByIp = mutableMapOf("10.0.0.1" to saveXml)
         )
+        val service = service(
+            config = ComputerSessionConfig(localAuthFallbackEnabled = false),
+            profile = profile,
+        )
 
-        try {
-            System.setProperty(
-                "hackwars.localWebBaseUrl",
-                "http://127.0.0.1:1/hackwars",
-            )
+        val xml = service.loadLocalSaveXml("10.0.0.1", active = false)
 
-            val service = service(
-                config = ComputerSessionConfig(localAuthFallbackEnabled = false),
-                profile = profile,
-            )
-
-            val xml = service.loadLocalSaveXml("10.0.0.1", active = false)
-
-            assertTrue(xml.contains("<ip>10.0.0.1</ip>"))
-            assertEquals(listOf("10.0.0.1"), profile.readIps)
-        } finally {
-            System.clearProperty("hackwars.localWebBaseUrl")
-        }
+        assertTrue(xml.contains("<ip>10.0.0.1</ip>"))
+        assertEquals(listOf("10.0.0.1"), profile.readIps)
     }
 
     private fun service(
@@ -269,7 +222,6 @@ class ComputerSessionServiceTest {
         auth: GameAuthDataService = FakeAuthDataService(),
         profile: GameProfileDataService = FakeProfileDataService(),
         telemetry: GameTelemetryDataService = FakeTelemetryDataService(),
-        xmlRpcGateway: XmlRpcGateway = RecordingXmlRpcGateway(),
         passwordSource: PasswordSource = StaticPasswordSource(null),
         captchaImageSource: CaptchaImageSource = StaticCaptchaImageSource(BufferedImage(175, 45, BufferedImage.TYPE_INT_ARGB)),
         captchaKeyGenerator: CaptchaKeyGenerator = StaticCaptchaKeyGenerator("12345"),
@@ -279,7 +231,6 @@ class ComputerSessionServiceTest {
             authDataService = auth,
             profileDataService = profile,
             telemetryDataService = telemetry,
-            xmlRpcGateway = xmlRpcGateway,
             passwordSource = passwordSource,
             captchaImageSource = captchaImageSource,
             captchaKeyGenerator = captchaKeyGenerator,
@@ -352,17 +303,6 @@ private class FakeTelemetryDataService : GameTelemetryDataService {
 
     override fun recordPlayWindowByIp(ip: String, startTime: Long, endTime: Long) {
         windows += PlayWindow(ip, startTime, endTime)
-    }
-}
-
-private class RecordingXmlRpcGateway(
-    val response: Any? = null,
-) : XmlRpcGateway {
-    val requests = mutableListOf<Triple<String, String, Array<Any?>>>()
-
-    override fun execute(url: String, method: String, params: Array<Any?>): Any? {
-        requests.add(Triple(url, method, params))
-        return response
     }
 }
 

@@ -634,12 +634,7 @@ open class Computer : GameServerService {
             if (S[1] == ip) LogIterator.remove()
         }
 
-        try {
-            val params = arrayOf<Any?>(ip, this.ip)
-            sessionService.executeRemote("http://www.hackwars.net/xmlrpc/facebook.php", "deleteLogs", params)
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
+        // TODO: Removed legacy remote social endpoint: http://www.hackwars.net/xmlrpc/facebook.php
         LOG_UPDATE = true
         sendPacket()
     }
@@ -1419,14 +1414,6 @@ open class Computer : GameServerService {
         this.lastAccessed = MyTime!!.getCurrentTime()
         loadRequester = ""
         submitPriority(setConnectionIDTask(this, connectionID, crypt(loginPassword.toByteArray(), clientHash)))
-
-        if (REMOTE_XMLRPC_ENABLED) {
-            try {
-                sessionService.requestFunctionPacks(ip)
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-        }
         FileIO = true
     }
 
@@ -3298,7 +3285,6 @@ open class Computer : GameServerService {
         //max ops values.
         const val FREE_MAX_OPS: Int = 4096
         const val PAY_MAX_OPS: Int = 16384
-        private val REMOTE_XMLRPC_ENABLED = getPropertySafe("hackwars.remoteXmlRpc", "false").toBoolean()
 
         //file size limits.
         const val FREE_FILE_SIZE_LIMIT: Int = 60000
@@ -3579,11 +3565,7 @@ internal class ComputerLoadCoordinator(
             computer.MAX_OPS = Computer.FREE_MAX_OPS
             computer.FILE_SIZE_LIMIT = Computer.FREE_FILE_SIZE_LIMIT
 
-            val functionPackResult = sessionService.requestFunctionPacks(computer.ip)
-            computer.upgradedAccount = functionPackResult.upgradedAccount
-            computer.inactive = functionPackResult.inactive
-            computer.MAX_OPS = functionPackResult.maxOps
-            computer.FILE_SIZE_LIMIT = functionPackResult.fileSizeLimit
+            // TODO: Removed legacy remote function pack endpoint: http://www.hackwars.net/xmlrpc/functions.php
 
             val xml = sessionService.loadLocalSaveXml(computer.ip, activeLoad)
             val snapshot = xmlComputerPersistence.parse(xml)
