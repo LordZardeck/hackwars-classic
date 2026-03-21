@@ -16,14 +16,14 @@ import util.Time
  */
 class ComputerHandler @JvmOverloads constructor(
     private val MyTime: Time?,
-    private val MyHackerServer: HackerServerBridge?,
+    private val serverBridge: HackerServerBridge?,
     private var runtime: GameServerRuntime? = null
 ) : GameServerService {
     companion object {
         private val Logger = LoggerFactory.getLogger(ComputerHandler::class.java)
     }
 
-    private val Computers = ComputerBinaryList()
+    private val computerList = ComputerBinaryList()
     private val taskLock = Any()
     private val computerLock = Any()
     private val mailboxTasks = ArrayDeque<ApplicationDataTask>()
@@ -66,7 +66,7 @@ class ComputerHandler @JvmOverloads constructor(
         signalMailbox()
 
         synchronized(computerLock) {
-            Computers.data.forEach { raw ->
+            computerList.data.forEach { raw ->
                 (raw as? Computer)?.start(resolvedRuntime)
             }
         }
@@ -81,7 +81,7 @@ class ComputerHandler @JvmOverloads constructor(
         mailboxSignal.close()
         processorJob?.cancel()
         synchronized(computerLock) {
-            Computers.data.forEach { raw ->
+            computerList.data.forEach { raw ->
                 (raw as? Computer)?.shutdown()
             }
         }
@@ -90,7 +90,7 @@ class ComputerHandler @JvmOverloads constructor(
     override suspend fun join() {
         processorJob?.join()
         synchronized(computerLock) {
-            Computers.data.forEach { raw ->
+            computerList.data.forEach { raw ->
                 (raw as? Computer)?.joinBlocking()
             }
         }
@@ -109,7 +109,7 @@ class ComputerHandler @JvmOverloads constructor(
 
     fun broadcast(AD: ApplicationData) {
         synchronized(computerLock) {
-            Computers.data.forEach { raw ->
+            computerList.data.forEach { raw ->
                 (raw as? Computer)?.addData(AD)
             }
         }
@@ -118,7 +118,7 @@ class ComputerHandler @JvmOverloads constructor(
     fun startCountDown() {
         on = false
         synchronized(computerLock) {
-            Computers.data.forEach { raw ->
+            computerList.data.forEach { raw ->
                 (raw as? Computer)?.startCountDown()
             }
         }
@@ -139,7 +139,7 @@ class ComputerHandler @JvmOverloads constructor(
 
     fun addComputer(computer: Computer) {
         synchronized(computerLock) {
-            Computers.add(computer)
+            computerList.add(computer)
         }
         Logger.info("Registered computer ip={}", computer.ip)
         runtime.takeIf { started }?.let { computer.start(it) }
@@ -159,7 +159,7 @@ class ComputerHandler @JvmOverloads constructor(
 
     fun getComputer(ip: String?): Computer? {
         synchronized(computerLock) {
-            return Computers.get(ip) as? Computer
+            return computerList.get(ip) as? Computer
         }
     }
 
@@ -189,17 +189,17 @@ class ComputerHandler @JvmOverloads constructor(
         if (task.applicationData == null) {
             Logger.info("Unloading player ip={}", task.ip)
             val computer = synchronized(computerLock) {
-                val loaded = Computers.get(task.ip) as? Computer
-                Computers.remove(task.ip)
+                val loaded = computerList.get(task.ip) as? Computer
+                computerList.remove(task.ip)
                 loaded
             }
-            MyHackerServer?.removeRandomKey(task.ip)
+            serverBridge?.removeRandomKey(task.ip)
             computer?.setRun(false)
             return
         }
 
         val current = synchronized(computerLock) {
-            Computers.get(task.ip) as? Computer
+            computerList.get(task.ip) as? Computer
         }
         if (current != null) {
             if (current.getLoaded()) {
@@ -216,7 +216,7 @@ class ComputerHandler @JvmOverloads constructor(
             return
         }
 
-        val computer = Computer(task.ip, this, MyTime ?: Time(), -1, MyHackerServer)
+        val computer = Computer(task.ip, this, MyTime ?: Time(), -1, serverBridge)
         if (task.applicationData is ApplicationData) {
             computer.setLoadRequester(task.applicationData.sourceIP)
             computer.addData(task.applicationData)
