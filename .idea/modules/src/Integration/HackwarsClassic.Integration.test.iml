@@ -42,11 +42,11 @@
     <orderEntry type="jdk" jdkName="openjdk-25" jdkType="JavaSDK" />
     <orderEntry type="sourceFolder" forTests="false" />
     <orderEntry type="module" module-name="HackwarsClassic.Integration.main" />
-    <orderEntry type="module" module-name="src.HackwarsClassic.Client.main~1" />
-    <orderEntry type="module" module-name="src.HackwarsClassic.GameServer.main~1" />
-    <orderEntry type="module" module-name="src.HackwarsClassic.ChatServer.main~1" />
-    <orderEntry type="module" module-name="src.HackwarsClassic.HackWars.main~1" />
-    <orderEntry type="module" module-name="src.HackwarsClassic.Networking.main~1" />
+    <orderEntry type="module" module-name="src.HackwarsClassic.Client.main" />
+    <orderEntry type="module" module-name="src.HackwarsClassic.GameServer.main" />
+    <orderEntry type="module" module-name="src.HackwarsClassic.ChatServer.main" />
+    <orderEntry type="module" module-name="src.HackwarsClassic.HackWars.main" />
+    <orderEntry type="module" module-name="src.HackwarsClassic.Networking.main" />
     <orderEntry type="library" name="Gradle: org.jetbrains.kotlin:kotlin-test-junit:2.1.21" level="project" />
     <orderEntry type="library" name="Gradle: org.jetbrains.kotlin:kotlin-stdlib:2.1.21" level="project" />
     <orderEntry type="library" name="Gradle: ch.qos.logback:logback-classic:1.5.18" level="project" />
@@ -69,6 +69,7 @@
     <orderEntry type="library" scope="RUNTIME" name="Gradle: com.playfab:client-sdk:0.256.260313" level="project" />
     <orderEntry type="library" scope="RUNTIME" name="Gradle: com.google.code.gson:gson:2.10.1" level="project" />
     <orderEntry type="library" scope="RUNTIME" name="Gradle: org.apache.axis:axis:1.4" level="project" />
+    <orderEntry type="library" scope="RUNTIME" name="Gradle: org.mozilla:rhino:1.7.15" level="project" />
     <orderEntry type="library" scope="RUNTIME" name="Gradle: com.github.weisj:jsvg:1.7.0" level="project" />
     <orderEntry type="library" scope="RUNTIME" name="Gradle: de.sciss:jsyntaxpane:1.0.0" level="project" />
     <orderEntry type="library" scope="RUNTIME" name="Gradle: com.miglayout:miglayout-swing:11.4.2" level="project" />

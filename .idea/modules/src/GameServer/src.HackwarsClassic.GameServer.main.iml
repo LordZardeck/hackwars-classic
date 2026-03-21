@@ -52,8 +52,8 @@
     <orderEntry type="jdk" jdkName="openjdk-25" jdkType="JavaSDK" />
     <orderEntry type="sourceFolder" forTests="false" />
     <orderEntry type="module" module-name="HackwarsClassic.Data.main" />
-    <orderEntry type="module" module-name="src.HackwarsClassic.HackWars.main~1" />
-    <orderEntry type="module" module-name="src.HackwarsClassic.Networking.main~1" />
+    <orderEntry type="module" module-name="src.HackwarsClassic.HackWars.main" />
+    <orderEntry type="module" module-name="src.HackwarsClassic.Networking.main" />
     <orderEntry type="module" module-name="HackwarsClassic.RpcDispatchAnnotations.main" />
     <orderEntry type="library" scope="PROVIDED" name="Gradle: org.jetbrains.kotlin:kotlin-stdlib:2.1.20" level="project" />
     <orderEntry type="library" name="Gradle: ch.qos.logback:logback-classic:1.5.18" level="project" />

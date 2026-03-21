@@ -199,7 +199,7 @@ public class HtmlHandler implements Runnable {
                         final JInternalFrame C = (JInternalFrame) O[1];
 
                         try {
-                            String uri = "http://www.hackwars.net";
+                            String uri = "https://google.com";
                             URLConnection connection = url.openConnection();
                             InputStream in = connection.getInputStream();
 
@@ -255,7 +255,7 @@ public class HtmlHandler implements Runnable {
 
                         try {
 
-                            String uri = "http://hackwars.net";
+                            String uri = "https://google.com";
 
                             // A Reader should be created with the correct charset,
                             // which may be obtained from the Content-Type header
