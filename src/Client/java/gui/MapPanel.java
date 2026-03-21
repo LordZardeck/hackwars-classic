@@ -5,20 +5,9 @@ package gui;
  */
 
 import javax.swing.*;
-import javax.swing.border.*;
-import javax.swing.event.*;
-import javax.imageio.*;
 import java.awt.*;
-import java.awt.event.*;
 
 import assignments.*;
-import view.*;
-
-import java.text.*;
-import java.math.*;
-import java.net.*;
-import java.io.*;
-import java.awt.image.*;
 
 public class MapPanel extends Application {
     public static final Color NETWORK_INFO_BACKGROUND = new Color(0, 0, 0, 175);
@@ -65,7 +54,7 @@ public class MapPanel extends Application {
         c.weightx = 1.0;
         c.weighty = 1.0;
         JTabbedPane tb = new JTabbedPane();
-        networkPanel = new NetworkPanel(MyHacker, this);
+        networkPanel = new NetworkPanel(MyHacker);
         tb.addTab("Network", networkPanel);
         networkMapPanel = new NetworkMapPanel(MyHacker, this);
         JScrollPane sp = new JScrollPane(networkMapPanel);
