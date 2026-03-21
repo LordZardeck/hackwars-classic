@@ -21,7 +21,6 @@ import java.util.concurrent.Semaphore;
 
 public class UserHandler implements Runnable {
     //Data.
-    private Time MyTime = null;
     private UserBinaryList MyUserBinaryList = new UserBinaryList();
     private static final long sleepTime = 5;
     private ArrayList ExecuteStack = new ArrayList();
@@ -30,7 +29,7 @@ public class UserHandler implements Runnable {
     private MainServer MyMainServer = null;
     private final Semaphore available = new Semaphore(1, true);//Make it thread safe.
 
-    public UserHandler(Time MyTime, ChatServer MyChatServer) {
+    public UserHandler(ChatServer MyChatServer) {
         try {
             MyMainServer = new MainServer();
         } catch (Exception e) {
@@ -38,7 +37,6 @@ public class UserHandler implements Runnable {
         }
 
         this.MyChatServer = MyChatServer;
-        this.MyTime = MyTime;
         MyThread = new Thread(this, "User Handler Thread.");
         MyThread.start();
     }
@@ -82,7 +80,7 @@ public class UserHandler implements Runnable {
                 MyUser.reconnect();
                 System.out.println("Player Reconnected.");
             } else {
-                User U = new User(MyTime, user, MyMainServer);
+                User U = new User(user, MyMainServer);
                 U.setConnectionID(connectionID);
                 MyUserBinaryList.add(U);
                 System.out.println("Player Connect for the first time.");
@@ -140,7 +138,7 @@ public class UserHandler implements Runnable {
      */
     public void run() {
         while (true) {
-            long startTime = MyTime.getCurrentTime();
+            long startTime = GameClock.nowNanos();
             Iterator MyIterator = null;
 
             try {
@@ -213,13 +211,17 @@ public class UserHandler implements Runnable {
             }
 
             try {
-                long endTime = MyTime.getCurrentTime();
-                if (sleepTime - (endTime - startTime) > 0)
-                    MyThread.sleep(sleepTime - (endTime - startTime));
+                long elapsedNanos = GameClock.nowNanos() - startTime;
+                long sleepNanos = java.util.concurrent.TimeUnit.MILLISECONDS.toNanos(sleepTime) - elapsedNanos;
+                if (sleepNanos > 0) {
+                    Thread.sleep(
+                            java.util.concurrent.TimeUnit.NANOSECONDS.toMillis(sleepNanos),
+                            (int) (sleepNanos % 1_000_000L)
+                    );
+                }
             } catch (Exception e) {
                 e.printStackTrace();
             }
         }
     }
 }
-

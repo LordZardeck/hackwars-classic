@@ -62,10 +62,10 @@ public class DolphinNetCoreTest {
             Assert.assertSame(server, coordinator.getMessageServer());
 
             LifecycleAssignment queued = new LifecycleAssignment(30, "queued");
-            coordinator.addAssignment(queued);
+            coordinator.addAssignment(0, queued);
 
             coordinator.setEditor(server);
-            coordinator.addAssignment(new LifecycleAssignment(31, "queued-again"));
+            coordinator.addAssignment(0, new LifecycleAssignment(31, "queued-again"));
             coordinator.failedAssignment(queued);
             Assert.assertSame(queued, coordinator.lastFailed);
         } finally {

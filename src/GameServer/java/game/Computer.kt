@@ -35,8 +35,8 @@ import org.w3c.dom.Node
 import org.slf4j.LoggerFactory
 import server.runtime.GameServerRuntime
 import server.runtime.GameServerService
+import util.GameClock
 import util.LoadXML
-import util.Time
 import view.Task
 import java.io.BufferedWriter
 import java.io.FileWriter
@@ -136,7 +136,6 @@ open class Computer : GameServerService {
     @get:JvmName("getOverheatStartValue")
     @set:JvmName("setOverheatStartValue")
     var overheatStart: Long = -1 //Keep track of when an overheat started.
-    lateinit var MyTime: Time //Central time keeping thread.
 
     var GUI_READY: Boolean =
         false //This variable is used by the 3D chat to determine whether the GUI is in a state ready to start receiving walking packets.
@@ -757,14 +756,14 @@ open class Computer : GameServerService {
     fun startCountDown() {
         systemChange = true
         countDown = true
-        countDownStart = MyTime!!.getCurrentTime()
+        countDownStart = currentTime
     }
 
     val currentTime: Long
         /**
          * Get the current time.
          */
-        get() = (MyTime!!.getCurrentTime())
+        get() = GameClock.nowMillis()
 
     val serverID: String?
         /**
@@ -1326,7 +1325,6 @@ open class Computer : GameServerService {
     constructor(
         ip: String,
         MyComputerHandler: ComputerHandler?,
-        MyTime: Time,
         connectionID: Int,
         MyHackerServer: HackerServerBridge?
     ) {
@@ -1351,13 +1349,12 @@ open class Computer : GameServerService {
         this.RawComputerHandler = MyComputerHandler
         this.MyNewFireWall = NewFireWall(this.MyComputerHandler)
         this.ip = ip
-        this.MyTime = MyTime
         this.connectionID = connectionID
         this.MyHackerServer = MyHackerServer
 
         MyWatchHandler = WatchHandler(self, MyComputerHandler)
 
-        while (lastAccessed == 0L) this.lastAccessed = MyTime.getCurrentTime()
+        while (lastAccessed == 0L) this.lastAccessed = currentTime
     }
 
     /**
@@ -1367,7 +1364,6 @@ open class Computer : GameServerService {
         userName: String?,
         ip: String,
         MyComputerHandler: ComputerHandler?,
-        MyTime: Time,
         connectionID: Int,
         MyHackerServer: HackerServerBridge?,
         playerLogin: Boolean
@@ -1395,13 +1391,12 @@ open class Computer : GameServerService {
         this.RawComputerHandler = MyComputerHandler
 
         this.userName = userName
-        this.MyTime = MyTime
         this.connectionID = connectionID
         this.MyHackerServer = MyHackerServer
 
         MyWatchHandler = WatchHandler(self, MyComputerHandler)
 
-        while (lastAccessed == 0L) this.lastAccessed = MyTime.getCurrentTime()
+        while (lastAccessed == 0L) this.lastAccessed = currentTime
     }
 
 
@@ -1413,7 +1408,7 @@ open class Computer : GameServerService {
     var RESEND_CAPTCHA: Boolean = false
     fun setConnectionID(connectionID: Int, loginPassword: String) {
         RESEND_CAPTCHA = true
-        this.lastAccessed = MyTime!!.getCurrentTime()
+        this.lastAccessed = currentTime
         loadRequester = ""
         submitPriority(setConnectionIDTask(this, connectionID, crypt(loginPassword.toByteArray(), clientHash)))
         FileIO = true
@@ -1421,7 +1416,7 @@ open class Computer : GameServerService {
 
     fun setConnectionID(connectionID: Int) {
         RESEND_CAPTCHA = true
-        this.lastAccessed = MyTime!!.getCurrentTime()
+        this.lastAccessed = currentTime
         loadRequester = ""
         submitPriority(setConnectionIDTask(this, connectionID, null))
         FileIO = true
@@ -2017,11 +2012,11 @@ open class Computer : GameServerService {
 
     private suspend fun processMailboxLoop() {
         Logger.info("Computer maintenance loop started for ip={}", ip)
-        var nextMaintenanceAt = MyTime!!.getCurrentTime()
+        var nextMaintenanceAt = currentTime
         while (active) {
             var processedTask = false
             while (true) {
-                val now = MyTime!!.getCurrentTime()
+                val now = currentTime
                 if (now >= nextMaintenanceAt) {
                     iterationCount++
                     try {
@@ -2034,9 +2029,9 @@ open class Computer : GameServerService {
 
                 val queuedItem = pollPendingTask() ?: break
                 processedTask = true
-                val startTime = MyTime!!.getCurrentTime()
+                val startTime = currentTime
                 try {
-                    if (!countDown || MyTime!!.getCurrentTime() - countDownStart < COUNTDOWN_LENGTH) {
+                    if (!countDown || currentTime - countDownStart < COUNTDOWN_LENGTH) {
                         processQueuedItem(queuedItem, startTime)
                     }
                 } catch (e: Exception) {
@@ -2049,7 +2044,7 @@ open class Computer : GameServerService {
             }
 
             if (!processedTask && pendingTaskCount() == 0) {
-                val now = MyTime!!.getCurrentTime()
+                val now = currentTime
                 val waitTime = maxOf(1L, nextMaintenanceAt - now)
                 val signal = withTimeoutOrNull(waitTime) {
                     mailboxSignal.receiveCatching().getOrNull()
@@ -2096,17 +2091,17 @@ open class Computer : GameServerService {
 
     private fun updateApplicationActivity(applicationData: ApplicationData, function: String) {
         if (function == "ping") {
-            lastPingTime = MyTime!!.getCurrentTime()
+            lastPingTime = currentTime
             if (logInTime == 0L) {
-                logInTime = MyTime!!.getCurrentTime()
+                logInTime = currentTime
             }
         }
 
         if (clientPackets.containsKey(function)) {
             if (lastClientPacketTime == 0L || logInTime == 0L) {
-                logInTime = MyTime!!.getCurrentTime()
+                logInTime = currentTime
             }
-            lastClientPacketTime = MyTime!!.getCurrentTime()
+            lastClientPacketTime = currentTime
             val lockCountAdd = clientPackets.get(function) as Int
             lockCount += lockCountAdd
         }
@@ -2181,7 +2176,7 @@ open class Computer : GameServerService {
         if (Ports.get(port) != null) {
             val tempport = Ports.get(port) as Port
             tempport.setCurrentPacket(PA)
-            tempport.addApplicationData(applicationData, MyTime!!.getCurrentTime())
+            tempport.addApplicationData(applicationData, currentTime)
 
             currentWatchCost = MyWatchHandler!!.checkWatches(applicationData, Ports, pettyCash)
             return (true)
@@ -2237,7 +2232,7 @@ open class Computer : GameServerService {
         if (!cpuLoadCalculated) {
             cpuLoadCalculated = true
         }
-        lastSent = MyTime!!.getCurrentTime() - PACKET_TIMEOUT - 1
+        lastSent = currentTime - PACKET_TIMEOUT - 1
         Logger.info(
             "Forcing standard packet flush for ip={} reason={} systemChange={} healthChange={} connectionId={}",
             ip,
@@ -2276,7 +2271,7 @@ open class Computer : GameServerService {
     }
 
     private fun runRuntimeCoordinatorTick() {
-        val now = MyTime!!.getCurrentTime()
+        val now = currentTime
         checkRuntimePortTimeouts(now)
         val runtimeState = buildRuntimeTickState(now)
         apply(runtimeCoordinator.tick(runtimeState), buildRuntimeTickEventSink(now))
@@ -2634,8 +2629,8 @@ open class Computer : GameServerService {
     fun runSavingLogic() {
         //System.out.println("Running Saving Logic");
         //WRITE THE COMPUTER BACK TO DISK WHEN A TIMEOUT IS REACHED.
-        //System.out.println("Computer Timeout: "+COMPUTER_TIMEOUT+" Logged Time:"+(MyTime.getCurrentTime()-lastAccessed));
-        if ((MyTime!!.getCurrentTime() - lastAccessed > COMPUTER_TIMEOUT || LOGOUT || LOAD_FAILURE || (countDown && MyTime!!.getCurrentTime() - countDownStart > COUNTDOWN_LENGTH)) && Loaded) {
+        //System.out.println("Computer Timeout: "+COMPUTER_TIMEOUT+" Logged Time:"+(currentTime-lastAccessed));
+        if ((currentTime - lastAccessed > COMPUTER_TIMEOUT || LOGOUT || LOAD_FAILURE || (countDown && currentTime - countDownStart > COUNTDOWN_LENGTH)) && Loaded) {
             //Message the player who requested this load with the error message.
             if ((loadRequester != ip) && LOAD_FAILURE && (loadRequester != "")) {
                 val queued = pollPendingTask()
@@ -2681,11 +2676,11 @@ open class Computer : GameServerService {
             RawComputerHandler!!.addData(null, ip)
             if (type != NPC) RawComputerHandler!!.decrementPlayers()
         } else if (!LOAD_FAILURE) { //Perform an auto-save every 10 minutes or so.
-            if (lastSave == 0L) lastSave = MyTime!!.getCurrentTime()
-            if (MyTime!!.getCurrentTime() - lastSave > AUTO_SAVE) {
+            if (lastSave == 0L) lastSave = currentTime
+            if (currentTime - lastSave > AUTO_SAVE) {
                 MyEquipmentSheet.degradeEquipment() //This is a good time to check whether or not equipment has degraded.
 
-                lastSave = MyTime!!.getCurrentTime()
+                lastSave = currentTime
                 try {
                     MysqlHandler.addWork(
                         arrayOf<Any?>(
@@ -2713,7 +2708,7 @@ open class Computer : GameServerService {
             PlayStatisticsRequest(
                 loggedIn,
                 ip,
-                MyTime!!.getCurrentTime(),
+                currentTime,
                 logInTime,
                 lastPingTime,
                 lastClientPacketTime
@@ -2732,9 +2727,9 @@ open class Computer : GameServerService {
          * CHECK WHETHER IT IS TIME FOR DAILY PAY AND PROVIDE IT TO THE AD REVENUE TARGET.
          */
         if (lastPaid <= 100)  //Make sure that the first time the player plays they don't get paid.
-            lastPaid = MyTime!!.getCurrentTime()
+            lastPaid = currentTime
 
-        if (MyTime!!.getCurrentTime() - lastPaid > PAY_PERIOD && Loaded && !inactive) {
+        if (currentTime - lastPaid > PAY_PERIOD && Loaded && !inactive) {
             val TempPort: Port? = null
 
             myVotes += 1 //Get some more votes.
@@ -2746,7 +2741,7 @@ open class Computer : GameServerService {
                     ip,
                     lastPaid + PAY_PERIOD
                 )
-                lastPaid = MyTime!!.getCurrentTime()
+                lastPaid = currentTime
             } else {
                 var mod: Float = (this.hTTPLevel - 1.0f) * 50.0f
                 if (type == NPC) mod = 0.0f
@@ -2779,8 +2774,8 @@ open class Computer : GameServerService {
                 lastPaid += PAY_PERIOD
             }
         } else if (inactive) {
-            logMessage("Did not receive income because you were inactive.", ip, MyTime!!.getCurrentTime())
-            lastPaid = MyTime!!.getCurrentTime()
+            logMessage("Did not receive income because you were inactive.", ip, currentTime)
+            lastPaid = currentTime
             inactive = false
         }
     }
@@ -2794,7 +2789,7 @@ open class Computer : GameServerService {
          * CHECK FOR ATTACKS/PERFORM HEALING AT THE GIVEN RATE/CALCULATE CPU LOAD.
          * Deals with: Attacking, Healing, Over Heating.
          */
-        if (getLoaded() && !getLoading() && MyTime!!.getCurrentTime() - lastAttack > ATTACK_RATE) {
+        if (getLoaded() && !getLoading() && currentTime - lastAttack > ATTACK_RATE) {
             val startReportCPU = reportCPU
 
             if (!cpuLoadCalculated)  //Check the current watch cost.
@@ -2814,8 +2809,8 @@ open class Computer : GameServerService {
             if (healCounter % MyEquipmentSheet.getHealMod() == 0L) heal = true
             if (currentCPU > CPU_CHART!![cputype] + MyEquipmentSheet.getCPUBonus()) {
                 overHeated = true
-                if (overheatStart == -1L) overheatStart = MyTime!!.getCurrentTime()
-            } else if (MyTime!!.getCurrentTime() - overheatStart > OVER_HEAT_TIME && overheatStart != -1L) {
+                if (overheatStart == -1L) overheatStart = currentTime
+            } else if (currentTime - overheatStart > OVER_HEAT_TIME && overheatStart != -1L) {
                 overheatStart = -1
             } else if (overheatStart != -1L) {
                 overHeated = true
@@ -2873,7 +2868,7 @@ open class Computer : GameServerService {
                     TempPort.setOverHeated(true) //Put the port in an overheated state.
                 }
 
-                TempPort.checkTimeOut(MyTime!!.getCurrentTime()) //Has the port timed out since it was attacked.
+                TempPort.checkTimeOut(currentTime) //Has the port timed out since it was attacked.
 
                 tempCPULoad += TempPort.getCPUCost()
                 tempBaseCPULoad += TempPort.getBaseCPUCostTotal()
@@ -2887,13 +2882,13 @@ open class Computer : GameServerService {
                         val AP = TempPort.getProgram() as AttackProgram
                         TempPort.addApplicationData(
                             ApplicationData(game.payload.AttackContinuePayload, AP.getTargetPort(), ""),
-                            MyTime!!.getCurrentTime()
+                            currentTime
                         )
                     } else {
                         val SP = TempPort.getProgram() as ShippingProgram
                         TempPort.addApplicationData(
                             ApplicationData(game.payload.AttackContinuePayload, SP.getTargetPort(), ""),
-                            MyTime!!.getCurrentTime()
+                            currentTime
                         )
                     }
                 }
@@ -2902,7 +2897,7 @@ open class Computer : GameServerService {
 
             baseCPU = tempBaseCPULoad + currentWatchCost //The base CPU prior to overheating.
             currentCPU = tempCPULoad + currentWatchCost
-            lastAttack = MyTime!!.getCurrentTime()
+            lastAttack = currentTime
             healCounter++
 
             reportCPU = currentCPU
@@ -2947,7 +2942,7 @@ open class Computer : GameServerService {
         /**
          * AT THE END OF THE PACKET TIMEOUT DISPATCH A PACKET TO THE CLIENT.
          */
-        val now = MyTime!!.getCurrentTime()
+        val now = currentTime
         val shouldSend = systemChange || healthChange
         val loaded = getLoaded()
         val loading = getLoading()
@@ -3006,7 +3001,7 @@ open class Computer : GameServerService {
                 )
 
                 MyHackerServer!!.addData(O)
-                lastSent = MyTime!!.getCurrentTime()
+                lastSent = currentTime
                 PA = PacketAssignment(0)
                 currentPacketNetwork?.let(PA::setPacketNetwork)
             }
@@ -3026,7 +3021,7 @@ open class Computer : GameServerService {
                     snapshot.healthUpdates.size
                 )
                 MyHackerServer!!.addData(O)
-                lastSent = MyTime!!.getCurrentTime()
+                lastSent = currentTime
                 DA = DamageAssignment(0)
             }
         }
@@ -3119,7 +3114,7 @@ open class Computer : GameServerService {
 
         var countDownSeconds: Int? = null
         if (countDown) {
-            countDownSeconds = ((COUNTDOWN_LENGTH - (MyTime!!.getCurrentTime() - countDownStart)) / 1000).toInt()
+            countDownSeconds = ((COUNTDOWN_LENGTH - (currentTime - countDownStart)) / 1000).toInt()
         }
 
         return ComputerStandardPacketSnapshot(
@@ -3542,7 +3537,7 @@ internal class ComputerLoadCoordinator(
             val activeLoad = !computer.loadRequester.isNullOrEmpty()
             if (!activeLoad) {
                 computer.loggedIn = true
-                computer.logInTime = computer.MyTime.currentTime
+                computer.logInTime = computer.currentTime
             }
 
             computer.upgradedAccount = false

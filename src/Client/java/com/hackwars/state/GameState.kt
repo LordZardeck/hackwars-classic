@@ -13,9 +13,10 @@ import com.plink.dolphinnet.assignments.ZippedAssignment
 import gui.Hacker
 import kotlinx.coroutines.*
 import util.Encryption
-import util.Time
+import util.GameClock
 import java.lang.Runnable
 import java.util.*
+import java.util.concurrent.TimeUnit
 import javax.swing.SwingUtilities
 import javax.swing.event.EventListenerList
 
@@ -83,7 +84,6 @@ open class GameState : DataHandler, Runnable {
     private var accessToken: String? = null
     private var lastAccessed: Long = 0
     private var lastPing: Long = 0
-    private val MyTime = Time()
     private val TIME_OUT: Long = 70000
     private val CHAT_TIME_OUT: Long = 70000
     private val Tasks = ArrayList<Any?>()
@@ -176,7 +176,7 @@ open class GameState : DataHandler, Runnable {
     override fun addData(o: Any?) {
         if (hackerState != null && !reconnect) {
             if (o is PingAssignment) {
-                lastPingSuccess = MyTime.currentTime
+                lastPingSuccess = GameClock.nowNanos()
             }
 
             when (o) {
@@ -202,7 +202,7 @@ open class GameState : DataHandler, Runnable {
                 }
             }
 
-            lastAccessed = MyTime.currentTime //Prevent timeout.
+            lastAccessed = GameClock.nowNanos() //Prevent timeout.
             return
         }
 
@@ -270,20 +270,20 @@ open class GameState : DataHandler, Runnable {
 
         //Wait for handshake from server.
         var success = true
-        var startTime = MyTime.currentTime
+        var startTime = GameClock.nowNanos()
         println("Attempting to Connect to Server")
         while (gameServerMessageClient!!.clientId == -1) {
-            if (MyTime.currentTime - startTime > TIME_OUT) {
+            if (GameClock.nowNanos() - startTime > TimeUnit.MILLISECONDS.toNanos(TIME_OUT)) {
                 success = false
                 break
             }
             delay(10)
         }
-        startTime = MyTime.currentTime
+        startTime = GameClock.nowNanos()
         println("Connection ID: " + gameServerMessageClient!!.clientId)
         println("Connecting to Chat")
         while (chatServerMessageClient!!.clientId == -1) {
-            if (MyTime.currentTime - startTime > CHAT_TIME_OUT) {
+            if (GameClock.nowNanos() - startTime > TimeUnit.MILLISECONDS.toNanos(CHAT_TIME_OUT)) {
                 success = false
                 break
             }
@@ -342,7 +342,6 @@ open class GameState : DataHandler, Runnable {
         loopJob?.cancel()
         fallbackJob?.cancel()
         hackerState = null
-        MyTime.clean()
         open = false
         System.gc()
         run = false
@@ -358,7 +357,7 @@ open class GameState : DataHandler, Runnable {
     }
 
     private suspend fun runLoop() {
-        while (lastPingSuccess == 0L) lastPingSuccess = MyTime.currentTime
+        while (lastPingSuccess == 0L) lastPingSuccess = GameClock.nowNanos()
         while (run) {
             try {
                 synchronized(Tasks) {
@@ -414,8 +413,8 @@ open class GameState : DataHandler, Runnable {
                     }
                 }.onFailure { it.printStackTrace() }
 
-                if (MyTime.currentTime - lastPing > PINGTIME) {
-                    lastPing = MyTime.currentTime
+                if (GameClock.nowNanos() - lastPing > TimeUnit.MILLISECONDS.toNanos(PINGTIME.toLong())) {
+                    lastPing = GameClock.nowNanos()
                     if (user != null) {
                         gameServerMessageClient?.addFinishedAssignment(PingAssignment(0, user))
                         chatServerMessageClient?.addFinishedAssignment(
@@ -427,10 +426,10 @@ open class GameState : DataHandler, Runnable {
                     }
                 }
             }
-            if (MyTime.currentTime - lastPingSuccess > PINGTIMEOUT) {
+            if (GameClock.nowNanos() - lastPingSuccess > TimeUnit.MILLISECONDS.toNanos(PINGTIMEOUT.toLong())) {
                 if (open) {
                     println("Reconnecting")
-                    lastPingSuccess = MyTime.currentTime
+                    lastPingSuccess = GameClock.nowNanos()
                     println("Attempt reconnect.")
                     gameServerMessageClient?.clean()
                     chatServerMessageClient?.clean()

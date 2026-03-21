@@ -20,6 +20,6 @@ public class CheckTimeStamp extends LinkerFunctions {
     public Object execute(ArrayList parameters) {
         String key = (String) ((TypeString) parameters.get(0)).getStringValue();
         long timerValue = HL.checkTimer(key);
-        return (new TypeInteger((int) (Time.getInstance().getCurrentTime() - timerValue)));
+        return (new TypeInteger((int) (GameClock.nowMillis() - timerValue)));
     }
 }

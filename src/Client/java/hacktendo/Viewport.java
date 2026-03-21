@@ -42,7 +42,6 @@ public class Viewport extends JComponent implements Runnable, FocusListener, Mou
 
     private Thread MyThread = null;
     private boolean running = true;
-    private Time MyTime = new Time();
     private long sleepTime = 50;
     private long startTime;
     private final Semaphore available = new Semaphore(1, true);//Make it thread safe.
@@ -212,7 +211,7 @@ public class Viewport extends JComponent implements Runnable, FocusListener, Mou
             try {
 
                 available.acquire();
-                long startTime = MyTime.getCurrentTime();
+                long startTime = GameClock.nowNanos();
 
                 if (BackBufferGraphics == null)
                     BackBufferGraphics = BackBuffer.getGraphics();
@@ -223,10 +222,14 @@ public class Viewport extends JComponent implements Runnable, FocusListener, Mou
 
                 available.release();
 
-                long endTime = MyTime.getCurrentTime();
+                long elapsedNanos = GameClock.nowNanos() - startTime;
+                long sleepNanos = java.util.concurrent.TimeUnit.MILLISECONDS.toNanos(sleepTime) - elapsedNanos;
 
-                if (sleepTime - (endTime - startTime) > 0) {
-                    MyThread.sleep(sleepTime - (endTime - startTime));
+                if (sleepNanos > 0) {
+                    Thread.sleep(
+                            java.util.concurrent.TimeUnit.NANOSECONDS.toMillis(sleepNanos),
+                            (int) (sleepNanos % 1_000_000L)
+                    );
                 } else {
                 }
 

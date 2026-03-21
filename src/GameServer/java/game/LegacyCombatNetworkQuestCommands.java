@@ -427,7 +427,7 @@ public class LegacyCombatNetworkQuestCommands implements LegacyApplicationDataHa
             computer.addMessage(MessageHandler.CHANGE_NETWORK_FAIL_ALREADY_ON, new Object[]{computer.network});
         } else if (computer.network.equals(Network.JAIL_NETWORK)) {
             computer.addMessage(MessageHandler.CHANGE_NETWORK_FAIL_JAILED, new Object[]{computer.network});
-        } else if (computer.MyTime.getCurrentTime() - computer.lastChangeNetwork < Computer.CHANGE_NETWORKS) {
+        } else if (computer.getCurrentTime() - computer.lastChangeNetwork < Computer.CHANGE_NETWORKS) {
             computer.addMessage(MessageHandler.CHANGE_NETWORK_FAIL_TIMEOUT, new Object[]{computer.network});
         } else {
             boolean allowed = false;
@@ -444,7 +444,7 @@ public class LegacyCombatNetworkQuestCommands implements LegacyApplicationDataHa
             }
 
             if (allowed) {
-                computer.lastChangeNetwork = computer.MyTime.getCurrentTime();
+                computer.lastChangeNetwork = computer.getCurrentTime();
 
                 Network.getInstance(computer.getComputerHandler()).removeFromNetwork(computer.network, computer.ip);
                 Network.getInstance(computer.getComputerHandler()).addToNetwork(changeNetwork, computer.ip);
@@ -465,7 +465,7 @@ public class LegacyCombatNetworkQuestCommands implements LegacyApplicationDataHa
         if (computer.network.equals(changeNetwork)) {
             computer.addMessage(MessageHandler.CHANGE_NETWORK_FAIL_ALREADY_ON, new Object[]{computer.network});
         } else {
-            computer.lastChangeNetwork = computer.MyTime.getCurrentTime();
+            computer.lastChangeNetwork = computer.getCurrentTime();
 
             Network.getInstance(computer.getComputerHandler()).removeFromNetwork(computer.network, computer.ip);
             Network.getInstance(computer.getComputerHandler()).addToNetwork(changeNetwork, computer.ip);

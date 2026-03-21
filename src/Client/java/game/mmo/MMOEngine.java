@@ -1172,12 +1172,12 @@ public class MMOEngine extends OpenGLRenderEngine implements Runnable {
     public void run() {
         while (true) {
             try {
-                long currentTime = Time.getInstance().getCurrentTime();
+                long startTime = GameClock.nowNanos();
 
                 updateScreen();
 
-                long runTime = Time.getInstance().getCurrentTime() - currentTime;
-                long sleepTime = (long) Math.max(33 - runTime, 5);
+                long runTimeMillis = java.util.concurrent.TimeUnit.NANOSECONDS.toMillis(GameClock.nowNanos() - startTime);
+                long sleepTime = (long) Math.max(33 - runTimeMillis, 5);
 
                 MyThread.sleep(sleepTime);
             } catch (Exception e) {

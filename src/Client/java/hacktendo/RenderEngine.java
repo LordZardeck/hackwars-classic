@@ -502,14 +502,14 @@ public class RenderEngine implements KeyListener {
      * Set the ending time of the viewport movement.
      */
     public void setXEndTime(int time) {
-        endXMove = Time.getInstance().getCurrentTime() + time;
+        endXMove = GameClock.nowMillis() + time;
     }
 
     /**
      * Set the ending time of the viewport movement.
      */
     public void setYEndTime(int time) {
-        endYMove = Time.getInstance().getCurrentTime() + time;
+        endYMove = GameClock.nowMillis() + time;
     }
 
     /**
@@ -541,7 +541,7 @@ public class RenderEngine implements KeyListener {
             if (!initialized)
                 return;
             //System.out.println("Map has been initialized");
-            long currentTime = Time.getInstance().getCurrentTime();
+            long currentTime = GameClock.nowMillis();
 
             available.acquire();
             work++;

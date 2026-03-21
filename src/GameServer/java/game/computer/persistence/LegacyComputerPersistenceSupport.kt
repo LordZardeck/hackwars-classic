@@ -190,7 +190,7 @@ class LegacyComputerPersistenceSupport(
         }
 
         if (computer.lastPaid == 0L) {
-            computer.lastPaid = computer.MyTime.currentTime
+            computer.lastPaid = computer.currentTime
         }
 
         computer.Stats["Attack"] = snapshot.stats.attackXp

@@ -18,7 +18,6 @@ import com.plink.dolphinnet.*;
 public class User {
     //data
     private int connectionID;
-    private Time MyTime;
     private String Name;
     private long lastAccessed;
     private long lastSent;
@@ -30,8 +29,7 @@ public class User {
     private MainServer MyMainServer = null;
 
     //constructor
-    public User(Time MyTime, String Name, MainServer MyMainServer) {
-        this.MyTime = MyTime;
+    public User(String Name, MainServer MyMainServer) {
         this.Name = Name;
         try {
 
@@ -46,7 +44,7 @@ public class User {
         } catch (Exception e) {
             e.printStackTrace();
         }
-        lastAccessed = MyTime.getCurrentTime();
+        lastAccessed = GameClock.nowMillis();
         this.MyMainServer = MyMainServer;
     }
 
@@ -67,7 +65,7 @@ public class User {
             System.out.println("Reconnecting ERROR <" + Name + ">s");
             e.printStackTrace();
         }
-        lastAccessed = MyTime.getCurrentTime();
+        lastAccessed = GameClock.nowMillis();
     }
 
     /**
@@ -81,14 +79,14 @@ public class User {
      Ping the player.
      */
     public void ping() {
-        lastAccessed = MyTime.getCurrentTime();
+        lastAccessed = GameClock.nowMillis();
     }
 
     /**
      Has a player timed out?
      */
     public boolean playerTimeOut() {
-        if (MyTime.getCurrentTime() - lastAccessed > playerTimeOut)
+        if (GameClock.nowMillis() - lastAccessed > playerTimeOut)
             return (true);
         return (false);
     }
@@ -113,7 +111,7 @@ public class User {
      Is it time to send another packet?
      */
     public boolean packetTimeOut() {
-        if (MyTime.getCurrentTime() - lastSent > packetRate)
+        if (GameClock.nowMillis() - lastSent > packetRate)
             return (true);
         return (false);
     }
@@ -136,7 +134,7 @@ public class User {
      */
     public Assignment getPacket() {
 
-        lastSent = MyTime.getCurrentTime();
+        lastSent = GameClock.nowMillis();
 
         if (MyUserMsgBox == null) {
             //System.out.println("=====================");
@@ -159,4 +157,3 @@ public class User {
         }
     }
 }//class
-

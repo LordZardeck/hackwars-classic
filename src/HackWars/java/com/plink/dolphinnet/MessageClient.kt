@@ -49,6 +49,9 @@ class MessageClient(address: String?, port: Int, socketTimeOut: Int) {
      */
     var dataHandler: DataHandler? = null
 
+    @Volatile
+    private var activeAssignment: Assignment? = null
+
     private val runAssignmentsJobScope = SupervisorJob()
     private val runAssignmentsScope = CoroutineScope(runAssignmentsJobScope + Dispatchers.IO)
     private val runAssignmentsChannel = Channel<Assignment>(Channel.UNLIMITED)
@@ -80,8 +83,15 @@ class MessageClient(address: String?, port: Int, socketTimeOut: Int) {
                     }
                     .getOrNull() ?: continue
 
-            dataHandler?.addData(nextAssignment.execute(dataHandler))
-            nextAssignment.reporterID = this@MessageClient.clientId
+            activeAssignment = nextAssignment
+            try {
+                dataHandler?.addData(nextAssignment.execute(dataHandler))
+                nextAssignment.reporterID = this@MessageClient.clientId
+            } finally {
+                if (activeAssignment === nextAssignment) {
+                    activeAssignment = null
+                }
+            }
         }
     }
     private var connection = ClientConnection(Socket(address, port))
@@ -118,6 +128,11 @@ class MessageClient(address: String?, port: Int, socketTimeOut: Int) {
                 }
             }.onFailure { Logger.error("Error receiving data", it) }
         }
+
+        override fun close() {
+            super.close()
+            this@MessageClient.killAllAssignments()
+        }
     }
 
     fun clean() {
@@ -132,9 +147,11 @@ class MessageClient(address: String?, port: Int, socketTimeOut: Int) {
      */
     @Synchronized
     fun killAllAssignments() {
-        while (runAssignmentsChannel.tryReceive().isSuccess) {
-            // Discard the received element
+        while (true) {
+            val queued = runAssignmentsChannel.tryReceive().getOrNull() ?: break
+            queued.kill()
         }
+        activeAssignment?.kill()
     }
 
     init {

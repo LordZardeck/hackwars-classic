@@ -3,6 +3,7 @@ package com.hackwars.gui.login
 import com.github.weisj.jsvg.attributes.ViewBox
 import com.github.weisj.jsvg.geometry.size.FloatSize
 import com.hackwars.gui.svgResource
+import util.GameClock
 import java.awt.*
 import java.awt.geom.Rectangle2D
 import javax.swing.JPanel
@@ -198,10 +199,10 @@ open class LoginBackgroundPanel : JPanel() {
 
         stopCenterAnimation()
         val startProgress = centeredProgress
-        val animationStart = System.nanoTime()
+        val animationStart = GameClock.nowNanos()
 
         centerAnimationTimer = Timer(ANIMATION_FRAME_DELAY_MS) {
-            val elapsedMs = (System.nanoTime() - animationStart) / 1_000_000f
+            val elapsedMs = (GameClock.nowNanos() - animationStart) / 1_000_000f
             val t = (elapsedMs / durationMs).coerceIn(0f, 1f)
             centeredProgress = lerp(startProgress, targetProgress, easeInOutCubic(t))
             onSplitChanged()

@@ -9,13 +9,11 @@ import kotlinx.coroutines.runBlocking
 import org.slf4j.LoggerFactory
 import server.runtime.GameServerRuntime
 import server.runtime.GameServerService
-import util.Time
 
 /**
  * A central location for distributing messages to other computers.
  */
 class ComputerHandler @JvmOverloads constructor(
-    private val MyTime: Time?,
     private val serverBridge: HackerServerBridge?,
     private var runtime: GameServerRuntime? = null
 ) : GameServerService {
@@ -216,7 +214,7 @@ class ComputerHandler @JvmOverloads constructor(
             return
         }
 
-        val computer = Computer(task.ip, this, MyTime ?: Time(), -1, serverBridge)
+        val computer = Computer(task.ip, this, -1, serverBridge)
         if (task.applicationData is ApplicationData) {
             computer.setLoadRequester(task.applicationData.sourceIP)
             computer.addData(task.applicationData)

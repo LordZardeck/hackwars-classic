@@ -70,8 +70,7 @@ public class CentralLogging implements Runnable {
      */
     public synchronized void run() {
         while (run) {
-
-            long startTime = Time.getInstance().getCurrentTime();
+            long startTime = GameClock.nowNanos();
 
             try {
                 //LOCK OUR LIST AND POP ONE ENTRY.
@@ -96,9 +95,14 @@ public class CentralLogging implements Runnable {
             //Sleep to cut down on processor load.
             if (Tasks.size() == 0) {
                 try {
-                    long endTime = Time.getInstance().getCurrentTime();
-                    if (SLEEP_TIME - (endTime - startTime) > 0)
-                        MyThread.sleep(SLEEP_TIME - (endTime - startTime));
+                    long elapsedNanos = GameClock.nowNanos() - startTime;
+                    long sleepNanos = java.util.concurrent.TimeUnit.MILLISECONDS.toNanos(SLEEP_TIME) - elapsedNanos;
+                    if (sleepNanos > 0) {
+                        Thread.sleep(
+                                java.util.concurrent.TimeUnit.NANOSECONDS.toMillis(sleepNanos),
+                                (int) (sleepNanos % 1_000_000L)
+                        );
+                    }
                 } catch (Exception e) {
                     e.printStackTrace();
                 }

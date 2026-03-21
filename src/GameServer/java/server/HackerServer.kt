@@ -22,9 +22,9 @@ import server.remote.invokeOnServer
 import server.runtime.GameServerRuntime
 import game.payload.PingPayload
 import util.Encryption
+import util.GameClock
 import util.PlayFabTokenVerifier.AuthResult
 import util.SessionTokenVerifiers
-import util.Time
 import java.util.*
 
 /**
@@ -39,7 +39,6 @@ class HackerServer(e: MessageServer, serverID: String) : MessageCoordinator(e), 
     companion object {
         private val Logger: Logger = LoggerFactory.getLogger(HackerServer::class.java)
 
-        var MyTime: Time? = null
         var on: Boolean = true
         var SHUTDOWN_AT: Long = 0
     }
@@ -121,13 +120,11 @@ class HackerServer(e: MessageServer, serverID: String) : MessageCoordinator(e), 
         }
 
         val computerHandler = MyComputerHandler ?: return dispatchPacket(LoginFailedAssignment(0), assignment.reporterID)
-        val time = MyTime ?: return dispatchPacket(LoginFailedAssignment(0), assignment.reporterID)
 
         val computer = Computer(
             authResult.playFabId,
             authResult.playerIp,
             computerHandler,
-            time,
             assignment.reporterID,
             this,
             true
@@ -147,7 +144,7 @@ class HackerServer(e: MessageServer, serverID: String) : MessageCoordinator(e), 
         this.addData(arrayOf<Any>(PingAssignment(0, "bcoe"), assignment.reporterID))
 
         if (assignment.id == 850335 && assignment.user == "bcoe") { //Start booting players.
-            SHUTDOWN_AT = MyTime!!.currentTime
+            SHUTDOWN_AT = GameClock.nowMillis()
             on = false
             ServerRuntimeState.setShutdownAt(SHUTDOWN_AT)
             ServerRuntimeState.setRunning(on)
@@ -210,11 +207,9 @@ class HackerServer(e: MessageServer, serverID: String) : MessageCoordinator(e), 
 
     init { //Used for constructor just keep this here in IPartys.
         this.serverID = serverID
-        MyTime = Time()
-        ServerRuntimeState.setClock(MyTime)
         ServerRuntimeState.setRunning(on)
         ServerRuntimeState.setShutdownAt(SHUTDOWN_AT)
-        MyComputerHandler = ComputerHandler(MyTime, this).also { it.start(runtime) }
+        MyComputerHandler = ComputerHandler(this).also { it.start(runtime) }
         serverJob = serverScope.launch(CoroutineName("HackerServer")) { processTasks() }
     }
 

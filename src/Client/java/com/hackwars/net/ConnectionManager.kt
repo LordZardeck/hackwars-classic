@@ -10,11 +10,13 @@ import com.plink.dolphinnet.Assignment
 import com.plink.dolphinnet.MessageClient
 import com.plink.dolphinnet.assignments.ZippedAssignment
 import org.slf4j.LoggerFactory
+import util.GameClock
 import java.util.*
+import java.util.concurrent.TimeUnit
 
 class ConnectionManager : IAssignmentEventDispatcher by AssignmentEventDispatcher() {
     companion object {
-        const val PING_TIMEOUT = 40000
+        val PING_TIMEOUT = TimeUnit.MILLISECONDS.toNanos(40000L)
         private val Logger = LoggerFactory.getLogger(ConnectionManager::class.java)
     }
 
@@ -27,7 +29,7 @@ class ConnectionManager : IAssignmentEventDispatcher by AssignmentEventDispatche
     private var _isGameServerConnected = false
     private val isGameServerConnected: Boolean
         get() {
-            return _isGameServerConnected && System.nanoTime() - lastGameServerPing > PING_TIMEOUT
+            return _isGameServerConnected && GameClock.nowNanos() - lastGameServerPing > PING_TIMEOUT
         }
 
     private var chatServerMessageClient: MessageClient? = null
@@ -35,7 +37,7 @@ class ConnectionManager : IAssignmentEventDispatcher by AssignmentEventDispatche
     private var _isChatServerConnected = false
     private val isChatServerConnected: Boolean
         get() {
-            return _isChatServerConnected && System.nanoTime() - lastChatServerPing > PING_TIMEOUT
+            return _isChatServerConnected && GameClock.nowNanos() - lastChatServerPing > PING_TIMEOUT
         }
 
     private val chatControllerLock = Any()
@@ -119,15 +121,15 @@ class ConnectionManager : IAssignmentEventDispatcher by AssignmentEventDispatche
                 }
             }
 
-            if (System.nanoTime() - lastGameServerPing > PING_TIMEOUT) {
-                lastGameServerPing = System.nanoTime()
+            if (GameClock.nowNanos() - lastGameServerPing > PING_TIMEOUT) {
+                lastGameServerPing = GameClock.nowNanos()
                 userId?.let {
                     Logger.debug("Been too long since last ping to game server, pinging to keep connection active")
                     gameServerMessageClient?.addFinishedAssignment(PingAssignment(0, it))
                 }
             }
-            if (System.nanoTime() - lastChatServerPing > PING_TIMEOUT) {
-                lastChatServerPing = System.nanoTime()
+            if (GameClock.nowNanos() - lastChatServerPing > PING_TIMEOUT) {
+                lastChatServerPing = GameClock.nowNanos()
                 username?.let {
                     Logger.debug("Been too long since last ping to chat server, pinging to keep connection active")
                     chatServerMessageClient?.addFinishedAssignment(PingAssignment(0, it.lowercase(Locale.getDefault())))

@@ -2,6 +2,7 @@ package com.hackwars.gui.login
 
 import com.github.weisj.jsvg.attributes.ViewBox
 import com.hackwars.gui.svgResource
+import util.GameClock
 import java.awt.*
 import java.awt.event.HierarchyEvent
 import java.awt.event.HierarchyListener
@@ -31,7 +32,7 @@ abstract class LoginSceneView : LoginBackgroundPanel() {
         val spinnerGlowlineDocument = svgResource("images/glowline-curved.svg")
     }
 
-    private var authStartedAt = System.nanoTime()
+    private var authStartedAt = GameClock.nowNanos()
     private var isAuthenticating = false
         set(value) {
             if (field == value) {
@@ -89,7 +90,7 @@ abstract class LoginSceneView : LoginBackgroundPanel() {
 
         formPanel.apply {
             addPasswordAuthenticationListener { event ->
-                authStartedAt = System.nanoTime()
+                authStartedAt = GameClock.nowNanos()
                 onUsernamePasswordAuthenticate(event.email, event.password)
             }
         }
@@ -104,7 +105,7 @@ abstract class LoginSceneView : LoginBackgroundPanel() {
             isAuthenticating = false
             toggleLogin(true)
         }
-        val timeSinceAuthStarted = (System.nanoTime() - authStartedAt).toDuration(DurationUnit.NANOSECONDS)
+        val timeSinceAuthStarted = (GameClock.nowNanos() - authStartedAt).toDuration(DurationUnit.NANOSECONDS)
 
         if(timeSinceAuthStarted < LOGIN_MIN_DURATION) {
             Timer((LOGIN_MIN_DURATION - timeSinceAuthStarted).inWholeMilliseconds.toInt()) {

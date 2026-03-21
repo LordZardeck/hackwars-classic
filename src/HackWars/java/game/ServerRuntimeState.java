@@ -1,9 +1,8 @@
 package game;
 
-import util.Time;
+import util.GameClock;
 
 public final class ServerRuntimeState {
-    private static volatile Time clock = null;
     private static volatile boolean running = true;
     private static volatile long shutdownAt = 0L;
     private static volatile boolean testing = false;
@@ -11,16 +10,8 @@ public final class ServerRuntimeState {
     private ServerRuntimeState() {
     }
 
-    public static void setClock(Time serverClock) {
-        clock = serverClock;
-    }
-
     public static long now() {
-        Time currentClock = clock;
-        if (currentClock == null) {
-            return System.currentTimeMillis();
-        }
-        return currentClock.getCurrentTime();
+        return GameClock.nowMillis();
     }
 
     public static void setRunning(boolean value) {

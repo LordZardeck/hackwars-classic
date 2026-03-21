@@ -136,7 +136,7 @@ public class Sound implements Runnable {
 
     public void run() {
         while (running) {
-            long startTime = Time.getInstance().getCurrentTime();
+            long startTime = GameClock.nowNanos();
             int index = 0;
             try {
                 available.acquire();
@@ -170,10 +170,13 @@ public class Sound implements Runnable {
                         }
                     }
                 }
-
-                endTime = Time.getInstance().getCurrentTime();
-                if (sleepTime - (endTime - startTime) > 0) {
-                    MyThread.sleep(sleepTime - (endTime - startTime));
+                long elapsedNanos = GameClock.nowNanos() - startTime;
+                long sleepNanos = java.util.concurrent.TimeUnit.MILLISECONDS.toNanos(sleepTime) - elapsedNanos;
+                if (sleepNanos > 0) {
+                    Thread.sleep(
+                            java.util.concurrent.TimeUnit.NANOSECONDS.toMillis(sleepNanos),
+                            (int) (sleepNanos % 1_000_000L)
+                    );
                 }
 
             } catch (Exception e) {

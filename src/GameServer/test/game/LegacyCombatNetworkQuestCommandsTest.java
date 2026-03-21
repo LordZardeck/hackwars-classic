@@ -6,7 +6,6 @@ import assignments.PacketPort;
 import com.hackwars.game.functions.FunctionTestSupport;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
-import util.Time;
 
 import java.lang.reflect.Field;
 import java.util.ArrayList;
@@ -575,11 +574,10 @@ public class LegacyCombatNetworkQuestCommandsTest {
         computer.network = Network.ROOT_NETWORK;
         computer.ip = "10.0.0.1";
         computer.PA = new PacketAssignment(0);
-        computer.MyTime = mock(Time.class);
         computer.lastChangeNetwork = 0L;
 
         when(computer.getComputerHandler()).thenReturn(computerHandler);
-        when(computer.MyTime.getCurrentTime()).thenReturn(Computer.CHANGE_NETWORKS + 1000L);
+        when(computer.getCurrentTime()).thenReturn(Computer.CHANGE_NETWORKS + 1000L);
         when(network.getNetworkInformation("ProgNet")).thenReturn(packetNetwork);
 
         Network previous = swapNetworkSingleton(network);

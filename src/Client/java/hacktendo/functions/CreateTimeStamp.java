@@ -19,7 +19,7 @@ public class CreateTimeStamp extends LinkerFunctions {
 
     public Object execute(ArrayList parameters) {
         String key = (String) ((TypeString) parameters.get(0)).getStringValue();
-        HL.addTimer(key, new Long(Time.getInstance().getCurrentTime()));
+        HL.addTimer(key, new Long(GameClock.nowMillis()));
         return (new TypeFloat(0));
     }
 }

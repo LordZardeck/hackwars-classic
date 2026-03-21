@@ -12,7 +12,6 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import util.Time
 
 class LegacyWatchEquipmentCommandsTest {
     @Test
@@ -174,8 +173,7 @@ class LegacyWatchEquipmentCommandsTest {
     }
 
     private class TestFixture {
-        val time = Time()
-        val computer = Computer("10.0.0.1", null, time, -1, null)
+        val computer = Computer("10.0.0.1", null, -1, null)
         val handler = LegacyWatchEquipmentCommands()
 
         init {
@@ -185,7 +183,6 @@ class LegacyWatchEquipmentCommandsTest {
 
         fun close() {
             stopComputerRuntime(computer)
-            time.clean()
         }
 
         fun createEquipmentFile(type: Int, name: String): HackerFile {

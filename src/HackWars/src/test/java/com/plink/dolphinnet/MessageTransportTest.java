@@ -3,6 +3,7 @@ package com.plink.dolphinnet;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Test;
+import util.GameClock;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -35,7 +36,7 @@ public class MessageTransportTest {
 
         waitForClientId(client, 0);
 
-        coordinator.addAssignment(new DataAssignment(100, "game-state"));
+        coordinator.addAssignment(0, new DataAssignment(100, "game-state"));
 
         dataHandler.awaitData("game-state");
         Assert.assertEquals(0, client.getClientId());
@@ -93,10 +94,11 @@ public class MessageTransportTest {
 
         waitForClientId(client, 0);
 
-        coordinator.addAssignment(new KillAwareAssignment(400));
+        coordinator.addAssignment(0, new KillAwareAssignment(400));
         KillAwareAssignment.awaitStarted();
 
         server.killAll();
+        client.clean();
         KillAwareAssignment.awaitKilled();
     }
 
@@ -116,8 +118,8 @@ public class MessageTransportTest {
     }
 
     private static void waitForCondition(Condition condition, String description) throws Exception {
-        long deadline = System.currentTimeMillis() + 5000L;
-        while (System.currentTimeMillis() < deadline) {
+        long deadline = GameClock.nowMillis() + 5000L;
+        while (GameClock.nowMillis() < deadline) {
             if (condition.evaluate()) {
                 return;
             }

@@ -16,7 +16,6 @@ import java.util.concurrent.Semaphore;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import util.Time;
 import util.UserHandler;
 import util.PlayFabTokenVerifier;
 import util.SessionTokenVerifiers;
@@ -26,15 +25,13 @@ public class ChatServer extends MessageCoordinator implements Runnable {
 
     //Data.
     private UserHandler MyUserHandler = null;
-    private Time MyTime = null;
     private final Semaphore available = new Semaphore(1, true);
     private Thread MyThread = null;
     private ArrayList Tasks = new ArrayList();
 
     public ChatServer(MessageServer e) {//Used for constructor just keep this here in IPartys.
         super(e);
-        MyTime = new Time();
-        MyUserHandler = new UserHandler(MyTime, this);
+        MyUserHandler = new UserHandler(this);
         MyThread = new Thread(this, "Chat Server Thread.");
         MyThread.start();
     }

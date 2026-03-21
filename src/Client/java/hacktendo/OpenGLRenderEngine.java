@@ -747,14 +747,14 @@ public class OpenGLRenderEngine extends RenderEngine implements KeyListener, Mou
      * Set the ending time of the viewport movement.
      */
     public void setXEndTime(int time) {
-        endXMove = Time.getInstance().getCurrentTime() + time;
+        endXMove = GameClock.nowMillis() + time;
     }
 
     /**
      * Set the ending time of the viewport movement.
      */
     public void setYEndTime(int time) {
-        endYMove = Time.getInstance().getCurrentTime() + time;
+        endYMove = GameClock.nowMillis() + time;
     }
 
     /**
@@ -1981,7 +1981,7 @@ public class OpenGLRenderEngine extends RenderEngine implements KeyListener, Mou
             available2.acquire();
             work++;
             Work.add(new int[]{-1, Maps[currentMap].getScriptID(), 1});
-            long currentTime = Time.getInstance().getCurrentTime();
+            long currentTime = GameClock.nowMillis();
             available2.release();
 
             //For scrolling movement.

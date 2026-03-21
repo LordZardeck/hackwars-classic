@@ -1053,7 +1053,7 @@ public class WebBrowser extends Application implements ComponentListener {
 
                 if (s != null) {
                     // TODO: Removed legacy remote bookmarks endpoint: http://www.hackwars.net/xmlrpc/bookmarks.php
-                    String id = String.valueOf(System.nanoTime());
+                    String id = String.valueOf(GameClock.nowNanos());
                     JMenuItem menuItem = new JMenuItem(s);
                     bookmarksMenu.add(menuItem, bookmarksMenu.getItemCount() - 3);
                     menuItem.addActionListener(this);

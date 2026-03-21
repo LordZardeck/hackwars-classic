@@ -17,7 +17,6 @@ import game.payload.RequestWebPagePayload
 import game.payload.SavePagePayload
 import game.payload.SetPreferencesPayload
 import game.payload.WebPagePayload
-import util.Time
 
 class LegacyEconomyWebSocialCommandsTest {
     @Test
@@ -250,8 +249,7 @@ class LegacyEconomyWebSocialCommandsTest {
     }
 
     private class TestFixture {
-        val time = Time()
-        val computer = Computer("10.0.0.1", null, time, -1, null)
+        val computer = Computer("10.0.0.1", null, -1, null)
         val handler = LegacyEconomyWebSocialCommands()
         val dispatches = ArrayList<CapturedDispatch>()
 
@@ -270,7 +268,6 @@ class LegacyEconomyWebSocialCommandsTest {
 
         fun close() {
             stopComputerRuntime(computer)
-            time.clean()
         }
 
         fun addPort(number: Int, type: Int, on: Boolean) {
