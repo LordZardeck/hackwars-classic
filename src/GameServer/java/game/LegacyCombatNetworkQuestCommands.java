@@ -21,94 +21,94 @@ public class LegacyCombatNetworkQuestCommands implements LegacyApplicationDataHa
         String function = applicationData.getCommand().wireName();
 
         switch (function) {
-            case "firewallxp":
+            case com.hackwars.rpc.GameCommandWires.FIREWALLXP:
                 applyFirewallXp(computer, applicationData.requirePayload(CombatFirewallXpPayload.class));
                 return true;
-            case "opponentupdate":
+            case com.hackwars.rpc.GameCommandWires.OPPONENTUPDATE:
                 applyOpponentUpdate(computer, resolvedPort, applicationData.requirePayload(CombatOpponentUpdatePayload.class));
                 return true;
-            case "attackxp":
+            case com.hackwars.rpc.GameCommandWires.ATTACKXP:
                 if (CombatQuestSupport.isAttackXpAwardPayload(applicationData.getPayload())) {
                     applyAttackXpAward(computer, CombatQuestSupport.attackXpAwardAmount(applicationData.getPayload()));
                 } else {
                     applyAttackXpUpdate(computer, resolvedPort, applicationData.requirePayload(CombatAttackXpUpdatePayload.class));
                 }
                 return true;
-            case "miningdamageupdate":
+            case com.hackwars.rpc.GameCommandWires.MININGDAMAGEUPDATE:
                 applyMiningDamageUpdate(computer, resolvedPort, applicationData.requirePayload(CombatMiningDamageUpdatePayload.class));
                 return true;
-            case "scan":
+            case com.hackwars.rpc.GameCommandWires.SCAN:
                 applyScan(computer, applicationData, resolvedPort, applicationData.requirePayload(CombatScanPayload.class));
                 return true;
-            case "scansuccess":
+            case com.hackwars.rpc.GameCommandWires.SCANSUCCESS:
                 applicationData.requirePayload(CombatScanSuccessPayload.class);
                 return true;
-            case "requestscan":
+            case com.hackwars.rpc.GameCommandWires.REQUESTSCAN:
                 applyRequestScan(computer, applicationData, applicationData.requirePayload(CombatRequestScanPayload.class));
                 return true;
-            case "checkbounty":
+            case com.hackwars.rpc.GameCommandWires.CHECKBOUNTY:
                 applyCheckBounty(computer, applicationData, applicationData.requirePayload(CombatCheckBountyPayload.class));
                 return true;
-            case "makebounty":
+            case com.hackwars.rpc.GameCommandWires.MAKEBOUNTY:
                 applyMakeBounty(computer, applicationData, applicationData.requirePayload(CombatMakeBountyPayload.class));
                 return true;
-            case "changenetwork":
+            case com.hackwars.rpc.GameCommandWires.CHANGENETWORK:
                 applyChangeNetwork(computer, applicationData, applicationData.requirePayload(CombatChangeNetworkPayload.class));
                 return true;
-            case "changenetwork2":
+            case com.hackwars.rpc.GameCommandWires.CHANGENETWORK2:
                 applyChangeNetwork2(computer, applicationData, applicationData.requirePayload(CombatChangeNetwork2Payload.class));
                 return true;
-            case "questinformation":
+            case com.hackwars.rpc.GameCommandWires.QUESTINFORMATION:
                 applyQuestInformation(computer, applicationData, applicationData.requirePayload(CombatQuestInformationPayload.class));
                 return true;
-            case "giveexperience":
+            case com.hackwars.rpc.GameCommandWires.GIVEEXPERIENCE:
                 applyGiveExperience(computer, applicationData.requirePayload(CombatGiveExperiencePayload.class));
                 return true;
-            case "givetask":
+            case com.hackwars.rpc.GameCommandWires.GIVETASK:
                 CombatGiveTaskPayload giveTask = applicationData.requirePayload(CombatGiveTaskPayload.class);
                 CombatQuestSupport.addTask(computer, giveTask.getQuestId(), giveTask.getTaskName(), giveTask.getTaskLabel());
                 return true;
-            case "settask":
+            case com.hackwars.rpc.GameCommandWires.SETTASK:
                 CombatSetTaskPayload setTask = applicationData.requirePayload(CombatSetTaskPayload.class);
                 CombatQuestSupport.setTask(computer, setTask.getQuestId(), setTask.getTaskName(), setTask.getSetTo());
                 queueQuestRefresh(computer, applicationData.getSourceIP());
                 return true;
-            case "completetask":
+            case com.hackwars.rpc.GameCommandWires.COMPLETETASK:
                 CombatCompleteTaskPayload completeTask = applicationData.requirePayload(CombatCompleteTaskPayload.class);
                 CombatQuestSupport.completeTask(computer, completeTask.getQuestId(), completeTask.getTaskName());
                 return true;
-            case "givecommodity":
+            case com.hackwars.rpc.GameCommandWires.GIVECOMMODITY:
                 CombatGiveCommodityPayload giveCommodity = applicationData.requirePayload(CombatGiveCommodityPayload.class);
                 computer.setCommodityAmount(giveCommodity.getCommodityType(), computer.getCommodity(giveCommodity.getCommodityType()) + giveCommodity.getAmount());
                 return true;
-            case "giveaccess":
+            case com.hackwars.rpc.GameCommandWires.GIVEACCESS:
                 computer.AllowedNetworks.add(applicationData.requirePayload(CombatGiveAccessPayload.class).getAccessNetwork());
                 return true;
-            case "givefile":
+            case com.hackwars.rpc.GameCommandWires.GIVEFILE:
                 applyGiveFile(computer, applicationData, applicationData.requirePayload(CombatGiveFilePayload.class));
                 return true;
-            case "takefile":
+            case com.hackwars.rpc.GameCommandWires.TAKEFILE:
                 applyTakeFile(computer, applicationData.requirePayload(CombatTakeFilePayload.class));
                 return true;
-            case "takefile2":
+            case com.hackwars.rpc.GameCommandWires.TAKEFILE2:
                 applyTakeFile2(computer, applicationData, applicationData.requirePayload(CombatTakeFile2Payload.class));
                 return true;
-            case "finishquest":
+            case com.hackwars.rpc.GameCommandWires.FINISHQUEST:
                 applyFinishQuest(computer, applicationData.requirePayload(CombatFinishQuestPayload.class));
                 return true;
-            case "givequest":
+            case com.hackwars.rpc.GameCommandWires.GIVEQUEST:
                 applyGiveQuest(computer, applicationData.requirePayload(CombatGiveQuestPayload.class));
                 return true;
-            case "takemoney":
+            case com.hackwars.rpc.GameCommandWires.TAKEMONEY:
                 applyTakeMoney(computer, applicationData.requirePayload(CombatTakeMoneyPayload.class));
                 return true;
-            case "takecommodity":
+            case com.hackwars.rpc.GameCommandWires.TAKECOMMODITY:
                 applyTakeCommodity(computer, applicationData.requirePayload(CombatTakeCommodityPayload.class));
                 return true;
-            case "exchangecommodity":
+            case com.hackwars.rpc.GameCommandWires.EXCHANGECOMMODITY:
                 applyExchangeCommodity(computer, applicationData, applicationData.requirePayload(CombatExchangeCommodityPayload.class));
                 return true;
-            case "exchangefile":
+            case com.hackwars.rpc.GameCommandWires.EXCHANGEFILE:
                 applyExchangeFile(computer, applicationData, applicationData.requirePayload(CombatExchangeFilePayload.class));
                 return true;
             default:
@@ -134,11 +134,11 @@ public class LegacyCombatNetworkQuestCommands implements LegacyApplicationDataHa
         Port port = (Port) computer.Ports.get(resolvedPort);
         if (computer.connectionID != -1) {
             CombatQuestSupport.addDamage(
-                computer,
-                CombatQuestSupport.windowHandle(port),
-                values.getDamage(),
-                payload.getDamageFromFirewall(),
-                payload.getMining()
+                    computer,
+                    CombatQuestSupport.windowHandle(port),
+                    values.getDamage(),
+                    payload.getDamageFromFirewall(),
+                    payload.getMining()
             );
         }
         computer.healthChange = true;
@@ -167,11 +167,11 @@ public class LegacyCombatNetworkQuestCommands implements LegacyApplicationDataHa
         if (payload.getTargetIp() == null) {
             if (computer.connectionID != -1) {
                 CombatQuestSupport.addDamage(
-                    computer,
-                    CombatQuestSupport.windowHandle(port),
-                    values.getDamage(),
-                    payload.getDamageFromFirewall(),
-                    payload.getMining()
+                        computer,
+                        CombatQuestSupport.windowHandle(port),
+                        values.getDamage(),
+                        payload.getDamageFromFirewall(),
+                        payload.getMining()
                 );
             }
             if (port != null) {
@@ -182,12 +182,12 @@ public class LegacyCombatNetworkQuestCommands implements LegacyApplicationDataHa
             }
         } else if (computer.connectionID != -1) {
             CombatQuestSupport.addDamage(
-                computer,
-                CombatQuestSupport.windowHandle(port),
-                values.getDamage(),
-                payload.getTargetIp(),
-                payload.getDamageFromFirewall(),
-                false
+                    computer,
+                    CombatQuestSupport.windowHandle(port),
+                    values.getDamage(),
+                    payload.getTargetIp(),
+                    payload.getDamageFromFirewall(),
+                    false
             );
         }
 
@@ -207,11 +207,11 @@ public class LegacyCombatNetworkQuestCommands implements LegacyApplicationDataHa
         if (payload.getTargetIp() == null) {
             if (computer.connectionID != -1) {
                 CombatQuestSupport.addDamage(
-                    computer,
-                    CombatQuestSupport.windowHandle(port),
-                    values.getDamage(),
-                    payload.getDamageFromFirewall(),
-                    true
+                        computer,
+                        CombatQuestSupport.windowHandle(port),
+                        values.getDamage(),
+                        payload.getDamageFromFirewall(),
+                        true
                 );
             }
             if (port != null) {
@@ -222,12 +222,12 @@ public class LegacyCombatNetworkQuestCommands implements LegacyApplicationDataHa
             }
         } else if (computer.connectionID != -1) {
             CombatQuestSupport.addDamage(
-                computer,
-                CombatQuestSupport.windowHandle(port),
-                values.getDamage(),
-                payload.getTargetIp(),
-                payload.getDamageFromFirewall(),
-                true
+                    computer,
+                    CombatQuestSupport.windowHandle(port),
+                    values.getDamage(),
+                    payload.getTargetIp(),
+                    payload.getDamageFromFirewall(),
+                    true
             );
         }
         computer.healthChange = true;
@@ -317,14 +317,14 @@ public class LegacyCombatNetworkQuestCommands implements LegacyApplicationDataHa
         }
 
         CombatScanPayload scanPayload = new CombatScanPayload(
-            firewallLevel,
-            packetPorts,
-            computer.defaultBank,
-            computer.defaultAttack,
-            computer.defaultFTP,
-            computer.defaultHTTP,
-            computer.type == Computer.NPC,
-            computer.defaultShipping
+                firewallLevel,
+                packetPorts,
+                computer.defaultBank,
+                computer.defaultAttack,
+                computer.defaultFTP,
+                computer.defaultHTTP,
+                computer.type == Computer.NPC,
+                computer.defaultShipping
         );
         computer.getComputerHandler().addData(new ApplicationData(scanPayload, 0, computer.ip), payload.getTargetIp());
     }
@@ -337,20 +337,20 @@ public class LegacyCombatNetworkQuestCommands implements LegacyApplicationDataHa
             computer.getComputerHandler().addData(new ApplicationData(new PettyCashDeltaPayload(reward), 0, computer.ip), applicationData.getSourceIP());
             computer.getComputerHandler().addData(
                     new ApplicationData(
-                        new StructuredMessagePayload(
-                            new Object[]{MessageHandler.BOUNTY_COMPLETED, new Object[]{NumberFormat.getCurrencyInstance().format(reward)}},
-                            null,
-                            null
-                        ),
-                    0,
-                    computer.ip
-                ),
-                applicationData.getSourceIP()
+                            new StructuredMessagePayload(
+                                    new Object[]{MessageHandler.BOUNTY_COMPLETED, new Object[]{NumberFormat.getCurrencyInstance().format(reward)}},
+                                    null,
+                                    null
+                            ),
+                            0,
+                            computer.ip
+                    ),
+                    applicationData.getSourceIP()
             );
         } else {
             computer.getComputerHandler().addData(
-                new ApplicationData(new StructuredMessagePayload(MessageHandler.BOUNTY_FAILED_ALREADY_COMPLETED, null, null), 0, computer.ip),
-                applicationData.getSourceIP()
+                    new ApplicationData(new StructuredMessagePayload(MessageHandler.BOUNTY_FAILED_ALREADY_COMPLETED, null, null), 0, computer.ip),
+                    applicationData.getSourceIP()
             );
         }
     }
@@ -490,14 +490,14 @@ public class LegacyCombatNetworkQuestCommands implements LegacyApplicationDataHa
         float amount = 0.0f;
 
         switch (stat) {
-            case "bank":
+            case com.hackwars.rpc.GameCommandWires.BANK:
                 amount = (Float) computer.Stats.get("Bank") + xp;
                 if (amount < 300.0f && xp < 0) {
                     amount = 300.0f;
                 }
                 computer.Stats.put("Bank", amount);
                 break;
-            case "attack":
+            case com.hackwars.rpc.GameCommandWires.ATTACK:
                 amount = (Float) computer.Stats.get("Attack") + xp;
                 if (amount < 300.0f && xp < 0) {
                     amount = 300.0f;
@@ -564,15 +564,15 @@ public class LegacyCombatNetworkQuestCommands implements LegacyApplicationDataHa
             computer.getComputerHandler().addData(new ApplicationData(new SaveFileRequestPayload("", file), 0, computer.ip), applicationData.getSourceIP());
             computer.getComputerHandler().addData(
                     new ApplicationData(
-                        new StructuredMessagePayload(
-                            new Object[]{MessageHandler.GIVEN_FILE, new Object[]{file.getName(), payload.getQuantity()}},
-                            null,
-                            null
-                        ),
-                    0,
-                    computer.ip
-                ),
-                applicationData.getSourceIP()
+                            new StructuredMessagePayload(
+                                    new Object[]{MessageHandler.GIVEN_FILE, new Object[]{file.getName(), payload.getQuantity()}},
+                                    null,
+                                    null
+                            ),
+                            0,
+                            computer.ip
+                    ),
+                    applicationData.getSourceIP()
             );
         }
     }
@@ -604,16 +604,16 @@ public class LegacyCombatNetworkQuestCommands implements LegacyApplicationDataHa
                         HackerFile fileCheck = computer.MyFileSystem.getFile("", file.getName());
                         saveFileTemp(computer, file, fileCheck, "", newQuantity);
                         computer.getComputerHandler().addData(
-                            new ApplicationData(
-                                new StructuredMessagePayload(
-                                    new Object[]{MessageHandler.FILE_TAKEN, new Object[]{file.getName(), payload.getQuantity()}},
-                                    null,
-                                    null
+                                new ApplicationData(
+                                        new StructuredMessagePayload(
+                                                new Object[]{MessageHandler.FILE_TAKEN, new Object[]{file.getName(), payload.getQuantity()}},
+                                                null,
+                                                null
+                                        ),
+                                        0,
+                                        computer.ip
                                 ),
-                                0,
                                 computer.ip
-                            ),
-                            computer.ip
                         );
                     } else if (newQuantity == 0) {
                         computer.getComputerHandler().addData(new ApplicationData(new DeleteFile(computer.ip, "", file.getName()), 0, computer.ip), computer.ip);

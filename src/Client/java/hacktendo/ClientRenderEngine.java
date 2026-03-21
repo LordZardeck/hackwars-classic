@@ -6,17 +6,17 @@ Render engine takes care of most of the technical aspects of drawing a map, load
 */
 
 import com.hackwars.state.GameState;
-
-import java.awt.event.*;
-import java.util.*;
-
-import hackscript.model.*;
-import gui.*;
+import game.mmo.HacktendoPacket;
+import gui.Hacker;
+import hackscript.model.TypeBoolean;
+import hackscript.model.TypeInteger;
+import hackscript.model.TypeString;
 
 import javax.media.opengl.GLCanvas;
-
-import game.mmo.*;
-import assignments.*;
+import java.awt.event.KeyListener;
+import java.awt.event.MouseListener;
+import java.awt.event.MouseMotionListener;
+import java.util.HashMap;
 
 public class ClientRenderEngine extends OpenGLRenderEngine implements KeyListener, MouseMotionListener, MouseListener {
     private static final int SPRITE_SCRIPT = 6;//The script that represents the basis for the 2D sprite.
@@ -68,17 +68,15 @@ public class ClientRenderEngine extends OpenGLRenderEngine implements KeyListene
 
         if (activationEvent) {
             GameState myGameState = MyHacker.getView();
-            Object[] send = new Object[]{new Integer(activationID), new Integer(activationType), MyHacker.getIP()};
-            myGameState.addFunctionCall(new RemoteFunctionCall(Hacker.HACKTENDO_PLAYER, "hacktendoActivate", send));
+            myGameState.addFunctionCall(new com.hackwars.rpc.HacktendoActivate(new Integer(activationID), new Integer(activationType), MyHacker.getIP()).toRfc(Hacker.HACKTENDO_PLAYER));
         } else if (targetEvent) {
             GameState myGameState = MyHacker.getView();
             Object[] send = null;
             if (playerSprite != null)
                 send = new Object[]{new Integer(targetX), new Integer(targetY), MyHacker.getIP(), new Integer(playerSprite.getX()), new Integer(playerSprite.getY())};
             else
-                send = new Object[]{new Integer(targetX), new Integer(targetY), MyHacker.getIP(), new Integer(targetX), new Integer(targetY)};
 
-            myGameState.addFunctionCall(new RemoteFunctionCall(Hacker.HACKTENDO_PLAYER, "hacktendoTarget", send));
+                myGameState.addFunctionCall(new com.hackwars.rpc.HacktendoTarget(new Integer(targetX), new Integer(targetY), MyHacker.getIP(), new Integer(targetX), new Integer(targetY)).toRfc(Hacker.HACKTENDO_PLAYER));
         }
 
         activationEvent = false;

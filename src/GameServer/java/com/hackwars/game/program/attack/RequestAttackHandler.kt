@@ -7,12 +7,11 @@ import game.MessageHandler
 import game.messageData
 import game.payload.ATTACK_COMMAND
 import game.payload.LocalPortEntryPayload
-import game.payload.MessageTextPayload
 import game.payload.StructuredMessagePayload
 import game.payloadAs
 
 class RequestAttackHandler : AttackFunctionHandler {
-    override val functionName: String = "requestattack"
+    override val functionName: String = com.hackwars.rpc.GameCommandWires.REQUESTATTACK
 
     override fun execute(program: AttackProgram, applicationData: ApplicationData) {
         val payload = applicationData.payloadAs<RequestAttack>()

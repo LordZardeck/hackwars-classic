@@ -142,16 +142,16 @@ public class HackerLinker extends Linker {
 
                                     String banking_ip = B.getIP();
                                     if (!ip.equals(B.getIP())) {
-                                        ApplicationData MyBank = new ApplicationData(new FloatCommandPayload(ApplicationCommand.of("bank"), deposit * depositCut), 0, ip);
+                                        ApplicationData MyBank = new ApplicationData(new FloatCommandPayload(com.hackwars.rpc.GameCommands.BANK.command, deposit * depositCut), 0, ip);
                                         MyComputerHandler.addData(MyBank, ip);
                                     } else {
                                         CentralLogging.getInstance().addOutput(ip + "\t" + ip + "\t" + "0\t" + deposit + "\n");
                                         B.deposit(deposit * depositCut);
-                                        ApplicationData MyBank = new ApplicationData(new FloatCommandPayload(ApplicationCommand.of("bank"), 0.0f), 0, ip);
+                                        ApplicationData MyBank = new ApplicationData(new FloatCommandPayload(com.hackwars.rpc.GameCommands.BANK.command, 0.0f), 0, ip);
                                         MyComputerHandler.addData(MyBank, ip);
                                     }
 
-                                    MyComputerHandler.addData(new ApplicationData(new FloatCommandPayload(ApplicationCommand.of("bankxp"), deposit / depositXP), 0, ip), ip);
+                                    MyComputerHandler.addData(new ApplicationData(new FloatCommandPayload(com.hackwars.rpc.GameCommands.BANKXP.command, deposit / depositXP), 0, ip), ip);
 
                                     Computer C = B.getComputer();
                                     if (!C.getIP().equals(ip))//Send a packet if something malicious happens.
@@ -164,7 +164,7 @@ public class HackerLinker extends Linker {
                 }
 
                 //Withdraw money from your account.
-                if (name.equals("withdraw")) {
+                if (name.equals(com.hackwars.rpc.GameCommandWires.WITHDRAW)) {
                     try {
                         if (B.isWithdraw()) {
                             if (parameters != null)
@@ -266,7 +266,7 @@ public class HackerLinker extends Linker {
                                     ApplicationData MyBank = new ApplicationData(new PettyCashTransferPayload(deposit * transferCut, deposit, true), 0, B.getComputer().getIP());
 
                                     MyComputerHandler.addData(MyBank, ip);
-                                    MyComputerHandler.addData(new ApplicationData(new FloatCommandPayload(ApplicationCommand.of("bankxp"), deposit / transferXP), 0, banking_ip), banking_ip);
+                                    MyComputerHandler.addData(new ApplicationData(new FloatCommandPayload(com.hackwars.rpc.GameCommands.BANKXP.command, deposit / transferXP), 0, banking_ip), banking_ip);
 
                                     Computer C = B.getComputer();
                                     if (!C.getIP().equals(ip))//Send a packet if something malicious happens.
@@ -419,7 +419,7 @@ public class HackerLinker extends Linker {
                                     } else
 
                                         //Return the port that the parent watch is associated with.
-                                        if (name.equals("scan")) {
+                                        if (name.equals(com.hackwars.rpc.GameCommandWires.SCAN)) {
                                             if (W.getParentWatch().getExternal()) {//Only allow this function if it came from triggerWatch.
                                                 try {
                                                     String targetIP = ((TypeString) parameters.get(0)).getStringValue();
@@ -455,7 +455,7 @@ public class HackerLinker extends Linker {
                                             } else
 
                                                 //Initialize an attack on the default attack port.
-                                                if (name.equals("attack")) {
+                                                if (name.equals(com.hackwars.rpc.GameCommandWires.ATTACK)) {
                                                     try {
                                                         //if(W.getParentWatch().getExternal()){//Only allow this function if it came from triggerWatch.
                                                         int attackport = W.getDefaultAttack();
@@ -587,7 +587,7 @@ public class HackerLinker extends Linker {
                                                                                             if (parameters.get(0) instanceof TypeFloat)
                                                                                                 amount = (Float) ((TypeFloat) parameters.get(0)).getRawValue();
                                                                                         int port = W.getParentWatch().getNumber();
-                                                                                        MyComputerHandler.addData(new ApplicationData(new FloatCommandPayload(ApplicationCommand.of("deposit"), amount), port, W.getIP()), W.getIP());
+                                                                                        MyComputerHandler.addData(new ApplicationData(new FloatCommandPayload(com.hackwars.rpc.GameCommands.DEPOSIT.command, amount), port, W.getIP()), W.getIP());
                                                                                     } catch (Exception e) {
                                                                                         MyProgram.getComputer().addMessage("An exception occurred in depositPettyCash().");
                                                                                     }
@@ -688,7 +688,7 @@ public class HackerLinker extends Linker {
                                                                                                                 } else
 
                                                                                                                     //Heal this port.
-                                                                                                                    if (name.equals("heal")) {
+                                                                                                                    if (name.equals(com.hackwars.rpc.GameCommandWires.HEAL)) {
                                                                                                                         try {
                                                                                                                             MyComputerHandler.addData(new ApplicationData(HealPayload.INSTANCE, W.getNumber(), W.getIP()), W.getIP());
                                                                                                                         } catch (
@@ -833,7 +833,7 @@ public class HackerLinker extends Linker {
                 } else
 
                     //Message handler.
-                    if (name.equals("message")) {
+                    if (name.equals(com.hackwars.rpc.GameCommandWires.MESSAGE)) {
                         try {
                             if (incrementValue("message") <= 1) {
                                 if (parameters.size() == 2) {
@@ -870,17 +870,17 @@ public class HackerLinker extends Linker {
                         } else
 
                             //Freeze an opponent's port.
-                            if (name.equals("freeze")) {
-                                                        try {
-                                                            ApplicationData AD = null;
-                                                            if (!A.isZombie()) {
-                                                                AD = new ApplicationData(FreezePayload.INSTANCE, A.getTargetPort(), A.getComputer().getIP());
+                            if (name.equals(com.hackwars.rpc.GameCommandWires.FREEZE)) {
+                                try {
+                                    ApplicationData AD = null;
+                                    if (!A.isZombie()) {
+                                        AD = new ApplicationData(FreezePayload.INSTANCE, A.getTargetPort(), A.getComputer().getIP());
 
-                                                            } else {
-                                                                AD = new ApplicationData(FreezePayload.INSTANCE, A.getTargetPort(), A.getMaliciousIP());
-                                                            }
-                                                            AD = AD.withSourcePort(A.getPort());
-                                                            MyComputerHandler.addData(AD, A.getTargetIP());
+                                    } else {
+                                        AD = new ApplicationData(FreezePayload.INSTANCE, A.getTargetPort(), A.getMaliciousIP());
+                                    }
+                                    AD = AD.withSourcePort(A.getPort());
+                                    MyComputerHandler.addData(AD, A.getTargetIP());
 
                                     A.setDamage(false);
                                 } catch (Exception e) {
@@ -900,9 +900,9 @@ public class HackerLinker extends Linker {
                                             ApplicationData AD = null;
 
                                             if (!A.isZombie()) {
-                                                AD = new ApplicationData(new LocalPortEntryPayload(ApplicationCommand.of("attack"), A.getComputer().getNetwork()), newPort, A.getComputer().getIP());
+                                                AD = new ApplicationData(new LocalPortEntryPayload(com.hackwars.rpc.GameCommands.ATTACK.command, A.getComputer().getNetwork()), newPort, A.getComputer().getIP());
                                             } else {
-                                                AD = new ApplicationData(new RedirectedPortEntryPayload(ApplicationCommand.of("attack"), A.getComputer().getIP(), A.getComputer().getNetwork()), newPort, A.getMaliciousIP());
+                                                AD = new ApplicationData(new RedirectedPortEntryPayload(com.hackwars.rpc.GameCommands.ATTACK.command, A.getComputer().getIP(), A.getComputer().getNetwork()), newPort, A.getMaliciousIP());
                                             }
 
                                             AD = AD.withSourcePort(A.getPort());
@@ -942,29 +942,29 @@ public class HackerLinker extends Linker {
                                             } else
 
                                                 //Install a script as a finalization step in an attack.
-                                                    if (name.equals("installScript")) {
-                                                        try {
-                                                            if (!A.isZombie()) {
-                                                                A.setAttacking(false);
-                                                                HashMap maliciousCode = (HashMap) A.getMaliciousCode();
+                                                if (name.equals(com.hackwars.rpc.GameCommandWires.INSTALL_SCRIPT)) {
+                                                    try {
+                                                        if (!A.isZombie()) {
+                                                            A.setAttacking(false);
+                                                            HashMap maliciousCode = (HashMap) A.getMaliciousCode();
 
-                                                                //Check for bounty.
-                                                                A.checkBounty(A.getLastFile(), MakeBounty.INSTALL);
-                                                                ApplicationData AD = new ApplicationData(
+                                                            //Check for bounty.
+                                                            A.checkBounty(A.getLastFile(), MakeBounty.INSTALL);
+                                                            ApplicationData AD = new ApplicationData(
                                                                     new AttackInstallScriptPayload(maliciousCode, A.getMaliciousParameters()),
                                                                     A.getTargetPort(),
                                                                     A.getIP()
-                                                                );
-                                                                AD = AD.withSourcePort(A.getPort());
-                                                                MyComputerHandler.addData(AD, A.getTargetIP());
-                                                            }
-                                                        } catch (Exception e) {
-                                                            MyProgram.getComputer().addMessage("An exception occurred in installScript().");
+                                                            );
+                                                            AD = AD.withSourcePort(A.getPort());
+                                                            MyComputerHandler.addData(AD, A.getTargetIP());
                                                         }
+                                                    } catch (Exception e) {
+                                                        MyProgram.getComputer().addMessage("An exception occurred in installScript().");
+                                                    }
                                                 } else
 
                                                     //Install a script as a finalization step in an attack.
-                                                    if (name.equals("editLogs")) {
+                                                    if (name.equals(com.hackwars.rpc.GameCommandWires.EDIT_LOGS)) {
                                                         try {
                                                             EditLogsPayload payload = new EditLogsPayload(((TypeString) parameters.get(0)).getStringValue(), ((TypeString) parameters.get(1)).getStringValue());
                                                             if (!A.isZombie())
@@ -1021,7 +1021,7 @@ public class HackerLinker extends Linker {
                                                                     } else
 
                                                                         //End the attack by emptying the player's petty cash.
-                                                                        if (name.equals("emptyPettyCash")) {
+                                                                        if (name.equals(com.hackwars.rpc.GameCommandWires.EMPTY_PETTY_CASH)) {
                                                                             try {
                                                                                 if (!A.isZombie())
                                                                                     MyComputerHandler.addData(new ApplicationData(new EmptyPettyCashPayload(A.getWindowHandle()), A.getTargetPort(), A.getIP()), A.getTargetIP());
@@ -1090,11 +1090,11 @@ public class HackerLinker extends Linker {
 
                                                                                         //Cancel the current attack taking place.
                                                                                         if (name.equals("cancelAttack")) {
-                                                                                        try {
-                                                            if (!A.isZombie())
-                                                                                                MyComputerHandler.addData(new ApplicationData(new CancelAttackPayload((Boolean) null), A.getTargetPort(), A.getIP()), A.getTargetIP());
-                                                                                            else
-                                                                                                MyComputerHandler.addData(new ApplicationData(new CancelAttackPayload((Boolean) null), A.getTargetPort(), A.getMaliciousIP()), A.getTargetIP());
+                                                                                            try {
+                                                                                                if (!A.isZombie())
+                                                                                                    MyComputerHandler.addData(new ApplicationData(new CancelAttackPayload((Boolean) null), A.getTargetPort(), A.getIP()), A.getTargetIP());
+                                                                                                else
+                                                                                                    MyComputerHandler.addData(new ApplicationData(new CancelAttackPayload((Boolean) null), A.getTargetPort(), A.getMaliciousIP()), A.getTargetIP());
                                                                                                 A.setAttacking(false);
                                                                                             } catch (Exception e) {
                                                                                                 MyProgram.getComputer().addMessage("An exception occurred in cancelAttack().");
@@ -1168,15 +1168,15 @@ public class HackerLinker extends Linker {
                                                                                                                 } else
 
                                                                                                                     //Finalize the attack by destroying the ports attached to target.
-                                                                                                                if (name.equals("destroyWatches")) {
-                                                                                                                    try {
-                                                                                                                        if (A.getComputer() != null) {
+                                                                                                                    if (name.equals("destroyWatches")) {
+                                                                                                                        try {
+                                                                                                                            if (A.getComputer() != null) {
 
-                                                                                                                            if (!A.isZombie())
-                                                                                                                                MyComputerHandler.addData(new ApplicationData(DestroyWatchPayload.INSTANCE, A.getTargetPort(), A.getIP()), A.getTargetIP());
-                                                                                                                            else {
-                                                                                                                                MyComputerHandler.addData(new ApplicationData(DestroyWatchPayload.INSTANCE, A.getTargetPort(), A.getMaliciousIP()), A.getTargetIP());
-                                                                                                                            }
+                                                                                                                                if (!A.isZombie())
+                                                                                                                                    MyComputerHandler.addData(new ApplicationData(DestroyWatchPayload.INSTANCE, A.getTargetPort(), A.getIP()), A.getTargetIP());
+                                                                                                                                else {
+                                                                                                                                    MyComputerHandler.addData(new ApplicationData(DestroyWatchPayload.INSTANCE, A.getTargetPort(), A.getMaliciousIP()), A.getTargetIP());
+                                                                                                                                }
                                                                                                                             }
                                                                                                                             A.setAttacking(false);
 
@@ -1481,7 +1481,7 @@ public class HackerLinker extends Linker {
                             Computer C = H.getComputer();
                             if (C.isNPC()) {
                                 float amount = (Float) ((TypeFloat) parameters.get(0)).getRawValue();
-                                ApplicationData MyBank = new ApplicationData(new FloatCommandPayload(ApplicationCommand.of("bank"), amount), 0, H.getComputer().getIP());
+                                ApplicationData MyBank = new ApplicationData(new FloatCommandPayload(com.hackwars.rpc.GameCommands.BANK.command, amount), 0, H.getComputer().getIP());
                                 MyComputerHandler.addData(MyBank, H.getTargetIP());
                             }
                         } else if (name.equals("giveCommodity")) {
@@ -1538,7 +1538,7 @@ public class HackerLinker extends Linker {
                 FTPProgram F = (FTPProgram) MyProgram;
 
                 //Put method has been called.
-                if (name.equals("put")) {
+                if (name.equals(com.hackwars.rpc.GameCommandWires.PUT)) {
                     try {
                         if (incrementValue("ftp") <= 1) {
                             String ip = "";
@@ -1562,7 +1562,7 @@ public class HackerLinker extends Linker {
                     } catch (Exception e) {
                         MyProgram.getComputer().addMessage("An exception occurred in put().");
                     }
-                } else if (name.equals("get")) {
+                } else if (name.equals(com.hackwars.rpc.GameCommandWires.GET)) {
                     try {
                         if (incrementValue("ftp") <= 1) {
                             String ip = "";
@@ -2336,7 +2336,7 @@ public class HackerLinker extends Linker {
                                                                         } else
 
                                                                             //Message handler.
-                                                                            if (name.equals("message")) {
+                                                                            if (name.equals(com.hackwars.rpc.GameCommandWires.MESSAGE)) {
                                                                                 try {
                                                                                     if (incrementValue("message") <= 1 || MyProgram.getComputer().isNPC()) {
                                                                                         if (parameters.size() == 2) {
@@ -2578,7 +2578,7 @@ public class HackerLinker extends Linker {
                 if (C.isNPC()) {
                     float amount = (Float) ((TypeFloat) parameters.get(0)).getRawValue();
                     String IP = (String) ((TypeString) parameters.get(1)).getRawValue();
-                    ApplicationData MyBank = new ApplicationData(new FloatCommandPayload(ApplicationCommand.of("bank"), amount), 0, MyProgram.getComputer().getIP());
+                    ApplicationData MyBank = new ApplicationData(new FloatCommandPayload(com.hackwars.rpc.GameCommands.BANK.command, amount), 0, MyProgram.getComputer().getIP());
                     MyComputerHandler.addData(MyBank, IP);
                 }
             } else if (name.equals("giveCommodity")) {

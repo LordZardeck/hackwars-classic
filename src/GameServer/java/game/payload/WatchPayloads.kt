@@ -6,6 +6,6 @@ import game.ApplicationPayload
 data class WatchXpPayload(
     val amount: Float
 ) : ApplicationPayload {
-    override fun getCommand(): ApplicationCommand = ApplicationCommand.of("watchxp")
+    override fun getCommand(): ApplicationCommand = com.hackwars.rpc.GameCommands.WATCHXP.command
     fun legacyParameters(): Any = amount
 }

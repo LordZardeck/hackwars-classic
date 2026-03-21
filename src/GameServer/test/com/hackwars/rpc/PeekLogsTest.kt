@@ -22,7 +22,7 @@ class PeekLogsTest {
     @Test
     fun fromRpc_and_toRfc_roundtrip() {
         val params = arrayOf<Any?>("value", null, 42)
-        val rpc = RemoteFunctionCall(1, PeekLogs.FUNCTION, params)
+        val rpc = RemoteFunctionCall(1, com.hackwars.rpc.GameCommandWires.PEEKLOGS, params)
 
         val call = PeekLogs.fromRpc(rpc)
         assertEquals(params[0], call.ip)
@@ -30,7 +30,7 @@ class PeekLogsTest {
         assertEquals(params[2], call.port)
         val serialized = call.toRfc()
 
-        assertEquals(PeekLogs.FUNCTION, serialized.function)
+        assertEquals(com.hackwars.rpc.GameCommandWires.PEEKLOGS, serialized.function)
         assertArrayEquals(params, serialized.parameters as Array<*>)
     }
 }

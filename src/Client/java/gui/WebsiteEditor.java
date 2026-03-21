@@ -4,20 +4,20 @@ package gui;
  * this is the deposit window.
  */
 
+import browser.HtmlHandler;
+import com.hackwars.state.GameState;
+import jsyntaxpane.DefaultSyntaxKit;
+import jsyntaxpane.SyntaxDocument;
+
 import javax.swing.*;
 import javax.swing.event.*;
-import javax.swing.undo.*;
-import java.awt.*;
-import java.awt.event.*;
-
-import com.hackwars.state.GameState;
-
-import assignments.*;
-
 import javax.swing.text.SimpleAttributeSet;
-
-import browser.*;
-import jsyntaxpane.*;
+import javax.swing.undo.UndoManager;
+import java.awt.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ComponentEvent;
+import java.awt.event.ComponentListener;
+import java.awt.event.KeyEvent;
 
 public class WebsiteEditor extends Application implements UndoableEditListener, ComponentListener, ChangeListener {
     private JDesktopPane mainPanel = null;
@@ -301,11 +301,9 @@ public class WebsiteEditor extends Application implements UndoableEditListener, 
         JScrollPane sp = new JScrollPane(editorPane);
         DefaultSyntaxKit.initKit();
         editorPane.setContentType("text/xml");
-        Object objects[] = {MyHacker.getEncryptedIP()};
         if (myGameState != null) {
             MyHacker.setSiteRequest(Hacker.WEBSITE_EDITOR);
-            myGameState.setFunction("requestpage");
-            myGameState.addFunctionCall(new RemoteFunctionCall(0, "requestpage", objects));
+            myGameState.addFunctionCall(new com.hackwars.rpc.RequestPage(MyHacker.getEncryptedIP()).toRfc(0));
         }
         //editorPane.setText("<b>Test</b>");
         //editorPane.addCaretListener(this);
@@ -470,9 +468,7 @@ public class WebsiteEditor extends Application implements UndoableEditListener, 
         }
         if (ac.equals("Save")) {
             String ip = MyHacker.getEncryptedIP();
-            Object objects[] = {ip, title, editorPane.getText()};
-            myGameState.setFunction("savepage");
-            myGameState.addFunctionCall(new RemoteFunctionCall(0, "savepage", objects));
+            myGameState.addFunctionCall(new com.hackwars.rpc.SavePage(ip, title, editorPane.getText()).toRfc(0));
             JOptionPane.showMessageDialog(this, "Your page has been saved.");
         }
         if (ac.equals("Set Title")) {

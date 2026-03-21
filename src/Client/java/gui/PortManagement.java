@@ -4,15 +4,17 @@ package gui;
  * this is the port management window.
  */
 
-import javax.swing.*;
-import javax.swing.event.*;
-import java.awt.*;
-import java.awt.event.*;
-
-import assignments.*;
+import assignments.PacketPort;
 import com.hackwars.state.GameState;
 
-import java.util.*;
+import javax.swing.*;
+import javax.swing.event.InternalFrameEvent;
+import java.awt.*;
+import java.awt.event.FocusEvent;
+import java.awt.event.FocusListener;
+import java.awt.event.ItemEvent;
+import java.awt.event.ItemListener;
+import java.util.HashMap;
 
 public class PortManagement extends Application implements ItemListener, FocusListener {
     public final static int INSTALL = 0;
@@ -50,9 +52,7 @@ public class PortManagement extends Application implements ItemListener, FocusLi
         this.MyHacker = MyHacker;
         myGameState = MyHacker.getView();
         String ip = MyHacker.getEncryptedIP();
-        Object objects[] = {ip};
-        myGameState.setFunction("fetchports");
-        myGameState.addFunctionCall(new RemoteFunctionCall(0, "fetchports", objects));
+        myGameState.addFunctionCall(new com.hackwars.rpc.FetchPorts(ip).toRfc(0));
         this.setFrameIcon(ImageLoader.getImageIcon("images/port.png"));
         columns = MyHacker.getPortColumns();
         createMenu();
@@ -733,17 +733,13 @@ public class PortManagement extends Application implements ItemListener, FocusLi
     }
 
     public void setOnOff(int index, boolean set) {
-        Object objects[] = {MyHacker.getEncryptedIP(), index, set};
-        myGameState.setFunction("portonoff");
-        myGameState.addFunctionCall(new RemoteFunctionCall(0, "portonoff", objects));
+        myGameState.addFunctionCall(new com.hackwars.rpc.PortOnOff(MyHacker.getEncryptedIP(), index, set).toRfc(0));
         on[index] = set;
     }
 
     public void saveNote(String note, int index) {
         //System.out.println("SAVING THE NOTE: " + note + " at index = " + index);
-        Object objects[] = {MyHacker.getEncryptedIP(), index, note};
-        myGameState.setFunction("saveportnote");
-        myGameState.addFunctionCall(new RemoteFunctionCall(0, "saveportnote", objects));
+        myGameState.addFunctionCall(new com.hackwars.rpc.SavePortNote(MyHacker.getEncryptedIP(), index, note).toRfc(0));
     }
 
     public JPanel getPanel(int port) {
@@ -768,10 +764,8 @@ public class PortManagement extends Application implements ItemListener, FocusLi
 
     public void install(int port, String folder, String name, int type) {
         //System.out.println(folder+" "+name+" "+port+" "+type);
-        Object objects[] = {MyHacker.getEncryptedIP(), port, folder, name};
         if (function == INSTALL) {
-            myGameState.setFunction("installapplication");
-            myGameState.addFunctionCall(new RemoteFunctionCall(0, "installapplication", objects));
+            myGameState.addFunctionCall(new com.hackwars.rpc.InstallApplication(MyHacker.getEncryptedIP(), port, folder, name).toRfc(0));
 
             // add the name of the application that was just installed to the note field
             setNote(name, port);
@@ -782,8 +776,7 @@ public class PortManagement extends Application implements ItemListener, FocusLi
             String title = "Uninstall application on port " + port;
             int n = showYesCancelDialog(title, message);
             if (n == 0) {
-                myGameState.setFunction("replaceapplication");
-                myGameState.addFunctionCall(new RemoteFunctionCall(0, "replaceapplication", objects));
+                myGameState.addFunctionCall(new com.hackwars.rpc.ReplaceApplication(MyHacker.getEncryptedIP(), port, folder, name).toRfc(0));
 
                 // if the note field is blank replace the note, otherwise ask if they really want to replace the note
                 if (noteField[port].getText().equals("")) {
@@ -828,9 +821,7 @@ public class PortManagement extends Application implements ItemListener, FocusLi
     }
 
     public void installFireWall(int port, String folder, String name) {
-        Object objects[] = {MyHacker.getEncryptedIP(), port, folder, name};
-        myGameState.setFunction("installfirewall");
-        myGameState.addFunctionCall(new RemoteFunctionCall(0, "installfirewall", objects));
+        myGameState.addFunctionCall(new com.hackwars.rpc.InstallFirewall(MyHacker.getEncryptedIP(), port, folder, name).toRfc(0));
     }
 
     public void setFunction(int function) {

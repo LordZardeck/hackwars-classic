@@ -22,7 +22,7 @@ class ReplaceApplicationTest {
     @Test
     fun fromRpc_and_toRfc_roundtrip() {
         val params = arrayOf<Any?>("value", 42, null, null)
-        val rpc = RemoteFunctionCall(1, ReplaceApplication.FUNCTION, params)
+        val rpc = RemoteFunctionCall(1, com.hackwars.rpc.GameCommandWires.REPLACEAPPLICATION, params)
 
         val call = ReplaceApplication.fromRpc(rpc)
         assertEquals(params[0], call.ip)
@@ -31,7 +31,7 @@ class ReplaceApplicationTest {
         assertEquals(params[3], call.name)
         val serialized = call.toRfc()
 
-        assertEquals(ReplaceApplication.FUNCTION, serialized.function)
+        assertEquals(com.hackwars.rpc.GameCommandWires.REPLACEAPPLICATION, serialized.function)
         assertArrayEquals(params, serialized.parameters as Array<*>)
     }
 }

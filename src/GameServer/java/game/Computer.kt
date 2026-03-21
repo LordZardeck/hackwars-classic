@@ -1,10 +1,6 @@
 package game
 
-import assignments.DamageAssignment
-import assignments.LoginFailedAssignment
-import assignments.LoginSuccessAssignment
-import assignments.PacketAssignment
-import assignments.PacketNetwork
+import assignments.*
 import com.hackwars.game.functions.*
 import com.hackwars.game.functions.Function
 import com.hackwars.game.program.AttackProgram
@@ -20,19 +16,10 @@ import game.computer.session.LoginRequest
 import game.computer.session.PlayStatisticsRequest
 import game.runchallenge.ChallengeRunner
 import hackscript.model.Variable
-import kotlinx.coroutines.CoroutineDispatcher
-import kotlinx.coroutines.CoroutineName
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
+import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.withTimeoutOrNull
-import kotlinx.coroutines.yield
-import org.w3c.dom.Node
 import org.slf4j.LoggerFactory
+import org.w3c.dom.Node
 import server.runtime.GameServerRuntime
 import server.runtime.GameServerService
 import util.GameClock
@@ -74,6 +61,7 @@ open class Computer : GameServerService {
     private val DB2 = "hackwars_drupal"
     private val Username2 = "root"
     private val Password2 = ""
+
     @JvmField
     var MyEquipmentSheet: EquipmentSheet =
         EquipmentSheet(this) //Keeps track of equipment currently installed and other such things.
@@ -81,11 +69,13 @@ open class Computer : GameServerService {
         null //new NewFireWall(); // because I hate static variables, cause they hate me.  Used to generate firewalls.
 
     var xpTable: IntArray = IntArray(100) //Table of XP per level.
+
     @JvmField
     var lastChangeNetwork: Long = 0 //Keep track of the last time the player changed networks.
     var lastAttack: Long = 0 //At what time did an attack last take place.
     var healCounter: Long = 0 //Used to decide how frequently a port should heal based on Mod.
     var lastSent: Long = 0 //Last time that a packet was sent.
+
     @JvmField
     var lastPingTime: Long = 0
     var logInTime: Long = 0
@@ -100,14 +90,17 @@ open class Computer : GameServerService {
     @JvmField
     var type: Int = 0 //Is this an NPC or player?
     var dailyPaySize: Float = 1000f //How much do you make a day?
+
     @JvmField
     var dailyPayReduction: Float = 1.0f //Percent value that indicates how much daily pay should be reduced.
+
     @JvmField
     var respawnMoney: Float = 0f //How much money does an NPC get when they respawn.
     var maximumPettyCash: Float =
         0f //For some NPCs we want to limit the cash in their petty, so that they can't be robbed for tons.
     var loggedIn: Boolean = false //whether the player has logged in, or was accessed.
     var gateway: Boolean = false
+
     @get:JvmName("getFileIOValue")
     @set:JvmName("setFileIOValue")
     var FileIO: Boolean = true
@@ -116,8 +109,10 @@ open class Computer : GameServerService {
     var RecentQuestFinishers: HashMap<Any?, Any?> = HashMap() //Players who've recently finished quests.
 
     var lastSave: Long = 0 //When was the last time that the profile was saved.
+
     @JvmField
     var systemChange: Boolean = true //Has the system changed since we last sent a packet.
+
     @JvmField
     var healthChange: Boolean = true //Should an update be given regarding the player's current port healths?
     var countDown: Boolean = false //Is a count down currently taking place?.
@@ -127,29 +122,36 @@ open class Computer : GameServerService {
     var LOAD_FAILURE: Boolean = false //The XML file Failed To Load.
     var LOGOUT: Boolean = false //Has a player requested that they be logged out.
     var errorMessage: String = "" //An error message to report back to the player.
+
     @get:JvmName("getLoadRequesterValue")
     @set:JvmName("setLoadRequesterValue")
     var loadRequester: String = "" //The IP of the individual who requested that this computer be loaded.
 
     var lastAccessed: Long = 0 //When was the computer last accessed?
     var lastPaid: Long = 0 //When was the last time this player recieved their daily money.
+
     @get:JvmName("getOverheatStartValue")
     @set:JvmName("setOverheatStartValue")
     var overheatStart: Long = -1 //Keep track of when an overheat started.
 
     var GUI_READY: Boolean =
         false //This variable is used by the 3D chat to determine whether the GUI is in a state ready to start receiving walking packets.
+
     @get:JvmName("getLoadingValue")
     @set:JvmName("setLoadingValue")
     var Loading: Boolean = false //Is the computer currently loading.
+
     @get:JvmName("getLoadedValue")
     @set:JvmName("setLoadedValue")
     var Loaded: Boolean = false //Has the computer started loading.
     var LOG_UPDATE: Boolean = false //Has the player's DB been updated?
+
     @JvmField
     var locked: Boolean = false //Has the account been locked down?
+
     @JvmField
     var lockCount: Int = 0
+
     @JvmField
     var unlockKey: String = "" //What key will unlock the account.
 
@@ -160,20 +162,27 @@ open class Computer : GameServerService {
     //Information about Computer.
     @JvmField
     var ip: String = "" //IP Address of this computer.
+
     @JvmField
     var userName: String? = null //Username associated with this computer.
+
     @get:JvmName("getPasswordValue")
     @set:JvmName("setPasswordValue")
     var password: String? = null //FTP password for this computer.
     var successfulHacks: Int = 0 //Number of successful hacks that this player has performed.
+
     @JvmField
     var pageBody: String = "" //Body of personal webpage.
+
     @JvmField
     var pageTitle: String = "" //Title of personal webpage.
+
     @JvmField
     var adRevenueTarget: String = "" //Target that daily pay should be placed in (may be malicious).
+
     @JvmField
     var storeRevenueTarget: String = "" //Target that daily store revenue should be placed in (may be malicious).
+
     @JvmField
     var lastBountyHTTP: String = "" //Keeps track of the last person to take over the daily pay of this computer.
 
@@ -185,17 +194,22 @@ open class Computer : GameServerService {
     //Improved Network and Quest Functionality.
     @JvmField
     var CurrentQuests: HashMap<Any?, Any?> = HashMap()
+
     @JvmField
     var CompletedQuests: java.util.ArrayList<Any?> = java.util.ArrayList()
+
     @JvmField
     var InvolvedQuests: java.util.ArrayList<Any?> = java.util.ArrayList()
+
     @JvmField
     var network: String = Network.ROOT_NETWORK //Keeps track of the network that this NPC is currently on.
+
     @JvmField
     var AllowedNetworks: java.util.ArrayList<Any?> =
         java.util.ArrayList() //The networks a player is allowed access to.
     lateinit var MyFileSystem: FileSystem //The file system used for hack wars.
     var MyMakeClue: MakeClue? = null //The class for generating and checking clues.
+
     @JvmField
     var MyMakeBounty: MakeBounty? = null //Used for handling bounties.
 
@@ -228,8 +242,10 @@ open class Computer : GameServerService {
 
     //An instance of the central server used for communicating with client.
     var MyHackerServer: HackerServerBridge? = null
+
     @JvmField
     var connectionID: Int = -1 //ID of this client connection.
+
     @JvmField
     var PA: PacketAssignment = PacketAssignment(0) //The current packet assignment we're building.
     var DA: DamageAssignment = DamageAssignment(0) //The current damage assignment we're building.
@@ -248,19 +264,23 @@ open class Computer : GameServerService {
 
     @JvmField
     var cputype: Int = 0 //What type of CPU is installed on this computer.
+
     @JvmField
     var memorytype: Int = 0 //What type of Memory is installed on this computer.
 
     @JvmField
     var pettyCash: Float = 0.0f //Money in petty cash.
+
     @JvmField
     var bankMoney: Float = 0.0f //Money in bank.
     var currentCPU: Float = 0.0f //The current CPU load.
     var reportCPU: Float = 0.0f //The CPU load reported to the player.
     var baseCPU: Float = 0.0f
     var currentWatchCost: Float = 0.0f //The cost associated with the watches that are currently active.
+
     @JvmField
     var myVotes: Int = 0 //How many votes do you have to use on websites you like.
+
     @get:JvmName("getVoteCountValue")
     @set:JvmName("setVoteCountValue")
     var voteCount: Int = 0 //How many times has your site been voted for.
@@ -268,8 +288,10 @@ open class Computer : GameServerService {
     //The new commodity banks and pettys.
     @JvmField
     var store: String = ""
+
     @JvmField
     var repairXP: FloatArray = floatArrayOf(15.0f, 30.0f, 60.0f, 120.0f, 240.0f)
+
     @JvmField
     var commodityAmount: FloatArray = floatArrayOf(0.0f, 0.0f, 0.0f, 0.0f, 0.0f)
     var commodityRespawn: FloatArray = floatArrayOf(0.0f, 0.0f, 0.0f, 0.0f, 0.0f)
@@ -277,12 +299,16 @@ open class Computer : GameServerService {
     //Default ports.
     @JvmField
     var defaultBank: Int = 0
+
     @JvmField
     var defaultAttack: Int = 0
+
     @JvmField
     var defaultFTP: Int = 0
+
     @JvmField
     var defaultHTTP: Int = 0
+
     @JvmField
     var defaultShipping: Int = 0
     var profile: String? = null
@@ -294,6 +320,7 @@ open class Computer : GameServerService {
     //Drop Table info.
     @JvmField
     var MyDropTable: DropTable? = null
+
     @JvmField
     var dropTable: Int = 1
     var lastDrop: HackerFile? = null
@@ -349,33 +376,33 @@ open class Computer : GameServerService {
     fun buildFunctionHash() {
         val self = this
         functions = HashMap<Any?, Any?>()
-        functions!!.put("deletelogs", DeleteLogs(self))
-        functions!!.put("requestftpupdate", RequestFTPUpdate(self))
-        functions!!.put("requestzombieattack", RequestZombieAttack(self))
-        functions!!.put("requestattackdefault", RequestAttackDefault(self))
-        functions!!.put("addshowchoices", AddShowChoices(self))
-        functions!!.put("bankxp", BankXP(self))
-        functions!!.put("deletefolder", DeleteFolder(self))
-        functions!!.put("createfolder", CreateFolder(self))
-        functions!!.put("code", SetCode(self))
-        functions!!.put("dochallenge", DoChallenge(self))
+        functions!!.put(com.hackwars.rpc.GameCommandWires.DELETELOGS, DeleteLogs(self))
+        functions!!.put(com.hackwars.rpc.GameCommandWires.REQUESTFTPUPDATE, RequestFTPUpdate(self))
+        functions!!.put(com.hackwars.rpc.GameCommandWires.REQUESTZOMBIEATTACK, RequestZombieAttack(self))
+        functions!!.put(com.hackwars.rpc.GameCommandWires.REQUESTATTACKDEFAULT, RequestAttackDefault(self))
+        functions!!.put(com.hackwars.rpc.GameCommandWires.ADDSHOWCHOICES, AddShowChoices(self))
+        functions!!.put(com.hackwars.rpc.GameCommandWires.BANKXP, BankXP(self))
+        functions!!.put(com.hackwars.rpc.GameCommandWires.DELETEFOLDER, DeleteFolder(self))
+        functions!!.put(com.hackwars.rpc.GameCommandWires.CREATEFOLDER, CreateFolder(self))
+        functions!!.put(com.hackwars.rpc.GameCommandWires.CODE, SetCode(self))
+        functions!!.put(com.hackwars.rpc.GameCommandWires.DOCHALLENGE, DoChallenge(self))
         functions!!.put("redirectxp", RedirectXP(self))
-        functions!!.put("repairxp", RepairXP(self))
-        functions!!.put("watchxp", WatchXP(self))
-        functions!!.put("httpxp", HttpXP(self))
-        functions!!.put("scanxp", ScanXP(self))
-        functions!!.put("setftppassword", SetFTPPassword(self))
-        functions!!.put("setdefaultport", SetDefaultPort(self))
-        functions!!.put("requesttrigger", RequestTrigger(self))
-        functions!!.put("requesttriggernote", RequestTriggerNote(self))
-        functions!!.put("requestsave", RequestSave(self))
-        functions!!.put("requesttask", RequestTask(self))
-        functions!!.put("setdummyport", SetDummyPort(self))
-        functions!!.put("portonoff", PortOnOff(self))
-        functions!!.put("saveportnote", SavePortNote(self))
-        functions!!.put("uninstallport", UninstallPort(self))
-        functions!!.put("changewatchport", ChangeWatchPort(self))
-        functions!!.put("launchNetworkAttack", LaunchNetworkAttack(self))
+        functions!!.put(com.hackwars.rpc.GameCommandWires.REPAIRXP, RepairXP(self))
+        functions!!.put(com.hackwars.rpc.GameCommandWires.WATCHXP, WatchXP(self))
+        functions!!.put(com.hackwars.rpc.GameCommandWires.HTTPXP, HttpXP(self))
+        functions!!.put(com.hackwars.rpc.GameCommandWires.SCANXP, ScanXP(self))
+        functions!!.put(com.hackwars.rpc.GameCommandWires.SETFTPPASSWORD, SetFTPPassword(self))
+        functions!!.put(com.hackwars.rpc.GameCommandWires.SETDEFAULTPORT, SetDefaultPort(self))
+        functions!!.put(com.hackwars.rpc.GameCommandWires.REQUESTTRIGGER, RequestTrigger(self))
+        functions!!.put(com.hackwars.rpc.GameCommandWires.REQUESTTRIGGERNOTE, RequestTriggerNote(self))
+        functions!!.put(com.hackwars.rpc.GameCommandWires.REQUESTSAVE, RequestSave(self))
+        functions!!.put(com.hackwars.rpc.GameCommandWires.REQUESTTASK, RequestTask(self))
+        functions!!.put(com.hackwars.rpc.GameCommandWires.SETDUMMYPORT, SetDummyPort(self))
+        functions!!.put(com.hackwars.rpc.GameCommandWires.PORTONOFF, PortOnOff(self))
+        functions!!.put(com.hackwars.rpc.GameCommandWires.SAVEPORTNOTE, SavePortNote(self))
+        functions!!.put(com.hackwars.rpc.GameCommandWires.UNINSTALLPORT, UninstallPort(self))
+        functions!!.put(com.hackwars.rpc.GameCommandWires.CHANGEWATCHPORT, ChangeWatchPort(self))
+        functions!!.put(com.hackwars.rpc.GameCommandWires.LAUNCH_NETWORK_ATTACK, LaunchNetworkAttack(self))
         @Suppress("UNCHECKED_CAST")
         commandDispatcher = CommandRegistry.Companion.fromFunctions(functions as Map<String, Function>)
     }
@@ -1208,8 +1235,8 @@ open class Computer : GameServerService {
         actorDispatcher = Dispatchers.Default.limitedParallelism(1)
         serviceScope = CoroutineScope(
             resolvedRuntime.scope.coroutineContext +
-                (actorDispatcher ?: Dispatchers.Default) +
-                CoroutineName("Computer-$ip")
+                    (actorDispatcher ?: Dispatchers.Default) +
+                    CoroutineName("Computer-$ip")
         )
         mailboxSignal = Channel(Channel.CONFLATED)
         active = true
@@ -1507,7 +1534,7 @@ open class Computer : GameServerService {
         if (!add) {
             return
         }
-        if (commandName == "bank" || commandName == "pettycash") {
+        if (commandName == com.hackwars.rpc.GameCommandWires.BANK || commandName == com.hackwars.rpc.GameCommandWires.PETTYCASH) {
             submitPriority(applicationData)
         } else {
             submit(applicationData)
@@ -1797,7 +1824,9 @@ open class Computer : GameServerService {
 
         while (PortIterator.hasNext()) {
             val TempPort = ((PortIterator.next() as MutableMap.MutableEntry<*, *>).value) as Port
-            if (TempPort.getFireWall() != null && (TempPort.getFireWall()!!.getType().get("name") as String) != "None") {
+            if (TempPort.getFireWall() != null && (TempPort.getFireWall()!!.getType()
+                    .get("name") as String) != "None"
+            ) {
                 success = true
                 break
             }
@@ -2035,7 +2064,12 @@ open class Computer : GameServerService {
                         processQueuedItem(queuedItem, startTime)
                     }
                 } catch (e: Exception) {
-                    Logger.error("Computer mailbox task failed for ip={} taskType={}", ip, queuedItem?.javaClass?.simpleName ?: "null", e)
+                    Logger.error(
+                        "Computer mailbox task failed for ip={} taskType={}",
+                        ip,
+                        queuedItem?.javaClass?.simpleName ?: "null",
+                        e
+                    )
                 }
             }
 
@@ -2090,7 +2124,7 @@ open class Computer : GameServerService {
     }
 
     private fun updateApplicationActivity(applicationData: ApplicationData, function: String) {
-        if (function == "ping") {
+        if (function == com.hackwars.rpc.GameCommandWires.PING) {
             lastPingTime = currentTime
             if (logInTime == 0L) {
                 logInTime = currentTime
@@ -2111,7 +2145,7 @@ open class Computer : GameServerService {
 
     private fun normalizeTransferPort(applicationData: ApplicationData, function: String, port: Int): Int {
         var port = port
-        if (function == "requestsecondarydirectory" || function == "put" || function == "get" || function == "finalizeput") {
+        if (function == com.hackwars.rpc.GameCommandWires.REQUESTSECONDARYDIRECTORY || function == com.hackwars.rpc.GameCommandWires.PUT || function == com.hackwars.rpc.GameCommandWires.GET || function == com.hackwars.rpc.GameCommandWires.FINALIZEPUT) {
             val targetIP = when (val payload = applicationData.payload) {
                 is game.payload.RequestSecondaryDirectoryPayload -> payload.targetIp
                 is game.payload.GetFilePayload -> payload.targetIp
@@ -2128,7 +2162,7 @@ open class Computer : GameServerService {
                         MyComputerHandler!!.addData(
                             messageData(MessageHandler.PORT_WAS_NOT_FTP, ip, arrayOf(port, ip)), targetIP
                         )
-                        if (function == "finalizeput") P.friendlyPut(applicationData)
+                        if (function == com.hackwars.rpc.GameCommandWires.FINALIZEPUT) P.friendlyPut(applicationData)
                     } else if (P.getDummy()) {
                         MyComputerHandler!!.addData(
                             messageData(
@@ -2139,7 +2173,7 @@ open class Computer : GameServerService {
                             ),
                             targetIP
                         )
-                        if (function == "finalizeput") P.friendlyPut(applicationData)
+                        if (function == com.hackwars.rpc.GameCommandWires.FINALIZEPUT) P.friendlyPut(applicationData)
                     } else if (!P.getOn()) {
                         MyComputerHandler!!.addData(
                             ApplicationData(
@@ -2151,10 +2185,10 @@ open class Computer : GameServerService {
                                 ip
                             ), targetIP
                         )
-                        if (function == "finalizeput") P.friendlyPut(applicationData)
+                        if (function == com.hackwars.rpc.GameCommandWires.FINALIZEPUT) P.friendlyPut(applicationData)
                     }
                 } else {
-                    if (function == "finalizeput") P?.friendlyPut(applicationData)
+                    if (function == com.hackwars.rpc.GameCommandWires.FINALIZEPUT) P?.friendlyPut(applicationData)
                     MyComputerHandler!!.addData(
                         messageData(MessageHandler.FTP_NOT_FOUND, ip),
                         targetIP
@@ -2166,7 +2200,7 @@ open class Computer : GameServerService {
     }
 
     private fun maybeLogIncomingMessage(applicationData: ApplicationData, function: String) {
-        if (function == "logmessage") {
+        if (function == com.hackwars.rpc.GameCommandWires.LOGMESSAGE) {
             val payload = applicationData.requirePayload(RuntimeLogMessagePayload::class.java)
             logMessage(payload.message, payload.ip, payload.timestamp)
         }
@@ -2181,9 +2215,10 @@ open class Computer : GameServerService {
             currentWatchCost = MyWatchHandler!!.checkWatches(applicationData, Ports, pettyCash)
             return (true)
         } else {
-            if (applicationData.command.wireName() == "damage") MyComputerHandler!!.addData(
+            if (applicationData.command.wireName() == com.hackwars.rpc.GameCommandWires.DAMAGE) MyComputerHandler!!.addData(
                 ApplicationData(
-                    game.payload.NoArgumentsPayload(game.payload.REQUEST_CANCEL_ATTACK_COMMAND), applicationData.getSourcePort(),
+                    game.payload.NoArgumentsPayload(game.payload.REQUEST_CANCEL_ATTACK_COMMAND),
+                    applicationData.getSourcePort(),
                     this.ip
                 ), applicationData.getSourceIP()
             )
@@ -2208,11 +2243,11 @@ open class Computer : GameServerService {
         startTime: Long,
         checkedWatch: Boolean
     ) {
-        if (function != "requestequipment") {
+        if (function != com.hackwars.rpc.GameCommandWires.REQUESTEQUIPMENT) {
             lastAccessed = startTime
         }
         if (!checkedWatch) currentWatchCost = MyWatchHandler!!.checkWatches(applicationData, Ports, pettyCash)
-        if (function == "requestdirectory" || function == "requestequipment" || function == "fetchports") {
+        if (function == com.hackwars.rpc.GameCommandWires.REQUESTDIRECTORY || function == com.hackwars.rpc.GameCommandWires.REQUESTEQUIPMENT || function == com.hackwars.rpc.GameCommandWires.FETCHPORTS) {
             flushStandardPacketNow("processed:$function")
         }
     }
@@ -2254,7 +2289,7 @@ open class Computer : GameServerService {
 
         //Macro Protection.
         if (operationCount > 6000 && !this.isNPC()) {
-                RawComputerHandler!!.broadcast(
+            RawComputerHandler!!.broadcast(
                 messageData(MessageHandler.PLAYER_BUSY, "", arrayOf(ip))
             )
             operationCount = 0
@@ -2352,7 +2387,7 @@ open class Computer : GameServerService {
         state.watchCostSupplier =
             {
                 MyWatchHandler!!.checkWatches(
-                    ApplicationData(game.payload.NoArgumentsPayload(ApplicationCommand.of("null")), 0, ip),
+                    ApplicationData(game.payload.NoArgumentsPayload(com.hackwars.rpc.GameCommands.NULL.command), 0, ip),
                     Ports,
                     pettyCash
                 )
@@ -2510,7 +2545,12 @@ open class Computer : GameServerService {
 
             override fun httpXpIssued(amount: Float, targetIP: String) {
                 MyComputerHandler!!.addData(
-                    ApplicationData(game.payload.FloatCommandPayload(ApplicationCommand.of("httpxp"), amount), 0, ip),
+                    ApplicationData(
+                        game.payload.FloatCommandPayload(
+                            com.hackwars.rpc.GameCommands.HTTPXP.command,
+                            amount
+                        ), 0, ip
+                    ),
                     targetIP
                 )
             }
@@ -2636,11 +2676,11 @@ open class Computer : GameServerService {
                 val queued = pollPendingTask()
                 if (queued is ApplicationData) {
                     val AD = queued
-                    if (AD.command.wireName() == "pettycash") {
+                    if (AD.command.wireName() == com.hackwars.rpc.GameCommandWires.PETTYCASH) {
                         MyComputerHandler!!.addData(AD, AD.getSourceIP())
                     }
 
-                    if (AD.command.wireName() == "requestwebpage") {
+                    if (AD.command.wireName() == com.hackwars.rpc.GameCommandWires.REQUESTWEBPAGE) {
                         val PageTitle = "Server Not Found"
                         val PageBody =
                             "<html><head><title>Hack Wars - Error report</title><style><!--H1 {font-family:Tahoma,Arial,sans-serif;color:white;background-color:#525D76;font-size:22px;color:white} H2 {font-family:Tahoma,Arial,sans-serif;color:white;background-color:#525D76;font-size:16px;} H3 {font-family:Tahoma,Arial,sans-serif;color:white;background-color:#525D76;font-size:14px;} BODY {background-color:rgb(0,0,0);font-family:Tahoma,Arial,sans-serif;color:black;background-color:white;color:white;} B {font-family:Tahoma,Arial,sans-serif;color:white;background-color:#525D76;color:white;} P {color:white;font-family:Tahoma,Arial,sans-serif;background:white;color:black;font-size:12px;}A {color : black;}A.name {color : black;}HR {color : #525D76;}--></style> </head><body><h1 style=\"width:100%\">HTTP Status 408</h1><HR size=\"1\" noshade=\"noshade\"><p style=\"background-color:black;\"><b>type</b> HTTP Error</p><p style=\"background-color:black;\"><b>message</b> <u>Resource not found.</u></p><p style=\"background-color:black\"><b>description</b> <u>The HTTP server of the player you attempted to connect to does not seem to be on.</u></p><HR size=\"1\" noshade=\"noshade\"><h3>&copy; Hack Wars</h3></body></html>"
@@ -2652,7 +2692,10 @@ open class Computer : GameServerService {
                 }
 
 
-                MyComputerHandler!!.addData(ApplicationData(game.payload.MessageTextPayload(errorMessage), 0, ip), loadRequester)
+                MyComputerHandler!!.addData(
+                    ApplicationData(game.payload.MessageTextPayload(errorMessage), 0, ip),
+                    loadRequester
+                )
             }
 
             if (!LOAD_FAILURE) { //Only write to disk if the file didn't fail to load.
@@ -2758,7 +2801,10 @@ open class Computer : GameServerService {
                 var MyPettyCash = ApplicationData(game.payload.PettyCashTransferPayload(amount, 0.0f, false), 0, ip)
                 MyComputerHandler!!.addData(MyPettyCash, adRevenueTarget)
                 val MyHTTPXP = ApplicationData(
-                    game.payload.FloatCommandPayload(ApplicationCommand.of("httpxp"), this.hTTPLevel * 10.0f),
+                    game.payload.FloatCommandPayload(
+                        com.hackwars.rpc.GameCommands.HTTPXP.command,
+                        this.hTTPLevel * 10.0f
+                    ),
                     0,
                     ip
                 )
@@ -2794,7 +2840,7 @@ open class Computer : GameServerService {
 
             if (!cpuLoadCalculated)  //Check the current watch cost.
                 currentWatchCost = MyWatchHandler!!.checkWatches(
-                    ApplicationData(game.payload.NoArgumentsPayload(ApplicationCommand.of("null")), 0, ip),
+                    ApplicationData(game.payload.NoArgumentsPayload(com.hackwars.rpc.GameCommands.NULL.command), 0, ip),
                     Ports,
                     pettyCash
                 )
@@ -2947,7 +2993,8 @@ open class Computer : GameServerService {
         val loaded = getLoaded()
         val loading = getLoading()
         val sinceLastSent = now - lastSent
-        val sendGateOpen = cpuLoadCalculated && loaded && !loading && sinceLastSent > PACKET_TIMEOUT && connectionID >= 0
+        val sendGateOpen =
+            cpuLoadCalculated && loaded && !loading && sinceLastSent > PACKET_TIMEOUT && connectionID >= 0
 
         if (shouldSend && !sendGateOpen && now - lastPacketGateLogAt > 2000) {
             lastPacketGateLogAt = now
@@ -3053,7 +3100,11 @@ open class Computer : GameServerService {
     internal fun refreshPacketNetworkAsync(reason: String) {
         val resolvedRuntime = runtime
         if (resolvedRuntime == null) {
-            Logger.warn("Skipping async packet network refresh for ip={} reason={} because runtime is unavailable", ip, reason)
+            Logger.warn(
+                "Skipping async packet network refresh for ip={} reason={} because runtime is unavailable",
+                ip,
+                reason
+            )
             return
         }
 
@@ -3369,78 +3420,78 @@ open class Computer : GameServerService {
         private val clientPackets: HashMap<Any?, Any?> = HashMap()
 
         init {
-            clientPackets.put("fetchports", 0)
-            clientPackets.put("setdefaultport", 0)
-            clientPackets.put("changenetwork", 0)
-            clientPackets.put("healport", 0)
-            clientPackets.put("requestequipment", 0)
-            clientPackets.put("installequipment", 0)
-            clientPackets.put("repairequipment", 1)
-            clientPackets.put("fetchwatches", 0)
-            clientPackets.put("requestpage", 1)
-            clientPackets.put("requestpurchase", 0)
-            clientPackets.put("requesttrigger", 0)
-            clientPackets.put("requestsave", 0)
-            clientPackets.put("requesttask", 0)
-            clientPackets.put("requestwebpage", 1)
-            clientPackets.put("submit", 0)
-            clientPackets.put("makebounty", 0)
-            clientPackets.put("exit", 0)
-            clientPackets.put("vote", 0)
-            clientPackets.put("savepage", 0)
-            clientPackets.put("withdraw", 0)
-            clientPackets.put("requestdirectory", 0)
-            clientPackets.put("unlock", 0)
-            clientPackets.put("setftppassword", 0)
-            clientPackets.put("requestsecondarydirectory", 0)
-            clientPackets.put("requestcancelattack", 0)
-            clientPackets.put("cluedata", 0)
-            clientPackets.put("requestzombiecancelattack", 0)
-            clientPackets.put("installapplication", 0)
-            clientPackets.put("installwatch", 0)
-            clientPackets.put("setwatchobservedports", 0)
-            clientPackets.put("installfirewall", 0)
-            clientPackets.put("replaceapplication", 0)
-            clientPackets.put("uninstallport", 0)
-            clientPackets.put("portonoff", 0)
-            clientPackets.put("peekcode", 0)
-            clientPackets.put("peeklogs", 0)
-            clientPackets.put("saveportnote", 0)
-            clientPackets.put("setwatchquantity", 0)
-            clientPackets.put("setwatchonoff", 0)
-            clientPackets.put("setwatchnote", 0)
-            clientPackets.put("setwatchsearchfirewall", 0)
-            clientPackets.put("deletewatch", 0)
-            clientPackets.put("deletefirewall", 0)
-            clientPackets.put("changewatchport", 0)
-            clientPackets.put("changewatchtype", 0)
-            clientPackets.put("deletefolder", 0)
-            clientPackets.put("setdummyport", 0)
-            clientPackets.put("changedailypay", 0)
-            clientPackets.put("deletelogs", 0)
-            clientPackets.put("createfolder", 0)
-            clientPackets.put("put", 0)
-            clientPackets.put("get", 0)
-            clientPackets.put("malget", 0)
-            clientPackets.put("requestfile", 0)
-            clientPackets.put("requestgame", 0)
-            clientPackets.put("requestscan", 1)
-            clientPackets.put("savefile", 0)
-            clientPackets.put("compilefile", 0)
-            clientPackets.put("deletemulti", 0)
-            clientPackets.put("deletefile", 0)
-            clientPackets.put("setfiledescription", 0)
-            clientPackets.put("setfileprice", 0)
-            clientPackets.put("emptypettycash", 0)
-            clientPackets.put("finalizecancelled", 0)
-            clientPackets.put("requestattack", 1)
-            clientPackets.put("requestzombieattack", 1)
-            clientPackets.put("transfer", 0)
-            clientPackets.put("deposit", 0)
-            clientPackets.put("dochallenge", 0)
-            clientPackets.put("sellfile", 0)
-            clientPackets.put("sellfilemulti", 0)
-            clientPackets.put("decompilefile", 0)
+            clientPackets.put(com.hackwars.rpc.GameCommandWires.FETCHPORTS, 0)
+            clientPackets.put(com.hackwars.rpc.GameCommandWires.SETDEFAULTPORT, 0)
+            clientPackets.put(com.hackwars.rpc.GameCommandWires.CHANGENETWORK, 0)
+            clientPackets.put(com.hackwars.rpc.GameCommandWires.HEALPORT, 0)
+            clientPackets.put(com.hackwars.rpc.GameCommandWires.REQUESTEQUIPMENT, 0)
+            clientPackets.put(com.hackwars.rpc.GameCommandWires.INSTALLEQUIPMENT, 0)
+            clientPackets.put(com.hackwars.rpc.GameCommandWires.REPAIREQUIPMENT, 1)
+            clientPackets.put(com.hackwars.rpc.GameCommandWires.FETCHWATCHES, 0)
+            clientPackets.put(com.hackwars.rpc.GameCommandWires.REQUESTPAGE, 1)
+            clientPackets.put(com.hackwars.rpc.GameCommandWires.REQUESTPURCHASE, 0)
+            clientPackets.put(com.hackwars.rpc.GameCommandWires.REQUESTTRIGGER, 0)
+            clientPackets.put(com.hackwars.rpc.GameCommandWires.REQUESTSAVE, 0)
+            clientPackets.put(com.hackwars.rpc.GameCommandWires.REQUESTTASK, 0)
+            clientPackets.put(com.hackwars.rpc.GameCommandWires.REQUESTWEBPAGE, 1)
+            clientPackets.put(com.hackwars.rpc.GameCommandWires.SUBMIT, 0)
+            clientPackets.put(com.hackwars.rpc.GameCommandWires.MAKEBOUNTY, 0)
+            clientPackets.put(com.hackwars.rpc.GameCommandWires.EXIT, 0)
+            clientPackets.put(com.hackwars.rpc.GameCommandWires.VOTE, 0)
+            clientPackets.put(com.hackwars.rpc.GameCommandWires.SAVEPAGE, 0)
+            clientPackets.put(com.hackwars.rpc.GameCommandWires.WITHDRAW, 0)
+            clientPackets.put(com.hackwars.rpc.GameCommandWires.REQUESTDIRECTORY, 0)
+            clientPackets.put(com.hackwars.rpc.GameCommandWires.UNLOCK, 0)
+            clientPackets.put(com.hackwars.rpc.GameCommandWires.SETFTPPASSWORD, 0)
+            clientPackets.put(com.hackwars.rpc.GameCommandWires.REQUESTSECONDARYDIRECTORY, 0)
+            clientPackets.put(com.hackwars.rpc.GameCommandWires.REQUESTCANCELATTACK, 0)
+            clientPackets.put(com.hackwars.rpc.GameCommandWires.CLUEDATA, 0)
+            clientPackets.put(com.hackwars.rpc.GameCommandWires.REQUESTZOMBIECANCELATTACK, 0)
+            clientPackets.put(com.hackwars.rpc.GameCommandWires.INSTALLAPPLICATION, 0)
+            clientPackets.put(com.hackwars.rpc.GameCommandWires.INSTALLWATCH, 0)
+            clientPackets.put(com.hackwars.rpc.GameCommandWires.SETWATCHOBSERVEDPORTS, 0)
+            clientPackets.put(com.hackwars.rpc.GameCommandWires.INSTALLFIREWALL, 0)
+            clientPackets.put(com.hackwars.rpc.GameCommandWires.REPLACEAPPLICATION, 0)
+            clientPackets.put(com.hackwars.rpc.GameCommandWires.UNINSTALLPORT, 0)
+            clientPackets.put(com.hackwars.rpc.GameCommandWires.PORTONOFF, 0)
+            clientPackets.put(com.hackwars.rpc.GameCommandWires.PEEKCODE, 0)
+            clientPackets.put(com.hackwars.rpc.GameCommandWires.PEEKLOGS, 0)
+            clientPackets.put(com.hackwars.rpc.GameCommandWires.SAVEPORTNOTE, 0)
+            clientPackets.put(com.hackwars.rpc.GameCommandWires.SETWATCHQUANTITY, 0)
+            clientPackets.put(com.hackwars.rpc.GameCommandWires.SETWATCHONOFF, 0)
+            clientPackets.put(com.hackwars.rpc.GameCommandWires.SETWATCHNOTE, 0)
+            clientPackets.put(com.hackwars.rpc.GameCommandWires.SETWATCHSEARCHFIREWALL, 0)
+            clientPackets.put(com.hackwars.rpc.GameCommandWires.DELETEWATCH, 0)
+            clientPackets.put(com.hackwars.rpc.GameCommandWires.DELETEFIREWALL, 0)
+            clientPackets.put(com.hackwars.rpc.GameCommandWires.CHANGEWATCHPORT, 0)
+            clientPackets.put(com.hackwars.rpc.GameCommandWires.CHANGEWATCHTYPE, 0)
+            clientPackets.put(com.hackwars.rpc.GameCommandWires.DELETEFOLDER, 0)
+            clientPackets.put(com.hackwars.rpc.GameCommandWires.SETDUMMYPORT, 0)
+            clientPackets.put(com.hackwars.rpc.GameCommandWires.CHANGEDAILYPAY, 0)
+            clientPackets.put(com.hackwars.rpc.GameCommandWires.DELETELOGS, 0)
+            clientPackets.put(com.hackwars.rpc.GameCommandWires.CREATEFOLDER, 0)
+            clientPackets.put(com.hackwars.rpc.GameCommandWires.PUT, 0)
+            clientPackets.put(com.hackwars.rpc.GameCommandWires.GET, 0)
+            clientPackets.put(com.hackwars.rpc.GameCommandWires.MALGET, 0)
+            clientPackets.put(com.hackwars.rpc.GameCommandWires.REQUESTFILE, 0)
+            clientPackets.put(com.hackwars.rpc.GameCommandWires.REQUESTGAME, 0)
+            clientPackets.put(com.hackwars.rpc.GameCommandWires.REQUESTSCAN, 1)
+            clientPackets.put(com.hackwars.rpc.GameCommandWires.SAVEFILE, 0)
+            clientPackets.put(com.hackwars.rpc.GameCommandWires.COMPILEFILE, 0)
+            clientPackets.put(com.hackwars.rpc.GameCommandWires.DELETEMULTI, 0)
+            clientPackets.put(com.hackwars.rpc.GameCommandWires.DELETEFILE, 0)
+            clientPackets.put(com.hackwars.rpc.GameCommandWires.SETFILEDESCRIPTION, 0)
+            clientPackets.put(com.hackwars.rpc.GameCommandWires.SETFILEPRICE, 0)
+            clientPackets.put(com.hackwars.rpc.GameCommandWires.EMPTYPETTYCASH, 0)
+            clientPackets.put(com.hackwars.rpc.GameCommandWires.FINALIZECANCELLED, 0)
+            clientPackets.put(com.hackwars.rpc.GameCommandWires.REQUESTATTACK, 1)
+            clientPackets.put(com.hackwars.rpc.GameCommandWires.REQUESTZOMBIEATTACK, 1)
+            clientPackets.put(com.hackwars.rpc.GameCommandWires.TRANSFER, 0)
+            clientPackets.put(com.hackwars.rpc.GameCommandWires.DEPOSIT, 0)
+            clientPackets.put(com.hackwars.rpc.GameCommandWires.DOCHALLENGE, 0)
+            clientPackets.put(com.hackwars.rpc.GameCommandWires.SELLFILE, 0)
+            clientPackets.put(com.hackwars.rpc.GameCommandWires.SELLFILEMULTI, 0)
+            clientPackets.put(com.hackwars.rpc.GameCommandWires.DECOMPILEFILE, 0)
         }
 
         val LOCAL_AUTH_FALLBACK: Boolean =
@@ -3471,8 +3522,10 @@ open class Computer : GameServerService {
         @JvmField
         val CPU_CHART: FloatArray =
             floatArrayOf(50.0f, 100.0f, 150.0f, 200.0f, 250.0f, 300.0f, 75.0f) //Maximum Loads of various CPUs.
+
         @JvmField
         val MEMORY_CHART: FloatArray = floatArrayOf(8.0f, 16.0f, 24.0f, 32.0f, 8.0f) //Maximum Port Count.
+
         @JvmField
         val WATCH_CHART: IntArray = intArrayOf(4, 6, 8, 12, 5)
         const val Plutonium: Int = 4
@@ -3480,10 +3533,13 @@ open class Computer : GameServerService {
         const val Silicon: Int = 2
         const val Germanium: Int = 1
         const val DuctTape: Int = 0
+
         @JvmField
         var commodityString: Array<String> = arrayOf("Duct Tape", "Germanium", "Silicon", "YBCO", "Plutonium")
+
         @JvmField
         var requiredRepairLevel: IntArray = intArrayOf(0, 15, 45, 75, 90)
+
         @JvmField
         var commodityXP: FloatArray = floatArrayOf(20.0f, 40.0f, 100.0f, 400.0f, 1000.0f)
         const val MAX_PORT: Int = 32
@@ -3513,6 +3569,7 @@ open class Computer : GameServerService {
         }
     }
 }
+
 internal class ComputerLoadCoordinator(
     private val sessionService: ComputerSessionService,
     private val xmlComputerPersistence: XmlComputerPersistence,
@@ -3571,13 +3628,18 @@ internal class ComputerLoadCoordinator(
         }
 
         if (!computer.checkLogin()) {
-            Logger.warn("Pending connection authentication failed for ip={} connectionId={}", computer.ip, computer.connectionID)
+            Logger.warn(
+                "Pending connection authentication failed for ip={} connectionId={}",
+                computer.ip,
+                computer.connectionID
+            )
             computer.MyHackerServer!!.addData(arrayOf(LoginFailedAssignment(0), computer.connectionID))
             computer.connectionID = -1
             return
         }
 
-        val randomKey = computer.MyHackerServer!!.getRandomKey(computer.ip, computer.getClientHash(), computer.publicKey)
+        val randomKey =
+            computer.MyHackerServer!!.getRandomKey(computer.ip, computer.getClientHash(), computer.publicKey)
         val loginSuccessAssignment = LoginSuccessAssignment(0, computer.ip, randomKey[0] as String, computer.isNPC())
         loginSuccessAssignment.setPublicKey(randomKey[1] as ByteArray)
         Logger.info("Authenticated pending connection for ip={}, dispatching LoginSuccessAssignment", computer.ip)

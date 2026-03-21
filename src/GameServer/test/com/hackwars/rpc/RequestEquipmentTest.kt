@@ -22,13 +22,13 @@ class RequestEquipmentTest {
     @Test
     fun fromRpc_and_toRfc_roundtrip() {
         val params = arrayOf<Any?>("value")
-        val rpc = RemoteFunctionCall(1, RequestEquipment.FUNCTION, params)
+        val rpc = RemoteFunctionCall(1, com.hackwars.rpc.GameCommandWires.REQUESTEQUIPMENT, params)
 
         val call = RequestEquipment.fromRpc(rpc)
         assertEquals(params[0], call.ip)
         val serialized = call.toRfc()
 
-        assertEquals(RequestEquipment.FUNCTION, serialized.function)
+        assertEquals(com.hackwars.rpc.GameCommandWires.REQUESTEQUIPMENT, serialized.function)
         assertArrayEquals(params, serialized.parameters as Array<*>)
     }
 }

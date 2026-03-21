@@ -1,16 +1,15 @@
 package server.remote.handlers
 
 import assignments.RemoteFunctionCall
-import game.ApplicationCommand
+import com.hackwars.rpc.RequestWebpage
 import game.ApplicationData
-import com.hackwars.rpc.*
 import game.payload.RequestWebPagePayload
 import server.remote.RemoteCallContext
 import server.remote.RemoteCallHandler
 import server.remote.RpcHandler
 import java.util.*
 
-@RpcHandler(RequestWebpage.FUNCTION)
+@RpcHandler(com.hackwars.rpc.GameCommandWires.REQUESTWEBPAGE)
 object RequestWebpageHandler : RemoteCallHandler {
     override fun handle(rfc: RemoteFunctionCall, context: RemoteCallContext) {
         val requestWebpageCall = RequestWebpage.fromRpc(rfc)

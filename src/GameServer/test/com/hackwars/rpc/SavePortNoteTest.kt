@@ -22,7 +22,7 @@ class SavePortNoteTest {
     @Test
     fun fromRpc_and_toRfc_roundtrip() {
         val params = arrayOf<Any?>("value", 42, null)
-        val rpc = RemoteFunctionCall(1, SavePortNote.FUNCTION, params)
+        val rpc = RemoteFunctionCall(1, com.hackwars.rpc.GameCommandWires.SAVEPORTNOTE, params)
 
         val call = SavePortNote.fromRpc(rpc)
         assertEquals(params[0], call.ip)
@@ -30,7 +30,7 @@ class SavePortNoteTest {
         assertEquals(params[2], call.note)
         val serialized = call.toRfc()
 
-        assertEquals(SavePortNote.FUNCTION, serialized.function)
+        assertEquals(com.hackwars.rpc.GameCommandWires.SAVEPORTNOTE, serialized.function)
         assertArrayEquals(params, serialized.parameters as Array<*>)
     }
 }

@@ -22,14 +22,14 @@ class UnlockTest {
     @Test
     fun fromRpc_and_toRfc_roundtrip() {
         val params = arrayOf<Any?>("value", null)
-        val rpc = RemoteFunctionCall(1, Unlock.FUNCTION, params)
+        val rpc = RemoteFunctionCall(1, com.hackwars.rpc.GameCommandWires.UNLOCK, params)
 
         val call = Unlock.fromRpc(rpc)
         assertEquals(params[0], call.ip)
         assertEquals(params[1], call.code)
         val serialized = call.toRfc()
 
-        assertEquals(Unlock.FUNCTION, serialized.function)
+        assertEquals(com.hackwars.rpc.GameCommandWires.UNLOCK, serialized.function)
         assertArrayEquals(params, serialized.parameters as Array<*>)
     }
 }

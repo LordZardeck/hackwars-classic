@@ -4,12 +4,14 @@ package gui;
  * this is for the attack pane to choose a file to install.
  */
 
+import com.hackwars.state.GameState;
+
 import javax.swing.*;
 import java.awt.*;
-import java.awt.event.*;
-
-import com.hackwars.state.GameState;
-import assignments.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.awt.event.MouseEvent;
+import java.awt.event.MouseListener;
 
 public class ShowChoicesFileChooser extends JInternalFrame implements ActionListener, MouseListener {
     //data
@@ -46,10 +48,8 @@ public class ShowChoicesFileChooser extends JInternalFrame implements ActionList
         id = MyHacker.setShowChoicesFileChooser(this);
         MyHacker.setRequestedDirectory(Hacker.SHOW_CHOICES_FILE_CHOOSER);
         GameState myGameState = MyHacker.getView();
-        Object objects[] = {ip, request, MyHacker.getEncryptedIP(), port};
         //MyHacker.setCurrentFolder("");
-        myGameState.setFunction("requestsecondarydirectory");
-        myGameState.addFunctionCall(new RemoteFunctionCall(id, "requestsecondarydirectory", objects));
+        myGameState.addFunctionCall(new com.hackwars.rpc.RequestSecondaryDirectory(ip, request, MyHacker.getEncryptedIP(), port).toRfc(id));
         setTitle("Choose File");
         setFrameIcon(ImageLoader.getImageIcon("images/open.png"));
         setBounds(100, 100, 420, 280);
@@ -192,9 +192,7 @@ public class ShowChoicesFileChooser extends JInternalFrame implements ActionList
                     Object[] file = (Object[]) o;
                     GameState myGameState = MyHacker.getView();
                     String name = (String) file[0];
-                    Object objects[] = {ip, port, name, folder, "", MyHacker.getEncryptedIP(), attackPort};
-                    myGameState.setFunction("malget");
-                    myGameState.addFunctionCall(new RemoteFunctionCall(0, "malget", objects));
+                    myGameState.addFunctionCall(new com.hackwars.rpc.MalGet(ip, port, name, folder, "", MyHacker.getEncryptedIP(), attackPort).toRfc(0));
                     dispose();
                 } else {
 
@@ -242,9 +240,7 @@ public class ShowChoicesFileChooser extends JInternalFrame implements ActionList
                     MyHacker.setRequestedDirectory(Hacker.ATTACK_FILE_CHOOSER);
                     GameState myGameState = MyHacker.getView();
                     String ip = MyHacker.getEncryptedIP();
-                    Object objects[] = {ip, folder};
-                    myGameState.setFunction("requestdirectory");
-                    myGameState.addFunctionCall(new RemoteFunctionCall(id, "requestdirectory", objects));
+                    myGameState.addFunctionCall(new com.hackwars.rpc.RequestDirectory(ip, folder).toRfc(id));
                 } else {
                     String folders[] = folder.split("/");
                     String newFolder = "";
@@ -257,9 +253,7 @@ public class ShowChoicesFileChooser extends JInternalFrame implements ActionList
                     folderField.setText("home/" + folder);
                     GameState myGameState = MyHacker.getView();
                     String ip = MyHacker.getEncryptedIP();
-                    Object objects[] = {ip, folder};
-                    myGameState.setFunction("requestdirectory");
-                    myGameState.addFunctionCall(new RemoteFunctionCall(id, "requestdirectory", objects));
+                    myGameState.addFunctionCall(new com.hackwars.rpc.RequestDirectory(ip, folder).toRfc(id));
                 }
             } else {
                 String blah = "";
@@ -267,9 +261,7 @@ public class ShowChoicesFileChooser extends JInternalFrame implements ActionList
                     Object[] file = (Object[]) o;
                     GameState myGameState = MyHacker.getView();
                     String name = (String) file[0];
-                    Object objects[] = {ip, port, name, folder, "", MyHacker.getEncryptedIP(), attackPort};
-                    myGameState.setFunction("malget");
-                    myGameState.addFunctionCall(new RemoteFunctionCall(0, "malget", objects));
+                    myGameState.addFunctionCall(new com.hackwars.rpc.MalGet(ip, port, name, folder, "", MyHacker.getEncryptedIP(), attackPort).toRfc(0));
                     dispose();
                     //answer = directory[fileList.getSelectedIndex()];
                 } catch (ArrayIndexOutOfBoundsException ex) {

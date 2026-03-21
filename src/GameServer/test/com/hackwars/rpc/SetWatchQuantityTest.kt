@@ -22,7 +22,7 @@ class SetWatchQuantityTest {
     @Test
     fun fromRpc_and_toRfc_roundtrip() {
         val params = arrayOf<Any?>("value", null, null)
-        val rpc = RemoteFunctionCall(1, SetWatchQuantity.FUNCTION, params)
+        val rpc = RemoteFunctionCall(1, com.hackwars.rpc.GameCommandWires.SETWATCHQUANTITY, params)
 
         val call = SetWatchQuantity.fromRpc(rpc)
         assertEquals(params[0], call.ip)
@@ -30,7 +30,7 @@ class SetWatchQuantityTest {
         assertEquals(params[2], call.quantity)
         val serialized = call.toRfc()
 
-        assertEquals(SetWatchQuantity.FUNCTION, serialized.function)
+        assertEquals(com.hackwars.rpc.GameCommandWires.SETWATCHQUANTITY, serialized.function)
         assertArrayEquals(params, serialized.parameters as Array<*>)
     }
 }

@@ -5,7 +5,7 @@ import game.ApplicationData
 import game.payload.DamagePayload
 
 class AttackContinueHandler : AttackFunctionHandler {
-    override val functionName: String = "attackcontinue"
+    override val functionName: String = com.hackwars.rpc.GameCommandWires.ATTACKCONTINUE
 
     override fun execute(program: AttackProgram, applicationData: ApplicationData) {
         program.iterations++

@@ -22,14 +22,14 @@ class CreateFolderTest {
     @Test
     fun fromRpc_and_toRfc_roundtrip() {
         val params = arrayOf<Any?>("value", null)
-        val rpc = RemoteFunctionCall(1, CreateFolder.FUNCTION, params)
+        val rpc = RemoteFunctionCall(1, com.hackwars.rpc.GameCommandWires.CREATEFOLDER, params)
 
         val call = CreateFolder.fromRpc(rpc)
         assertEquals(params[0], call.ip)
         assertEquals(params[1], call.directory)
         val serialized = call.toRfc()
 
-        assertEquals(CreateFolder.FUNCTION, serialized.function)
+        assertEquals(com.hackwars.rpc.GameCommandWires.CREATEFOLDER, serialized.function)
         assertArrayEquals(params, serialized.parameters as Array<*>)
     }
 }

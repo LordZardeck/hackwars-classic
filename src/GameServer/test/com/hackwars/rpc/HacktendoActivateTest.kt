@@ -22,7 +22,7 @@ class HacktendoActivateTest {
     @Test
     fun fromRpc_and_toRfc_roundtrip() {
         val params = arrayOf<Any?>(42, 42, null)
-        val rpc = RemoteFunctionCall(1, HacktendoActivate.FUNCTION, params)
+        val rpc = RemoteFunctionCall(1, com.hackwars.rpc.GameCommandWires.HACKTENDO_ACTIVATE, params)
 
         val call = HacktendoActivate.fromRpc(rpc)
         assertEquals(params[0], call.activateID)
@@ -30,7 +30,7 @@ class HacktendoActivateTest {
         assertEquals(params[2], call.ip)
         val serialized = call.toRfc()
 
-        assertEquals(HacktendoActivate.FUNCTION, serialized.function)
+        assertEquals(com.hackwars.rpc.GameCommandWires.HACKTENDO_ACTIVATE, serialized.function)
         assertArrayEquals(params, serialized.parameters as Array<*>)
     }
 }

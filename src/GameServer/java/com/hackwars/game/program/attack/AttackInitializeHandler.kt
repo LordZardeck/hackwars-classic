@@ -8,7 +8,7 @@ import game.payload.PettyCashDeltaPayload
 import game.payloadAs
 
 class AttackInitializeHandler : AttackFunctionHandler {
-    override val functionName: String = "attackinitialize"
+    override val functionName: String = com.hackwars.rpc.GameCommandWires.ATTACKINITIALIZE
 
     override fun execute(program: AttackProgram, applicationData: ApplicationData) {
         if (program.switching || program.parentPort!!.attacking) {

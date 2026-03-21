@@ -22,14 +22,14 @@ class DeleteWatchTest {
     @Test
     fun fromRpc_and_toRfc_roundtrip() {
         val params = arrayOf<Any?>("value", null)
-        val rpc = RemoteFunctionCall(1, DeleteWatch.FUNCTION, params)
+        val rpc = RemoteFunctionCall(1, com.hackwars.rpc.GameCommandWires.DELETEWATCH, params)
 
         val call = DeleteWatch.fromRpc(rpc)
         assertEquals(params[0], call.ip)
         assertEquals(params[1], call.watchID)
         val serialized = call.toRfc()
 
-        assertEquals(DeleteWatch.FUNCTION, serialized.function)
+        assertEquals(com.hackwars.rpc.GameCommandWires.DELETEWATCH, serialized.function)
         assertArrayEquals(params, serialized.parameters as Array<*>)
     }
 }

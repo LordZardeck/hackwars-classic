@@ -22,14 +22,14 @@ class DeleteFolderTest {
     @Test
     fun fromRpc_and_toRfc_roundtrip() {
         val params = arrayOf<Any?>("value", null)
-        val rpc = RemoteFunctionCall(1, DeleteFolder.FUNCTION, params)
+        val rpc = RemoteFunctionCall(1, com.hackwars.rpc.GameCommandWires.DELETEFOLDER, params)
 
         val call = DeleteFolder.fromRpc(rpc)
         assertEquals(params[0], call.ip)
         assertEquals(params[1], call.directory)
         val serialized = call.toRfc()
 
-        assertEquals(DeleteFolder.FUNCTION, serialized.function)
+        assertEquals(com.hackwars.rpc.GameCommandWires.DELETEFOLDER, serialized.function)
         assertArrayEquals(params, serialized.parameters as Array<*>)
     }
 }

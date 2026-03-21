@@ -4,20 +4,17 @@ package gui;
  * this is the message window.
  */
 
-import javax.swing.*;
-import javax.swing.event.*;
-import java.awt.*;
-import java.awt.event.*;
-
-import assignments.*;
 import com.hackwars.state.GameState;
+import game.HackerFile;
+import net.miginfocom.swing.MigLayout;
 
-import java.text.*;
-
-import game.*;
-import net.miginfocom.swing.*;
-
-import java.util.*;
+import javax.swing.*;
+import javax.swing.event.InternalFrameEvent;
+import java.awt.*;
+import java.awt.event.ActionEvent;
+import java.text.DecimalFormat;
+import java.text.NumberFormat;
+import java.util.HashMap;
 
 public class FileProperties extends Application {
     private Hacker hacker;
@@ -44,9 +41,7 @@ public class FileProperties extends Application {
         hacker.setFileProperties(this);
         GameState gameState = hacker.getView();
         String ip = hacker.getEncryptedIP();
-        Object objects[] = {ip, folder, fileName};
-        gameState.setFunction("requestfile");
-        gameState.addFunctionCall(new RemoteFunctionCall(0, "requestfile", objects));
+        gameState.addFunctionCall(new com.hackwars.rpc.RequestFile(ip, folder, fileName).toRfc(0));
         setLayout(new MigLayout("fill"));
         panel.setLayout(new MigLayout("fill,wrap 2,align leading"));
         otherPanel.setLayout(new MigLayout("fill,wrap 2,align leading"));

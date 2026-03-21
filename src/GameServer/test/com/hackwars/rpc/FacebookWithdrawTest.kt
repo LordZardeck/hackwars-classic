@@ -22,7 +22,7 @@ class FacebookWithdrawTest {
     @Test
     fun fromRpc_and_toRfc_roundtrip() {
         val params = arrayOf<Any?>(null, null, 42)
-        val rpc = RemoteFunctionCall(1, FacebookWithdraw.FUNCTION, params)
+        val rpc = RemoteFunctionCall(1, com.hackwars.rpc.GameCommandWires.FACEBOOKWITHDRAW, params)
 
         val call = FacebookWithdraw.fromRpc(rpc)
         assertEquals(params[0], call.ip)
@@ -30,7 +30,7 @@ class FacebookWithdrawTest {
         assertEquals(params[2], call.defaultPort)
         val serialized = call.toRfc()
 
-        assertEquals(FacebookWithdraw.FUNCTION, serialized.function)
+        assertEquals(com.hackwars.rpc.GameCommandWires.FACEBOOKWITHDRAW, serialized.function)
         assertArrayEquals(params, serialized.parameters as Array<*>)
     }
 }

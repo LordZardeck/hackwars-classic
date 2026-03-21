@@ -1,14 +1,13 @@
 package gui;
 
-import javax.swing.*;
-import java.awt.*;
-import java.awt.event.*;
-
-import assignments.*;
 import com.hackwars.state.GameState;
 
-import java.awt.image.*;
-import java.awt.geom.*;
+import javax.swing.*;
+import java.awt.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.awt.geom.Ellipse2D;
+import java.awt.image.BufferedImage;
 
 public class NetworkButton extends JButton implements ActionListener {
 
@@ -124,10 +123,8 @@ public class NetworkButton extends JButton implements ActionListener {
 
     public void actionPerformed(ActionEvent e) {
 
-        Object[] o = new Object[]{hacker.getEncryptedIP(), name};
         GameState myGameState = hacker.getView();
-        myGameState.setFunction("changenetwork");
-        myGameState.addFunctionCall(new RemoteFunctionCall(0, "changenetwork", o));
+        myGameState.addFunctionCall(new com.hackwars.rpc.ChangeNetwork(hacker.getEncryptedIP(), name).toRfc(0));
     }
 }
 

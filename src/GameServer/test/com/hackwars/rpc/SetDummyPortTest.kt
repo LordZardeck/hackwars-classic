@@ -22,7 +22,7 @@ class SetDummyPortTest {
     @Test
     fun fromRpc_and_toRfc_roundtrip() {
         val params = arrayOf<Any?>("value", 42, null)
-        val rpc = RemoteFunctionCall(1, SetDummyPort.FUNCTION, params)
+        val rpc = RemoteFunctionCall(1, com.hackwars.rpc.GameCommandWires.SETDUMMYPORT, params)
 
         val call = SetDummyPort.fromRpc(rpc)
         assertEquals(params[0], call.ip)
@@ -30,7 +30,7 @@ class SetDummyPortTest {
         assertEquals(params[2], call.dummy)
         val serialized = call.toRfc()
 
-        assertEquals(SetDummyPort.FUNCTION, serialized.function)
+        assertEquals(com.hackwars.rpc.GameCommandWires.SETDUMMYPORT, serialized.function)
         assertArrayEquals(params, serialized.parameters as Array<*>)
     }
 }

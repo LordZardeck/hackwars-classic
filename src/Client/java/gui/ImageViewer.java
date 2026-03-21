@@ -4,15 +4,13 @@ package gui;
  * this is the message window.
  */
 
-import javax.swing.*;
-import javax.swing.event.*;
-
-import assignments.*;
+import browser.HtmlHandler;
 import com.hackwars.state.GameState;
-import view.*;
+import game.HackerFile;
+import view.aImage;
 
-import browser.*;
-import game.*;
+import javax.swing.*;
+import javax.swing.event.InternalFrameEvent;
 
 public class ImageViewer extends Application {
     private JDesktopPane mainPanel = null;
@@ -38,10 +36,8 @@ public class ImageViewer extends Application {
         MyHacker.setImageViewer(this);
         GameState myGameState = MyHacker.getView();
         String ip = MyHacker.getEncryptedIP();
-        Object objects[] = {ip, path, image[0]};
         //System.out.println(path+"|"+image[0]);
-        myGameState.setFunction("requestfile");
-        myGameState.addFunctionCall(new RemoteFunctionCall(0, "requestfile", objects));
+        myGameState.addFunctionCall(new com.hackwars.rpc.RequestFile(ip, path, (String) image[0]).toRfc(0));
 
         //this.setFrameIcon(ImageLoader.getImageIcon("images/calc.png"));
     }

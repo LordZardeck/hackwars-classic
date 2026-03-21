@@ -1,13 +1,12 @@
 package gui;
 
 
-import javax.swing.*;
-import java.awt.event.*;
-
 import com.hackwars.state.GameState;
-
-import assignments.*;
 import util.LegacyRemoteDefaults;
+
+import javax.swing.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 
 public class StoreActionListener implements ActionListener {
 
@@ -30,9 +29,7 @@ public class StoreActionListener implements ActionListener {
             GameState myGameState = MyHacker.getView();
             // TODO: Removed legacy remote domain lookup endpoint: http://www.hackwars.net/xmlrpc/domain.php
             String result = LegacyRemoteDefaults.normalizeDomain(ip);
-            Object objects[] = {result, MyHacker.getEncryptedIP(), name, quantity};
-            myGameState.setFunction("requestpurchase");
-            myGameState.addFunctionCall(new RemoteFunctionCall(Hacker.BROWSER, "requestpurchase", objects));
+            myGameState.addFunctionCall(new com.hackwars.rpc.RequestPurchase(result, MyHacker.getEncryptedIP(), name, quantity).toRfc(Hacker.BROWSER));
             MyHacker.setRequestedDirectory(Hacker.BROWSER);
             //MyWebBrowser.removeProducts();
         }

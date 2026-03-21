@@ -3,28 +3,28 @@ package game.payload
 import game.ApplicationCommand
 import game.ApplicationPayload
 
-val HEAL_COMMAND: ApplicationCommand = ApplicationCommand.of("heal")
-val EMPTY_PETTY_CASH_COMMAND: ApplicationCommand = ApplicationCommand.of("emptyPettyCash")
-val FINALIZE_CANCELLED_COMMAND: ApplicationCommand = ApplicationCommand.of("finalizecancelled")
-val MALGET_COMMAND: ApplicationCommand = ApplicationCommand.of("malget")
-val DELETE_LOG_COMMAND: ApplicationCommand = ApplicationCommand.of("deletelog")
-val PEEK_CODE_COMMAND: ApplicationCommand = ApplicationCommand.of("peekcode")
-val PEEK_LOGS_COMMAND: ApplicationCommand = ApplicationCommand.of("peeklogs")
-val EDIT_LOGS_COMMAND: ApplicationCommand = ApplicationCommand.of("editLogs")
-val CHANGE_DAILY_PAY_COMMAND: ApplicationCommand = ApplicationCommand.of("changedailypay")
-val DESTROY_WATCH_COMMAND: ApplicationCommand = ApplicationCommand.of("destroyWatch")
-val ATTACK_COMMAND: ApplicationCommand = ApplicationCommand.of("attack")
-val MINE_COMMAND: ApplicationCommand = ApplicationCommand.of("mine")
-val ATTACK_INITIALIZE_COMMAND: ApplicationCommand = ApplicationCommand.of("attackinitialize")
-val CANCEL_ATTACK_COMMAND: ApplicationCommand = ApplicationCommand.of("cancelattack")
-val FREEZE_COMMAND: ApplicationCommand = ApplicationCommand.of("freeze")
-val DAMAGE_COMMAND: ApplicationCommand = ApplicationCommand.of("damage")
-val OPPONENT_UPDATE_COMMAND: ApplicationCommand = ApplicationCommand.of("opponentupdate")
-val ATTACK_XP_COMMAND: ApplicationCommand = ApplicationCommand.of("attackxp")
-val MINING_DAMAGE_UPDATE_COMMAND: ApplicationCommand = ApplicationCommand.of("miningdamageupdate")
-val ATTACK_FINALIZE_COMMAND: ApplicationCommand = ApplicationCommand.of("attackfinalize")
-val LOG_MESSAGE_COMMAND: ApplicationCommand = ApplicationCommand.of("logmessage")
-val ZOMBIE_ATTACK_COMMAND: ApplicationCommand = ApplicationCommand.of("zombieattack")
+val HEAL_COMMAND: ApplicationCommand = com.hackwars.rpc.GameCommands.HEAL.command
+val EMPTY_PETTY_CASH_COMMAND: ApplicationCommand = com.hackwars.rpc.GameCommands.EMPTY_PETTY_CASH.command
+val FINALIZE_CANCELLED_COMMAND: ApplicationCommand = com.hackwars.rpc.GameCommands.FINALIZECANCELLED.command
+val MALGET_COMMAND: ApplicationCommand = com.hackwars.rpc.GameCommands.MALGET.command
+val DELETE_LOG_COMMAND: ApplicationCommand = com.hackwars.rpc.GameCommands.DELETELOG.command
+val PEEK_CODE_COMMAND: ApplicationCommand = com.hackwars.rpc.GameCommands.PEEKCODE.command
+val PEEK_LOGS_COMMAND: ApplicationCommand = com.hackwars.rpc.GameCommands.PEEKLOGS.command
+val EDIT_LOGS_COMMAND: ApplicationCommand = com.hackwars.rpc.GameCommands.EDIT_LOGS.command
+val CHANGE_DAILY_PAY_COMMAND: ApplicationCommand = com.hackwars.rpc.GameCommands.CHANGEDAILYPAY.command
+val DESTROY_WATCH_COMMAND: ApplicationCommand = com.hackwars.rpc.GameCommands.DESTROY_WATCH.command
+val ATTACK_COMMAND: ApplicationCommand = com.hackwars.rpc.GameCommands.ATTACK.command
+val MINE_COMMAND: ApplicationCommand = com.hackwars.rpc.GameCommands.MINE.command
+val ATTACK_INITIALIZE_COMMAND: ApplicationCommand = com.hackwars.rpc.GameCommands.ATTACKINITIALIZE.command
+val CANCEL_ATTACK_COMMAND: ApplicationCommand = com.hackwars.rpc.GameCommands.CANCELATTACK.command
+val FREEZE_COMMAND: ApplicationCommand = com.hackwars.rpc.GameCommands.FREEZE.command
+val DAMAGE_COMMAND: ApplicationCommand = com.hackwars.rpc.GameCommands.DAMAGE.command
+val OPPONENT_UPDATE_COMMAND: ApplicationCommand = com.hackwars.rpc.GameCommands.OPPONENTUPDATE.command
+val ATTACK_XP_COMMAND: ApplicationCommand = com.hackwars.rpc.GameCommands.ATTACKXP.command
+val MINING_DAMAGE_UPDATE_COMMAND: ApplicationCommand = com.hackwars.rpc.GameCommands.MININGDAMAGEUPDATE.command
+val ATTACK_FINALIZE_COMMAND: ApplicationCommand = com.hackwars.rpc.GameCommands.ATTACKFINALIZE.command
+val LOG_MESSAGE_COMMAND: ApplicationCommand = com.hackwars.rpc.GameCommands.LOGMESSAGE.command
+val ZOMBIE_ATTACK_COMMAND: ApplicationCommand = com.hackwars.rpc.GameCommands.ZOMBIEATTACK.command
 
 object HealPayload : ApplicationPayload {
     override fun getCommand(): ApplicationCommand = HEAL_COMMAND

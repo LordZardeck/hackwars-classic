@@ -4,11 +4,12 @@ import game.ApplicationCommand
 import game.ApplicationPayload
 import game.HackerFile
 
-val REQUEST_SECONDARY_DIRECTORY_COMMAND: ApplicationCommand = ApplicationCommand.of("requestsecondarydirectory")
-val REQUEST_FTP_UPDATE_COMMAND: ApplicationCommand = ApplicationCommand.of("requestftpupdate")
-val GET_COMMAND: ApplicationCommand = ApplicationCommand.of("get")
-val PUT_COMMAND: ApplicationCommand = ApplicationCommand.of("put")
-val FINALIZE_PUT_COMMAND: ApplicationCommand = ApplicationCommand.of("finalizeput")
+val REQUEST_SECONDARY_DIRECTORY_COMMAND: ApplicationCommand =
+    com.hackwars.rpc.GameCommands.REQUESTSECONDARYDIRECTORY.command
+val REQUEST_FTP_UPDATE_COMMAND: ApplicationCommand = com.hackwars.rpc.GameCommands.REQUESTFTPUPDATE.command
+val GET_COMMAND: ApplicationCommand = com.hackwars.rpc.GameCommands.GET.command
+val PUT_COMMAND: ApplicationCommand = com.hackwars.rpc.GameCommands.PUT.command
+val FINALIZE_PUT_COMMAND: ApplicationCommand = com.hackwars.rpc.GameCommands.FINALIZEPUT.command
 
 data class RequestSecondaryDirectoryPayload(
     val targetIp: String,

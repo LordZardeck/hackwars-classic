@@ -22,14 +22,14 @@ class DeleteFirewallTest {
     @Test
     fun fromRpc_and_toRfc_roundtrip() {
         val params = arrayOf<Any?>("value", null)
-        val rpc = RemoteFunctionCall(1, DeleteFirewall.FUNCTION, params)
+        val rpc = RemoteFunctionCall(1, com.hackwars.rpc.GameCommandWires.DELETEFIREWALL, params)
 
         val call = DeleteFirewall.fromRpc(rpc)
         assertEquals(params[0], call.ip)
         assertEquals(params[1], call.portID)
         val serialized = call.toRfc()
 
-        assertEquals(DeleteFirewall.FUNCTION, serialized.function)
+        assertEquals(com.hackwars.rpc.GameCommandWires.DELETEFIREWALL, serialized.function)
         assertArrayEquals(params, serialized.parameters as Array<*>)
     }
 }

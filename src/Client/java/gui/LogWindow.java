@@ -4,13 +4,12 @@ package gui;
  * this is the message window.
  */
 
-import javax.swing.*;
-import javax.swing.event.*;
-import java.awt.*;
-import java.awt.event.*;
-
-import assignments.*;
 import com.hackwars.state.GameState;
+
+import javax.swing.*;
+import javax.swing.event.InternalFrameEvent;
+import java.awt.*;
+import java.awt.event.ActionEvent;
 
 public class LogWindow extends Application {
     private JDesktopPane mainPanel = null;
@@ -62,10 +61,8 @@ public class LogWindow extends Application {
 
     public void actionPerformed(ActionEvent e) {
         //System.out.println("Deleting Log");
-        Object objects[] = new Object[]{MyHacker.getEncryptedIP()};
         GameState myGameState = MyHacker.getView();
-        myGameState.setFunction("deletelogs");
-        myGameState.addFunctionCall(new RemoteFunctionCall(0, "deletelogs", objects));
+        myGameState.addFunctionCall(new com.hackwars.rpc.DeleteLogs(MyHacker.getEncryptedIP()).toRfc(0));
     }
 
 }

@@ -22,7 +22,7 @@ class RepairEquipmentTest {
     @Test
     fun fromRpc_and_toRfc_roundtrip() {
         val params = arrayOf<Any?>("value", null, null)
-        val rpc = RemoteFunctionCall(1, RepairEquipment.FUNCTION, params)
+        val rpc = RemoteFunctionCall(1, com.hackwars.rpc.GameCommandWires.REPAIREQUIPMENT, params)
 
         val call = RepairEquipment.fromRpc(rpc)
         assertEquals(params[0], call.ip)
@@ -30,7 +30,7 @@ class RepairEquipmentTest {
         assertEquals(params[2], call.name)
         val serialized = call.toRfc()
 
-        assertEquals(RepairEquipment.FUNCTION, serialized.function)
+        assertEquals(com.hackwars.rpc.GameCommandWires.REPAIREQUIPMENT, serialized.function)
         assertArrayEquals(params, serialized.parameters as Array<*>)
     }
 }

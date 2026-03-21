@@ -22,13 +22,13 @@ class FetchWatchesTest {
     @Test
     fun fromRpc_and_toRfc_roundtrip() {
         val params = arrayOf<Any?>("value")
-        val rpc = RemoteFunctionCall(1, FetchWatches.FUNCTION, params)
+        val rpc = RemoteFunctionCall(1, com.hackwars.rpc.GameCommandWires.FETCHWATCHES, params)
 
         val call = FetchWatches.fromRpc(rpc)
         assertEquals(params[0], call.ip)
         val serialized = call.toRfc()
 
-        assertEquals(FetchWatches.FUNCTION, serialized.function)
+        assertEquals(com.hackwars.rpc.GameCommandWires.FETCHWATCHES, serialized.function)
         assertArrayEquals(params, serialized.parameters as Array<*>)
     }
 }

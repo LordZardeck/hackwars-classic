@@ -1,15 +1,14 @@
 package server.remote.handlers
 
 import assignments.RemoteFunctionCall
+import com.hackwars.rpc.Transfer
 import game.ApplicationData
-import com.hackwars.rpc.*
 import game.payload.TransferPayload
 import server.remote.RemoteCallContext
 import server.remote.RemoteCallHandler
 import server.remote.RpcHandler
-import java.util.*
 
-@RpcHandler(Transfer.FUNCTION)
+@RpcHandler(com.hackwars.rpc.GameCommandWires.TRANSFER)
 object TransferHandler : RemoteCallHandler {
     override fun handle(rfc: RemoteFunctionCall, context: RemoteCallContext) {
         val parsedCall = Transfer.fromRpc(rfc)

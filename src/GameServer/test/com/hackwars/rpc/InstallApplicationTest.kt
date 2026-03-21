@@ -22,7 +22,7 @@ class InstallApplicationTest {
     @Test
     fun fromRpc_and_toRfc_roundtrip() {
         val params = arrayOf<Any?>("value", 42, null, null)
-        val rpc = RemoteFunctionCall(1, InstallApplication.FUNCTION, params)
+        val rpc = RemoteFunctionCall(1, com.hackwars.rpc.GameCommandWires.INSTALLAPPLICATION, params)
 
         val call = InstallApplication.fromRpc(rpc)
         assertEquals(params[0], call.ip)
@@ -31,7 +31,7 @@ class InstallApplicationTest {
         assertEquals(params[3], call.name)
         val serialized = call.toRfc()
 
-        assertEquals(InstallApplication.FUNCTION, serialized.function)
+        assertEquals(com.hackwars.rpc.GameCommandWires.INSTALLAPPLICATION, serialized.function)
         assertArrayEquals(params, serialized.parameters as Array<*>)
     }
 }

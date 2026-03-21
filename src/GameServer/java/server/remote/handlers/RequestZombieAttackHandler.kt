@@ -1,14 +1,13 @@
 package server.remote.handlers
 
 import assignments.RemoteFunctionCall
+import com.hackwars.rpc.RequestZombieAttack
 import game.ApplicationData
-import com.hackwars.rpc.*
 import server.remote.RemoteCallContext
 import server.remote.RemoteCallHandler
 import server.remote.RpcHandler
-import java.util.*
 
-@RpcHandler(RequestZombieAttack.FUNCTION)
+@RpcHandler(com.hackwars.rpc.GameCommandWires.REQUESTZOMBIEATTACK)
 object RequestZombieAttackHandler : RemoteCallHandler {
     override fun handle(rfc: RemoteFunctionCall, context: RemoteCallContext) {
         val parsedCall = RequestZombieAttack.fromRpc(rfc)
@@ -17,7 +16,7 @@ object RequestZombieAttackHandler : RemoteCallHandler {
         val parentIP = context.crypt(parsedCall.parentIP)
         val applicationData = ApplicationData(parsedCall.copy(parentIP = parentIP), parsedCall.sourcePort, parentIP)
 
-        if (targetIP != sourceIP && targetIP.indexOf(RequestZombieAttack.FUNCTION) == -1) context.computerHandler.addData(
+        if (targetIP != sourceIP && targetIP.indexOf(com.hackwars.rpc.GameCommandWires.REQUESTZOMBIEATTACK) == -1) context.computerHandler.addData(
             applicationData,
             parentIP,
             ApplicationData.OUTSIDE

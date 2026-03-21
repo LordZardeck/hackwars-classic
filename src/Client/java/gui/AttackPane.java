@@ -5,28 +5,27 @@ package gui;
  * @author Cameron McGuinness
  */
 
-import javax.swing.*;
-import javax.swing.event.*;
-import javax.swing.text.StyleConstants;
-import javax.swing.text.StyledDocument;
-import javax.swing.text.Style;
-import javax.swing.text.StyleContext;
-import java.awt.*;
-import java.awt.event.*;
-
-import assignments.*;
 import com.hackwars.state.GameState;
+import game.HackerFile;
+import net.miginfocom.swing.MigLayout;
 
-import java.lang.*;
-
-import game.*;
-
-import java.text.*;
-import javax.swing.Timer;
+import javax.swing.*;
+import javax.swing.event.ChangeEvent;
+import javax.swing.event.ChangeListener;
+import javax.swing.event.InternalFrameEvent;
+import javax.swing.text.Style;
+import javax.swing.text.StyleConstants;
+import javax.swing.text.StyleContext;
+import javax.swing.text.StyledDocument;
+import java.awt.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.awt.event.FocusEvent;
+import java.awt.event.FocusListener;
+import java.text.DecimalFormat;
+import java.text.NumberFormat;
 import java.util.ArrayList;
 import java.util.Vector;
-
-import net.miginfocom.swing.*;
 
 public class AttackPane extends Application implements ChangeListener, FocusListener {
     public static int MAX_MESSAGES = 100;
@@ -68,17 +67,19 @@ public class AttackPane extends Application implements ChangeListener, FocusList
 
     /**
      * constructor
-     * @param name the name of the window.
-     * @param resize whether or not the window is resizable.
-     * @param max whether or not the window is maximizable.
-     * @param close whether or not the window is closable.
-     * @param iconify whether or not the window is iconifiable.
+     *
+     * @param name      the name of the window.
+     * @param resize    whether or not the window is resizable.
+     * @param max       whether or not the window is maximizable.
+     * @param close     whether or not the window is closable.
+     * @param iconify   whether or not the window is iconifiable.
      * @param mainPanel the desktop panel of the main game.
-     * @param MyHacker the main GUI controller.
-     * @param ipValue the ip to attack.
+     * @param MyHacker  the main GUI controller.
+     * @param ipValue   the ip to attack.
      * @param portValue the port to attack.
-     * @param port the port to use to attack from.
-     * */
+     * @param port      the port to use to attack from.
+     *
+     */
     public AttackPane(String name, boolean resize, boolean max, boolean close, boolean iconify, JDesktopPane mainPanel, Hacker MyHacker, String ipValue, int portValue, int port, int type) {
         windowHandle = ++WINDOW_HANDLE;
         this.type = type;
@@ -307,7 +308,8 @@ public class AttackPane extends Application implements ChangeListener, FocusList
 
     /**
      * Adds a damage message ("You have hit the port for xx damage!") to the console.
-     * @param damage the amount of damage done.
+     *
+     * @param damage   the amount of damage done.
      * @param firewall whether the damage was caused by a firewall or not.
      **/
     public void addMessage(float damage, boolean firewall) {
@@ -333,12 +335,14 @@ public class AttackPane extends Application implements ChangeListener, FocusList
 
     /**
      * Opening a file that will be installed onto target after the attack is done
-     * @param title the name of the file
-     * @param folder the folder where the file is located on the players in-game HD.
-     * @param type the type of file that was selected. Value coincide with {@link HackerFile} types.
-     * @param ip the malicious ip to set on the port after it has been weakened.
+     *
+     * @param title     the name of the file
+     * @param folder    the folder where the file is located on the players in-game HD.
+     * @param type      the type of file that was selected. Value coincide with {@link HackerFile} types.
+     * @param ip        the malicious ip to set on the port after it has been weakened.
      * @param pettyCash the target petty cash to set on the port after it has been weakened.
-     * */
+     *
+     */
     public void openFile(String title, String folder, int type, String ip, float pettyCash) {
         bankFolder = folder;
         scriptField.setText(title);
@@ -348,8 +352,10 @@ public class AttackPane extends Application implements ChangeListener, FocusList
 
     /**
      * Secondary ports that can be switched to in an attack.
+     *
      * @param add the array of ports.
-     * */
+     *
+     */
     public void setSecondaryPorts(Integer[] add) {
         secondaryPortsArray = add;
         portSpinner.setValue(add[0]);
@@ -358,16 +364,20 @@ public class AttackPane extends Application implements ChangeListener, FocusList
 
     /**
      * Sets the port to be attacked.
+     *
      * @param port the port to be attacked.
-     * */
+     *
+     */
     public void setTargetPort(int port) {
         portSpinner.setValue(port);
     }
 
     /**
      * Sets the ip to attack.
+     *
      * @param ip the ip to attack.
-     * */
+     *
+     */
     public void setIP(String ip) {
         ipPanel.setIP(ip);
 
@@ -375,11 +385,13 @@ public class AttackPane extends Application implements ChangeListener, FocusList
 
     /**
      * sets the ip fields after being parsed into the 4 sections.
+     *
      * @param ip1 the first part of the ip.
      * @param ip2 the second part of the ip.
      * @param ip3 the third part of the ip.
      * @param ip4 the fourth part of the ip.
-     * */
+     *
+     */
     public void setIP(String ip1, String ip2, String ip3, String ip4) {
         ipPanel.setIP(ip1 + "." + ip2 + "." + ip3 + "." + ip4);
     }
@@ -409,7 +421,8 @@ public class AttackPane extends Application implements ChangeListener, FocusList
 
     /**
      * Starts the attack.
-     * */
+     *
+     */
     public void attack() {
         redoTitle();
         this.damage = 0.0f;
@@ -444,16 +457,12 @@ public class AttackPane extends Application implements ChangeListener, FocusList
             otherInfo[3] = ((Double) pettyCashSpinner.getValue()).floatValue();
             otherInfo[4] = attackMaliciousIP;
 
-            Object objects[] = {targetIP, targetPort, ip, new Integer(port), secondaryPorts, scripts, otherInfo, windowHandle};
-            myGameState.setFunction("requestattack");
-            myGameState.addFunctionCall(new RemoteFunctionCall(0, "requestattack", objects));
+            myGameState.addFunctionCall(new com.hackwars.rpc.RequestAttack(targetIP, targetPort, ip, new Integer(port), secondaryPorts, scripts, otherInfo, windowHandle).toRfc(0));
         } else if (type == REDIRECT) {
             Integer secondaryPorts[] = new Integer[0];
             String scripts[][] = new String[4][2];
             Object otherInfo[] = new Object[5];
-            Object objects[] = {targetIP, targetPort, ip, new Integer(port), secondaryPorts, scripts, otherInfo, windowHandle};
-            myGameState.setFunction("requestattack");
-            myGameState.addFunctionCall(new RemoteFunctionCall(0, "requestattack", objects));
+            myGameState.addFunctionCall(new com.hackwars.rpc.RequestAttack(targetIP, targetPort, ip, new Integer(port), secondaryPorts, scripts, otherInfo, windowHandle).toRfc(0));
         }
 
     }
@@ -509,9 +518,7 @@ public class AttackPane extends Application implements ChangeListener, FocusList
             String ip = MyHacker.getEncryptedIP();
             int port = (new Integer((((String) fromPorts.getSelectedItem()).split(":")[0]))).intValue();
             GameState myGameState = MyHacker.getView();
-            Object objects[] = {ip, new Integer(port)};
-            myGameState.setFunction("requestcancelattack");
-            myGameState.addFunctionCall(new RemoteFunctionCall(0, "requestcancelattack", objects));
+            myGameState.addFunctionCall(new com.hackwars.rpc.RequestCancelAttack(ip, new Integer(port)).toRfc(0));
             //tabbedPane.setSelectedIndex(0);
         }
 		/*else if(e.getActionCommand().equals("add")){

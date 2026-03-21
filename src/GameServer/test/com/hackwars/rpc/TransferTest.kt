@@ -22,7 +22,7 @@ class TransferTest {
     @Test
     fun fromRpc_and_toRfc_roundtrip() {
         val params = arrayOf<Any?>(1.5f, "value", null, 42)
-        val rpc = RemoteFunctionCall(1, Transfer.FUNCTION, params)
+        val rpc = RemoteFunctionCall(1, com.hackwars.rpc.GameCommandWires.TRANSFER, params)
 
         val call = Transfer.fromRpc(rpc)
         assertEquals(params[0], call.amount)
@@ -31,7 +31,7 @@ class TransferTest {
         assertEquals(params[3], call.port)
         val serialized = call.toRfc()
 
-        assertEquals(Transfer.FUNCTION, serialized.function)
+        assertEquals(com.hackwars.rpc.GameCommandWires.TRANSFER, serialized.function)
         assertArrayEquals(params, serialized.parameters as Array<*>)
     }
 }

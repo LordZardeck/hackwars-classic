@@ -4,18 +4,20 @@ package gui;
  * Represents the file browser.
  */
 
+import com.hackwars.state.GameState;
+import game.HackerFile;
+
 import javax.swing.*;
-import javax.swing.table.*;
-import javax.swing.event.*;
+import javax.swing.event.InternalFrameEvent;
+import javax.swing.event.TableModelEvent;
+import javax.swing.event.TableModelListener;
+import javax.swing.table.JTableHeader;
+import javax.swing.table.TableColumn;
+import javax.swing.table.TableColumnModel;
 import java.awt.*;
 import java.awt.event.*;
-
-import com.hackwars.state.GameState;
-import game.*;
-import assignments.*;
-
-import java.text.*;
-import java.util.*;
+import java.text.NumberFormat;
+import java.util.HashMap;
 
 public class Home extends Application implements ComponentListener, TableModelListener, KeyListener {
 
@@ -481,11 +483,9 @@ public class Home extends Application implements ComponentListener, TableModelLi
     public void startUp() {
         //System.out.println("Requesting Directory From Home");
         GameState myGameState = MyHacker.getView();
-        Object objects[] = {MyHacker.getEncryptedIP(), ""};
         MyHacker.setCurrentFolder("");
         folder = "";
-        myGameState.setFunction("requestdirectory");
-        myGameState.addFunctionCall(new RemoteFunctionCall(Hacker.HOME, "requestdirectory", objects));
+        myGameState.addFunctionCall(new com.hackwars.rpc.RequestDirectory(MyHacker.getEncryptedIP(), "").toRfc(Hacker.HOME));
         MyHacker.setRequestedDirectory(Hacker.HOME);
         int HDQuantity = MyHacker.getHDQuantity();
         int HDMax = MyHacker.getHDMax();
@@ -572,9 +572,7 @@ public class Home extends Application implements ComponentListener, TableModelLi
             MyHacker.setRequestedFile(Hacker.HOME);
             GameState myGameState = MyHacker.getView();
             String ip = MyHacker.getEncryptedIP();
-            Object objects[] = {ip, folder, fileName};
-            myGameState.setFunction("requestfile");
-            myGameState.addFunctionCall(new RemoteFunctionCall(0, "requestfile", objects));
+            myGameState.addFunctionCall(new com.hackwars.rpc.RequestFile(ip, folder, fileName).toRfc(0));
         }
         if (!get) {
             fileProp = "";
@@ -610,11 +608,9 @@ public class Home extends Application implements ComponentListener, TableModelLi
             folder = newFolder + name;
             //System.out.println("Changing To "+folder);
             //System.out.println("Requesting "+newFolder+name+"/");
-            Object objects[] = new Object[]{MyHacker.getEncryptedIP(), newFolder + name + "/"};
             GameState myGameState = MyHacker.getView();
             MyHacker.setRequestedDirectory(Hacker.HOME);
-            myGameState.setFunction("requestdirectory");
-            myGameState.addFunctionCall(new RemoteFunctionCall(Hacker.HOME, "requestdirectory", objects));
+            myGameState.addFunctionCall(new com.hackwars.rpc.RequestDirectory(MyHacker.getEncryptedIP(), newFolder + name + "/").toRfc(Hacker.HOME));
             //requestDirectory();
             //populateButtons();
         } else {
@@ -633,12 +629,10 @@ public class Home extends Application implements ComponentListener, TableModelLi
                 folder = newFolder;
                 //System.out.println(folders[folders.length-1]);
                 //System.out.println("Go up a directory");
-                Object objects[] = new Object[]{MyHacker.getEncryptedIP(), newFolder};
                 MyHacker.setCurrentFolder(newFolder);
                 MyHacker.setRequestedDirectory(Hacker.HOME);
                 GameState myGameState = MyHacker.getView();
-                myGameState.setFunction("requestdirectory");
-                myGameState.addFunctionCall(new RemoteFunctionCall(Hacker.HOME, "requestdirectory", objects));
+                myGameState.addFunctionCall(new com.hackwars.rpc.RequestDirectory(MyHacker.getEncryptedIP(), newFolder).toRfc(Hacker.HOME));
             }
         }
     }
@@ -663,12 +657,10 @@ public class Home extends Application implements ComponentListener, TableModelLi
         }
         buttonList = newList;
         folder = newFolder;
-        Object objects[] = new Object[]{MyHacker.getEncryptedIP(), location};
         MyHacker.setCurrentFolder(location);
         MyHacker.setRequestedDirectory(Hacker.HOME);
         GameState myGameState = MyHacker.getView();
-        myGameState.setFunction("requestdirectory");
-        myGameState.addFunctionCall(new RemoteFunctionCall(Hacker.HOME, "requestdirectory", objects));
+        myGameState.addFunctionCall(new com.hackwars.rpc.RequestDirectory(MyHacker.getEncryptedIP(), location).toRfc(Hacker.HOME));
     }
 
     public void setProperties(HackerFile HF) {
@@ -744,16 +736,12 @@ public class Home extends Application implements ComponentListener, TableModelLi
 
     public void changePrice(String fileName, float price) {
         GameState myGameState = MyHacker.getView();
-        Object objects[] = {MyHacker.getEncryptedIP(), folder, fileName, new Float(price)};
-        myGameState.setFunction("setfileprice");
-        myGameState.addFunctionCall(new RemoteFunctionCall(0, "setfileprice", objects));
+        myGameState.addFunctionCall(new com.hackwars.rpc.SetFilePrice(MyHacker.getEncryptedIP(), folder, fileName, new Float(price)).toRfc(0));
     }
 
     public void changeDescription(String fileName, String description) {
         GameState myGameState = MyHacker.getView();
-        Object objects[] = {MyHacker.getEncryptedIP(), folder, fileName, description};
-        myGameState.setFunction("setfiledescription");
-        myGameState.addFunctionCall(new RemoteFunctionCall(0, "setfiledescription", objects));
+        myGameState.addFunctionCall(new com.hackwars.rpc.SetFileDescription(MyHacker.getEncryptedIP(), folder, fileName, description).toRfc(0));
     }
 
     public String getFolder() {
@@ -780,11 +768,9 @@ public class Home extends Application implements ComponentListener, TableModelLi
             allFiles[0] = new Object[]{folder, fileName, maker, quantity};
             // check to see that there's a bank port on
             if ((MyHacker.getBankPorts()).size() > 0) {
-                Object objects[] = new Object[]{MyHacker.getEncryptedIP(), allFiles};
                 GameState myGameState = MyHacker.getView();
                 MyHacker.setRequestedDirectory(Hacker.HOME);
-                myGameState.setFunction("sellfilemulti");
-                myGameState.addFunctionCall(new RemoteFunctionCall(Hacker.HOME, "sellfilemulti", objects));
+                myGameState.addFunctionCall(new com.hackwars.rpc.SellFileMulti(MyHacker.getEncryptedIP(), allFiles).toRfc(Hacker.HOME));
                 int maxQuantity = (Integer) tableModel.getValueAt(index, QUANTITY);
                 if (quantity == maxQuantity) {
                     removeRow(index);
@@ -893,10 +879,8 @@ public class Home extends Application implements ComponentListener, TableModelLi
                 }
                 allFiles[i] = details;
             }
-            Object objects[] = {MyHacker.getEncryptedIP(), allFiles};
             GameState myGameState = MyHacker.getView();
-            myGameState.setFunction("deletemulti");
-            myGameState.addFunctionCall(new RemoteFunctionCall(Hacker.HOME, "deletemulti", objects));
+            myGameState.addFunctionCall(new com.hackwars.rpc.DeleteMulti(MyHacker.getEncryptedIP(), allFiles).toRfc(Hacker.HOME));
             MyHacker.setCurrentFolder(folder);
             MyHacker.setRequestedDirectory(Hacker.HOME);
             removeRows(selRows);
@@ -929,10 +913,8 @@ public class Home extends Application implements ComponentListener, TableModelLi
                 if (answer.equalsIgnoreCase("store"))
                     JOptionPane.showMessageDialog(mainPanel, "Error: invalid folder name: " + answer);
                 GameState myGameState = MyHacker.getView();
-                Object objects[] = {MyHacker.getEncryptedIP(), folder + "/" + answer + "/"};
                 MyHacker.setRequestedDirectory(Hacker.HOME);
-                myGameState.setFunction("createfolder");
-                myGameState.addFunctionCall(new RemoteFunctionCall(Hacker.HOME, "createfolder", objects));
+                myGameState.addFunctionCall(new com.hackwars.rpc.CreateFolder(MyHacker.getEncryptedIP(), folder + "/" + answer + "/").toRfc(Hacker.HOME));
             }
             //System.out.println("New Folder: "+answer);
         }
@@ -940,11 +922,9 @@ public class Home extends Application implements ComponentListener, TableModelLi
             changeDirectory("..");
         }
         if (e.getActionCommand().equals("Refresh")) {
-            Object objects[] = new Object[]{MyHacker.getEncryptedIP(), folder};
             GameState myGameState = MyHacker.getView();
             MyHacker.setRequestedDirectory(Hacker.HOME);
-            myGameState.setFunction("requestdirectory");
-            myGameState.addFunctionCall(new RemoteFunctionCall(Hacker.HOME, "requestdirectory", objects));
+            myGameState.addFunctionCall(new com.hackwars.rpc.RequestDirectory(MyHacker.getEncryptedIP(), folder).toRfc(Hacker.HOME));
         }
         if (e.getActionCommand().equals("Price")) {
             HomePriceDialog HPD = new HomePriceDialog(this);
@@ -1006,10 +986,8 @@ public class Home extends Application implements ComponentListener, TableModelLi
                     }
                     if (okay) {
                         if ((MyHacker.getBankPorts()).size() > 0) {
-                            Object objects[] = {MyHacker.getEncryptedIP(), allFiles};
                             GameState myGameState = MyHacker.getView();
-                            myGameState.setFunction("sellmulti");
-                            myGameState.addFunctionCall(new RemoteFunctionCall(Hacker.HOME, "sellfilemulti", objects));
+                            myGameState.addFunctionCall(new com.hackwars.rpc.SellFileMulti(MyHacker.getEncryptedIP(), allFiles).toRfc(Hacker.HOME));
                             MyHacker.setCurrentFolder(folder);
                             MyHacker.setRequestedDirectory(Hacker.HOME);
                             removeRows(selRows);
@@ -1051,11 +1029,9 @@ public class Home extends Application implements ComponentListener, TableModelLi
                     if (n == 0) {
                         float compilingcost = 0.0f;
                         //Object[] selected = (Object[])shownDirectory[table.getSelectedRow()];
-                        Object objects[] = new Object[]{MyHacker.getEncryptedIP(), folder, name, compilingcost * 0.9f};
                         GameState myGameState = MyHacker.getView();
                         MyHacker.setRequestedDirectory(Hacker.HOME);
-                        myGameState.setFunction("decompilefile");
-                        myGameState.addFunctionCall(new RemoteFunctionCall(Hacker.HOME, "decompilefile", objects));
+                        myGameState.addFunctionCall(new com.hackwars.rpc.DecompileFile(MyHacker.getEncryptedIP(), folder, name, compilingcost * 0.9f).toRfc(Hacker.HOME));
                     }
                 } else {
                     JOptionPane.showMessageDialog(this,
@@ -1124,9 +1100,7 @@ public class Home extends Application implements ComponentListener, TableModelLi
                     String encryptedIP = MyHacker.getEncryptedIP();
                     GameState myGameState = MyHacker.getView();
                     MyHacker.setRequestedFile(Hacker.HACKTENDO_PLAYER);
-                    Object[] objects = {encryptedIP, folder, fileName};
-                    myGameState.setFunction("requestgame");
-                    myGameState.addFunctionCall(new RemoteFunctionCall(0, "requestgame", objects));
+                    myGameState.addFunctionCall(new com.hackwars.rpc.RequestGame(encryptedIP, folder, fileName).toRfc(0));
                 } else if (type.equals(TYPES[HackerFile.BANKING_SCRIPT]) || type.equals(TYPES[HackerFile.ATTACKING_SCRIPT]) || type.equals(TYPES[HackerFile.WATCH_SCRIPT]) || type.equals(TYPES[HackerFile.SHIPPING_SCRIPT]) || type.equals(TYPES[HackerFile.TEXT]) || type.equals(TYPES[HackerFile.FTP_SCRIPT])) {
                     MyHacker.showScriptEditor(folder, fileName);
                 }

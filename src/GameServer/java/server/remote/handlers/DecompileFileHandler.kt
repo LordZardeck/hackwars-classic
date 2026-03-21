@@ -1,14 +1,13 @@
 package server.remote.handlers
 
 import assignments.RemoteFunctionCall
+import com.hackwars.rpc.DecompileFile
 import game.ApplicationData
-import com.hackwars.rpc.*
 import server.remote.RemoteCallContext
 import server.remote.RemoteCallHandler
 import server.remote.RpcHandler
-import java.util.*
 
-@RpcHandler(DecompileFile.FUNCTION)
+@RpcHandler(com.hackwars.rpc.GameCommandWires.DECOMPILEFILE)
 object DecompileFileHandler : RemoteCallHandler {
     override fun handle(rfc: RemoteFunctionCall, context: RemoteCallContext) {
         val parsedCall = DecompileFile.fromRpc(rfc)

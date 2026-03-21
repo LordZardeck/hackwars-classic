@@ -22,7 +22,7 @@ class FinalizeCancelledTest {
     @Test
     fun fromRpc_and_toRfc_roundtrip() {
         val params = arrayOf<Any?>("value", null, 42)
-        val rpc = RemoteFunctionCall(1, FinalizeCancelled.FUNCTION, params)
+        val rpc = RemoteFunctionCall(1, com.hackwars.rpc.GameCommandWires.FINALIZECANCELLED, params)
 
         val call = FinalizeCancelled.fromRpc(rpc)
         assertEquals(params[0], call.ip)
@@ -30,7 +30,7 @@ class FinalizeCancelledTest {
         assertEquals(params[2], call.targetPort)
         val serialized = call.toRfc()
 
-        assertEquals(FinalizeCancelled.FUNCTION, serialized.function)
+        assertEquals(com.hackwars.rpc.GameCommandWires.FINALIZECANCELLED, serialized.function)
         assertArrayEquals(params, serialized.parameters as Array<*>)
     }
 }

@@ -4,12 +4,7 @@ import game.ApplicationData
 import game.Watch
 import org.junit.Assert.assertEquals
 import org.junit.Test
-import org.mockito.kotlin.argumentCaptor
-import org.mockito.kotlin.eq
-import org.mockito.kotlin.mock
-import org.mockito.kotlin.verify
-import org.mockito.kotlin.whenever
-import com.hackwars.rpc.FetchWatches
+import org.mockito.kotlin.*
 
 class ChangeWatchPortTest {
     @Test
@@ -26,6 +21,6 @@ class ChangeWatchPortTest {
         verify(watch).port = 443
         val appCaptor = argumentCaptor<ApplicationData>()
         verify(networkSwitch).addData(appCaptor.capture(), eq("1.2.3.4"))
-        assertEquals(FetchWatches.FUNCTION, appCaptor.firstValue.command.wireName())
+        assertEquals(com.hackwars.rpc.GameCommandWires.FETCHWATCHES, appCaptor.firstValue.command.wireName())
     }
 }

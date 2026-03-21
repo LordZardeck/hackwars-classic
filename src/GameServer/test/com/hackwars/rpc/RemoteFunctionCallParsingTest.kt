@@ -11,6 +11,12 @@ class RemoteFunctionCallParsingTest {
         RemoteFunctionCallImpl() {
         companion object {
             const val FUNCTION = "test_required_parameters"
+            val SPEC = GameFunctionSpec(
+                GameCommandSpec(FUNCTION),
+                TestRequiredParameters::class.java,
+                ::fromRpc
+            )
+
             fun fromRpc(rfc: RemoteFunctionCall): TestRequiredParameters {
                 return TestRequiredParameters(
                     getPositionalParameter<String>(rfc, 0),
@@ -20,14 +26,20 @@ class RemoteFunctionCallParsingTest {
             }
         }
 
-        override val function = FUNCTION
-        override fun toRfc() = RemoteFunctionCall(0, function, arrayOf<Any?>(a, b, c))
+        override val spec = SPEC
+        override fun toRfc(requestId: Int) = RemoteFunctionCall(requestId, spec.wireName, arrayOf<Any?>(a, b, c))
     }
 
     private data class TestOptionalParameters(val a: String?, val b: Int?, val c: HashMap<*, *>?) :
         RemoteFunctionCallImpl() {
         companion object {
             const val FUNCTION = "test_optional_parameters"
+            val SPEC = GameFunctionSpec(
+                GameCommandSpec(FUNCTION),
+                TestOptionalParameters::class.java,
+                ::fromRpc
+            )
+
             fun fromRpc(rfc: RemoteFunctionCall): TestOptionalParameters {
                 return TestOptionalParameters(
                     getPositionalParameter<String?>(rfc, 0),
@@ -37,8 +49,8 @@ class RemoteFunctionCallParsingTest {
             }
         }
 
-        override val function = FUNCTION
-        override fun toRfc() = RemoteFunctionCall(0, function, arrayOf<Any?>(a, b, c))
+        override val spec = SPEC
+        override fun toRfc(requestId: Int) = RemoteFunctionCall(requestId, spec.wireName, arrayOf<Any?>(a, b, c))
     }
 
     companion object {

@@ -4,15 +4,16 @@ package gui;
  * this is the attack window.
  */
 
+import assignments.PacketPort;
+import com.hackwars.state.GameState;
+
 import javax.swing.*;
 import javax.swing.event.*;
 import java.awt.*;
-import java.awt.event.*;
-
-import assignments.*;
-import com.hackwars.state.GameState;
-
-import java.text.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.FocusEvent;
+import java.awt.event.FocusListener;
+import java.text.NumberFormat;
 
 public class PortScan extends Application implements UndoableEditListener, FocusListener, TableModelListener {
     private final String[] columns = {"Port", "Type", "FireWall", "Default", "Attack"};
@@ -156,9 +157,7 @@ public class PortScan extends Application implements UndoableEditListener, Focus
         //get ip from main class.
         String ip = MyHacker.getEncryptedIP();
         GameState myGameState = MyHacker.getView();
-        Object objects[] = {ip, targetIP};
-        myGameState.setFunction("requestscan");
-        myGameState.addFunctionCall(new RemoteFunctionCall(0, "requestscan", objects));
+        myGameState.addFunctionCall(new com.hackwars.rpc.RequestScan(ip, targetIP).toRfc(0));
     }
 
     public void actionPerformed(ActionEvent e) {

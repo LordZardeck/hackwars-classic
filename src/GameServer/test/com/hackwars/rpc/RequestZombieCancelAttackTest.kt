@@ -22,7 +22,7 @@ class RequestZombieCancelAttackTest {
     @Test
     fun fromRpc_and_toRfc_roundtrip() {
         val params = arrayOf<Any?>(null, 42, "value")
-        val rpc = RemoteFunctionCall(1, RequestZombieCancelAttack.FUNCTION, params)
+        val rpc = RemoteFunctionCall(1, com.hackwars.rpc.GameCommandWires.REQUESTZOMBIECANCELATTACK, params)
 
         val call = RequestZombieCancelAttack.fromRpc(rpc)
         assertEquals(params[0], call.ip)
@@ -30,7 +30,7 @@ class RequestZombieCancelAttackTest {
         assertEquals(params[2], call.targetIP)
         val serialized = call.toRfc()
 
-        assertEquals(RequestZombieCancelAttack.FUNCTION, serialized.function)
+        assertEquals(com.hackwars.rpc.GameCommandWires.REQUESTZOMBIECANCELATTACK, serialized.function)
         assertArrayEquals(params, serialized.parameters as Array<*>)
     }
 }

@@ -4,23 +4,19 @@ package gui;
  * this is the deposit window.
  */
 
-import javax.swing.*;
-import javax.swing.event.*;
-import java.awt.*;
-import java.awt.event.*;
-
 import com.hackwars.state.GameState;
-import game.*;
-
-import java.util.*;
-
-import assignments.*;
-
-import java.text.*;
-
-import hackscript.model.*;
-import jsyntaxpane.*;
+import game.HackerFile;
+import hackscript.model.RunFactory;
+import jsyntaxpane.SyntaxDocument;
 import util.LegacyRemoteDefaults;
+
+import javax.swing.*;
+import javax.swing.event.InternalFrameEvent;
+import java.awt.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.KeyEvent;
+import java.text.NumberFormat;
+import java.util.HashMap;
 
 public class ScriptEditor extends Application {
     private final int TEXT_LIMIT = 60000;
@@ -506,9 +502,7 @@ public class ScriptEditor extends Application {
         MyHacker.setRequestedFile(Hacker.SCRIPT_EDITOR);
         GameState myGameState = MyHacker.getView();
         String ip = MyHacker.getEncryptedIP();
-        Object objects[] = {ip, folder, answer};
-        myGameState.setFunction("requestfile");
-        myGameState.addFunctionCall(new RemoteFunctionCall(0, "requestfile", objects));
+        myGameState.addFunctionCall(new com.hackwars.rpc.RequestFile(ip, folder, answer).toRfc(0));
     }
 
     public void receivedFile(HackerFile HF) {
@@ -863,11 +857,8 @@ public class ScriptEditor extends Application {
             HF.setType(SIFP.getType());
             if (SIFP.getType() == ScriptInternalFunctionPane.CHALLENGE)
                 HF.setType(ScriptInternalFunctionPane.TEXT);
-            Object objects[] = {ip, folder, HF};
-            myGameState.setFunction("savefile");
-            myGameState.addFunctionCall(new RemoteFunctionCall(0, "savefile", objects));
-            objects = new Object[]{ip, folder};
-            myGameState.addFunctionCall(new RemoteFunctionCall(0, "requestdirectory", objects));
+            myGameState.addFunctionCall(new com.hackwars.rpc.SaveFile(ip, folder, HF).toRfc(0));
+            myGameState.addFunctionCall(new com.hackwars.rpc.RequestDirectory(ip, folder).toRfc(0));
             SIFP.setTitle(answer);
             tabbedPane.setTitleAt(tabbedPane.getSelectedIndex(), answer);
         }
@@ -1452,9 +1443,7 @@ public class ScriptEditor extends Application {
                                         options[1]);
                                 if (n == 0) {
                                     HF.setCPUCost((float) (double) (Double) (result.get("cpucost")));
-                                    Object objects[] = {ip, folder, HF, price};
-                                    myGameState.setFunction("compilefile");
-                                    myGameState.addFunctionCall(new RemoteFunctionCall(0, "compilefile", objects));
+                                    myGameState.addFunctionCall(new com.hackwars.rpc.CompileFile(ip, folder, HF, price).toRfc(0));
                                 }
                             }
                         }
@@ -1495,9 +1484,7 @@ public class ScriptEditor extends Application {
                         null,
                         null,
                         null);
-                Object[] objects = new Object[]{MyHacker.getEncryptedIP(), function, s};
-                myGameState.setFunction("dochallenge");
-                myGameState.addFunctionCall(new RemoteFunctionCall(0, "dochallenge", objects));
+                myGameState.addFunctionCall(new com.hackwars.rpc.DoChallenge(MyHacker.getEncryptedIP(), function, s).toRfc(0));
             }
 
         }

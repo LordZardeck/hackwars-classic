@@ -1,15 +1,14 @@
 package server.remote.handlers
 
 import assignments.RemoteFunctionCall
+import com.hackwars.rpc.SetPreferences
 import game.ApplicationData
-import com.hackwars.rpc.*
 import game.payload.SetPreferencesPayload
 import server.remote.RemoteCallContext
 import server.remote.RemoteCallHandler
 import server.remote.RpcHandler
-import java.util.*
 
-@RpcHandler(SetPreferences.FUNCTION)
+@RpcHandler(com.hackwars.rpc.GameCommandWires.SETPREFERENCES)
 object SetPreferencesHandler : RemoteCallHandler {
     override fun handle(rfc: RemoteFunctionCall, context: RemoteCallContext) {
         val parsedCall = SetPreferences.fromRpc(rfc)

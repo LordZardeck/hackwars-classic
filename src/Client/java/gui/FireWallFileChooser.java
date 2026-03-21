@@ -4,13 +4,15 @@ package gui;
  * this is to choose a firewall to install onto a port.
  */
 
+import com.hackwars.state.GameState;
+import game.HackerFile;
+
 import javax.swing.*;
 import java.awt.*;
-import java.awt.event.*;
-
-import com.hackwars.state.GameState;
-import game.*;
-import assignments.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.awt.event.MouseEvent;
+import java.awt.event.MouseListener;
 
 public class FireWallFileChooser extends JInternalFrame implements ActionListener, MouseListener {
     //data
@@ -38,10 +40,8 @@ public class FireWallFileChooser extends JInternalFrame implements ActionListene
         //if(folder.equals("Store")||folder.equals("Public")||directory==null){
         this.folder = "";
         GameState myGameState = MyHacker.getView();
-        Object objects[] = {MyHacker.getEncryptedIP(), ""};
         MyHacker.setCurrentFolder("");
-        myGameState.setFunction("requestdirectory");
-        myGameState.addFunctionCall(new RemoteFunctionCall(Hacker.FIREWALL_FILE_CHOOSER, "requestdirectory", objects));
+        myGameState.addFunctionCall(new com.hackwars.rpc.RequestDirectory(MyHacker.getEncryptedIP(), "").toRfc(Hacker.FIREWALL_FILE_CHOOSER));
         //}
         setTitle("Choose FireWall");
         setFrameIcon(ImageLoader.getImageIcon("images/open.png"));
@@ -195,9 +195,7 @@ public class FireWallFileChooser extends JInternalFrame implements ActionListene
                     //REQUEST DIRECTORY
                     GameState myGameState = MyHacker.getView();
                     String ip = MyHacker.getEncryptedIP();
-                    Object objects[] = {ip, folder};
-                    myGameState.setFunction("requestdirectory");
-                    myGameState.addFunctionCall(new RemoteFunctionCall(Hacker.FIREWALL_FILE_CHOOSER, "requestdirectory", objects));
+                    myGameState.addFunctionCall(new com.hackwars.rpc.RequestDirectory(ip, folder).toRfc(Hacker.FIREWALL_FILE_CHOOSER));
                 } else {
                     String folders[] = folder.split("/");
                     String newFolder = "";
@@ -210,9 +208,7 @@ public class FireWallFileChooser extends JInternalFrame implements ActionListene
                     folderField.setText("home/" + folder);
                     GameState myGameState = MyHacker.getView();
                     String ip = MyHacker.getEncryptedIP();
-                    Object objects[] = {ip, folder};
-                    myGameState.setFunction("requestdirectory");
-                    myGameState.addFunctionCall(new RemoteFunctionCall(Hacker.FIREWALL_FILE_CHOOSER, "requestdirectory", objects));
+                    myGameState.addFunctionCall(new com.hackwars.rpc.RequestDirectory(ip, folder).toRfc(Hacker.FIREWALL_FILE_CHOOSER));
                 }
             } else {
                 String blah = "";

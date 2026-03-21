@@ -19,6 +19,7 @@ sourceSets {
             include 'legacy/**/*.java'
             include 'chat/messages/**/*.java'
             include 'chat/util/**/*.java'
+            include 'com/hackwars/**/*.java'
             include 'com/plink/dolphinnet/**/*.java'
             include 'com/plink/dolphinstem/**/*.java'
             include 'view/Task.java'
@@ -32,10 +33,12 @@ sourceSets {
             include 'legacy/**/*.kt'
             include 'chat/messages/**/*.kt'
             include 'chat/util/**/*.kt'
+            include 'com/hackwars/**/*.kt'
             include 'com/plink/dolphinnet/**/*.kt'
             include 'com/plink/dolphinstem/**/*.kt'
             include 'view/Task.kt'
             include 'util/**/*.kt'
+            include 'com/hackwars/rpc/**/*.kt'
         }
     }
 }

@@ -22,7 +22,7 @@ class ChangeDailyPayTest {
     @Test
     fun fromRpc_and_toRfc_roundtrip() {
         val params = arrayOf<Any?>(null, 42, null, "value", 42)
-        val rpc = RemoteFunctionCall(1, ChangeDailyPay.FUNCTION, params)
+        val rpc = RemoteFunctionCall(1, com.hackwars.rpc.GameCommandWires.CHANGEDAILYPAY, params)
 
         val call = ChangeDailyPay.fromRpc(rpc)
         assertEquals(params[0], call.ip)
@@ -32,7 +32,7 @@ class ChangeDailyPayTest {
         assertEquals(params[4], call.attackPort)
         val serialized = call.toRfc()
 
-        assertEquals(ChangeDailyPay.FUNCTION, serialized.function)
+        assertEquals(com.hackwars.rpc.GameCommandWires.CHANGEDAILYPAY, serialized.function)
         assertArrayEquals(params, serialized.parameters as Array<*>)
     }
 }

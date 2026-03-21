@@ -22,7 +22,7 @@ class CompileFileTest {
     @Test
     fun fromRpc_and_toRfc_roundtrip() {
         val params = arrayOf<Any?>("value", null, null, null)
-        val rpc = RemoteFunctionCall(1, CompileFile.FUNCTION, params)
+        val rpc = RemoteFunctionCall(1, com.hackwars.rpc.GameCommandWires.COMPILEFILE, params)
 
         val call = CompileFile.fromRpc(rpc)
         assertEquals(params[0], call.ip)
@@ -31,7 +31,7 @@ class CompileFileTest {
         assertEquals(params[3], call.price)
         val serialized = call.toRfc()
 
-        assertEquals(CompileFile.FUNCTION, serialized.function)
+        assertEquals(com.hackwars.rpc.GameCommandWires.COMPILEFILE, serialized.function)
         assertArrayEquals(params, serialized.parameters as Array<*>)
     }
 }

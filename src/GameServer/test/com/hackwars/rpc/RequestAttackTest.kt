@@ -21,8 +21,17 @@ class RequestAttackTest {
 
     @Test
     fun fromRpc_and_toRfc_roundtrip() {
-        val params = arrayOf<Any?>("value", 42, "value", 42, arrayOf<Int?>(1, null), arrayOf<Array<String?>?>(arrayOf<String?>("a", null)), arrayOf<Any?>("x", 1), null)
-        val rpc = RemoteFunctionCall(1, RequestAttack.FUNCTION, params)
+        val params = arrayOf<Any?>(
+            "value",
+            42,
+            "value",
+            42,
+            arrayOf<Int?>(1, null),
+            arrayOf<Array<String?>?>(arrayOf<String?>("a", null)),
+            arrayOf<Any?>("x", 1),
+            null
+        )
+        val rpc = RemoteFunctionCall(1, com.hackwars.rpc.GameCommandWires.REQUESTATTACK, params)
 
         val call = RequestAttack.fromRpc(rpc)
         assertEquals(params[0], call.targetIP)
@@ -35,7 +44,7 @@ class RequestAttackTest {
         assertEquals(params[7], call.windowHandle)
         val serialized = call.toRfc()
 
-        assertEquals(RequestAttack.FUNCTION, serialized.function)
+        assertEquals(com.hackwars.rpc.GameCommandWires.REQUESTATTACK, serialized.function)
         assertArrayEquals(params, serialized.parameters as Array<*>)
     }
 }

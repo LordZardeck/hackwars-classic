@@ -4,20 +4,21 @@ package gui;
  * this is the deposit window.
  */
 
-import javax.swing.*;
-import javax.swing.event.*;
-import java.awt.*;
-import java.awt.event.*;
-
-import assignments.*;
 import com.hackwars.state.GameState;
+import net.miginfocom.swing.MigLayout;
 
-import java.text.*;
-import java.util.Vector;
-
-import net.miginfocom.swing.*;
-
+import javax.swing.*;
+import javax.swing.event.InternalFrameEvent;
+import javax.swing.event.UndoableEditEvent;
+import javax.swing.event.UndoableEditListener;
+import java.awt.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.FocusEvent;
+import java.awt.event.FocusListener;
+import java.text.DecimalFormat;
+import java.text.NumberFormat;
 import java.util.HashMap;
+import java.util.Vector;
 
 public class Transfer extends Application implements UndoableEditListener, FocusListener {
     private JDesktopPane mainPanel = null;
@@ -153,9 +154,7 @@ public class Transfer extends Application implements UndoableEditListener, Focus
         String ip = MyHacker.getEncryptedIP();
         int port = (new Integer((((String) bankPortsCbo.getSelectedItem()).split(":")[0]))).intValue();
         String targetIP = ipPanel.getIP();//ipField1.getText()+"."+ipField2.getText()+"."+ipField3.getText()+"."+ipField4.getText();
-        Object objects[] = {new Float(amount), ip, targetIP, new Integer(port)};
-        myGameState.setFunction("transfer");
-        myGameState.addFunctionCall(new RemoteFunctionCall(0, "transfer", objects));
+        myGameState.addFunctionCall(new com.hackwars.rpc.Transfer(new Float(amount), ip, targetIP, new Integer(port)).toRfc(0));
         this.hide();
         mainPanel.repaint();
         MyHacker.setTransferOpen(false);

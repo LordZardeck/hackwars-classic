@@ -22,7 +22,7 @@ class EmptyPettyCashTest {
     @Test
     fun fromRpc_and_toRfc_roundtrip() {
         val params = arrayOf<Any?>("value", null, 42, 42)
-        val rpc = RemoteFunctionCall(1, EmptyPettyCash.FUNCTION, params)
+        val rpc = RemoteFunctionCall(1, com.hackwars.rpc.GameCommandWires.EMPTYPETTYCASH, params)
 
         val call = EmptyPettyCash.fromRpc(rpc)
         assertEquals(params[0], call.ip)
@@ -31,7 +31,7 @@ class EmptyPettyCashTest {
         assertEquals(params[3], call.windowHandle)
         val serialized = call.toRfc()
 
-        assertEquals(EmptyPettyCash.FUNCTION, serialized.function)
+        assertEquals(com.hackwars.rpc.GameCommandWires.EMPTYPETTYCASH, serialized.function)
         assertArrayEquals(params, serialized.parameters as Array<*>)
     }
 }

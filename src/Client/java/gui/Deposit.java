@@ -4,19 +4,17 @@ package gui;
  * this is the deposit window.
  */
 
-import javax.swing.*;
-import javax.swing.event.*;
-import java.awt.*;
-import java.awt.event.*;
-
-import assignments.*;
 import com.hackwars.state.GameState;
+import net.miginfocom.swing.MigLayout;
 
-import java.text.*;
-import java.util.Vector; // Vector
+import javax.swing.*;
+import javax.swing.event.InternalFrameEvent;
+import java.awt.*;
+import java.awt.event.ActionEvent;
+import java.text.DecimalFormat;
+import java.text.NumberFormat;
 import java.util.HashMap;
-
-import net.miginfocom.swing.*;
+import java.util.Vector;
 
 public class Deposit extends Application {
     private JDesktopPane mainPanel = null;
@@ -173,9 +171,7 @@ public class Deposit extends Application {
         //String ip="192.168.2.100";
         String ip = MyHacker.getEncryptedIP();
         int port = (new Integer((((String) bankPortsCbo.getSelectedItem()).split(":")[0]))).intValue();
-        Object objects[] = {new Float(amount), ip, new Integer(port)};
-        myGameState.setFunction("deposit");
-        myGameState.addFunctionCall(new RemoteFunctionCall(0, "deposit", objects));
+        myGameState.addFunctionCall(new com.hackwars.rpc.Deposit(new Float(amount), ip, new Integer(port)).toRfc(0));
         this.hide();
         mainPanel.repaint();
         MyHacker.setDepositOpen(false);

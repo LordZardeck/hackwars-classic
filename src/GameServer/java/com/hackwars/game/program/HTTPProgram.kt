@@ -127,7 +127,7 @@ class HTTPProgram(computer: Computer?, computerHandler: NetworkSwitch?) : Progra
             }
         }
 
-        if (applicationData.command.wireName() != "exit")  //Serve the web-page.
+        if (applicationData.command.wireName() != com.hackwars.rpc.GameCommandWires.EXIT)  //Serve the web-page.
             serveWebPage(applicationData, packetID)
 
         Parameters = null

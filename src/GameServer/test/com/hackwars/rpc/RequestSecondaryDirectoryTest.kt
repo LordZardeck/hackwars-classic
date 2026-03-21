@@ -22,7 +22,7 @@ class RequestSecondaryDirectoryTest {
     @Test
     fun fromRpc_and_toRfc_roundtrip() {
         val params = arrayOf<Any?>(null, null, "value", 42)
-        val rpc = RemoteFunctionCall(1, RequestSecondaryDirectory.FUNCTION, params)
+        val rpc = RemoteFunctionCall(1, com.hackwars.rpc.GameCommandWires.REQUESTSECONDARYDIRECTORY, params)
 
         val call = RequestSecondaryDirectory.fromRpc(rpc)
         assertEquals(params[0], call.ip)
@@ -31,7 +31,7 @@ class RequestSecondaryDirectoryTest {
         assertEquals(params[3], call.port)
         val serialized = call.toRfc()
 
-        assertEquals(RequestSecondaryDirectory.FUNCTION, serialized.function)
+        assertEquals(com.hackwars.rpc.GameCommandWires.REQUESTSECONDARYDIRECTORY, serialized.function)
         assertArrayEquals(params, serialized.parameters as Array<*>)
     }
 }

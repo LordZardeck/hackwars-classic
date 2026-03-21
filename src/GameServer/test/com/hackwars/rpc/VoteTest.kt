@@ -22,14 +22,14 @@ class VoteTest {
     @Test
     fun fromRpc_and_toRfc_roundtrip() {
         val params = arrayOf<Any?>(null, "value")
-        val rpc = RemoteFunctionCall(1, Vote.FUNCTION, params)
+        val rpc = RemoteFunctionCall(1, com.hackwars.rpc.GameCommandWires.VOTE, params)
 
         val call = Vote.fromRpc(rpc)
         assertEquals(params[0], call.targetIp)
         assertEquals(params[1], call.sourceIp)
         val serialized = call.toRfc()
 
-        assertEquals(Vote.FUNCTION, serialized.function)
+        assertEquals(com.hackwars.rpc.GameCommandWires.VOTE, serialized.function)
         assertArrayEquals(params, serialized.parameters as Array<*>)
     }
 }

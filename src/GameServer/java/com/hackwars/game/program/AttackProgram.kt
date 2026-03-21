@@ -6,26 +6,11 @@
  */
 package com.hackwars.game.program
 
-import com.hackwars.game.program.attack.AttackContinueHandler
-import com.hackwars.game.program.attack.AttackFinalizeHandler
-import com.hackwars.game.program.attack.AttackFunctionHandler
-import com.hackwars.game.program.attack.AttackInitializeHandler
-import com.hackwars.game.program.attack.RequestAttackHandler
-import com.hackwars.game.program.attack.RequestCancelAttackHandler
-import com.hackwars.game.program.attack.ZombieAttackHandler
+import com.hackwars.game.program.attack.*
 import com.hackwars.rpc.RequestAttack
 import com.hackwars.rpc.RequestCancelAttack
 import game.*
-import game.payload.AddShowChoicesPayload
-import game.payload.ATTACK_CONTINUE_COMMAND
-import game.payload.AttackContinuePayload
-import game.payload.CancelAttackPayload
-import game.payload.DamagePayload
-import game.payload.AttackFinalizePayload
-import game.payload.AttackInitializePayload
-import game.payload.StructuredMessagePayload
-import game.payload.REQUEST_CANCEL_ATTACK_COMMAND
-import game.payload.ZombieAttackPayload
+import game.payload.*
 import hackscript.model.RunFactory
 import org.slf4j.LoggerFactory
 
@@ -328,39 +313,39 @@ class AttackProgram(
         }
 
         if (applicationData.command == ATTACK_CONTINUE_COMMAND || applicationData.payload is AttackContinuePayload) {
-            functionHandlers["attackcontinue"]?.execute(this, applicationData)
+            functionHandlers[com.hackwars.rpc.GameCommandWires.ATTACKCONTINUE]?.execute(this, applicationData)
             return
         }
 
         when (applicationData.payload) {
             is AttackInitializePayload -> {
-                functionHandlers["attackinitialize"]?.execute(this, applicationData)
+                functionHandlers[com.hackwars.rpc.GameCommandWires.ATTACKINITIALIZE]?.execute(this, applicationData)
                 return
             }
 
             is AttackFinalizePayload -> {
-                functionHandlers["attackfinalize"]?.execute(this, applicationData)
+                functionHandlers[com.hackwars.rpc.GameCommandWires.ATTACKFINALIZE]?.execute(this, applicationData)
                 return
             }
 
             is RequestAttack -> {
-                functionHandlers["requestattack"]?.execute(this, applicationData)
+                functionHandlers[com.hackwars.rpc.GameCommandWires.REQUESTATTACK]?.execute(this, applicationData)
                 return
             }
 
             is RequestCancelAttack -> {
-                functionHandlers["requestcancelattack"]?.execute(this, applicationData)
+                functionHandlers[com.hackwars.rpc.GameCommandWires.REQUESTCANCELATTACK]?.execute(this, applicationData)
                 return
             }
 
             is ZombieAttackPayload -> {
-                functionHandlers["zombieattack"]?.execute(this, applicationData)
+                functionHandlers[com.hackwars.rpc.GameCommandWires.ZOMBIEATTACK]?.execute(this, applicationData)
                 return
             }
         }
 
         if (applicationData.command == REQUEST_CANCEL_ATTACK_COMMAND) {
-            functionHandlers["requestcancelattack"]?.execute(this, applicationData)
+            functionHandlers[com.hackwars.rpc.GameCommandWires.REQUESTCANCELATTACK]?.execute(this, applicationData)
         }
     }
 

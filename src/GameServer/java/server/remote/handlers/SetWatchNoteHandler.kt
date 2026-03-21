@@ -1,14 +1,13 @@
 package server.remote.handlers
 
 import assignments.RemoteFunctionCall
+import com.hackwars.rpc.SetWatchNote
 import game.ApplicationData
-import com.hackwars.rpc.*
 import server.remote.RemoteCallContext
 import server.remote.RemoteCallHandler
 import server.remote.RpcHandler
-import java.util.*
 
-@RpcHandler(SetWatchNote.FUNCTION)
+@RpcHandler(com.hackwars.rpc.GameCommandWires.SETWATCHNOTE)
 object SetWatchNoteHandler : RemoteCallHandler {
     override fun handle(rfc: RemoteFunctionCall, context: RemoteCallContext) {
         val parsedCall = SetWatchNote.fromRpc(rfc)

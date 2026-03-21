@@ -22,7 +22,7 @@ class MakeBountyTest {
     @Test
     fun fromRpc_and_toRfc_roundtrip() {
         val params = arrayOf<Any?>("value", null, null, null, null, null, null, null)
-        val rpc = RemoteFunctionCall(1, MakeBounty.FUNCTION, params)
+        val rpc = RemoteFunctionCall(1, com.hackwars.rpc.GameCommandWires.MAKEBOUNTY, params)
 
         val call = MakeBounty.fromRpc(rpc)
         assertEquals(params[0], call.sourceIp)
@@ -35,7 +35,7 @@ class MakeBountyTest {
         assertEquals(params[7], call.reward)
         val serialized = call.toRfc()
 
-        assertEquals(MakeBounty.FUNCTION, serialized.function)
+        assertEquals(com.hackwars.rpc.GameCommandWires.MAKEBOUNTY, serialized.function)
         assertArrayEquals(params, serialized.parameters as Array<*>)
     }
 }

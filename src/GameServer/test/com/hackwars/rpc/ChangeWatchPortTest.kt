@@ -22,7 +22,7 @@ class ChangeWatchPortTest {
     @Test
     fun fromRpc_and_toRfc_roundtrip() {
         val params = arrayOf<Any?>("value", null, null)
-        val rpc = RemoteFunctionCall(1, ChangeWatchPort.FUNCTION, params)
+        val rpc = RemoteFunctionCall(1, com.hackwars.rpc.GameCommandWires.CHANGEWATCHPORT, params)
 
         val call = ChangeWatchPort.fromRpc(rpc)
         assertEquals(params[0], call.ip)
@@ -30,7 +30,7 @@ class ChangeWatchPortTest {
         assertEquals(params[2], call.portId)
         val serialized = call.toRfc()
 
-        assertEquals(ChangeWatchPort.FUNCTION, serialized.function)
+        assertEquals(com.hackwars.rpc.GameCommandWires.CHANGEWATCHPORT, serialized.function)
         assertArrayEquals(params, serialized.parameters as Array<*>)
     }
 }

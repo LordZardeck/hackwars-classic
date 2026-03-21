@@ -1,11 +1,9 @@
 package game
 
-import java.text.DecimalFormat
-import java.text.NumberFormat
-import java.util.ArrayList
-import java.util.HashMap
 import game.payload.FloatCommandPayload
 import game.payload.SaveFileRequestPayload
+import java.text.DecimalFormat
+import java.text.NumberFormat
 
 class EquipmentSheet(private val MyComputer: Computer) {
     private var bonusCount = 9
@@ -636,7 +634,11 @@ class EquipmentSheet(private val MyComputer: Computer) {
                 }
 
                 MyComputer.computerHandler.addData(
-                    ApplicationData(FloatCommandPayload(ApplicationCommand.of("repairxp"), xp), 0, MyComputer.getIP()),
+                    ApplicationData(
+                        FloatCommandPayload(com.hackwars.rpc.GameCommands.REPAIRXP.command, xp),
+                        0,
+                        MyComputer.getIP()
+                    ),
                     MyComputer.getIP()
                 )
 
@@ -665,7 +667,10 @@ class EquipmentSheet(private val MyComputer: Computer) {
                     message += "[" + commodityUsed[i] + "x" + Computer.commodityString[i] + "] "
                 }
             }
-            MyComputer.addMessage(MessageHandler.REPAIR_FAIL_NOT_ENOUGH_COMMODITIES, arrayOf(Equipment.getName(), message))
+            MyComputer.addMessage(
+                MessageHandler.REPAIR_FAIL_NOT_ENOUGH_COMMODITIES,
+                arrayOf(Equipment.getName(), message)
+            )
         }
     }
 
@@ -773,11 +778,13 @@ class EquipmentSheet(private val MyComputer: Computer) {
             if (BD.getBankingBonus() > 0) {
                 val value = BD.getBankingBonus().toDouble()
                 val intvalue = (value * 1000.0).toInt()
-                bonusString = "" + (intvalue.toDouble() / 10.0) + "%/" + decimalFormat.format(bonus) + " Lower Banking Costs"
+                bonusString =
+                    "" + (intvalue.toDouble() / 10.0) + "%/" + decimalFormat.format(bonus) + " Lower Banking Costs"
             } else {
                 val value = -1.0 * BD.getBankingBonus()
                 val intvalue = (value * 1000.0).toInt()
-                bonusString = "" + (intvalue.toDouble() / 10.0) + "%/" + decimalFormat.format(-bonus) + " Higher Banking Costs"
+                bonusString =
+                    "" + (intvalue.toDouble() / 10.0) + "%/" + decimalFormat.format(-bonus) + " Higher Banking Costs"
             }
         } else if (attribute == HEAL_COST_BONUS) {
             val BonusChart = ED.getBonusChart() as FloatArray

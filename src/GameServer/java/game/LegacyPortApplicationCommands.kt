@@ -1,19 +1,8 @@
 package game
 
 import assignments.PacketPort
-import com.hackwars.game.program.AttackProgram
-import com.hackwars.game.program.Banking
-import com.hackwars.game.program.FTPProgram
-import com.hackwars.game.program.HTTPProgram
-import com.hackwars.game.program.Program
-import com.hackwars.game.program.ShippingProgram
-import com.hackwars.rpc.DeleteFirewall
-import com.hackwars.rpc.FetchPorts
-import com.hackwars.rpc.InstallApplication
-import com.hackwars.rpc.InstallFirewall
-import com.hackwars.rpc.ReplaceApplication
-import game.payloadAs
-import java.util.HashMap
+import com.hackwars.game.program.*
+import com.hackwars.rpc.*
 import java.util.Map
 
 /**
@@ -24,27 +13,27 @@ class LegacyPortApplicationCommands : LegacyApplicationDataHandler {
     override fun dispatch(computer: Computer, applicationData: ApplicationData, resolvedPort: Int): Boolean {
         val function = applicationData.command.wireName()
 
-        if ("deletefirewall" == function) {
+        if (com.hackwars.rpc.GameCommandWires.DELETEFIREWALL == function) {
             handleDeleteFirewall(computer, applicationData)
             return true
         }
-        if ("installfirewall" == function) {
+        if (com.hackwars.rpc.GameCommandWires.INSTALLFIREWALL == function) {
             handleInstallFirewall(computer, applicationData, resolvedPort)
             return true
         }
-        if ("replaceapplication" == function) {
+        if (com.hackwars.rpc.GameCommandWires.REPLACEAPPLICATION == function) {
             handleReplaceApplication(computer, applicationData, resolvedPort)
             return true
         }
-        if ("installapplication" == function) {
+        if (com.hackwars.rpc.GameCommandWires.INSTALLAPPLICATION == function) {
             handleInstallApplication(computer, applicationData, resolvedPort)
             return true
         }
-        if ("fetchports" == function) {
+        if (com.hackwars.rpc.GameCommandWires.FETCHPORTS == function) {
             handleFetchPorts(computer)
             return true
         }
-        if ("requestsecondarydirectory" == function) {
+        if (com.hackwars.rpc.GameCommandWires.REQUESTSECONDARYDIRECTORY == function) {
             // This still belongs to FTP port execution after pre-dispatch FTP normalization.
             return false
         }
@@ -174,7 +163,13 @@ class LegacyPortApplicationCommands : LegacyApplicationDataHandler {
                         port.setCPUCost(hackerFile.getCPUCost())
 
                         if (portType == Port.ATTACK) {
-                            newProgram = AttackProgram(computer, computer.MyComputerHandler, port, computer.Choices, computer.MyMakeBounty)
+                            newProgram = AttackProgram(
+                                computer,
+                                computer.MyComputerHandler,
+                                port,
+                                computer.Choices,
+                                computer.MyMakeBounty
+                            )
                         } else if (portType == Port.SHIPPING) {
                             newProgram = ShippingProgram(computer, computer.MyComputerHandler, port)
                         } else if (portType == Port.BANKING) {
@@ -239,7 +234,13 @@ class LegacyPortApplicationCommands : LegacyApplicationDataHandler {
                             if (computer.defaultAttack == 0) {
                                 computer.defaultAttack = resolvedPort
                             }
-                            newProgram = AttackProgram(computer, computer.MyComputerHandler, port, computer.Choices, computer.MyMakeBounty)
+                            newProgram = AttackProgram(
+                                computer,
+                                computer.MyComputerHandler,
+                                port,
+                                computer.Choices,
+                                computer.MyMakeBounty
+                            )
                         } else if (portType == Port.SHIPPING) {
                             if (computer.defaultShipping == 0) {
                                 computer.defaultShipping = resolvedPort

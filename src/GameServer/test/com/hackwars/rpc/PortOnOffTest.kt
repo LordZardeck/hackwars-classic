@@ -22,7 +22,7 @@ class PortOnOffTest {
     @Test
     fun fromRpc_and_toRfc_roundtrip() {
         val params = arrayOf<Any?>("value", 42, null)
-        val rpc = RemoteFunctionCall(1, PortOnOff.FUNCTION, params)
+        val rpc = RemoteFunctionCall(1, com.hackwars.rpc.GameCommandWires.PORTONOFF, params)
 
         val call = PortOnOff.fromRpc(rpc)
         assertEquals(params[0], call.ip)
@@ -30,7 +30,7 @@ class PortOnOffTest {
         assertEquals(params[2], call.on)
         val serialized = call.toRfc()
 
-        assertEquals(PortOnOff.FUNCTION, serialized.function)
+        assertEquals(com.hackwars.rpc.GameCommandWires.PORTONOFF, serialized.function)
         assertArrayEquals(params, serialized.parameters as Array<*>)
     }
 }

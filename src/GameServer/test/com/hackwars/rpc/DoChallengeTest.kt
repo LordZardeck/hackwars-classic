@@ -22,7 +22,7 @@ class DoChallengeTest {
     @Test
     fun fromRpc_and_toRfc_roundtrip() {
         val params = arrayOf<Any?>("value", null, null)
-        val rpc = RemoteFunctionCall(1, DoChallenge.FUNCTION, params)
+        val rpc = RemoteFunctionCall(1, com.hackwars.rpc.GameCommandWires.DOCHALLENGE, params)
 
         val call = DoChallenge.fromRpc(rpc)
         assertEquals(params[0], call.ip)
@@ -30,7 +30,7 @@ class DoChallengeTest {
         assertEquals(params[2], call.challengeID)
         val serialized = call.toRfc()
 
-        assertEquals(DoChallenge.FUNCTION, serialized.function)
+        assertEquals(com.hackwars.rpc.GameCommandWires.DOCHALLENGE, serialized.function)
         assertArrayEquals(params, serialized.parameters as Array<*>)
     }
 }

@@ -22,7 +22,7 @@ class HacktendoTargetTest {
     @Test
     fun fromRpc_and_toRfc_roundtrip() {
         val params = arrayOf<Any?>(42, 42, null, 42, 42)
-        val rpc = RemoteFunctionCall(1, HacktendoTarget.FUNCTION, params)
+        val rpc = RemoteFunctionCall(1, com.hackwars.rpc.GameCommandWires.HACKTENDO_TARGET, params)
 
         val call = HacktendoTarget.fromRpc(rpc)
         assertEquals(params[0], call.targetX)
@@ -32,7 +32,7 @@ class HacktendoTargetTest {
         assertEquals(params[4], call.currentY)
         val serialized = call.toRfc()
 
-        assertEquals(HacktendoTarget.FUNCTION, serialized.function)
+        assertEquals(com.hackwars.rpc.GameCommandWires.HACKTENDO_TARGET, serialized.function)
         assertArrayEquals(params, serialized.parameters as Array<*>)
     }
 }

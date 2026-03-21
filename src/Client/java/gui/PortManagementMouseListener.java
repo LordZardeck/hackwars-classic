@@ -4,14 +4,16 @@ package gui;
  * this is the mouse listener for the port management window.
  */
 
-import javax.swing.*;
-import java.awt.*;
-import java.awt.event.*;
-
-import assignments.*;
 import com.hackwars.state.GameState;
 
-import java.text.*;
+import javax.swing.*;
+import java.awt.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.awt.event.MouseEvent;
+import java.awt.event.MouseListener;
+import java.text.DecimalFormat;
+import java.text.NumberFormat;
 
 public class PortManagementMouseListener implements MouseListener, ActionListener {
     //data
@@ -145,9 +147,7 @@ public class PortManagementMouseListener implements MouseListener, ActionListene
 
     private void heal() {
         GameState myGameState = MyHacker.getView();
-        Object objects[] = {MyHacker.getEncryptedIP(), port};
-        myGameState.setFunction("healport");
-        myGameState.addFunctionCall(new RemoteFunctionCall(0, "healport", objects));
+        myGameState.addFunctionCall(new com.hackwars.rpc.HealPort(MyHacker.getEncryptedIP(), port).toRfc(0));
     }
 
     public void actionPerformed(ActionEvent e) {
@@ -196,9 +196,7 @@ public class PortManagementMouseListener implements MouseListener, ActionListene
                     options[1]);
             if (n == 0) {
                 GameState myGameState = MyHacker.getView();
-                Object objects[] = {MyHacker.getEncryptedIP(), port};
-                myGameState.setFunction("uninstallport");
-                myGameState.addFunctionCall(new RemoteFunctionCall(0, "uninstallport", objects));
+                myGameState.addFunctionCall(new com.hackwars.rpc.UninstallPort(MyHacker.getEncryptedIP(), port).toRfc(0));
                 MyPortManagement.uninstallPort(port);
             }
         }
@@ -219,9 +217,7 @@ public class PortManagementMouseListener implements MouseListener, ActionListene
                     options[1]);
             if (n == 0) {
                 GameState myGameState = MyHacker.getView();
-                Object objects[] = {MyHacker.getEncryptedIP(), port};
-                myGameState.setFunction("healport");
-                myGameState.addFunctionCall(new RemoteFunctionCall(0, "healport", objects));
+                myGameState.addFunctionCall(new com.hackwars.rpc.HealPort(MyHacker.getEncryptedIP(), port).toRfc(0));
             }
         }
         if (e.getActionCommand().equals("Replace FireWall")) {
@@ -231,9 +227,7 @@ public class PortManagementMouseListener implements MouseListener, ActionListene
         }
         if (e.getActionCommand().equals("Uninstall FireWall")) {
             GameState myGameState = MyHacker.getView();
-            Object objects[] = {MyHacker.getEncryptedIP(), port};
-            myGameState.setFunction("deletefirewall");
-            myGameState.addFunctionCall(new RemoteFunctionCall(0, "deletefirewall", objects));
+            myGameState.addFunctionCall(new com.hackwars.rpc.DeleteFirewall(MyHacker.getEncryptedIP(), port).toRfc(0));
         }
 
     }

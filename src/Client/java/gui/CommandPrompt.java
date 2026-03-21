@@ -3,18 +3,18 @@ package gui;
  * CommandPrompt.java
  */
 
+import com.hackwars.state.GameState;
+import game.HackerFile;
+import hackscript.model.RunFactory;
+import net.miginfocom.swing.MigLayout;
+
 import javax.swing.*;
 import java.awt.*;
-import java.awt.event.*;
-
-import com.hackwars.state.GameState;
-import game.*;
-import assignments.*;
-
-import java.util.*;
-
-import net.miginfocom.swing.*;
-import hackscript.model.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.KeyEvent;
+import java.awt.event.KeyListener;
+import java.util.ArrayList;
+import java.util.HashMap;
 
 public class CommandPrompt extends Application implements KeyListener {
 
@@ -37,9 +37,7 @@ public class CommandPrompt extends Application implements KeyListener {
         this.hacker = hacker;
         hacker.setCommandPromptRequestedDirectory(this);
         GameState myGameState = hacker.getView();
-        myGameState.setFunction("requestdirectory");
-        Object objects[] = new Object[]{hacker.getEncryptedIP(), ""};
-        myGameState.addFunctionCall(new RemoteFunctionCall(Hacker.COMMAND_PROMPT, "requestdirectory", objects));
+        myGameState.addFunctionCall(new com.hackwars.rpc.RequestDirectory(hacker.getEncryptedIP(), "").toRfc(Hacker.COMMAND_PROMPT));
         MyHacker.setRequestedDirectory(Hacker.COMMAND_PROMPT);
         setTitle("Command Prompt");
         setIconifiable(true);
@@ -215,9 +213,8 @@ public class CommandPrompt extends Application implements KeyListener {
             } else {
                 folder += directory + "/";
             }
-            Object objects[] = new Object[]{hacker.getEncryptedIP(), folder};
             GameState myGameState = hacker.getView();
-            myGameState.addFunctionCall(new RemoteFunctionCall(Hacker.COMMAND_PROMPT, "requestdirectory", objects));
+            myGameState.addFunctionCall(new com.hackwars.rpc.RequestDirectory(hacker.getEncryptedIP(), folder).toRfc(Hacker.COMMAND_PROMPT));
             MyHacker.setRequestedDirectory(Hacker.COMMAND_PROMPT);
         } else if (directories.get(directory) == null) {
             showErrorMessage("Directory not found.");
@@ -238,9 +235,7 @@ public class CommandPrompt extends Application implements KeyListener {
         MyHacker.setRequestedFile(Hacker.COMMAND_PROMPT);
         GameState myGameState = hacker.getView();
         String ip = hacker.getEncryptedIP();
-        Object objects[] = {ip, folder, filename};
-        myGameState.setFunction("requestfile");
-        myGameState.addFunctionCall(new RemoteFunctionCall(Hacker.COMMAND_PROMPT, "requestfile", objects));
+        myGameState.addFunctionCall(new com.hackwars.rpc.RequestFile(ip, folder, filename).toRfc(Hacker.COMMAND_PROMPT));
 
     }
 
@@ -289,17 +284,13 @@ public class CommandPrompt extends Application implements KeyListener {
         }
         GameState myGameState = hacker.getView();
         String ip = hacker.getEncryptedIP();
-        Object objects[] = {new Float(amount), ip, new Integer(port)};
-        myGameState.setFunction("deposit");
-        myGameState.addFunctionCall(new RemoteFunctionCall(0, "deposit", objects));
+        myGameState.addFunctionCall(new com.hackwars.rpc.Deposit(new Float(amount), ip, new Integer(port)).toRfc(0));
     }
 
     private void withdraw(int port, float amount) {
         GameState myGameState = hacker.getView();
         String ip = hacker.getEncryptedIP();
-        Object objects[] = {new Float(amount), ip, new Integer(port)};
-        myGameState.setFunction("withdraw");
-        myGameState.addFunctionCall(new RemoteFunctionCall(0, "withdraw", objects));
+        myGameState.addFunctionCall(new com.hackwars.rpc.Withdraw(new Float(amount), ip, new Integer(port)).toRfc(0));
     }
 
     private void runShellScript(String filename) {
@@ -313,9 +304,7 @@ public class CommandPrompt extends Application implements KeyListener {
         MyHacker.setRequestedFile(Hacker.COMMAND_PROMPT);
         GameState myGameState = hacker.getView();
         String ip = hacker.getEncryptedIP();
-        Object objects[] = {ip, folder, filename};
-        myGameState.setFunction("requestfile");
-        myGameState.addFunctionCall(new RemoteFunctionCall(Hacker.COMMAND_PROMPT, "requestfile", objects));
+        myGameState.addFunctionCall(new com.hackwars.rpc.RequestFile(ip, folder, filename).toRfc(Hacker.COMMAND_PROMPT));
     }
 
     private void showErrorMessage(String message) {

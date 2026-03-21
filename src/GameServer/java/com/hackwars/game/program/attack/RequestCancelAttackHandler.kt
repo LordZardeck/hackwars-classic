@@ -6,11 +6,11 @@ import game.MessageHandler
 import game.payload.CancelAttackPayload
 
 class RequestCancelAttackHandler : AttackFunctionHandler {
-    override val functionName: String = "requestcancelattack"
+    override val functionName: String = com.hackwars.rpc.GameCommandWires.REQUESTCANCELATTACK
 
     override fun execute(program: AttackProgram, applicationData: ApplicationData) {
         val isAuthorizedSource = applicationData.getSourceIP() == program.parentPort!!.IP ||
-            (program.zombie && program.maliciousIP == applicationData.getSourceIP())
+                (program.zombie && program.maliciousIP == applicationData.getSourceIP())
 
         if (!program.parentPort!!.attacking || !isAuthorizedSource) {
             return

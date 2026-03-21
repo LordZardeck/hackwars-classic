@@ -6,17 +6,10 @@ package gui;
  */
 
 import javax.swing.*;
-import javax.swing.border.*;
-import javax.swing.event.*;
-import java.awt.*;
-import java.awt.event.*;
-import java.text.*;
-
-import view.*;
-
-import java.awt.image.*;
-
-import assignments.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.awt.event.WindowEvent;
+import java.awt.image.BufferedImage;
 //import java.awt.Dialog.ModalityType;
 
 public class MacroDialog extends JInternalFrame implements ActionListener {
@@ -69,8 +62,7 @@ public class MacroDialog extends JInternalFrame implements ActionListener {
     public void actionPerformed(ActionEvent e) {
         if (e.getSource() == ok || e.getSource() == tf) {
             //MyAttackPane.attack();
-            Object[] objects = new Object[]{MyHacker.getEncryptedIP(), tf.getText()};
-            MyHacker.getView().addFunctionCall(new RemoteFunctionCall(0, "unlock", objects));
+            MyHacker.getView().addFunctionCall(new com.hackwars.rpc.Unlock(MyHacker.getEncryptedIP(), tf.getText()).toRfc(0));
             setVisible(false);
         }
 

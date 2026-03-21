@@ -1,10 +1,10 @@
 package gui;
 
 
-import java.awt.event.*;
-
-import assignments.*;
 import com.hackwars.state.GameState;
+
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 
 public class PortManagementDummyListener implements ActionListener {
 
@@ -22,9 +22,7 @@ public class PortManagementDummyListener implements ActionListener {
     public void actionPerformed(ActionEvent e) {
         GameState myGameState = MyHacker.getView();
         boolean dummy = MyPortManagement.getDummy(port);
-        Object objects[] = {MyHacker.getEncryptedIP(), new Integer(port), new Boolean(!dummy)};
-        myGameState.setFunction("setdummyport");
-        myGameState.addFunctionCall(new RemoteFunctionCall(0, "setdummyport", objects));
+        myGameState.addFunctionCall(new com.hackwars.rpc.SetDummyPort(MyHacker.getEncryptedIP(), new Integer(port), new Boolean(!dummy)).toRfc(0));
     }
 }
 		

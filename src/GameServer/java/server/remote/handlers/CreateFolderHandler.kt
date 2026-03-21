@@ -1,22 +1,26 @@
 package server.remote.handlers
 
 import assignments.RemoteFunctionCall
+import com.hackwars.rpc.CreateFolder
 import game.ApplicationCommand
 import game.ApplicationData
-import com.hackwars.rpc.*
 import game.payload.StringCommandPayload
 import server.remote.RemoteCallContext
 import server.remote.RemoteCallHandler
 import server.remote.RpcHandler
-import java.util.*
 
-@RpcHandler(CreateFolder.FUNCTION)
+@RpcHandler(com.hackwars.rpc.GameCommandWires.CREATEFOLDER)
 object CreateFolderHandler : RemoteCallHandler {
     override fun handle(rfc: RemoteFunctionCall, context: RemoteCallContext) {
         val parsedCall = CreateFolder.fromRpc(rfc)
         val ip = context.crypt(parsedCall.ip)
         context.computerHandler.addData(
-            ApplicationData(StringCommandPayload(ApplicationCommand.of(CreateFolder.FUNCTION), parsedCall.directory), 0, ip),
+            ApplicationData(
+                StringCommandPayload(
+                    ApplicationCommand.of(com.hackwars.rpc.GameCommandWires.CREATEFOLDER),
+                    parsedCall.directory
+                ), 0, ip
+            ),
             ip,
             ApplicationData.OUTSIDE
         )

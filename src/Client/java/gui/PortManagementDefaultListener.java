@@ -1,10 +1,11 @@
 package gui;
 
 
-import java.awt.event.*;
-
-import assignments.*;
+import assignments.PacketPort;
 import com.hackwars.state.GameState;
+
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 
 public class PortManagementDefaultListener implements ActionListener {
 
@@ -37,9 +38,7 @@ public class PortManagementDefaultListener implements ActionListener {
             typeSend = PacketPort.SHIPPING;
         if (typeSend != -1) {
             //System.out.println("Default Changed");
-            Object objects[] = {MyHacker.getEncryptedIP(), new Integer(port), new Integer(typeSend)};
-            myGameState.setFunction("setdefaultport");
-            myGameState.addFunctionCall(new RemoteFunctionCall(0, "setdefaultport", objects));
+            myGameState.addFunctionCall(new com.hackwars.rpc.SetDefaultPort(MyHacker.getEncryptedIP(), new Integer(port), new Integer(typeSend)).toRfc(0));
         } else {
             //System.out.println("Changing for no good reason");
         }

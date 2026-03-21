@@ -22,14 +22,14 @@ class SetFtpPasswordTest {
     @Test
     fun fromRpc_and_toRfc_roundtrip() {
         val params = arrayOf<Any?>("value", null)
-        val rpc = RemoteFunctionCall(1, SetFtpPassword.FUNCTION, params)
+        val rpc = RemoteFunctionCall(1, com.hackwars.rpc.GameCommandWires.SETFTPPASSWORD, params)
 
         val call = SetFtpPassword.fromRpc(rpc)
         assertEquals(params[0], call.ip)
         assertEquals(params[1], call.password)
         val serialized = call.toRfc()
 
-        assertEquals(SetFtpPassword.FUNCTION, serialized.function)
+        assertEquals(com.hackwars.rpc.GameCommandWires.SETFTPPASSWORD, serialized.function)
         assertArrayEquals(params, serialized.parameters as Array<*>)
     }
 }

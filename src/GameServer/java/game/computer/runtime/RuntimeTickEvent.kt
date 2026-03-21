@@ -8,7 +8,7 @@ data class RuntimeLogMessagePayload(
     val ip: String,
     val timestamp: Long,
 ) : ApplicationPayload {
-    override fun getCommand(): ApplicationCommand = ApplicationCommand.of("logmessage")
+    override fun getCommand(): ApplicationCommand = com.hackwars.rpc.GameCommands.LOGMESSAGE.command
 }
 
 data class RuntimeApplicationDataDispatch(
@@ -36,6 +36,7 @@ sealed interface RuntimeTickEvent {
         val applicationData: RuntimeApplicationDataDispatch,
         val targetIp: String,
     ) : RuntimeTickEvent
+
     data class LogEntry(val message: String, val ip: String, val timestamp: Long) : RuntimeTickEvent
     data class PlaySessionRecorded(val ip: String, val startedAt: Long, val endedAt: Long) : RuntimeTickEvent
     data class DailyPayIssued(val amount: Float, val targetIp: String) : RuntimeTickEvent

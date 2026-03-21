@@ -1,15 +1,16 @@
 package gui;
 
 
+import com.hackwars.state.GameState;
+import game.HackerFile;
+
 import javax.swing.*;
 import java.awt.*;
-import java.awt.event.*;
-
-import com.hackwars.state.GameState;
-import assignments.*;
-import game.*;
-
-import java.util.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.awt.event.MouseEvent;
+import java.awt.event.MouseListener;
+import java.util.HashMap;
 
 public class HomeIcon extends JPanel implements MouseListener, ActionListener {
     public static final Color VALUE = Color.red;
@@ -163,9 +164,7 @@ public class HomeIcon extends JPanel implements MouseListener, ActionListener {
                 MyHacker.setRequestedFileIcon(this);
                 MyHacker.setRequestedFile(Hacker.HOME);
                 GameState myGameState = MyHacker.getView();
-                Object objects[] = {MyHacker.getEncryptedIP(), folder, name};
-                myGameState.setFunction("requestfile");
-                myGameState.addFunctionCall(new RemoteFunctionCall(0, "requestfile", objects));
+                myGameState.addFunctionCall(new com.hackwars.rpc.RequestFile(MyHacker.getEncryptedIP(), folder, name).toRfc(0));
                 int x = 0;
                 int y = 0;
                 try {
@@ -289,9 +288,7 @@ public class HomeIcon extends JPanel implements MouseListener, ActionListener {
                 String encryptedIP = MyHacker.getEncryptedIP();
                 GameState myGameState = MyHacker.getView();
                 MyHacker.setRequestedFile(Hacker.HACKTENDO_PLAYER);
-                Object[] objects = {encryptedIP, folder, name};
-                myGameState.setFunction("requestgame");
-                myGameState.addFunctionCall(new RemoteFunctionCall(0, "requestgame", objects));
+                myGameState.addFunctionCall(new com.hackwars.rpc.RequestGame(encryptedIP, folder, name).toRfc(0));
             }
         }
     }

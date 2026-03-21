@@ -1,8 +1,8 @@
 package com.hackwars.rpc
 
 import assignments.RemoteFunctionCall
-import org.junit.BeforeClass
 import org.junit.Assert.*
+import org.junit.BeforeClass
 import org.junit.Test
 import util.Encryption
 
@@ -20,7 +20,8 @@ class FetchPortsTest {
 
     @Test
     fun fromRpc_readsEncryptedIpFromFirstPositionalParameter() {
-        val rpc = RemoteFunctionCall(42, FetchPorts.FUNCTION, arrayOf("encrypted-ip", "unused"))
+        val rpc =
+            RemoteFunctionCall(42, com.hackwars.rpc.GameCommandWires.FETCHPORTS, arrayOf("encrypted-ip", "unused"))
 
         val fetchPorts = FetchPorts.fromRpc(rpc)
 
@@ -33,19 +34,19 @@ class FetchPortsTest {
 
         val rfc = fetchPorts.toRfc()
 
-        assertEquals(FetchPorts.FUNCTION, rfc.function)
+        assertEquals(com.hackwars.rpc.GameCommandWires.FETCHPORTS, rfc.function)
         assertArrayEquals(arrayOf("encrypted-ip"), rfc.parameters as Array<*>)
     }
 
     @Test
     fun fromRpc_throwsWhenFirstParameterIsMissing() {
-        val rpc = RemoteFunctionCall(42, FetchPorts.FUNCTION, emptyArray<Any>())
+        val rpc = RemoteFunctionCall(42, com.hackwars.rpc.GameCommandWires.FETCHPORTS, emptyArray<Any>())
 
         val ex = assertThrows(IllegalParameterException::class.java) {
             FetchPorts.fromRpc(rpc)
         }
 
-        assertEquals(FetchPorts.FUNCTION, ex.function)
+        assertEquals(com.hackwars.rpc.GameCommandWires.FETCHPORTS, ex.function)
         assertEquals(0, ex.position)
         assertEquals(String::class.java.name, ex.expectedType)
     }

@@ -1,15 +1,14 @@
 package server.remote.handlers
 
 import assignments.RemoteFunctionCall
+import com.hackwars.rpc.RepairEquipment
 import game.ApplicationData
-import com.hackwars.rpc.*
 import game.payload.RepairEquipmentPayload
 import server.remote.RemoteCallContext
 import server.remote.RemoteCallHandler
 import server.remote.RpcHandler
-import java.util.*
 
-@RpcHandler(RepairEquipment.FUNCTION)
+@RpcHandler(com.hackwars.rpc.GameCommandWires.REPAIREQUIPMENT)
 object RepairEquipmentHandler : RemoteCallHandler {
     override fun handle(rfc: RemoteFunctionCall, context: RemoteCallContext) {
         val parsedCall = RepairEquipment.fromRpc(rfc)

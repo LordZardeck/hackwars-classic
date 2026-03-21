@@ -1,13 +1,13 @@
 package gui;
 
 
+import com.hackwars.state.GameState;
+
 import javax.swing.*;
-import javax.swing.event.*;
+import javax.swing.event.UndoableEditEvent;
+import javax.swing.event.UndoableEditListener;
 import java.awt.*;
 import java.awt.event.*;
-
-import com.hackwars.state.GameState;
-import assignments.*;
 
 
 public class BountyWindow extends JDialog implements ActionListener, UndoableEditListener, FocusListener, ItemListener {
@@ -181,9 +181,7 @@ public class BountyWindow extends JDialog implements ActionListener, UndoableEdi
             String file = fileField.getText();
             int iterations = (int) (Integer) iterationSpinner.getValue();
             float reward = (float) ((Double) rewardSpinner.getValue()).floatValue();
-            Object objects[] = {MyHacker.getEncryptedIP(), anon, target, types, file, folder, iterations, reward};
-            myGameState.setFunction("makebounty");
-            myGameState.addFunctionCall(new RemoteFunctionCall(0, "makebounty", objects));
+            myGameState.addFunctionCall(new com.hackwars.rpc.MakeBounty(MyHacker.getEncryptedIP(), anon, target, types, file, folder, iterations, reward).toRfc(0));
             setVisible(false);
         }
         if (e.getSource() == type) {

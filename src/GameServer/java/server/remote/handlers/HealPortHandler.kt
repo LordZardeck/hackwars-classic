@@ -1,15 +1,14 @@
 package server.remote.handlers
 
 import assignments.RemoteFunctionCall
+import com.hackwars.rpc.HealPort
 import game.ApplicationData
-import com.hackwars.rpc.*
 import game.payload.HealPayload
 import server.remote.RemoteCallContext
 import server.remote.RemoteCallHandler
 import server.remote.RpcHandler
-import java.util.*
 
-@RpcHandler(HealPort.FUNCTION)
+@RpcHandler(com.hackwars.rpc.GameCommandWires.HEALPORT)
 object HealPortHandler : RemoteCallHandler {
     override fun handle(rfc: RemoteFunctionCall, context: RemoteCallContext) {
         val healPortCall = HealPort.fromRpc(rfc)

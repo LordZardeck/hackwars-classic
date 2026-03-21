@@ -1,10 +1,7 @@
 package com.hackwars.rpc
 
 import assignments.RemoteFunctionCall
-import org.junit.Assert.assertArrayEquals
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
-import org.junit.Assert.assertThrows
+import org.junit.Assert.*
 import org.junit.BeforeClass
 import org.junit.Test
 import util.Encryption
@@ -23,7 +20,11 @@ class ChangeNetworkTest {
 
     @Test
     fun fromRpc_readsEncryptedIpAndNullableNetwork() {
-        val rpc = RemoteFunctionCall(1, ChangeNetwork.FUNCTION, arrayOf<Any?>("encrypted-ip", "network-a"))
+        val rpc = RemoteFunctionCall(
+            1,
+            com.hackwars.rpc.GameCommandWires.CHANGENETWORK,
+            arrayOf<Any?>("encrypted-ip", "network-a")
+        )
 
         val call = ChangeNetwork.fromRpc(rpc)
 
@@ -33,7 +34,7 @@ class ChangeNetworkTest {
 
     @Test
     fun fromRpc_returnsNullNetworkWhenMissing() {
-        val rpc = RemoteFunctionCall(1, ChangeNetwork.FUNCTION, arrayOf<Any?>("encrypted-ip"))
+        val rpc = RemoteFunctionCall(1, com.hackwars.rpc.GameCommandWires.CHANGENETWORK, arrayOf<Any?>("encrypted-ip"))
 
         val call = ChangeNetwork.fromRpc(rpc)
 
@@ -47,19 +48,19 @@ class ChangeNetworkTest {
 
         val rpc = call.toRfc()
 
-        assertEquals(ChangeNetwork.FUNCTION, rpc.function)
+        assertEquals(com.hackwars.rpc.GameCommandWires.CHANGENETWORK, rpc.function)
         assertArrayEquals(arrayOf("encrypted-ip", null), rpc.parameters as Array<*>)
     }
 
     @Test
     fun fromRpc_throwsWhenEncryptedIpMissing() {
-        val rpc = RemoteFunctionCall(1, ChangeNetwork.FUNCTION, emptyArray<Any>())
+        val rpc = RemoteFunctionCall(1, com.hackwars.rpc.GameCommandWires.CHANGENETWORK, emptyArray<Any>())
 
         val ex = assertThrows(IllegalParameterException::class.java) {
             ChangeNetwork.fromRpc(rpc)
         }
 
-        assertEquals(ChangeNetwork.FUNCTION, ex.function)
+        assertEquals(com.hackwars.rpc.GameCommandWires.CHANGENETWORK, ex.function)
         assertEquals(0, ex.position)
         assertEquals(String::class.java.name, ex.expectedType)
         assertNull(ex.actualType)

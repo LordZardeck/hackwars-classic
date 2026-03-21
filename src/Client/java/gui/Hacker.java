@@ -8,7 +8,6 @@ package gui;
 import assignments.PacketNetwork;
 import assignments.PacketPort;
 import assignments.PacketWatch;
-import assignments.RemoteFunctionCall;
 import chat.client.ChatController;
 import chat.client.viewMain;
 import chat.client.viewRelationList;
@@ -255,9 +254,8 @@ public class Hacker implements ActionListener, WindowListener, ComponentListener
 
 
         //request the main directory.
-		/*Object objects[] = {ip,""};
-		if(MyView!=null){
-			MyView.addFunctionCall(new RemoteFunctionCall(0,"requestdirectory",objects));
+		/*if(MyView!=null){
+			MyView.addFunctionCall(new com.hackwars.rpc.RequestDirectory(ip, "").toRfc(0));
 		}*/
         currentFolder = "";
 
@@ -301,12 +299,10 @@ public class Hacker implements ActionListener, WindowListener, ComponentListener
         //HMMO.openGame("game.xml");
 
         // Bootstrap the visible client state after login.
-        Object[] params = new Object[]{encryptedIP};
-        Object[] directoryParams = new Object[]{encryptedIP, currentFolder};
         setRequestedDirectory(HOME);
-        myGameState.addFunctionCall(new RemoteFunctionCall(HOME, "requestdirectory", directoryParams));
-        myGameState.addFunctionCall(new RemoteFunctionCall(EQUIPMENT, "requestequipment", params));
-        myGameState.addFunctionCall(new RemoteFunctionCall(0, "fetchports", params));
+        myGameState.addFunctionCall(new com.hackwars.rpc.RequestDirectory(encryptedIP, currentFolder).toRfc(HOME));
+        myGameState.addFunctionCall(new com.hackwars.rpc.RequestEquipment(encryptedIP).toRfc(EQUIPMENT));
+        myGameState.addFunctionCall(new com.hackwars.rpc.FetchPorts(encryptedIP).toRfc(0));
 
         frame.pack();
     }
@@ -382,9 +378,7 @@ public class Hacker implements ActionListener, WindowListener, ComponentListener
      * Send the preferences to the server.  Done when a user clicks Apply on the Preferences window.
      */
     public void sendPreferences() {
-        Object[] objects = {encryptedIP, preferences};
-        myGameState.setFunction("setpreferences");
-        myGameState.addFunctionCall(new RemoteFunctionCall(0, "setpreferences", objects));
+        myGameState.addFunctionCall(new com.hackwars.rpc.SetPreferences(encryptedIP, preferences).toRfc(0));
     }
 
     public void setTutorial() {
@@ -2473,9 +2467,7 @@ public class Hacker implements ActionListener, WindowListener, ComponentListener
         }
         MyWebsiteEditor.moveToFront();
         siteRequest = WEBSITE_EDITOR;
-        Object objects[] = {encryptedIP};
-        myGameState.setFunction("requestpage");
-        myGameState.addFunctionCall(new RemoteFunctionCall(0, "requestpage", objects));
+        myGameState.addFunctionCall(new com.hackwars.rpc.RequestPage(encryptedIP).toRfc(0));
     }
 
     public void startWebBrowser() {
@@ -2855,15 +2847,11 @@ public class Hacker implements ActionListener, WindowListener, ComponentListener
      **/
 
     public void portOnOff(int port, boolean on) {
-        Object objects[] = {getEncryptedIP(), port, on};
-        myGameState.setFunction("portonoff");
-        myGameState.addFunctionCall(new RemoteFunctionCall(0, "portonoff", objects));
+        myGameState.addFunctionCall(new com.hackwars.rpc.PortOnOff(getEncryptedIP(), port, on).toRfc(0));
     }
 
     public void watchOnOff(int watchID, boolean on) {
-        Object objects[] = {getEncryptedIP(), new Integer(watchID), new Boolean(on)};
-        myGameState.setFunction("setwatchonoff");
-        myGameState.addFunctionCall(new RemoteFunctionCall(0, "setwatchonoff", objects));
+        myGameState.addFunctionCall(new com.hackwars.rpc.SetWatchOnOff(getEncryptedIP(), new Integer(watchID), new Boolean(on)).toRfc(0));
     }
 
 
@@ -2946,9 +2934,7 @@ public class Hacker implements ActionListener, WindowListener, ComponentListener
                     "");
             if (answer != null) {
                 // System.out.println(answer);
-                Object[] objects = {encryptedIP, answer};
-                myGameState.setFunction("setftppassword");
-                myGameState.addFunctionCall(new RemoteFunctionCall(0, "setftppassword", objects));
+                myGameState.addFunctionCall(new com.hackwars.rpc.SetFtpPassword(encryptedIP, answer).toRfc(0));
             }
         }
         if (OSMenuBar.Command.PREFERENCES.matches(e.getActionCommand())) {

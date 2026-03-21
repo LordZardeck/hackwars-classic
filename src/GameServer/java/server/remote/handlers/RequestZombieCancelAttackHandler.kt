@@ -1,16 +1,15 @@
 package server.remote.handlers
 
 import assignments.RemoteFunctionCall
+import com.hackwars.rpc.RequestZombieCancelAttack
 import game.ApplicationData
-import com.hackwars.rpc.*
 import game.payload.NoArgumentsPayload
 import game.payload.REQUEST_CANCEL_ATTACK_COMMAND
 import server.remote.RemoteCallContext
 import server.remote.RemoteCallHandler
 import server.remote.RpcHandler
-import java.util.*
 
-@RpcHandler(RequestZombieCancelAttack.FUNCTION)
+@RpcHandler(com.hackwars.rpc.GameCommandWires.REQUESTZOMBIECANCELATTACK)
 object RequestZombieCancelAttackHandler : RemoteCallHandler {
     override fun handle(rfc: RemoteFunctionCall, context: RemoteCallContext) {
         val parsedCall = RequestZombieCancelAttack.fromRpc(rfc)

@@ -22,7 +22,7 @@ class WithdrawTest {
     @Test
     fun fromRpc_and_toRfc_roundtrip() {
         val params = arrayOf<Any?>(1.5f, "value", 42)
-        val rpc = RemoteFunctionCall(1, Withdraw.FUNCTION, params)
+        val rpc = RemoteFunctionCall(1, com.hackwars.rpc.GameCommandWires.WITHDRAW, params)
 
         val call = Withdraw.fromRpc(rpc)
         assertEquals(params[0], call.amount)
@@ -30,7 +30,7 @@ class WithdrawTest {
         assertEquals(params[2], call.port)
         val serialized = call.toRfc()
 
-        assertEquals(Withdraw.FUNCTION, serialized.function)
+        assertEquals(com.hackwars.rpc.GameCommandWires.WITHDRAW, serialized.function)
         assertArrayEquals(params, serialized.parameters as Array<*>)
     }
 }

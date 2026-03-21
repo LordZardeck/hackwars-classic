@@ -4,23 +4,22 @@ package gui;
  * this is the attack window.
  */
 
+import assignments.PacketPort;
+import com.hackwars.state.GameState;
+import game.HackerFile;
+import game.PortType;
+import net.miginfocom.swing.MigLayout;
+
 import javax.swing.*;
-import javax.swing.event.*;
-import javax.swing.table.*;
+import javax.swing.event.TableModelEvent;
+import javax.swing.event.TableModelListener;
+import javax.swing.table.JTableHeader;
+import javax.swing.table.TableColumn;
+import javax.swing.table.TableColumnModel;
 import java.awt.*;
 import java.awt.event.*;
-
-import assignments.*;
-import com.hackwars.state.GameState;
-
-import java.lang.*;
-
-import game.*;
-
-import java.text.*;
-import java.util.*;
-
-import net.miginfocom.swing.*;
+import java.text.NumberFormat;
+import java.util.HashMap;
 
 public class Equipment extends Application implements KeyListener, TableModelListener {
     public static final int HEAL_RATE = 0;
@@ -119,9 +118,8 @@ public class Equipment extends Application implements KeyListener, TableModelLis
         setVisible(true);
         moveToFront();
         GameState myGameState = MyHacker.getView();
-        Object[] params = new Object[]{MyHacker.getEncryptedIP()};
         MyHacker.setRequestedDirectory(Hacker.EQUIPMENT);
-        myGameState.addFunctionCall(new RemoteFunctionCall(Hacker.EQUIPMENT, "requestequipment", params));
+        myGameState.addFunctionCall(new com.hackwars.rpc.RequestEquipment(MyHacker.getEncryptedIP()).toRfc(Hacker.EQUIPMENT));
         this.setFrameIcon(ImageLoader.getImageIcon("images/cpu.png"));
     }
 
@@ -439,9 +437,7 @@ public class Equipment extends Application implements KeyListener, TableModelLis
 
     public void changePrice(String fileName, float price) {
         GameState myGameState = MyHacker.getView();
-        Object objects[] = {MyHacker.getEncryptedIP(), "", fileName, new Float(price)};
-        myGameState.setFunction("setfileprice");
-        myGameState.addFunctionCall(new RemoteFunctionCall(0, "setfileprice", objects));
+        myGameState.addFunctionCall(new com.hackwars.rpc.SetFilePrice(MyHacker.getEncryptedIP(), "", fileName, new Float(price)).toRfc(0));
     }
 
     public JTable getSelectedTable() {
@@ -482,9 +478,8 @@ public class Equipment extends Application implements KeyListener, TableModelLis
                     //System.out.println("Retrieved file "+HF.getName()+" "+HF.getDescription());
                     if (tab.equals("AGP")) {
                         //System.out.println("Equipping "+HF.getName());
-                        Object[] params = new Object[]{MyHacker.getEncryptedIP(), 0, HF.getName()};
                         MyHacker.setRequestedDirectory(Hacker.EQUIPMENT);
-                        myGameState.addFunctionCall(new RemoteFunctionCall(Hacker.EQUIPMENT, "installequipment", params));
+                        myGameState.addFunctionCall(new com.hackwars.rpc.InstallEquipment(MyHacker.getEncryptedIP(), 0, HF.getName()).toRfc(Hacker.EQUIPMENT));
                         model.removeRow(row);
                     } else if (tab.equals("PCI")) {
                         JPopupMenu menu = new JPopupMenu();
@@ -508,20 +503,17 @@ public class Equipment extends Application implements KeyListener, TableModelLis
                         }
                     }
                 } else if (ac.equals("Slot 1")) {
-                    Object[] params = new Object[]{MyHacker.getEncryptedIP(), 1, HF.getName()};
                     MyHacker.setRequestedDirectory(Hacker.EQUIPMENT);
-                    myGameState.addFunctionCall(new RemoteFunctionCall(Hacker.EQUIPMENT, "installequipment", params));
+                    myGameState.addFunctionCall(new com.hackwars.rpc.InstallEquipment(MyHacker.getEncryptedIP(), 1, HF.getName()).toRfc(Hacker.EQUIPMENT));
                     model.removeRow(row);
 
                 } else if (ac.equals("Slot 2")) {
-                    Object[] params = new Object[]{MyHacker.getEncryptedIP(), 2, HF.getName()};
                     MyHacker.setRequestedDirectory(Hacker.EQUIPMENT);
-                    myGameState.addFunctionCall(new RemoteFunctionCall(Hacker.EQUIPMENT, "installequipment", params));
+                    myGameState.addFunctionCall(new com.hackwars.rpc.InstallEquipment(MyHacker.getEncryptedIP(), 2, HF.getName()).toRfc(Hacker.EQUIPMENT));
                     model.removeRow(row);
                 } else if (ac.equals("Repair")) {
-                    Object[] params = new Object[]{MyHacker.getEncryptedIP(), -1, HF.getName()};
                     MyHacker.setRequestedDirectory(Hacker.EQUIPMENT);
-                    myGameState.addFunctionCall(new RemoteFunctionCall(Hacker.EQUIPMENT, "repairequipment", params));
+                    myGameState.addFunctionCall(new com.hackwars.rpc.RepairEquipment(MyHacker.getEncryptedIP(), -1, HF.getName()).toRfc(Hacker.EQUIPMENT));
                 } else if (ac.equals("Delete")) {
                     deleteFile();
                 } else if (ac.equals("Sell")) {
@@ -547,10 +539,8 @@ public class Equipment extends Application implements KeyListener, TableModelLis
                             details[2] = HF.getMaker();
                             details[3] = 1;
                             allFiles[0] = details;
-                            Object objects[] = new Object[]{MyHacker.getEncryptedIP(), allFiles};
                             MyHacker.setRequestedDirectory(Hacker.HOME);
-                            myGameState.setFunction("sellfilemulti");
-                            myGameState.addFunctionCall(new RemoteFunctionCall(Hacker.HOME, "sellfilemulti", objects));
+                            myGameState.addFunctionCall(new com.hackwars.rpc.SellFileMulti(MyHacker.getEncryptedIP(), allFiles).toRfc(Hacker.HOME));
                             model.removeRow(row);
                         }
                     }
@@ -637,9 +627,7 @@ public class Equipment extends Application implements KeyListener, TableModelLis
         HackerFile HF = (HackerFile) cardList.get(name);
         int n = showDeleteDialog(HF.getName());
         if (n == 0) {
-            Object objects[] = {MyHacker.getEncryptedIP(), "", HF.getName()};
-            myGameState.setFunction("deletefile");
-            myGameState.addFunctionCall(new RemoteFunctionCall(Hacker.EQUIPMENT, "deletefile", objects));
+            myGameState.addFunctionCall(new com.hackwars.rpc.DeleteFile(MyHacker.getEncryptedIP(), "", HF.getName()).toRfc(Hacker.EQUIPMENT));
             MyHacker.setRequestedDirectory(Hacker.EQUIPMENT);
             model.removeRow(row);
         }

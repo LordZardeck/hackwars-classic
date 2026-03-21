@@ -18,6 +18,14 @@ dependencies {
 }
 
 sourceSets {
+    main {
+        java {
+            exclude 'com/hackwars/rpc/**'
+        }
+        kotlin {
+            exclude 'com/hackwars/rpc/**'
+        }
+    }
     test {
         java.setSrcDirs(['test'])
         kotlin.setSrcDirs(['test'])

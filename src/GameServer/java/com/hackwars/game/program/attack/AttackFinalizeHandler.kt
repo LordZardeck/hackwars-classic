@@ -7,7 +7,7 @@ import game.payload.AttackFinalizePayload
 import game.payloadAs
 
 class AttackFinalizeHandler : AttackFunctionHandler {
-    override val functionName: String = "attackfinalize"
+    override val functionName: String = com.hackwars.rpc.GameCommandWires.ATTACKFINALIZE
 
     override fun execute(program: AttackProgram, applicationData: ApplicationData) {
         if (!program.parentPort!!.attacking) {

@@ -78,7 +78,7 @@ class FTPProgram(
         var script: String? = ""
         val function = applicationData.command.wireName()
 
-        if (function == "requestsecondarydirectory") {
+        if (function == com.hackwars.rpc.GameCommandWires.REQUESTSECONDARYDIRECTORY) {
             val payload = applicationData.payloadAs<RequestSecondaryDirectoryPayload>()
             val path = payload.path
             val targetIP = payload.targetIp
@@ -112,14 +112,18 @@ class FTPProgram(
 
             this@FTPProgram.computerHandler!!.addData(
                 if (this@FTPProgram.computer!!.isNPC()) {
-                    ApplicationData(DeliveredDirectoryToNpcPayload(directory, true), 0, this@FTPProgram.computer!!.getIP())
+                    ApplicationData(
+                        DeliveredDirectoryToNpcPayload(directory, true),
+                        0,
+                        this@FTPProgram.computer!!.getIP()
+                    )
                 } else {
                     ApplicationData(DeliveredDirectoryToPlayerPayload(directory), 0, this@FTPProgram.computer!!.getIP())
                 },
                 targetIP
             )
             return
-        } else if (function == "malget") {
+        } else if (function == com.hackwars.rpc.GameCommandWires.MALGET) {
             var transferred: HackerFile? = null
             val payload = applicationData.payloadAs<MalGetPayload>()
             this.targetIP = payload.targetIp
@@ -175,7 +179,7 @@ class FTPProgram(
                 targetIP
             )
             return
-        } else if (function == "get") {
+        } else if (function == com.hackwars.rpc.GameCommandWires.GET) {
             val payload = applicationData.payloadAs<GetFilePayload>()
             val targetIP = payload.targetIp
             this.targetIP = targetIP
@@ -221,8 +225,11 @@ class FTPProgram(
             if (targetIP != this@FTPProgram.computer!!.getIP()) this@FTPProgram.computer!!.computerHandler
                 .addData(ApplicationData(RequestFtpUpdatePayload, 0, this@FTPProgram.computer!!.getIP()), targetIP)
             this@FTPProgram.computer!!.computerHandler
-                .addData(ApplicationData(RequestFtpUpdatePayload, 0, this@FTPProgram.computer!!.getIP()), this@FTPProgram.computer!!.getIP())
-        } else if (function == "put") {
+                .addData(
+                    ApplicationData(RequestFtpUpdatePayload, 0, this@FTPProgram.computer!!.getIP()),
+                    this@FTPProgram.computer!!.getIP()
+                )
+        } else if (function == com.hackwars.rpc.GameCommandWires.PUT) {
             val payload = applicationData.payloadAs<PutFilePayload>()
             val targetIP = payload.targetIp
             val name = payload.name
@@ -273,7 +280,7 @@ class FTPProgram(
                 ApplicationData(RequestFtpUpdatePayload, 0, this@FTPProgram.computer!!.getIP()),
                 this@FTPProgram.computer!!.getIP()
             )
-        } else if (function == "finalizeput") {
+        } else if (function == com.hackwars.rpc.GameCommandWires.FINALIZEPUT) {
             val payload = applicationData.payloadAs<FinalizePutPayload>()
             this.targetIP = this@FTPProgram.computer!!.getIP()
             val name = payload.name

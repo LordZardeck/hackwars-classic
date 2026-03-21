@@ -22,7 +22,7 @@ class RequestPurchaseTest {
     @Test
     fun fromRpc_and_toRfc_roundtrip() {
         val params = arrayOf<Any?>("value", "value", null, null)
-        val rpc = RemoteFunctionCall(1, RequestPurchase.FUNCTION, params)
+        val rpc = RemoteFunctionCall(1, com.hackwars.rpc.GameCommandWires.REQUESTPURCHASE, params)
 
         val call = RequestPurchase.fromRpc(rpc)
         assertEquals(params[0], call.targetIp)
@@ -31,7 +31,7 @@ class RequestPurchaseTest {
         assertEquals(params[3], call.quantity)
         val serialized = call.toRfc()
 
-        assertEquals(RequestPurchase.FUNCTION, serialized.function)
+        assertEquals(com.hackwars.rpc.GameCommandWires.REQUESTPURCHASE, serialized.function)
         assertArrayEquals(params, serialized.parameters as Array<*>)
     }
 }

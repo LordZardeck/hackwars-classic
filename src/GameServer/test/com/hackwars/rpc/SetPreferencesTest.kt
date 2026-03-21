@@ -22,14 +22,14 @@ class SetPreferencesTest {
     @Test
     fun fromRpc_and_toRfc_roundtrip() {
         val params = arrayOf<Any?>("value", hashMapOf<Any?, Any?>("k" to "v"))
-        val rpc = RemoteFunctionCall(1, SetPreferences.FUNCTION, params)
+        val rpc = RemoteFunctionCall(1, com.hackwars.rpc.GameCommandWires.SETPREFERENCES, params)
 
         val call = SetPreferences.fromRpc(rpc)
         assertEquals(params[0], call.ip)
         assertEquals(params[1], call.preferences)
         val serialized = call.toRfc()
 
-        assertEquals(SetPreferences.FUNCTION, serialized.function)
+        assertEquals(com.hackwars.rpc.GameCommandWires.SETPREFERENCES, serialized.function)
         assertArrayEquals(params, serialized.parameters as Array<*>)
     }
 }

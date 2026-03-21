@@ -4,28 +4,25 @@ package gui;
  * this is the web browser.
  */
 
-import javax.swing.*;
-import javax.swing.event.*;
-import java.awt.*;
-import java.awt.event.*;
-
+import browser.HtmlHandler;
 import com.hackwars.state.GameState;
-import game.*;
+import game.HackerFile;
+import net.miginfocom.swing.MigLayout;
+import org.lobobrowser.html.FormInput;
+import util.GameClock;
+import util.LegacyRemoteDefaults;
 
-import java.util.*;
-
-import assignments.*;
-
-import java.net.*;
-
-import util.*;
-
-import java.text.*;
-
-import browser.*;
-import org.lobobrowser.html.*;
-//import org.lobobrowser.html.gui.DocumentNotification;
-import net.miginfocom.swing.*;
+import javax.swing.*;
+import javax.swing.event.InternalFrameEvent;
+import java.awt.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ComponentEvent;
+import java.awt.event.ComponentListener;
+import java.awt.event.KeyEvent;
+import java.net.URL;
+import java.text.NumberFormat;
+import java.util.ArrayList;
+import java.util.HashMap;
 
 public class WebBrowser extends Application implements ComponentListener {
     private JDesktopPane mainPanel = null;
@@ -763,9 +760,7 @@ public class WebBrowser extends Application implements ComponentListener {
         }
         // TODO: Removed legacy remote domain lookup endpoint: http://www.hackwars.net/xmlrpc/domain.php
         String result = normalizeDomain(urlField.getText().split("\\?")[0].trim());
-        Object objects[] = new Object[]{result, MyHacker.getEncryptedIP(), send};
-        myGameState.setFunction("submit");
-        myGameState.addFunctionCall(new RemoteFunctionCall(Hacker.BROWSER, "submit", objects));
+        myGameState.addFunctionCall(new com.hackwars.rpc.Submit(result, MyHacker.getEncryptedIP(), send).toRfc(Hacker.BROWSER));
 
     }
 
@@ -777,9 +772,7 @@ public class WebBrowser extends Application implements ComponentListener {
         //System.out.println(link);
         if (link.equals("http://hackwars.net/clue")) {
             //System.out.println("clue "+ips[position]);
-            Object[] clueobjects = new Object[]{MyHacker.getEncryptedIP(), ips[position]};
-            myGameState.setFunction("cluedata");
-            myGameState.addFunctionCall(new RemoteFunctionCall(0, "cluedata", clueobjects));
+            myGameState.addFunctionCall(new com.hackwars.rpc.ClueData(MyHacker.getEncryptedIP(), ips[position]).toRfc(0));
             return;
         }
 
@@ -812,9 +805,7 @@ public class WebBrowser extends Application implements ComponentListener {
                 Object objects[];
                 if (!ips[position - 1].toLowerCase().equals("search") && !ips[position - 1].equals(MyHacker.getStoreIP())) {
                     String result = normalizeDomain(ips[position - 1].split("\\?")[0].trim());
-                    objects = new Object[]{result, MyHacker.getEncryptedIP()};
-                    myGameState.setFunction("exit");
-                    myGameState.addFunctionCall(new RemoteFunctionCall(0, "exit", objects));
+                    myGameState.addFunctionCall(new com.hackwars.rpc.Exit(result, MyHacker.getEncryptedIP()).toRfc(0));
                 }
                 HashMap HM = new HashMap();
                 ips[position] = href.getPath().replaceAll("/", "");
@@ -834,9 +825,7 @@ public class WebBrowser extends Application implements ComponentListener {
                     browse.parseDocument(legacyRemoteUnavailableHtml("Site lookup unavailable"), this);
                     return;
                 }
-                objects = new Object[]{result.trim(), MyHacker.getEncryptedIP(), HM};
-                myGameState.setFunction("requestwebpage");
-                myGameState.addFunctionCall(new RemoteFunctionCall(Hacker.BROWSER, "requestwebpage", objects));
+                myGameState.addFunctionCall(new com.hackwars.rpc.RequestWebpage(result.trim(), MyHacker.getEncryptedIP(), HM).toRfc(Hacker.BROWSER));
             }
         } else {
             String[] vars = href.getQuery().split("\\&");
@@ -873,9 +862,7 @@ public class WebBrowser extends Application implements ComponentListener {
                 if (position != 0) {
                     if (!ips[position - 1].toLowerCase().equals("search") && !ips[position - 1].equals(MyHacker.getStoreIP())) {
                         String result = normalizeDomain(ips[position - 1].split("\\?")[0].trim());
-                        objects = new Object[]{result, MyHacker.getEncryptedIP()};
-                        myGameState.setFunction("exit");
-                        myGameState.addFunctionCall(new RemoteFunctionCall(0, "exit", objects));
+                        myGameState.addFunctionCall(new com.hackwars.rpc.Exit(result, MyHacker.getEncryptedIP()).toRfc(0));
                     }
                 }
                 URL href = null;
@@ -905,9 +892,7 @@ public class WebBrowser extends Application implements ComponentListener {
                     browse.parseDocument(legacyRemoteUnavailableHtml("Site lookup unavailable"), this);
                     return;
                 }
-                objects = new Object[]{result, MyHacker.getEncryptedIP(), HM};
-                myGameState.setFunction("requestwebpage");
-                myGameState.addFunctionCall(new RemoteFunctionCall(Hacker.BROWSER, "requestwebpage", objects));
+                myGameState.addFunctionCall(new com.hackwars.rpc.RequestWebpage(result, MyHacker.getEncryptedIP(), HM).toRfc(Hacker.BROWSER));
             } else {
                 newSearch("", "");
             }
@@ -1037,9 +1022,7 @@ public class WebBrowser extends Application implements ComponentListener {
         if (ac.equals("Vote")) {
             // TODO: Removed legacy remote domain lookup endpoint: http://www.hackwars.net/xmlrpc/domain.php
             String result = normalizeDomain(urlField.getText().trim());
-            Object[] objects = {result, MyHacker.getEncryptedIP()};
-            myGameState.setFunction("vote");
-            myGameState.addFunctionCall(new RemoteFunctionCall(0, "vote", objects));
+            myGameState.addFunctionCall(new com.hackwars.rpc.Vote(result, MyHacker.getEncryptedIP()).toRfc(0));
         }
 
         if (ac.equals("Bookmark")) {

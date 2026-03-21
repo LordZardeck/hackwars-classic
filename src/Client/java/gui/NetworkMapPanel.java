@@ -1,24 +1,13 @@
 package gui;
 
 import javax.swing.*;
-import javax.swing.border.*;
 import java.awt.*;
-import java.awt.event.*;
-import javax.swing.event.*;
-
-import assignments.*;
-import view.*;
-
-import java.awt.image.*;
-import java.awt.event.*;
-import javax.swing.event.*;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Iterator;
-import java.util.ListIterator;
-import java.util.HashMap;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.awt.image.BufferedImage;
 import java.util.Collection;
+import java.util.HashMap;
+import java.util.Iterator;
 
 /**
  * MessageWindow.java
@@ -267,10 +256,12 @@ public class NetworkMapPanel extends JPanel implements ActionListener {
     }
 
     public void actionPerformed(ActionEvent e) {
-        Object objects[] = {hacker.getEncryptedIP(), "GroundZero", "UGOPNet", "SubNet", "ProgNet", "UniversityNet", "UND", "DarkNet", "SpyNet", "ArenaNet", "The Arena", "LunarMicrosystems", "LunarDatabank", "LunarCreditUnion", "LunarCorporate", "LunarLabs", "LunarSat", "LunarColonies", "LunarSpecOps", "DoSC", "DoSCDatabank", "DoSCBank", "DTNet", "GeNet", "SiNet", "YBCONet", "PuNet", "LawNet", "UGoPIntranet", "UGoPDatabank", "UGoPVault", "UGoPCorporate", "InnerCircle", "TerrorLeaders", "TerrorNet", "TerrorWeaponsNet", "TerrorStash", "Wastelands"};
-        hacker.getView().setFunction("changenetwork");
-        hacker.getView().addFunctionCall(new RemoteFunctionCall(0, "changenetwork", objects));
+        if (!(e.getSource() instanceof NetworkButton)) {
+            return;
+        }
 
+        NetworkButton button = (NetworkButton) e.getSource();
+        hacker.getView().addFunctionCall(new com.hackwars.rpc.ChangeNetwork(hacker.getEncryptedIP(), button.name).toRfc(0));
     }
 
 

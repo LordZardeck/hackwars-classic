@@ -61,15 +61,19 @@ open class GameState : DataHandler, Runnable {
 
         if (SwingUtilities.isEventDispatchThread()) invoke() else SwingUtilities.invokeLater(invoke)
     }
+
     private fun fireFinishedLoadingEvent() {
         val event = FinishLoadingEvent(this)
-        val invoke = { listeners.getListeners(FinishLoadingEventListener::class.java).forEach { it.onFinishLoading(event) } };
+        val invoke =
+            { listeners.getListeners(FinishLoadingEventListener::class.java).forEach { it.onFinishLoading(event) } };
 
         if (SwingUtilities.isEventDispatchThread()) invoke() else SwingUtilities.invokeLater(invoke)
     }
+
     private fun fireExitProgramEvent() {
         val event = ExitProgramEvent(this)
-        val invoke = { listeners.getListeners(ExitProgramEventListener::class.java).forEach { it.onExitProgram(event) } };
+        val invoke =
+            { listeners.getListeners(ExitProgramEventListener::class.java).forEach { it.onExitProgram(event) } };
 
         if (SwingUtilities.isEventDispatchThread()) invoke() else SwingUtilities.invokeLater(invoke)
     }
@@ -90,7 +94,6 @@ open class GameState : DataHandler, Runnable {
     private var username: String? = null
     private val packets = ArrayList<Any?>()
     private var encryptedIP: String? = null
-    private var function: String? = ""
     private var open = false
     private var run = false
 
@@ -147,10 +150,6 @@ open class GameState : DataHandler, Runnable {
         else hackerState!!.update(this, username, ip, npc, encryptedIP)
     }
 
-    open fun setFunction(function: String?) {
-        this.function = function
-    }
-
     override fun addFinishedAssignment(assignment: Assignment?) {
         gameServerMessageClient?.addFinishedAssignment(ZippedAssignment(0, assignment))
         runBlocking { delay(250) }
@@ -183,11 +182,12 @@ open class GameState : DataHandler, Runnable {
                 is PacketAssignment -> {
                     println(
                         "Received PacketAssignment after login: requestPrimary=${o.requestPrimary()} requestHardware=${o.requestHardware} " +
-                            "directory=${o.directory != null} secondaryDirectory=${o.secondaryDirectory != null} " +
-                            "packetPorts=${o.packetPorts?.size ?: 0} messages=${o.messages?.size ?: 0}"
+                                "directory=${o.directory != null} secondaryDirectory=${o.secondaryDirectory != null} " +
+                                "packetPorts=${o.packetPorts?.size ?: 0} messages=${o.messages?.size ?: 0}"
                     )
                     synchronized(packets) { packets.add(o) }
                 }
+
                 is DamageAssignment -> synchronized(packets) { packets.add(o) }
                 is ArrayMessageOut -> runCatching { hackerState?.chatController?.processMessage(o) }.onFailure {
                     it.printStackTrace()
@@ -210,8 +210,8 @@ open class GameState : DataHandler, Runnable {
             is PacketAssignment -> {
                 println(
                     "Received PacketAssignment before finished creating: requestPrimary=${o.requestPrimary()} requestHardware=${o.requestHardware} " +
-                        "directory=${o.directory != null} secondaryDirectory=${o.secondaryDirectory != null} " +
-                        "packetPorts=${o.packetPorts?.size ?: 0} messages=${o.messages?.size ?: 0}"
+                            "directory=${o.directory != null} secondaryDirectory=${o.secondaryDirectory != null} " +
+                            "packetPorts=${o.packetPorts?.size ?: 0} messages=${o.messages?.size ?: 0}"
                 )
                 synchronized(packets) { packets.add(o) }
                 println("Received a packet before finished creating")

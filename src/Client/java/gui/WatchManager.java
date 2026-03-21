@@ -4,15 +4,17 @@ package gui;
  * this is the deposit window.
  */
 
-import javax.swing.*;
-import javax.swing.event.*;
-import java.awt.*;
-import java.awt.event.*;
-
-import assignments.*;
+import assignments.PacketWatch;
 import com.hackwars.state.GameState;
 
-import java.util.*;
+import javax.swing.*;
+import javax.swing.event.InternalFrameEvent;
+import java.awt.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.awt.event.FocusEvent;
+import java.awt.event.FocusListener;
+import java.util.EventListener;
 import java.util.concurrent.Semaphore;
 
 public class WatchManager extends Application implements FocusListener {
@@ -65,9 +67,7 @@ public class WatchManager extends Application implements FocusListener {
         this.setFrameIcon(ImageLoader.getImageIcon("images/watch.png"));
         myGameState = MyHacker.getView();
         String ip = MyHacker.getEncryptedIP();
-        Object objects[] = {ip};
-        myGameState.setFunction("fetchwatches");
-        myGameState.addFunctionCall(new RemoteFunctionCall(0, "fetchwatches", objects));
+        myGameState.addFunctionCall(new com.hackwars.rpc.FetchWatches(ip).toRfc(0));
     }
 
     public void populate() {
@@ -461,31 +461,23 @@ public class WatchManager extends Application implements FocusListener {
     public void setOnOff(int index) {
         boolean set = !watches[index].getOn();
         GameState myGameState = MyHacker.getView();
-        Object objects[] = {MyHacker.getEncryptedIP(), new Integer(index), new Boolean(set)};
-        myGameState.setFunction("setwatchonoff");
-        myGameState.addFunctionCall(new RemoteFunctionCall(0, "setwatchonoff", objects));
+        myGameState.addFunctionCall(new com.hackwars.rpc.SetWatchOnOff(MyHacker.getEncryptedIP(), new Integer(index), new Boolean(set)).toRfc(0));
     }
 
     public void setQuantity(int watchID, float quantity) {
-        Object objects[] = {MyHacker.getEncryptedIP(), new Integer(watchID), new Float(quantity)};
         GameState myGameState = MyHacker.getView();
-        myGameState.setFunction("setwatchquantity");
-        myGameState.addFunctionCall(new RemoteFunctionCall(0, "setwatchquantity", objects));
+        myGameState.addFunctionCall(new com.hackwars.rpc.SetWatchQuantity(MyHacker.getEncryptedIP(), new Integer(watchID), new Float(quantity)).toRfc(0));
     }
 
     public void setFireWall(int watchID, int firewall) {
-        Object objects[] = {MyHacker.getEncryptedIP(), new Integer(watchID), new Integer(firewall)};
         //System.out.println(firewall);
         GameState myGameState = MyHacker.getView();
-        myGameState.setFunction("setwatchsearchfirewall");
-        myGameState.addFunctionCall(new RemoteFunctionCall(0, "setwatchsearchfirewall", objects));
+        myGameState.addFunctionCall(new com.hackwars.rpc.SetWatchSearchFirewall(MyHacker.getEncryptedIP(), new Integer(watchID), new Integer(firewall)).toRfc(0));
     }
 
     public void setObservedPorts(int watchID, Integer[] ports) {
-        Object objects[] = {MyHacker.getEncryptedIP(), new Integer(watchID), ports};
         GameState myGameState = MyHacker.getView();
-        myGameState.setFunction("setwatchobservedports");
-        myGameState.addFunctionCall(new RemoteFunctionCall(0, "setwatchobservedports", objects));
+        myGameState.addFunctionCall(new com.hackwars.rpc.SetWatchObservedPorts(MyHacker.getEncryptedIP(), new Integer(watchID), ports).toRfc(0));
     }
 
     public void install(String folder, String fileName, String type, int port) {
@@ -500,9 +492,7 @@ public class WatchManager extends Application implements FocusListener {
         if (type.equals("Scan")) {
             sendType = new Integer(2);
         }
-        Object objects[] = {MyHacker.getEncryptedIP(), folder, fileName, sendType, new Integer(port)};
-        myGameState.setFunction("installwatch");
-        myGameState.addFunctionCall(new RemoteFunctionCall(0, "installwatch", objects));
+        myGameState.addFunctionCall(new com.hackwars.rpc.InstallWatch(MyHacker.getEncryptedIP(), folder, fileName, sendType, new Integer(port)).toRfc(0));
 
         //add row to components array
         addRow();
@@ -535,9 +525,7 @@ public class WatchManager extends Application implements FocusListener {
 
     public void saveNote(String note, int index) {
         //System.out.println("SAVING THE NOTE: " + note + " at index = " + index);
-        Object objects[] = {MyHacker.getEncryptedIP(), index, note};
-        myGameState.setFunction("setwatchnote");
-        myGameState.addFunctionCall(new RemoteFunctionCall(0, "setwatchnote", objects));
+        myGameState.addFunctionCall(new com.hackwars.rpc.SetWatchNote(MyHacker.getEncryptedIP(), index, note).toRfc(0));
     }
 
     public void internalFrameClosed(InternalFrameEvent e) {
@@ -555,10 +543,8 @@ public class WatchManager extends Application implements FocusListener {
     public void deleteWatch(int index) {
         if (MyHacker.getStatsPanel().getCPULoadIcon().getPercent() <= 100.0f) {
             deleteCount++;
-            Object objects[] = {MyHacker.getEncryptedIP(), new Integer(index)};
             GameState myGameState = MyHacker.getView();
-            myGameState.setFunction("deletewatch");
-            myGameState.addFunctionCall(new RemoteFunctionCall(0, "deletewatch", objects));
+            myGameState.addFunctionCall(new com.hackwars.rpc.DeleteWatch(MyHacker.getEncryptedIP(), new Integer(index)).toRfc(0));
             for (int i = 0; i < numColumns; i++) {
                 panel.remove(components[i][index]);
             }
@@ -658,9 +644,7 @@ public class WatchManager extends Application implements FocusListener {
         public void actionPerformed(ActionEvent e) {
             JComboBox cb = (JComboBox) e.getSource();
             GameState myGameState = MyHacker.getView();
-            Object objects[] = {MyHacker.getEncryptedIP(), index, cb.getSelectedIndex()};
-            myGameState.setFunction("changewatchport");
-            myGameState.addFunctionCall(new RemoteFunctionCall(0, "changewatchport", objects));
+            myGameState.addFunctionCall(new com.hackwars.rpc.ChangeWatchPort(MyHacker.getEncryptedIP(), index, cb.getSelectedIndex()).toRfc(0));
         }
     }
 
@@ -681,9 +665,7 @@ public class WatchManager extends Application implements FocusListener {
         public void actionPerformed(ActionEvent e) {
             JComboBox cb = (JComboBox) e.getSource();
             GameState myGameState = MyHacker.getView();
-            Object objects[] = {MyHacker.getEncryptedIP(), index, cb.getSelectedIndex()};
-            myGameState.setFunction("changewatchtype");
-            myGameState.addFunctionCall(new RemoteFunctionCall(0, "changewatchtype", objects));
+            myGameState.addFunctionCall(new com.hackwars.rpc.ChangeWatchType(MyHacker.getEncryptedIP(), index, cb.getSelectedIndex()).toRfc(0));
         }
 
     }
@@ -706,9 +688,7 @@ public class WatchManager extends Application implements FocusListener {
         public void actionPerformed(ActionEvent e) {
             JComboBox cb = (JComboBox) e.getSource();
             GameState myGameState = MyHacker.getView();
-            Object objects[] = {MyHacker.getEncryptedIP(), index, cb.getSelectedIndex()};
-            myGameState.setFunction("setwatchsearchfirewall");
-            myGameState.addFunctionCall(new RemoteFunctionCall(0, "setwatchsearchfirewall", objects));
+            myGameState.addFunctionCall(new com.hackwars.rpc.SetWatchSearchFirewall(MyHacker.getEncryptedIP(), index, cb.getSelectedIndex()).toRfc(0));
         }
 
     }
@@ -779,10 +759,8 @@ public class WatchManager extends Application implements FocusListener {
             //System.out.println("Setting value for "+index+" at "+quantity);
 
             if (quantity != currentValue) {
-                Object objects[] = {MyHacker.getEncryptedIP(), index, new Float(quantity)};
                 GameState myGameState = MyHacker.getView();
-                myGameState.setFunction("setwatchquantity");
-                myGameState.addFunctionCall(new RemoteFunctionCall(0, "setwatchquantity", objects));
+                myGameState.addFunctionCall(new com.hackwars.rpc.SetWatchQuantity(MyHacker.getEncryptedIP(), index, new Float(quantity)).toRfc(0));
             }
         }
 

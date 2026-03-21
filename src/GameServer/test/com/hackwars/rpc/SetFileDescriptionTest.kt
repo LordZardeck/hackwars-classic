@@ -22,7 +22,7 @@ class SetFileDescriptionTest {
     @Test
     fun fromRpc_and_toRfc_roundtrip() {
         val params = arrayOf<Any?>("value", null, null, null)
-        val rpc = RemoteFunctionCall(1, SetFileDescription.FUNCTION, params)
+        val rpc = RemoteFunctionCall(1, com.hackwars.rpc.GameCommandWires.SETFILEDESCRIPTION, params)
 
         val call = SetFileDescription.fromRpc(rpc)
         assertEquals(params[0], call.ip)
@@ -31,7 +31,7 @@ class SetFileDescriptionTest {
         assertEquals(params[3], call.description)
         val serialized = call.toRfc()
 
-        assertEquals(SetFileDescription.FUNCTION, serialized.function)
+        assertEquals(com.hackwars.rpc.GameCommandWires.SETFILEDESCRIPTION, serialized.function)
         assertArrayEquals(params, serialized.parameters as Array<*>)
     }
 }

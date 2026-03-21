@@ -22,7 +22,7 @@ class InstallFirewallTest {
     @Test
     fun fromRpc_and_toRfc_roundtrip() {
         val params = arrayOf<Any?>("value", 42, null, null)
-        val rpc = RemoteFunctionCall(1, InstallFirewall.FUNCTION, params)
+        val rpc = RemoteFunctionCall(1, com.hackwars.rpc.GameCommandWires.INSTALLFIREWALL, params)
 
         val call = InstallFirewall.fromRpc(rpc)
         assertEquals(params[0], call.ip)
@@ -31,7 +31,7 @@ class InstallFirewallTest {
         assertEquals(params[3], call.name)
         val serialized = call.toRfc()
 
-        assertEquals(InstallFirewall.FUNCTION, serialized.function)
+        assertEquals(com.hackwars.rpc.GameCommandWires.INSTALLFIREWALL, serialized.function)
         assertArrayEquals(params, serialized.parameters as Array<*>)
     }
 }

@@ -22,13 +22,13 @@ class RequestPageTest {
     @Test
     fun fromRpc_and_toRfc_roundtrip() {
         val params = arrayOf<Any?>("value")
-        val rpc = RemoteFunctionCall(1, RequestPage.FUNCTION, params)
+        val rpc = RemoteFunctionCall(1, com.hackwars.rpc.GameCommandWires.REQUESTPAGE, params)
 
         val call = RequestPage.fromRpc(rpc)
         assertEquals(params[0], call.ip)
         val serialized = call.toRfc()
 
-        assertEquals(RequestPage.FUNCTION, serialized.function)
+        assertEquals(com.hackwars.rpc.GameCommandWires.REQUESTPAGE, serialized.function)
         assertArrayEquals(params, serialized.parameters as Array<*>)
     }
 }

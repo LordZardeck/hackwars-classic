@@ -6,25 +6,24 @@ The viewport that an experiment takes place in.
 
 */
 
+import com.hackwars.state.GameState;
+import gui.Hacker;
+import gui.ImageLoader;
+import util.GameClock;
+
+import javax.imageio.ImageIO;
 import javax.swing.*;
 import java.awt.*;
-import java.awt.image.*;
-
-import com.hackwars.state.GameState;
-import util.*;
-
-import java.io.*;
-import java.awt.geom.*;
-import java.awt.event.*;
+import java.awt.event.FocusEvent;
+import java.awt.event.FocusListener;
+import java.awt.event.MouseEvent;
+import java.awt.event.MouseListener;
+import java.awt.geom.AffineTransform;
+import java.awt.image.BufferedImage;
+import java.io.BufferedReader;
+import java.io.FileReader;
+import java.util.HashMap;
 import java.util.concurrent.Semaphore;
-
-import javax.imageio.*;
-
-import gui.ImageLoader;
-import gui.Hacker;
-import assignments.*;
-
-import java.util.*;
 
 public class Viewport extends JComponent implements Runnable, FocusListener, MouseListener {
     /// //////////////////
@@ -134,16 +133,14 @@ public class Viewport extends JComponent implements Runnable, FocusListener, Mou
             HashMap HM = (HashMap) fireWatch[1];
             HM.put("username", hacker.getUsername());
             GameState myGameState = hacker.getView();
-            Object[] send = new Object[]{note, HM, hacker.getUsername(), MyRenderEngine.getIP()};
-            myGameState.addFunctionCall(new RemoteFunctionCall(Hacker.HACKTENDO_PLAYER, "requesttrigger", send));
+            myGameState.addFunctionCall(new com.hackwars.rpc.RequestTrigger(note, HM, hacker.getUsername(), MyRenderEngine.getIP()).toRfc(Hacker.HACKTENDO_PLAYER));
         }
 
         //Save to a file on the player's computer.
         if (MyRenderEngine.getSaveFile() != null && !fileName.equals("")) {
             //Also save stuff to a player's local hard-drive.
             GameState myGameState = hacker.getView();
-            Object[] send = new Object[]{fileName, MyRenderEngine.getSaveFile(), hacker.getIP()};
-            myGameState.addFunctionCall(new RemoteFunctionCall(Hacker.HACKTENDO_PLAYER, "requestsave", send));
+            myGameState.addFunctionCall(new com.hackwars.rpc.RequestSave(fileName, MyRenderEngine.getSaveFile(), hacker.getIP()).toRfc(Hacker.HACKTENDO_PLAYER));
             MyRenderEngine.setSaveFile(null);
         }
 
@@ -153,8 +150,7 @@ public class Viewport extends JComponent implements Runnable, FocusListener, Mou
             if (MyRenderEngine.getBeat()) {
                 //Also save stuff to a player's local hard-drive.
                 GameState myGameState = hacker.getView();
-                Object[] send = new Object[]{fileName, MyRenderEngine.getQuestID(), MyRenderEngine.getTaskName(), hacker.getIP()};
-                myGameState.addFunctionCall(new RemoteFunctionCall(Hacker.HACKTENDO_PLAYER, "requesttask", send));
+                myGameState.addFunctionCall(new com.hackwars.rpc.RequestTask(fileName, MyRenderEngine.getQuestID(), MyRenderEngine.getTaskName(), hacker.getIP()).toRfc(Hacker.HACKTENDO_PLAYER));
             }
         }
 

@@ -7,8 +7,6 @@ import game.ApplicationCommand
 import game.ApplicationPayload
 import game.Computer
 import game.Port
-import java.util.ArrayList
-import java.util.HashMap
 
 data class CombatDamageValues(
     val xp: Float,
@@ -21,7 +19,7 @@ data class CombatDamageValues(
 data class CombatFirewallXpPayload(
     val amount: Float
 ) : ApplicationPayload {
-    override fun getCommand(): ApplicationCommand = ApplicationCommand.of("firewallxp")
+    override fun getCommand(): ApplicationCommand = com.hackwars.rpc.GameCommands.FIREWALLXP.command
 }
 
 data class CombatOpponentUpdatePayload(
@@ -30,13 +28,13 @@ data class CombatOpponentUpdatePayload(
     val damageFromFirewall: Boolean,
     val mining: Boolean
 ) : ApplicationPayload {
-    override fun getCommand(): ApplicationCommand = ApplicationCommand.of("opponentupdate")
+    override fun getCommand(): ApplicationCommand = com.hackwars.rpc.GameCommands.OPPONENTUPDATE.command
 }
 
 data class CombatAttackXpAwardPayload(
     val amount: Float
 ) : ApplicationPayload {
-    override fun getCommand(): ApplicationCommand = ApplicationCommand.of("attackxp")
+    override fun getCommand(): ApplicationCommand = com.hackwars.rpc.GameCommands.ATTACKXP.command
 }
 
 data class CombatAttackXpUpdatePayload(
@@ -46,7 +44,7 @@ data class CombatAttackXpUpdatePayload(
     val mining: Boolean,
     val targetIp: String? = null
 ) : ApplicationPayload {
-    override fun getCommand(): ApplicationCommand = ApplicationCommand.of("attackxp")
+    override fun getCommand(): ApplicationCommand = com.hackwars.rpc.GameCommands.ATTACKXP.command
 }
 
 data class CombatMiningDamageUpdatePayload(
@@ -56,13 +54,13 @@ data class CombatMiningDamageUpdatePayload(
     val mining: Boolean,
     val targetIp: String? = null
 ) : ApplicationPayload {
-    override fun getCommand(): ApplicationCommand = ApplicationCommand.of("miningdamageupdate")
+    override fun getCommand(): ApplicationCommand = com.hackwars.rpc.GameCommands.MININGDAMAGEUPDATE.command
 }
 
 data class CombatRequestScanPayload(
     val targetIp: String
 ) : ApplicationPayload {
-    override fun getCommand(): ApplicationCommand = ApplicationCommand.of("requestscan")
+    override fun getCommand(): ApplicationCommand = com.hackwars.rpc.GameCommands.REQUESTSCAN.command
 }
 
 data class CombatScanPayload(
@@ -75,23 +73,23 @@ data class CombatScanPayload(
     val npc: Boolean,
     val defaultShipping: Int
 ) : ApplicationPayload {
-    override fun getCommand(): ApplicationCommand = ApplicationCommand.of("scan")
+    override fun getCommand(): ApplicationCommand = com.hackwars.rpc.GameCommands.SCAN.command
 }
 
 data class CombatScanXpPayload(
     val amount: Float
 ) : ApplicationPayload {
-    override fun getCommand(): ApplicationCommand = ApplicationCommand.of("scanxp")
+    override fun getCommand(): ApplicationCommand = com.hackwars.rpc.GameCommands.SCANXP.command
 }
 
 object CombatScanSuccessPayload : ApplicationPayload {
-    override fun getCommand(): ApplicationCommand = ApplicationCommand.of("scansuccess")
+    override fun getCommand(): ApplicationCommand = com.hackwars.rpc.GameCommands.SCANSUCCESS.command
 }
 
 data class CombatCheckBountyPayload(
     val fileName: String
 ) : ApplicationPayload {
-    override fun getCommand(): ApplicationCommand = ApplicationCommand.of("checkbounty")
+    override fun getCommand(): ApplicationCommand = com.hackwars.rpc.GameCommands.CHECKBOUNTY.command
 }
 
 data class CombatMakeBountyPayload(
@@ -103,33 +101,33 @@ data class CombatMakeBountyPayload(
     val iterations: Int,
     val reward: Float
 ) : ApplicationPayload {
-    override fun getCommand(): ApplicationCommand = ApplicationCommand.of("makebounty")
+    override fun getCommand(): ApplicationCommand = com.hackwars.rpc.GameCommands.MAKEBOUNTY.command
 }
 
 data class CombatChangeNetworkPayload(
     val network: String
 ) : ApplicationPayload {
-    override fun getCommand(): ApplicationCommand = ApplicationCommand.of("changenetwork")
+    override fun getCommand(): ApplicationCommand = com.hackwars.rpc.GameCommands.CHANGENETWORK.command
 }
 
 data class CombatChangeNetwork2Payload(
     val network: String
 ) : ApplicationPayload {
-    override fun getCommand(): ApplicationCommand = ApplicationCommand.of("changenetwork2")
+    override fun getCommand(): ApplicationCommand = com.hackwars.rpc.GameCommands.CHANGENETWORK2.command
 }
 
 data class CombatQuestInformationPayload(
     val questParameters: HashMap<Any?, Any?>,
     val interestedQuests: ArrayList<Any?>
 ) : ApplicationPayload {
-    override fun getCommand(): ApplicationCommand = ApplicationCommand.of("questinformation")
+    override fun getCommand(): ApplicationCommand = com.hackwars.rpc.GameCommands.QUESTINFORMATION.command
 }
 
 data class CombatGiveExperiencePayload(
     val stat: String,
     val amount: Float
 ) : ApplicationPayload {
-    override fun getCommand(): ApplicationCommand = ApplicationCommand.of("giveexperience")
+    override fun getCommand(): ApplicationCommand = com.hackwars.rpc.GameCommands.GIVEEXPERIENCE.command
 }
 
 data class CombatGiveTaskPayload(
@@ -137,7 +135,7 @@ data class CombatGiveTaskPayload(
     val taskLabel: String,
     val questId: Int
 ) : ApplicationPayload {
-    override fun getCommand(): ApplicationCommand = ApplicationCommand.of("givetask")
+    override fun getCommand(): ApplicationCommand = com.hackwars.rpc.GameCommands.GIVETASK.command
 }
 
 data class CombatSetTaskPayload(
@@ -145,73 +143,73 @@ data class CombatSetTaskPayload(
     val questId: Int,
     val setTo: Boolean
 ) : ApplicationPayload {
-    override fun getCommand(): ApplicationCommand = ApplicationCommand.of("settask")
+    override fun getCommand(): ApplicationCommand = com.hackwars.rpc.GameCommands.SETTASK.command
 }
 
 data class CombatCompleteTaskPayload(
     val taskName: String,
     val questId: Int
 ) : ApplicationPayload {
-    override fun getCommand(): ApplicationCommand = ApplicationCommand.of("completetask")
+    override fun getCommand(): ApplicationCommand = com.hackwars.rpc.GameCommands.COMPLETETASK.command
 }
 
 data class CombatGiveCommodityPayload(
     val commodityType: Int,
     val amount: Float
 ) : ApplicationPayload {
-    override fun getCommand(): ApplicationCommand = ApplicationCommand.of("givecommodity")
+    override fun getCommand(): ApplicationCommand = com.hackwars.rpc.GameCommands.GIVECOMMODITY.command
 }
 
 data class CombatGiveAccessPayload(
     val accessNetwork: String
 ) : ApplicationPayload {
-    override fun getCommand(): ApplicationCommand = ApplicationCommand.of("giveaccess")
+    override fun getCommand(): ApplicationCommand = com.hackwars.rpc.GameCommands.GIVEACCESS.command
 }
 
 data class CombatGiveFilePayload(
     val fileId: String,
     val quantity: Int
 ) : ApplicationPayload {
-    override fun getCommand(): ApplicationCommand = ApplicationCommand.of("givefile")
+    override fun getCommand(): ApplicationCommand = com.hackwars.rpc.GameCommands.GIVEFILE.command
 }
 
 data class CombatTakeFilePayload(
     val fileId: String
 ) : ApplicationPayload {
-    override fun getCommand(): ApplicationCommand = ApplicationCommand.of("takefile")
+    override fun getCommand(): ApplicationCommand = com.hackwars.rpc.GameCommands.TAKEFILE.command
 }
 
 data class CombatTakeFile2Payload(
     val fileId: String,
     val quantity: Int
 ) : ApplicationPayload {
-    override fun getCommand(): ApplicationCommand = ApplicationCommand.of("takefile2")
+    override fun getCommand(): ApplicationCommand = com.hackwars.rpc.GameCommands.TAKEFILE2.command
 }
 
 data class CombatFinishQuestPayload(
     val questId: Int
 ) : ApplicationPayload {
-    override fun getCommand(): ApplicationCommand = ApplicationCommand.of("finishquest")
+    override fun getCommand(): ApplicationCommand = com.hackwars.rpc.GameCommands.FINISHQUEST.command
 }
 
 data class CombatGiveQuestPayload(
     val questId: Int,
     val description: String
 ) : ApplicationPayload {
-    override fun getCommand(): ApplicationCommand = ApplicationCommand.of("givequest")
+    override fun getCommand(): ApplicationCommand = com.hackwars.rpc.GameCommands.GIVEQUEST.command
 }
 
 data class CombatTakeMoneyPayload(
     val amount: Float
 ) : ApplicationPayload {
-    override fun getCommand(): ApplicationCommand = ApplicationCommand.of("takemoney")
+    override fun getCommand(): ApplicationCommand = com.hackwars.rpc.GameCommands.TAKEMONEY.command
 }
 
 data class CombatTakeCommodityPayload(
     val amount: Float,
     val commodityType: Int
 ) : ApplicationPayload {
-    override fun getCommand(): ApplicationCommand = ApplicationCommand.of("takecommodity")
+    override fun getCommand(): ApplicationCommand = com.hackwars.rpc.GameCommands.TAKECOMMODITY.command
 }
 
 data class CombatExchangeCommodityPayload(
@@ -219,7 +217,7 @@ data class CombatExchangeCommodityPayload(
     val commodityType: Int,
     val exchangeCost: Float
 ) : ApplicationPayload {
-    override fun getCommand(): ApplicationCommand = ApplicationCommand.of("exchangecommodity")
+    override fun getCommand(): ApplicationCommand = com.hackwars.rpc.GameCommands.EXCHANGECOMMODITY.command
 }
 
 data class CombatExchangeFilePayload(
@@ -227,7 +225,7 @@ data class CombatExchangeFilePayload(
     val commodityType: Int,
     val exchangeCost: Float
 ) : ApplicationPayload {
-    override fun getCommand(): ApplicationCommand = ApplicationCommand.of("exchangefile")
+    override fun getCommand(): ApplicationCommand = com.hackwars.rpc.GameCommands.EXCHANGEFILE.command
 }
 
 data class CombatQuestTaskState(
@@ -407,6 +405,7 @@ object CombatQuestSupport {
                 val label = raw.getOrNull(1) as? String ?: ""
                 CombatQuestState(tasks, label)
             }
+
             else -> null
         }
     }
@@ -420,6 +419,7 @@ object CombatQuestSupport {
                 val label = raw.getOrNull(1) as? String ?: ""
                 CombatQuestTaskState(completed, label)
             }
+
             else -> null
         }
     }
@@ -433,6 +433,7 @@ object CombatQuestSupport {
                 val label = raw.getOrNull(1) as? String ?: ""
                 CombatCompletedQuestState(questId, label)
             }
+
             else -> null
         }
     }

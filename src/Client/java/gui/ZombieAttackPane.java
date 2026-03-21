@@ -4,17 +4,15 @@ package gui;
  * this is the attack window.
  */
 
+import com.hackwars.state.GameState;
+
 import javax.swing.*;
 import javax.swing.event.*;
 import java.awt.*;
-import java.awt.event.*;
-
-import assignments.*;
-import com.hackwars.state.GameState;
-
-import java.lang.*;
-
-import java.text.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.FocusEvent;
+import java.awt.event.FocusListener;
+import java.text.NumberFormat;
 
 public class ZombieAttackPane extends Application implements ChangeListener, UndoableEditListener, FocusListener {
     private JDesktopPane mainPanel = null;
@@ -323,9 +321,7 @@ public class ZombieAttackPane extends Application implements ChangeListener, Und
                 otherInfo[3] = (Float) pettyCashTarget;
                 otherInfo[4] = "";
                 //System.out.println(ipValue);
-                Object objects[] = {targetIP, targetPort, ipValue, new Integer(portValue), secondaryPorts, null, otherInfo, ip};
-                myGameState.setFunction("requestzombieattack");
-                myGameState.addFunctionCall(new RemoteFunctionCall(0, "requestzombieattack", objects));
+                myGameState.addFunctionCall(new com.hackwars.rpc.RequestZombieAttack(targetIP, targetPort, ipValue, new Integer(portValue), secondaryPorts, null, otherInfo, ip).toRfc(0));
                 //this.hide();
                 //MyHacker.setAttackOpen(false);
             }
@@ -334,9 +330,7 @@ public class ZombieAttackPane extends Application implements ChangeListener, Und
             textPane.setText(textPane.getText() + "Attack Canceled by you.\n--------------------------------------\n");
             String ip = MyHacker.getEncryptedIP();
             GameState myGameState = MyHacker.getView();
-            Object objects[] = {ipValue, new Integer(portValue), ip};
-            myGameState.setFunction("requestzombiecancelattack");
-            myGameState.addFunctionCall(new RemoteFunctionCall(0, "requestzombiecancelattack", objects));
+            myGameState.addFunctionCall(new com.hackwars.rpc.RequestZombieCancelAttack(ipValue, new Integer(portValue), ip).toRfc(0));
             tabbedPane.setSelectedIndex(0);
             button.setEnabled(true);
         }

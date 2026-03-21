@@ -4,13 +4,15 @@ package gui;
  * this is for the script editor to save and open files.
  */
 
+import com.hackwars.state.GameState;
+import game.HackerFile;
+
 import javax.swing.*;
 import java.awt.*;
-import java.awt.event.*;
-
-import com.hackwars.state.GameState;
-import game.*;
-import assignments.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.awt.event.MouseEvent;
+import java.awt.event.MouseListener;
 
 public class HackerFileChooser extends JInternalFrame implements ActionListener, MouseListener {
     //data
@@ -39,10 +41,8 @@ public class HackerFileChooser extends JInternalFrame implements ActionListener,
         if (folder.equals("Store") || folder.equals("Public") || directory == null) {
             this.folder = "";
             GameState myGameState = MyHacker.getView();
-            Object objects[] = {MyHacker.getEncryptedIP(), ""};
             MyHacker.setCurrentFolder("");
-            myGameState.setFunction("requestdirectory");
-            myGameState.addFunctionCall(new RemoteFunctionCall(Hacker.FILE_CHOOSER, "requestdirectory", objects));
+            myGameState.addFunctionCall(new com.hackwars.rpc.RequestDirectory(MyHacker.getEncryptedIP(), "").toRfc(Hacker.FILE_CHOOSER));
         }
         this.MyScriptEditor = MyScriptEditor;
         if (type == OPEN) {
@@ -231,9 +231,7 @@ public class HackerFileChooser extends JInternalFrame implements ActionListener,
                     //REQUEST DIRECTORY
                     GameState myGameState = MyHacker.getView();
                     String ip = MyHacker.getEncryptedIP();
-                    Object objects[] = {ip, folder};
-                    myGameState.setFunction("requestdirectory");
-                    myGameState.addFunctionCall(new RemoteFunctionCall(Hacker.FILE_CHOOSER, "requestdirectory", objects));
+                    myGameState.addFunctionCall(new com.hackwars.rpc.RequestDirectory(ip, folder).toRfc(Hacker.FILE_CHOOSER));
                     MyHacker.setRequestedDirectory(Hacker.FILE_CHOOSER);
                 } else {
                     String folders[] = folder.split("/");
@@ -248,9 +246,7 @@ public class HackerFileChooser extends JInternalFrame implements ActionListener,
                     GameState myGameState = MyHacker.getView();
                     String ip = MyHacker.getEncryptedIP();
                     MyHacker.setRequestedDirectory(Hacker.FILE_CHOOSER);
-                    Object objects[] = {ip, folder};
-                    myGameState.setFunction("requestdirectory");
-                    myGameState.addFunctionCall(new RemoteFunctionCall(Hacker.FILE_CHOOSER, "requestdirectory", objects));
+                    myGameState.addFunctionCall(new com.hackwars.rpc.RequestDirectory(ip, folder).toRfc(Hacker.FILE_CHOOSER));
                 }
             } else {
 

@@ -22,7 +22,7 @@ class RequestTriggerTest {
     @Test
     fun fromRpc_and_toRfc_roundtrip() {
         val params = arrayOf<Any?>(null, hashMapOf<Any?, Any?>("k" to "v"), null, null)
-        val rpc = RemoteFunctionCall(1, RequestTrigger.FUNCTION, params)
+        val rpc = RemoteFunctionCall(1, com.hackwars.rpc.GameCommandWires.REQUESTTRIGGER, params)
 
         val call = RequestTrigger.fromRpc(rpc)
         assertEquals(params[0], call.watchNote)
@@ -31,7 +31,7 @@ class RequestTriggerTest {
         assertEquals(params[3], call.targetIP)
         val serialized = call.toRfc()
 
-        assertEquals(RequestTrigger.FUNCTION, serialized.function)
+        assertEquals(com.hackwars.rpc.GameCommandWires.REQUESTTRIGGER, serialized.function)
         assertArrayEquals(params, serialized.parameters as Array<*>)
     }
 }

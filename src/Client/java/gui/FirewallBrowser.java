@@ -4,19 +4,18 @@ package gui;
  * Represents the file browser.
  */
 
+import com.hackwars.state.GameState;
+import game.HackerFile;
+import net.miginfocom.swing.MigLayout;
+
 import javax.swing.*;
-import javax.swing.table.*;
-import javax.swing.event.*;
+import javax.swing.event.InternalFrameEvent;
+import javax.swing.table.JTableHeader;
+import javax.swing.table.TableColumn;
+import javax.swing.table.TableColumnModel;
 import java.awt.*;
 import java.awt.event.*;
-
-import com.hackwars.state.GameState;
-import game.*;
-import assignments.*;
-
-import java.util.*;
-
-import net.miginfocom.swing.*;
+import java.util.HashMap;
 //import java.awt.font.FontMetrics;
 
 public class FirewallBrowser extends Application implements ComponentListener, KeyListener {
@@ -179,11 +178,9 @@ public class FirewallBrowser extends Application implements ComponentListener, K
 
     public void startUp() {
         GameState myGameState = MyHacker.getView();
-        Object objects[] = {MyHacker.getEncryptedIP(), ""};
         MyHacker.setCurrentFolder("");
         folder = "";
-        myGameState.setFunction("requestdirectory");
-        myGameState.addFunctionCall(new RemoteFunctionCall(Hacker.FIREWALL_BROWSER, "requestdirectory", objects));
+        myGameState.addFunctionCall(new com.hackwars.rpc.RequestDirectory(MyHacker.getEncryptedIP(), "").toRfc(Hacker.FIREWALL_BROWSER));
         MyHacker.setRequestedDirectory(Hacker.FIREWALL_BROWSER);
     }
 
@@ -295,11 +292,9 @@ public class FirewallBrowser extends Application implements ComponentListener, K
             folder = newFolder + name;
             //System.out.println("Changing To "+folder);
             //System.out.println("Requesting "+newFolder+name+"/");
-            Object objects[] = new Object[]{MyHacker.getEncryptedIP(), newFolder + name + "/"};
             GameState myGameState = MyHacker.getView();
             MyHacker.setRequestedDirectory(Hacker.HOME);
-            myGameState.setFunction("requestdirectory");
-            myGameState.addFunctionCall(new RemoteFunctionCall(Hacker.HOME, "requestdirectory", objects));
+            myGameState.addFunctionCall(new com.hackwars.rpc.RequestDirectory(MyHacker.getEncryptedIP(), newFolder + name + "/").toRfc(Hacker.HOME));
         } else {
             if (!folder.equals("")) {
 
@@ -312,12 +307,10 @@ public class FirewallBrowser extends Application implements ComponentListener, K
                 }
                 buttonList = newList;
                 folder = newFolder;
-                Object objects[] = new Object[]{MyHacker.getEncryptedIP(), newFolder};
                 MyHacker.setCurrentFolder(newFolder);
                 MyHacker.setRequestedDirectory(Hacker.HOME);
                 GameState myGameState = MyHacker.getView();
-                myGameState.setFunction("requestdirectory");
-                myGameState.addFunctionCall(new RemoteFunctionCall(Hacker.HOME, "requestdirectory", objects));
+                myGameState.addFunctionCall(new com.hackwars.rpc.RequestDirectory(MyHacker.getEncryptedIP(), newFolder).toRfc(Hacker.HOME));
             }
         }
     }
@@ -339,12 +332,10 @@ public class FirewallBrowser extends Application implements ComponentListener, K
         }
         buttonList = newList;
         folder = newFolder;
-        Object objects[] = new Object[]{MyHacker.getEncryptedIP(), location};
         MyHacker.setCurrentFolder(location);
         MyHacker.setRequestedDirectory(Hacker.HOME);
         GameState myGameState = MyHacker.getView();
-        myGameState.setFunction("requestdirectory");
-        myGameState.addFunctionCall(new RemoteFunctionCall(Hacker.HOME, "requestdirectory", objects));
+        myGameState.addFunctionCall(new com.hackwars.rpc.RequestDirectory(MyHacker.getEncryptedIP(), location).toRfc(Hacker.HOME));
     }
 
     public void populateButtons() {
@@ -375,16 +366,12 @@ public class FirewallBrowser extends Application implements ComponentListener, K
 
     public void changePrice(String fileName, float price) {
         GameState myGameState = MyHacker.getView();
-        Object objects[] = {MyHacker.getEncryptedIP(), folder, fileName, new Float(price)};
-        myGameState.setFunction("setfileprice");
-        myGameState.addFunctionCall(new RemoteFunctionCall(0, "setfileprice", objects));
+        myGameState.addFunctionCall(new com.hackwars.rpc.SetFilePrice(MyHacker.getEncryptedIP(), folder, fileName, new Float(price)).toRfc(0));
     }
 
     public void changeDescription(String fileName, String description) {
         GameState myGameState = MyHacker.getView();
-        Object objects[] = {MyHacker.getEncryptedIP(), folder, fileName, description};
-        myGameState.setFunction("setfiledescription");
-        myGameState.addFunctionCall(new RemoteFunctionCall(0, "setfiledescription", objects));
+        myGameState.addFunctionCall(new com.hackwars.rpc.SetFileDescription(MyHacker.getEncryptedIP(), folder, fileName, description).toRfc(0));
     }
 
     public String getFolder() {
@@ -407,11 +394,9 @@ public class FirewallBrowser extends Application implements ComponentListener, K
             allFiles[0] = new Object[]{folder, fileName, maker, quantity};
             // check to see that there's a bank port on
             if ((MyHacker.getBankPorts()).size() > 0) {
-                Object objects[] = new Object[]{MyHacker.getEncryptedIP(), allFiles};
                 GameState myGameState = MyHacker.getView();
                 MyHacker.setRequestedDirectory(Hacker.HOME);
-                myGameState.setFunction("sellfilemulti");
-                myGameState.addFunctionCall(new RemoteFunctionCall(Hacker.FIREWALL_BROWSER, "sellfilemulti", objects));
+                myGameState.addFunctionCall(new com.hackwars.rpc.SellFileMulti(MyHacker.getEncryptedIP(), allFiles).toRfc(Hacker.FIREWALL_BROWSER));
                 int maxQuantity = (Integer) tableModel.getValueAt(index, QUANTITY);
                 if (quantity == maxQuantity) {
                     removeRow(index);
@@ -497,10 +482,8 @@ public class FirewallBrowser extends Application implements ComponentListener, K
                 details[2] = "file";
                 allFiles[i] = details;
             }
-            Object objects[] = {MyHacker.getEncryptedIP(), allFiles};
             GameState myGameState = MyHacker.getView();
-            myGameState.setFunction("deletemulti");
-            myGameState.addFunctionCall(new RemoteFunctionCall(Hacker.FIREWALL_BROWSER, "deletemulti", objects));
+            myGameState.addFunctionCall(new com.hackwars.rpc.DeleteMulti(MyHacker.getEncryptedIP(), allFiles).toRfc(Hacker.FIREWALL_BROWSER));
             MyHacker.setCurrentFolder(folder);
             MyHacker.setRequestedDirectory(Hacker.FIREWALL_BROWSER);
             removeRows(selRows);
@@ -519,11 +502,9 @@ public class FirewallBrowser extends Application implements ComponentListener, K
             changeDirectory("..");
         }
         if (e.getActionCommand().equals("Refresh")) {
-            Object objects[] = new Object[]{MyHacker.getEncryptedIP(), folder};
             GameState myGameState = MyHacker.getView();
             MyHacker.setRequestedDirectory(Hacker.FIREWALL_BROWSER);
-            myGameState.setFunction("requestdirectory");
-            myGameState.addFunctionCall(new RemoteFunctionCall(Hacker.FIREWALL_BROWSER, "requestdirectory", objects));
+            myGameState.addFunctionCall(new com.hackwars.rpc.RequestDirectory(MyHacker.getEncryptedIP(), folder).toRfc(Hacker.FIREWALL_BROWSER));
         }
         if (e.getActionCommand().equals("Sell")) {
             int[] selRows = table.getSelectedRows();
@@ -572,10 +553,8 @@ public class FirewallBrowser extends Application implements ComponentListener, K
                     }
                     if (okay) {
                         if ((MyHacker.getBankPorts()).size() > 0) {
-                            Object objects[] = {MyHacker.getEncryptedIP(), allFiles};
                             GameState myGameState = MyHacker.getView();
-                            myGameState.setFunction("sellmulti");
-                            myGameState.addFunctionCall(new RemoteFunctionCall(Hacker.FIREWALL_BROWSER, "sellfilemulti", objects));
+                            myGameState.addFunctionCall(new com.hackwars.rpc.SellFileMulti(MyHacker.getEncryptedIP(), allFiles).toRfc(Hacker.FIREWALL_BROWSER));
                             MyHacker.setCurrentFolder(folder);
                             MyHacker.setRequestedDirectory(Hacker.FIREWALL_BROWSER);
                             removeRows(selRows);

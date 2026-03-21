@@ -22,7 +22,7 @@ class PutTest {
     @Test
     fun fromRpc_and_toRfc_roundtrip() {
         val params = arrayOf<Any?>(null, 42, null, null, null, "value", null, null)
-        val rpc = RemoteFunctionCall(1, Put.FUNCTION, params)
+        val rpc = RemoteFunctionCall(1, com.hackwars.rpc.GameCommandWires.PUT, params)
 
         val call = Put.fromRpc(rpc)
         assertEquals(params[0], call.ip)
@@ -35,7 +35,7 @@ class PutTest {
         assertEquals(params[7], call.quantity)
         val serialized = call.toRfc()
 
-        assertEquals(Put.FUNCTION, serialized.function)
+        assertEquals(com.hackwars.rpc.GameCommandWires.PUT, serialized.function)
         assertArrayEquals(params, serialized.parameters as Array<*>)
     }
 }

@@ -22,7 +22,7 @@ class DeleteFileTest {
     @Test
     fun fromRpc_and_toRfc_roundtrip() {
         val params = arrayOf<Any?>("value", null, null)
-        val rpc = RemoteFunctionCall(1, DeleteFile.FUNCTION, params)
+        val rpc = RemoteFunctionCall(1, com.hackwars.rpc.GameCommandWires.DELETEFILE, params)
 
         val call = DeleteFile.fromRpc(rpc)
         assertEquals(params[0], call.ip)
@@ -30,7 +30,7 @@ class DeleteFileTest {
         assertEquals(params[2], call.name)
         val serialized = call.toRfc()
 
-        assertEquals(DeleteFile.FUNCTION, serialized.function)
+        assertEquals(com.hackwars.rpc.GameCommandWires.DELETEFILE, serialized.function)
         assertArrayEquals(params, serialized.parameters as Array<*>)
     }
 }

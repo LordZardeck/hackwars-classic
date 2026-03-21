@@ -1,7 +1,6 @@
 package game
 
 import assignments.PacketWatch
-import com.hackwars.rpc.FetchPorts
 import com.hackwars.game.program.Program
 import com.hackwars.game.program.WatchProgram
 import game.payload.BooleanCommandPayload
@@ -217,7 +216,11 @@ class Watch(private var computer: Computer?) {
                 val port = TempPort.getNumber()
                 val on = false
                 computer!!.computerHandler.addData(
-                    ApplicationData(BooleanCommandPayload(ApplicationCommand.of("portonoff"), on), port, ip),
+                    ApplicationData(
+                        BooleanCommandPayload(com.hackwars.rpc.GameCommands.PORTONOFF.command, on),
+                        port,
+                        ip
+                    ),
                     ip
                 )
             }
@@ -236,7 +239,7 @@ class Watch(private var computer: Computer?) {
             val ip = computer!!.getIP()
             val on = false
             computer!!.computerHandler.addData(
-                ApplicationData(BooleanCommandPayload(ApplicationCommand.of("portonoff"), on), port, ip),
+                ApplicationData(BooleanCommandPayload(com.hackwars.rpc.GameCommands.PORTONOFF.command, on), port, ip),
                 ip
             )
         }
@@ -256,7 +259,11 @@ class Watch(private var computer: Computer?) {
                 val port = TempPort.getNumber()
                 val on = true
                 computer!!.computerHandler.addData(
-                    ApplicationData(BooleanCommandPayload(ApplicationCommand.of("portonoff"), on), port, ip),
+                    ApplicationData(
+                        BooleanCommandPayload(com.hackwars.rpc.GameCommands.PORTONOFF.command, on),
+                        port,
+                        ip
+                    ),
                     ip
                 )
             }
@@ -275,7 +282,7 @@ class Watch(private var computer: Computer?) {
             val ip = computer!!.getIP()
             val on = true
             computer!!.computerHandler.addData(
-                ApplicationData(BooleanCommandPayload(ApplicationCommand.of("portonoff"), on), port, ip),
+                ApplicationData(BooleanCommandPayload(com.hackwars.rpc.GameCommands.PORTONOFF.command, on), port, ip),
                 ip
             )
         }

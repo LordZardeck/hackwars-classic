@@ -4,27 +4,27 @@ package gui;
  * this is the attack window.
  */
 
+import com.hackwars.state.GameState;
+import game.HackerFile;
+import org.apache.axis.encoding.Base64;
+import org.w3c.dom.Node;
+import util.LoadXML;
+
 import javax.swing.*;
 import java.awt.*;
-import java.awt.event.*;
-
-import assignments.*;
-import com.hackwars.state.GameState;
-
-import java.lang.*;
-
-import game.*;
-
-import java.util.*;
-import java.awt.image.*;
-import java.util.zip.*;
-
-import org.apache.axis.encoding.Base64;
-
-import java.io.*;
-
-import org.w3c.dom.Node;
-import util.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ComponentEvent;
+import java.awt.event.ComponentListener;
+import java.awt.image.BufferedImage;
+import java.awt.image.IndexColorModel;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.FileOutputStream;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
+import java.util.zip.ZipOutputStream;
 
 public class HacktendoCreator extends Application implements ComponentListener {
     public static final int X_SCREENS = 5;
@@ -288,9 +288,7 @@ public class HacktendoCreator extends Application implements ComponentListener {
         String encryptedIP = MyHacker.getEncryptedIP();
         GameState myGameState = MyHacker.getView();
         MyHacker.setRequestedFile(Hacker.HACKTENDO_CREATOR);
-        Object[] objects = {encryptedIP, folder, filename};
-        myGameState.setFunction("requestgame");
-        myGameState.addFunctionCall(new RemoteFunctionCall(0, "requestgame", objects));
+        myGameState.addFunctionCall(new com.hackwars.rpc.RequestGame(encryptedIP, folder, filename).toRfc(0));
 
     }
 
@@ -653,9 +651,7 @@ public class HacktendoCreator extends Application implements ComponentListener {
         HF.setContent(HM);
         String encryptedIP = MyHacker.getEncryptedIP();
         GameState myGameState = MyHacker.getView();
-        Object[] objects = {encryptedIP, folder, HF};
-        myGameState.setFunction("savefile");
-        myGameState.addFunctionCall(new RemoteFunctionCall(0, "savefile", objects));
+        myGameState.addFunctionCall(new com.hackwars.rpc.SaveFile(encryptedIP, folder, HF).toRfc(0));
     }
 
     public void packGame(String filename, String folder) {
@@ -670,9 +666,7 @@ public class HacktendoCreator extends Application implements ComponentListener {
         HF.setContent(HM);
         String encryptedIP = MyHacker.getEncryptedIP();
         GameState myGameState = MyHacker.getView();
-        Object[] objects = {encryptedIP, folder, HF};
-        myGameState.setFunction("savefile");
-        myGameState.addFunctionCall(new RemoteFunctionCall(0, "savefile", objects));
+        myGameState.addFunctionCall(new com.hackwars.rpc.SaveFile(encryptedIP, folder, HF).toRfc(0));
     }
 
 
@@ -726,9 +720,7 @@ public class HacktendoCreator extends Application implements ComponentListener {
 					String encryptedIP = MyHacker.getEncryptedIP();
 					View MyView = MyHacker.getView();
 					MyHacker.setRequestedFile(Hacker.HACKTENDO_CREATOR);
-					Object[] objects = {encryptedIP,"",answer};
-					MyView.setFunction("requestgame");
-					MyView.addFunctionCall(new RemoteFunctionCall(0,"requestgame",objects));
+myGameState.addFunctionCall(new com.hackwars.rpc.RequestGame(encryptedIP,"",answer).toRfc(0));
 				}
 			}*/
             HacktendoFileChooser HFC = new HacktendoFileChooser(MyHacker, HacktendoFileChooser.OPEN, "", null, this);

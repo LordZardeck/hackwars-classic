@@ -22,7 +22,7 @@ class InstallWatchTest {
     @Test
     fun fromRpc_and_toRfc_roundtrip() {
         val params = arrayOf<Any?>("value", null, null, 42, 42)
-        val rpc = RemoteFunctionCall(1, InstallWatch.FUNCTION, params)
+        val rpc = RemoteFunctionCall(1, com.hackwars.rpc.GameCommandWires.INSTALLWATCH, params)
 
         val call = InstallWatch.fromRpc(rpc)
         assertEquals(params[0], call.ip)
@@ -32,7 +32,7 @@ class InstallWatchTest {
         assertEquals(params[4], call.port)
         val serialized = call.toRfc()
 
-        assertEquals(InstallWatch.FUNCTION, serialized.function)
+        assertEquals(com.hackwars.rpc.GameCommandWires.INSTALLWATCH, serialized.function)
         assertArrayEquals(params, serialized.parameters as Array<*>)
     }
 }

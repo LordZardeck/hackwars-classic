@@ -166,9 +166,9 @@ class WatchHandler(private val computer: Computer?, private val computerHandler:
                 var overheated = false
                 if (TempPort != null) overheated = TempPort.getOverHeated()
 
-                if (!overheated || commandName == "scansuccess") { //Make sure our port isn't overheated.
+                if (!overheated || commandName == com.hackwars.rpc.GameCommandWires.SCANSUCCESS) { //Make sure our port isn't overheated.
 
-                    if (commandName == "damage") {
+                    if (commandName == com.hackwars.rpc.GameCommandWires.DAMAGE) {
                         val damagePayload = applicationData.payloadAs<DamagePayload>()
                         var zombieDamage =
                             false //Is the damge being dealt by a port that has been maliciously taken over?
@@ -214,14 +214,14 @@ class WatchHandler(private val computer: Computer?, private val computerHandler:
                     }
 
                     //Make sure the initial quantity value remains valid.
-                    if (commandName == "bank") {
+                    if (commandName == com.hackwars.rpc.GameCommandWires.BANK) {
                         if (TempWatch.type == PETTY_CASH) {
                             TempWatch.initialQuantity = pettyCash
                         }
                     }
 
                     //Fired when petty cash reaches a certain amount.
-                    if (commandName == "pettycash") {
+                    if (commandName == com.hackwars.rpc.GameCommandWires.PETTYCASH) {
                         val value = pettyCash
 
                         if (TempWatch.type == PETTY_CASH) {
@@ -265,7 +265,7 @@ class WatchHandler(private val computer: Computer?, private val computerHandler:
                     }
 
                     //Fired when petty cash reaches a certain amount.
-                    if (commandName == "scansuccess") {
+                    if (commandName == com.hackwars.rpc.GameCommandWires.SCANSUCCESS) {
                         val value = pettyCash
                         if (TempWatch.type == SCAN) {
                             //Set the source of the watch to internal or external.

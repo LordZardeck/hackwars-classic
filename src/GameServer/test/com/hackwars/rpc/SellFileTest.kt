@@ -22,7 +22,7 @@ class SellFileTest {
     @Test
     fun fromRpc_and_toRfc_roundtrip() {
         val params = arrayOf<Any?>("value", null, null, null, null)
-        val rpc = RemoteFunctionCall(1, SellFile.FUNCTION, params)
+        val rpc = RemoteFunctionCall(1, com.hackwars.rpc.GameCommandWires.SELLFILE, params)
 
         val call = SellFile.fromRpc(rpc)
         assertEquals(params[0], call.ip)
@@ -32,7 +32,7 @@ class SellFileTest {
         assertEquals(params[4], call.quantity)
         val serialized = call.toRfc()
 
-        assertEquals(SellFile.FUNCTION, serialized.function)
+        assertEquals(com.hackwars.rpc.GameCommandWires.SELLFILE, serialized.function)
         assertArrayEquals(params, serialized.parameters as Array<*>)
     }
 }

@@ -22,7 +22,7 @@ class DepositTest {
     @Test
     fun fromRpc_and_toRfc_roundtrip() {
         val params = arrayOf<Any?>(1.5f, "value", 42)
-        val rpc = RemoteFunctionCall(1, Deposit.FUNCTION, params)
+        val rpc = RemoteFunctionCall(1, com.hackwars.rpc.GameCommandWires.DEPOSIT, params)
 
         val call = Deposit.fromRpc(rpc)
         assertEquals(params[0], call.amount)
@@ -30,7 +30,7 @@ class DepositTest {
         assertEquals(params[2], call.port)
         val serialized = call.toRfc()
 
-        assertEquals(Deposit.FUNCTION, serialized.function)
+        assertEquals(com.hackwars.rpc.GameCommandWires.DEPOSIT, serialized.function)
         assertArrayEquals(params, serialized.parameters as Array<*>)
     }
 }

@@ -22,7 +22,7 @@ class DecompileFileTest {
     @Test
     fun fromRpc_and_toRfc_roundtrip() {
         val params = arrayOf<Any?>("value", null, null, null)
-        val rpc = RemoteFunctionCall(1, DecompileFile.FUNCTION, params)
+        val rpc = RemoteFunctionCall(1, com.hackwars.rpc.GameCommandWires.DECOMPILEFILE, params)
 
         val call = DecompileFile.fromRpc(rpc)
         assertEquals(params[0], call.ip)
@@ -31,7 +31,7 @@ class DecompileFileTest {
         assertEquals(params[3], call.compileCost)
         val serialized = call.toRfc()
 
-        assertEquals(DecompileFile.FUNCTION, serialized.function)
+        assertEquals(com.hackwars.rpc.GameCommandWires.DECOMPILEFILE, serialized.function)
         assertArrayEquals(params, serialized.parameters as Array<*>)
     }
 }

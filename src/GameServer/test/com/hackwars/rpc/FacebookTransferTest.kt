@@ -22,7 +22,7 @@ class FacebookTransferTest {
     @Test
     fun fromRpc_and_toRfc_roundtrip() {
         val params = arrayOf<Any?>(null, null, 1.5f, 42)
-        val rpc = RemoteFunctionCall(1, FacebookTransfer.FUNCTION, params)
+        val rpc = RemoteFunctionCall(1, com.hackwars.rpc.GameCommandWires.FACEBOOKTRANSFER, params)
 
         val call = FacebookTransfer.fromRpc(rpc)
         assertEquals(params[0], call.ip)
@@ -31,7 +31,7 @@ class FacebookTransferTest {
         assertEquals(params[3], call.defaultPort)
         val serialized = call.toRfc()
 
-        assertEquals(FacebookTransfer.FUNCTION, serialized.function)
+        assertEquals(com.hackwars.rpc.GameCommandWires.FACEBOOKTRANSFER, serialized.function)
         assertArrayEquals(params, serialized.parameters as Array<*>)
     }
 }

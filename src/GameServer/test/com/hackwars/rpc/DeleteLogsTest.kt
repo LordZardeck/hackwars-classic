@@ -22,13 +22,13 @@ class DeleteLogsTest {
     @Test
     fun fromRpc_and_toRfc_roundtrip() {
         val params = arrayOf<Any?>("value")
-        val rpc = RemoteFunctionCall(1, DeleteLogs.FUNCTION, params)
+        val rpc = RemoteFunctionCall(1, com.hackwars.rpc.GameCommandWires.DELETELOGS, params)
 
         val call = DeleteLogs.fromRpc(rpc)
         assertEquals(params[0], call.ip)
         val serialized = call.toRfc()
 
-        assertEquals(DeleteLogs.FUNCTION, serialized.function)
+        assertEquals(com.hackwars.rpc.GameCommandWires.DELETELOGS, serialized.function)
         assertArrayEquals(params, serialized.parameters as Array<*>)
     }
 }

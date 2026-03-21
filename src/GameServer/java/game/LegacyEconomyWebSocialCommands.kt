@@ -2,36 +2,18 @@ package game
 
 import com.hackwars.game.program.AttackProgram
 import com.hackwars.game.program.HTTPProgram
-import com.hackwars.game.program.Program
 import com.hackwars.game.program.ShippingProgram
 import com.hackwars.rpc.SaveFile
-import game.ApplicationCommand
-import game.payload.ContinuePurchasePayload
-import game.payload.DailyPaySetPayload
-import game.payload.IntCommandPayload
-import game.payload.MessageTextPayload
-import game.payload.PettyCashDeltaPayload
-import game.payload.PettyCashTransferPayload
-import game.payload.QuestInformationPayload
-import game.payload.RequestPurchasePayload
-import game.payload.RequestWebPagePayload
-import game.payload.SavePagePayload
-import game.payload.SendEmailPayload
-import game.payload.SendFacebookPayload
-import game.payload.SetPreferencesPayload
-import game.payload.StructuredMessagePayload
-import game.payload.SubmitPayload
-import game.payload.WebPagePayload
+import game.payload.*
 import java.text.DecimalFormat
 import java.text.NumberFormat
-import java.util.HashMap
 
 class LegacyEconomyWebSocialCommands : LegacyApplicationDataHandler {
     override fun dispatch(computer: Computer, applicationData: ApplicationData, resolvedPort: Int): Boolean {
         val function = applicationData.command.wireName()
 
         return when (function) {
-            "setpreferences" -> {
+            com.hackwars.rpc.GameCommandWires.SETPREFERENCES -> {
                 val preferences = when (val payload = applicationData.payload) {
                     is SetPreferencesPayload -> payload.preferences
                     else -> return false
@@ -40,7 +22,7 @@ class LegacyEconomyWebSocialCommands : LegacyApplicationDataHandler {
                 true
             }
 
-            "message" -> {
+            com.hackwars.rpc.GameCommandWires.MESSAGE -> {
                 when (val payload = applicationData.payload) {
                     is MessageTextPayload -> computer.addMessage(payload.text)
                     is StructuredMessagePayload -> {
@@ -52,13 +34,14 @@ class LegacyEconomyWebSocialCommands : LegacyApplicationDataHandler {
                             computer.addMessage(payload.message)
                         }
                     }
+
                     else -> return false
                 }
                 computer.systemChange = true
                 true
             }
 
-            "sendemail" -> {
+            com.hackwars.rpc.GameCommandWires.SENDEMAIL -> {
                 val message = when (val payload = applicationData.payload) {
                     is SendEmailPayload -> payload.message
                     else -> return false
@@ -77,26 +60,33 @@ class LegacyEconomyWebSocialCommands : LegacyApplicationDataHandler {
                 true
             }
 
-            "sendfacebook" -> {
+            com.hackwars.rpc.GameCommandWires.SENDFACEBOOK -> {
                 // TODO: Removed legacy remote social endpoint: http://www.hackwars.net/xmlrpc/facebook.php
                 true
             }
 
-            "facebookupdate" -> {
+            com.hackwars.rpc.GameCommandWires.FACEBOOKUPDATE -> {
                 // TODO: Removed legacy remote social endpoint: http://www.hackwars.net/xmlrpc/facebook.php
                 true
             }
 
-            "dailypayset" -> {
+            com.hackwars.rpc.GameCommandWires.DAILYPAYSET -> {
                 val bountyIp = when (val payload = applicationData.payload) {
                     is DailyPaySetPayload -> payload.bountyIp
                     else -> return false
                 }
-                computer.MyMakeBounty!!.checkBounty(computer, null, MakeBounty.CHANGE, applicationData.sourceIP, false, bountyIp)
+                computer.MyMakeBounty!!.checkBounty(
+                    computer,
+                    null,
+                    MakeBounty.CHANGE,
+                    applicationData.sourceIP,
+                    false,
+                    bountyIp
+                )
                 true
             }
 
-            "pettycash" -> {
+            com.hackwars.rpc.GameCommandWires.PETTYCASH -> {
                 val payload = when (val typed = applicationData.payload) {
                     is PettyCashTransferPayload -> typed
                     is PettyCashDeltaPayload -> PettyCashTransferPayload(typed.amount)
@@ -112,7 +102,8 @@ class LegacyEconomyWebSocialCommands : LegacyApplicationDataHandler {
                     }
                 } else if (computer.checkBank()) {
                     computer.setPettyCash(computer.pettyCash + payload.amount)
-                    CentralLogging.getInstance().addOutput("${computer.ip}\t${applicationData.sourceIP}\t1\t${payload.amount}\n")
+                    CentralLogging.getInstance()
+                        .addOutput("${computer.ip}\t${applicationData.sourceIP}\t1\t${payload.amount}\n")
                     if (applicationData.sourceIP != computer.ip && payload.sendMessage) {
                         val message = ApplicationData(
                             StructuredMessagePayload(
@@ -123,15 +114,22 @@ class LegacyEconomyWebSocialCommands : LegacyApplicationDataHandler {
                             applicationData.sourceIP
                         )
                         computer.getComputerHandler().addData(message, applicationData.sourceIP)
-                        computer.addMessage(MessageHandler.TRANSFER_RECEIVED, arrayOf<Any?>(nf.format(payload.amount), applicationData.sourceIP))
+                        computer.addMessage(
+                            MessageHandler.TRANSFER_RECEIVED,
+                            arrayOf<Any?>(nf.format(payload.amount), applicationData.sourceIP)
+                        )
                     }
                     if (computer.pettyCash < 0) {
                         computer.pettyCash = 0.0f
                     }
                 } else {
-                    computer.addMessage(MessageHandler.TRANSFER_RECEIVE_FAIL_BANK_PORT, arrayOf<Any?>(nf.format(payload.amount), applicationData.sourceIP))
+                    computer.addMessage(
+                        MessageHandler.TRANSFER_RECEIVE_FAIL_BANK_PORT,
+                        arrayOf<Any?>(nf.format(payload.amount), applicationData.sourceIP)
+                    )
                     if (applicationData.sourceIP != computer.ip) {
-                        val pettyCash = ApplicationData(PettyCashDeltaPayload(payload.returnAmount), 0, applicationData.sourceIP)
+                        val pettyCash =
+                            ApplicationData(PettyCashDeltaPayload(payload.returnAmount), 0, applicationData.sourceIP)
                         val message = ApplicationData(
                             StructuredMessagePayload(MessageHandler.TRANSFER_SEND_FAIL_BANK_PORT),
                             0,
@@ -150,7 +148,7 @@ class LegacyEconomyWebSocialCommands : LegacyApplicationDataHandler {
                 true
             }
 
-            "commodity" -> {
+            com.hackwars.rpc.GameCommandWires.COMMODITY -> {
                 if (computer.checkShipping()) {
                     val payload = when (val typed = applicationData.payload) {
                         is game.payload.CommodityPayload -> typed
@@ -158,7 +156,10 @@ class LegacyEconomyWebSocialCommands : LegacyApplicationDataHandler {
                     }
                     val port = computer.Ports[payload.redirectPort] as Port
                     val windowHandle = getWindowHandle(port)
-                    computer.setCommodityAmount(payload.commodity, computer.getCommodity(payload.commodity) + payload.value)
+                    computer.setCommodityAmount(
+                        payload.commodity,
+                        computer.getCommodity(payload.commodity) + payload.value
+                    )
                     computer.addMessage(
                         MessageHandler.RECEIVED_COMMODITY,
                         arrayOf<Any?>(payload.value.toInt(), Computer.commodityString[payload.commodity]),
@@ -166,7 +167,11 @@ class LegacyEconomyWebSocialCommands : LegacyApplicationDataHandler {
                     )
                     computer.addMessage(
                         MessageHandler.RECEIVED_COMMODITY_GAME,
-                        arrayOf<Any?>(payload.value.toInt(), Computer.commodityString[payload.commodity], payload.targetIp)
+                        arrayOf<Any?>(
+                            payload.value.toInt(),
+                            Computer.commodityString[payload.commodity],
+                            payload.targetIp
+                        )
                     )
                 } else {
                     computer.addMessage(MessageHandler.RECEIVED_COMMODITY_FAIL)
@@ -179,7 +184,7 @@ class LegacyEconomyWebSocialCommands : LegacyApplicationDataHandler {
                 true
             }
 
-            "bank" -> {
+            com.hackwars.rpc.GameCommandWires.BANK -> {
                 val value = when (val payload = applicationData.payload) {
                     is game.payload.FloatCommandPayload -> payload.value
                     else -> return false
@@ -187,7 +192,8 @@ class LegacyEconomyWebSocialCommands : LegacyApplicationDataHandler {
                 if (computer.checkBank()) {
                     computer.bankMoney += value
                     if (value > 0) {
-                        CentralLogging.getInstance().addOutput("${computer.ip}\t${applicationData.sourceIP}\t0\t$value\n")
+                        CentralLogging.getInstance()
+                            .addOutput("${computer.ip}\t${applicationData.sourceIP}\t0\t$value\n")
                     }
                 } else if (value > 0.0f) {
                     computer.addMessage(MessageHandler.ACTIVE_BANK_NOT_FOUND)
@@ -196,14 +202,14 @@ class LegacyEconomyWebSocialCommands : LegacyApplicationDataHandler {
                 true
             }
 
-            "requestpage" -> {
+            com.hackwars.rpc.GameCommandWires.REQUESTPAGE -> {
                 computer.PA.setBody(computer.body)
                 computer.PA.setTitle(computer.title)
                 computer.systemChange = true
                 true
             }
 
-            "requestpurchase" -> {
+            com.hackwars.rpc.GameCommandWires.REQUESTPURCHASE -> {
                 val payload = when (val typed = applicationData.payload) {
                     is RequestPurchasePayload -> typed
                     else -> return false
@@ -227,8 +233,10 @@ class LegacyEconomyWebSocialCommands : LegacyApplicationDataHandler {
                             }
                         }
 
-                        val continuePurchase = ContinuePurchasePayload(purchasedFile, computer.storeRevenueTarget, computer.type)
-                        computer.getComputerHandler().addData(ApplicationData(continuePurchase, 0, computer.ip), applicationData.sourceIP)
+                        val continuePurchase =
+                            ContinuePurchasePayload(purchasedFile, computer.storeRevenueTarget, computer.type)
+                        computer.getComputerHandler()
+                            .addData(ApplicationData(continuePurchase, 0, computer.ip), applicationData.sourceIP)
                     } else {
                         computer.getComputerHandler().addData(
                             ApplicationData(
@@ -244,7 +252,7 @@ class LegacyEconomyWebSocialCommands : LegacyApplicationDataHandler {
                 true
             }
 
-            "continuepurchase" -> {
+            com.hackwars.rpc.GameCommandWires.CONTINUEPURCHASE -> {
                 val payload = when (val typed = applicationData.payload) {
                     is ContinuePurchasePayload -> typed
                     else -> return false
@@ -351,7 +359,10 @@ class LegacyEconomyWebSocialCommands : LegacyApplicationDataHandler {
                             computer.ip
                         )
                         val format = NumberFormat.getCurrencyInstance()
-                        computer.addMessage(MessageHandler.PURCHASE_SUCCESS, arrayOf<Any?>(quantity, hackerFile.getName(), format.format(price)))
+                        computer.addMessage(
+                            MessageHandler.PURCHASE_SUCCESS,
+                            arrayOf<Any?>(quantity, hackerFile.getName(), format.format(price))
+                        )
                     }
 
                     if (price > 0 && !buyFail) {
@@ -369,7 +380,11 @@ class LegacyEconomyWebSocialCommands : LegacyApplicationDataHandler {
                         applicationData.sourceIP
                     )
                     computer.getComputerHandler().addData(
-                        ApplicationData(IntCommandPayload(ApplicationCommand.of("requestequipment"), 13), 0, computer.ip),
+                        ApplicationData(
+                            IntCommandPayload(com.hackwars.rpc.GameCommands.REQUESTEQUIPMENT.command, 13),
+                            0,
+                            computer.ip
+                        ),
                         computer.ip
                     )
                 }
@@ -377,7 +392,7 @@ class LegacyEconomyWebSocialCommands : LegacyApplicationDataHandler {
                 true
             }
 
-            "requestwebpage" -> {
+            com.hackwars.rpc.GameCommandWires.REQUESTWEBPAGE -> {
                 val payload = when (val typed = applicationData.payload) {
                     is RequestWebPagePayload -> typed
                     else -> return false
@@ -397,7 +412,12 @@ class LegacyEconomyWebSocialCommands : LegacyApplicationDataHandler {
                             }
                         } else {
                             computer.getComputerHandler().addData(
-                                ApplicationData(QuestInformationPayload(payload.requestParameters, computer.InvolvedQuests), 0, computer.ip),
+                                ApplicationData(
+                                    QuestInformationPayload(
+                                        payload.requestParameters,
+                                        computer.InvolvedQuests
+                                    ), 0, computer.ip
+                                ),
                                 applicationData.sourceIP
                             )
                         }
@@ -413,7 +433,7 @@ class LegacyEconomyWebSocialCommands : LegacyApplicationDataHandler {
                 true
             }
 
-            "webpage" -> {
+            com.hackwars.rpc.GameCommandWires.WEBPAGE -> {
                 val payload = when (val typed = applicationData.payload) {
                     is WebPagePayload -> typed
                     else -> return false
@@ -434,7 +454,7 @@ class LegacyEconomyWebSocialCommands : LegacyApplicationDataHandler {
                 true
             }
 
-            "savepage" -> {
+            com.hackwars.rpc.GameCommandWires.SAVEPAGE -> {
                 val payload = when (val typed = applicationData.payload) {
                     is SavePagePayload -> typed
                     else -> return false
@@ -450,7 +470,7 @@ class LegacyEconomyWebSocialCommands : LegacyApplicationDataHandler {
                 true
             }
 
-            "submit" -> {
+            com.hackwars.rpc.GameCommandWires.SUBMIT -> {
                 val payload = when (val typed = applicationData.payload) {
                     is SubmitPayload -> typed
                     else -> return false
@@ -459,14 +479,20 @@ class LegacyEconomyWebSocialCommands : LegacyApplicationDataHandler {
                 if (port != null && port.getType() == Port.HTTP) {
                     val program = port.getProgram()
                     if (program != null && port.getOn()) {
-                        program.execute(ApplicationData(SubmitPayload(payload.submitParameters), applicationData.port, applicationData.sourceIP))
+                        program.execute(
+                            ApplicationData(
+                                SubmitPayload(payload.submitParameters),
+                                applicationData.port,
+                                applicationData.sourceIP
+                            )
+                        )
                     }
                 }
                 computer.systemChange = true
                 true
             }
 
-            "exit" -> {
+            com.hackwars.rpc.GameCommandWires.EXIT -> {
                 val port = computer.Ports[computer.defaultHTTP] as Port?
                 if (port != null && port.getType() == Port.HTTP) {
                     val program = port.getProgram()
@@ -478,7 +504,7 @@ class LegacyEconomyWebSocialCommands : LegacyApplicationDataHandler {
                 true
             }
 
-            "vote" -> {
+            com.hackwars.rpc.GameCommandWires.VOTE -> {
                 val noobLevel = computer.getNoobSafety()
                 if (computer.getTotalLevel() < noobLevel) {
                     computer.addMessage(MessageHandler.VOTE_FAIL_NOOB_LEVEL, arrayOf<Any?>(noobLevel))
@@ -486,9 +512,23 @@ class LegacyEconomyWebSocialCommands : LegacyApplicationDataHandler {
                 if (applicationData.sourceIP == computer.ip) {
                     computer.addMessage(MessageHandler.VOTE_FAIL_OWN_SITE)
                 } else if (computer.myVotes > 0) {
-                    computer.MyMakeBounty!!.checkBounty(computer, null, MakeBounty.VOTE, applicationData.sourceIP, false, "")
+                    computer.MyMakeBounty!!.checkBounty(
+                        computer,
+                        null,
+                        MakeBounty.VOTE,
+                        applicationData.sourceIP,
+                        false,
+                        ""
+                    )
                     computer.myVotes -= 1
-                    computer.getComputerHandler().addData(ApplicationData(game.payload.FloatCommandPayload(ApplicationCommand.of("httpxp"), 500.7337f), 0, computer.ip), applicationData.sourceIP)
+                    computer.getComputerHandler().addData(
+                        ApplicationData(
+                            game.payload.FloatCommandPayload(
+                                com.hackwars.rpc.GameCommands.HTTPXP.command,
+                                500.7337f
+                            ), 0, computer.ip
+                        ), applicationData.sourceIP
+                    )
                     computer.addMessage(MessageHandler.VOTE_SUCCESS, arrayOf<Any?>(computer.myVotes))
                 } else {
                     computer.addMessage(MessageHandler.VOTE_FAIL_NO_VOTES)

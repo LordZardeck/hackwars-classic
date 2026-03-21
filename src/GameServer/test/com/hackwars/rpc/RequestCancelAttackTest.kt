@@ -22,14 +22,14 @@ class RequestCancelAttackTest {
     @Test
     fun fromRpc_and_toRfc_roundtrip() {
         val params = arrayOf<Any?>("value", 42)
-        val rpc = RemoteFunctionCall(1, RequestCancelAttack.FUNCTION, params)
+        val rpc = RemoteFunctionCall(1, com.hackwars.rpc.GameCommandWires.REQUESTCANCELATTACK, params)
 
         val call = RequestCancelAttack.fromRpc(rpc)
         assertEquals(params[0], call.ip)
         assertEquals(params[1], call.port)
         val serialized = call.toRfc()
 
-        assertEquals(RequestCancelAttack.FUNCTION, serialized.function)
+        assertEquals(com.hackwars.rpc.GameCommandWires.REQUESTCANCELATTACK, serialized.function)
         assertArrayEquals(params, serialized.parameters as Array<*>)
     }
 }

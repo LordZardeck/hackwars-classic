@@ -1,14 +1,13 @@
 package gui;
 
-import javax.swing.*;
-import java.awt.*;
-import java.awt.event.*;
-
-import assignments.*;
-
 import com.hackwars.state.GameState;
 
-import java.text.*;
+import javax.swing.*;
+import java.awt.*;
+import java.awt.event.MouseEvent;
+import java.awt.event.MouseListener;
+import java.text.DecimalFormat;
+import java.text.NumberFormat;
 
 public class HealthLabel extends JLabel implements MouseListener {
     private Hacker hacker;
@@ -99,9 +98,7 @@ public class HealthLabel extends JLabel implements MouseListener {
     public void heal() {
         System.out.println("Healing port " + port);
         GameState myGameState = hacker.getView();
-        Object objects[] = {hacker.getEncryptedIP(), port};
-        myGameState.setFunction("healport");
-        myGameState.addFunctionCall(new RemoteFunctionCall(0, "healport", objects));
+        myGameState.addFunctionCall(new com.hackwars.rpc.HealPort(hacker.getEncryptedIP(), port).toRfc(0));
     }
 }
 

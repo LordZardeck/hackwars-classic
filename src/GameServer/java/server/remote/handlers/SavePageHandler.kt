@@ -1,15 +1,14 @@
 package server.remote.handlers
 
 import assignments.RemoteFunctionCall
+import com.hackwars.rpc.SavePage
 import game.ApplicationData
-import com.hackwars.rpc.*
 import game.payload.SavePagePayload
 import server.remote.RemoteCallContext
 import server.remote.RemoteCallHandler
 import server.remote.RpcHandler
-import java.util.*
 
-@RpcHandler(SavePage.FUNCTION)
+@RpcHandler(com.hackwars.rpc.GameCommandWires.SAVEPAGE)
 object SavePageHandler : RemoteCallHandler {
     override fun handle(rfc: RemoteFunctionCall, context: RemoteCallContext) {
         val parsedCall = SavePage.fromRpc(rfc)

@@ -1,6 +1,5 @@
 package game.computer.runtime
 
-import game.ApplicationCommand
 import game.payload.MessageTextPayload
 import game.payload.WebPagePayload
 
@@ -14,17 +13,17 @@ class SaveLogoutTickService {
     fun tick(state: RuntimeTickState): List<RuntimeTickEvent> {
         val events = mutableListOf<RuntimeTickEvent>()
         val expired = (
-            state.now - state.lastAccessed > state.computerTimeoutMs ||
-                state.logoutRequested ||
-                state.loadFailure ||
-                (state.countDown && state.now - state.countDownStart > state.countDownLengthMs)
-            ) && state.loaded
+                state.now - state.lastAccessed > state.computerTimeoutMs ||
+                        state.logoutRequested ||
+                        state.loadFailure ||
+                        (state.countDown && state.now - state.countDownStart > state.countDownLengthMs)
+                ) && state.loaded
 
         if (expired) {
             if (state.loadFailure && state.loadRequester.isNotBlank() && state.loadRequester != state.ip) {
                 state.pendingTasks.firstOrNull()?.let { queued ->
                     when (queued.command) {
-                        ApplicationCommand.of("pettycash") -> {
+                        com.hackwars.rpc.GameCommands.PETTYCASH.command -> {
                             events += RuntimeTickEvent.ApplicationDataDispatchRequested(
                                 applicationData = RuntimeApplicationDataDispatch(
                                     payload = queued.payload,
@@ -37,7 +36,7 @@ class SaveLogoutTickService {
                             )
                         }
 
-                        ApplicationCommand.of("requestwebpage") -> {
+                        com.hackwars.rpc.GameCommands.REQUESTWEBPAGE.command -> {
                             events += RuntimeTickEvent.ApplicationDataDispatchRequested(
                                 applicationData = RuntimeApplicationDataDispatch(
                                     payload = WebPagePayload(

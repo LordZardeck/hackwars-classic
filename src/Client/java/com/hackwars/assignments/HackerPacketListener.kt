@@ -19,8 +19,8 @@ class HackerPacketListener(private val onFunctionCall: (RemoteFunctionCall) -> U
         val assignment = event.assignment
         println(
             "Applying PacketAssignment: requestPrimary=${assignment.requestPrimary()} requestHardware=${assignment.requestHardware} " +
-                "directory=${assignment.directory != null} secondaryDirectory=${assignment.secondaryDirectory != null} " +
-                "packetPorts=${assignment.packetPorts?.size ?: 0} messages=${assignment.messages?.size ?: 0}"
+                    "directory=${assignment.directory != null} secondaryDirectory=${assignment.secondaryDirectory != null} " +
+                    "packetPorts=${assignment.packetPorts?.size ?: 0} messages=${assignment.messages?.size ?: 0}"
         )
 
         synchronized(lock) {
@@ -83,39 +83,29 @@ class HackerPacketListener(private val onFunctionCall: (RemoteFunctionCall) -> U
                 }
                 if (assignment.requestPrimary()) {
                     val reqDir: Int = receiver.requestedDirectory
-                    val objects: Array<Any?> = arrayOf(receiver.encryptedIP, receiver.currentFolder)
                     if (reqDir != Hacker.BROWSER && reqDir != Hacker.EQUIPMENT) {
                         onFunctionCall(
-                            RemoteFunctionCall(
-                                assignment.requestPrimaryID,
-                                "requestdirectory",
-                                objects
-                            )
+                            com.hackwars.rpc.RequestDirectory(
+                                receiver.encryptedIP,
+                                receiver.currentFolder
+                            ).toRfc(assignment.requestPrimaryID)
                         )
                     } else if (reqDir == Hacker.EQUIPMENT) {
-                        onFunctionCall(RemoteFunctionCall(Hacker.EQUIPMENT, "requestequipment", objects))
+                        onFunctionCall(com.hackwars.rpc.RequestEquipment(receiver.encryptedIP).toRfc(Hacker.EQUIPMENT))
                     }
                 }
                 if (assignment.requestHardware) {
                     receiver.requestedDirectory = Hacker.EQUIPMENT
-                    onFunctionCall(
-                        RemoteFunctionCall(
-                            Hacker.EQUIPMENT,
-                            "requestequipment",
-                            arrayOf<Any?>(receiver.encryptedIP)
-                        )
-                    )
+                    onFunctionCall(com.hackwars.rpc.RequestEquipment(receiver.encryptedIP).toRfc(Hacker.EQUIPMENT))
                 }
                 if (assignment.requestSecondary()) {
                     onFunctionCall(
-                        RemoteFunctionCall(
-                            Hacker.FTP, "requestsecondarydirectory", arrayOf<Any?>(
-                                receiver.ftpip,
-                                receiver.secondaryFolder,
-                                receiver.encryptedIP,
-                                receiver.ftpPort
-                            )
-                        )
+                        com.hackwars.rpc.RequestSecondaryDirectory(
+                            receiver.ftpip,
+                            receiver.secondaryFolder,
+                            receiver.encryptedIP,
+                            receiver.ftpPort
+                        ).toRfc(Hacker.FTP)
                     )
                 }
                 if (assignment.choices.size != 0) {

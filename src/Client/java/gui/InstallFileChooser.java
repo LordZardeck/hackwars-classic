@@ -4,13 +4,15 @@ package gui;
  * this is for the attack pane to choose a file to install.
  */
 
+import com.hackwars.state.GameState;
+import game.HackerFile;
+
 import javax.swing.*;
 import java.awt.*;
-import java.awt.event.*;
-
-import com.hackwars.state.GameState;
-import game.*;
-import assignments.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.awt.event.MouseEvent;
+import java.awt.event.MouseListener;
 
 public class InstallFileChooser extends JInternalFrame implements ActionListener, MouseListener {
     //data
@@ -36,10 +38,8 @@ public class InstallFileChooser extends JInternalFrame implements ActionListener
         MyHacker.setRequestedDirectory(Hacker.INSTALL_FILE_CHOOSER);
         this.folder = "";
         GameState myGameState = MyHacker.getView();
-        Object objects[] = {MyHacker.getEncryptedIP(), ""};
         MyHacker.setCurrentFolder("");
-        myGameState.setFunction("requestdirectory");
-        myGameState.addFunctionCall(new RemoteFunctionCall(Hacker.INSTALL_FILE_CHOOSER, "requestdirectory", objects));
+        myGameState.addFunctionCall(new com.hackwars.rpc.RequestDirectory(MyHacker.getEncryptedIP(), "").toRfc(Hacker.INSTALL_FILE_CHOOSER));
         setTitle("Choose File");
         setFrameIcon(ImageLoader.getImageIcon("images/open.png"));
         setBounds(100, 100, 360, 340);
@@ -160,9 +160,7 @@ public class InstallFileChooser extends JInternalFrame implements ActionListener
                         GameState myGameState = MyHacker.getView();
                         String ip = MyHacker.getEncryptedIP();
                         MyHacker.setRequestedDirectory(Hacker.INSTALL_FILE_CHOOSER);
-                        Object objects[] = {ip, folder};
-                        myGameState.setFunction("requestdirectory");
-                        myGameState.addFunctionCall(new RemoteFunctionCall(Hacker.INSTALL_FILE_CHOOSER, "requestdirectory", objects));
+                        myGameState.addFunctionCall(new com.hackwars.rpc.RequestDirectory(ip, folder).toRfc(Hacker.INSTALL_FILE_CHOOSER));
                     } else {
                         String folders[] = folder.split("/");
                         String newFolder = "";
@@ -175,9 +173,7 @@ public class InstallFileChooser extends JInternalFrame implements ActionListener
                         GameState myGameState = MyHacker.getView();
                         MyHacker.setRequestedDirectory(Hacker.INSTALL_FILE_CHOOSER);
                         String ip = MyHacker.getEncryptedIP();
-                        Object objects[] = {ip, folder};
-                        myGameState.setFunction("requestdirectory");
-                        myGameState.addFunctionCall(new RemoteFunctionCall(Hacker.INSTALL_FILE_CHOOSER, "requestdirectory", objects));
+                        myGameState.addFunctionCall(new com.hackwars.rpc.RequestDirectory(ip, folder).toRfc(Hacker.INSTALL_FILE_CHOOSER));
                     }
                 }
             } catch (ArrayIndexOutOfBoundsException ex) {
@@ -222,9 +218,7 @@ public class InstallFileChooser extends JInternalFrame implements ActionListener
                     GameState myGameState = MyHacker.getView();
                     String ip = MyHacker.getEncryptedIP();
                     MyHacker.setRequestedDirectory(Hacker.INSTALL_FILE_CHOOSER);
-                    Object objects[] = {ip, folder};
-                    myGameState.setFunction("requestdirectory");
-                    myGameState.addFunctionCall(new RemoteFunctionCall(Hacker.INSTALL_FILE_CHOOSER, "requestdirectory", objects));
+                    myGameState.addFunctionCall(new com.hackwars.rpc.RequestDirectory(ip, folder).toRfc(Hacker.INSTALL_FILE_CHOOSER));
                 } else {
                     String folders[] = folder.split("/");
                     String newFolder = "";
@@ -237,9 +231,7 @@ public class InstallFileChooser extends JInternalFrame implements ActionListener
                     GameState myGameState = MyHacker.getView();
                     MyHacker.setRequestedDirectory(Hacker.INSTALL_FILE_CHOOSER);
                     String ip = MyHacker.getEncryptedIP();
-                    Object objects[] = {ip, folder};
-                    myGameState.setFunction("requestdirectory");
-                    myGameState.addFunctionCall(new RemoteFunctionCall(Hacker.INSTALL_FILE_CHOOSER, "requestdirectory", objects));
+                    myGameState.addFunctionCall(new com.hackwars.rpc.RequestDirectory(ip, folder).toRfc(Hacker.INSTALL_FILE_CHOOSER));
                 }
 
             } else {

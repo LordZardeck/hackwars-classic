@@ -1,10 +1,7 @@
 package com.hackwars.rpc
 
 import assignments.RemoteFunctionCall
-import org.junit.Assert.assertArrayEquals
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
-import org.junit.Assert.assertThrows
+import org.junit.Assert.*
 import org.junit.BeforeClass
 import org.junit.Test
 import util.Encryption
@@ -23,7 +20,11 @@ class SetDefaultPortTest {
 
     @Test
     fun fromRpc_readsEncryptedIpPortAndOptionalType() {
-        val rpc = RemoteFunctionCall(1, SetDefaultPort.FUNCTION, arrayOf<Any?>("encrypted-ip", 44, 7))
+        val rpc = RemoteFunctionCall(
+            1,
+            com.hackwars.rpc.GameCommandWires.SETDEFAULTPORT,
+            arrayOf<Any?>("encrypted-ip", 44, 7)
+        )
 
         val call = SetDefaultPort.fromRpc(rpc)
 
@@ -34,7 +35,8 @@ class SetDefaultPortTest {
 
     @Test
     fun fromRpc_returnsNullTypeWhenTypeParameterMissing() {
-        val rpc = RemoteFunctionCall(1, SetDefaultPort.FUNCTION, arrayOf<Any?>("encrypted-ip", 44))
+        val rpc =
+            RemoteFunctionCall(1, com.hackwars.rpc.GameCommandWires.SETDEFAULTPORT, arrayOf<Any?>("encrypted-ip", 44))
 
         val call = SetDefaultPort.fromRpc(rpc)
 
@@ -49,19 +51,19 @@ class SetDefaultPortTest {
 
         val rpc = call.toRfc()
 
-        assertEquals(SetDefaultPort.FUNCTION, rpc.function)
+        assertEquals(com.hackwars.rpc.GameCommandWires.SETDEFAULTPORT, rpc.function)
         assertArrayEquals(arrayOf("encrypted-ip", 44, null), rpc.parameters as Array<*>)
     }
 
     @Test
     fun fromRpc_throwsWhenRequiredPortMissing() {
-        val rpc = RemoteFunctionCall(1, SetDefaultPort.FUNCTION, arrayOf<Any?>("encrypted-ip"))
+        val rpc = RemoteFunctionCall(1, com.hackwars.rpc.GameCommandWires.SETDEFAULTPORT, arrayOf<Any?>("encrypted-ip"))
 
         val ex = assertThrows(IllegalParameterException::class.java) {
             SetDefaultPort.fromRpc(rpc)
         }
 
-        assertEquals(SetDefaultPort.FUNCTION, ex.function)
+        assertEquals(com.hackwars.rpc.GameCommandWires.SETDEFAULTPORT, ex.function)
         assertEquals(1, ex.position)
         assertEquals(Int::class.javaObjectType.name, ex.expectedType)
         assertNull(ex.actualType)

@@ -1,15 +1,14 @@
 package server.remote.handlers
 
 import assignments.RemoteFunctionCall
+import com.hackwars.rpc.MakeBounty
 import game.ApplicationData
-import com.hackwars.rpc.*
 import game.payload.CombatMakeBountyPayload
 import server.remote.RemoteCallContext
 import server.remote.RemoteCallHandler
 import server.remote.RpcHandler
-import java.util.*
 
-@RpcHandler(MakeBounty.FUNCTION)
+@RpcHandler(com.hackwars.rpc.GameCommandWires.MAKEBOUNTY)
 object MakeBountyHandler : RemoteCallHandler {
     override fun handle(rfc: RemoteFunctionCall, context: RemoteCallContext) {
         val parsedCall = MakeBounty.fromRpc(rfc)

@@ -2,15 +2,13 @@ package game
 
 import assignments.PacketAssignment
 import assignments.PacketPort
-import com.hackwars.rpc.SaveFile
 import com.hackwars.game.program.AttackProgram
 import com.hackwars.game.program.Banking
 import com.hackwars.game.program.Program
 import com.hackwars.game.program.ShippingProgram
+import com.hackwars.rpc.SaveFile
 import game.payload.*
 import java.text.NumberFormat
-import java.util.HashMap
-import kotlin.jvm.JvmName
 
 class Port(
     @get:JvmName("getMyComputerProperty")
@@ -18,12 +16,13 @@ class Port(
     private val myComputerHandler: NetworkSwitch
 ) {
     private val installScriptCommand = AttackInstallScriptPayload(null, null).getCommand()
-    private val codeCommand = ApplicationCommand.of("code")
+    private val codeCommand = com.hackwars.rpc.GameCommands.CODE.command
 
     private var currentRedirectXP = 0.0f
     private var currentRedirectIP = ""
 
     private var _type = 0
+
     @get:JvmName("getTypeProperty")
     @set:JvmName("setTypeProperty")
     var type: Int
@@ -33,6 +32,7 @@ class Port(
         }
 
     private var _number = 0
+
     @get:JvmName("getNumberProperty")
     @set:JvmName("setNumberProperty")
     var number: Int
@@ -42,6 +42,7 @@ class Port(
         }
 
     private var _note: String? = ""
+
     @get:JvmName("getNoteProperty")
     @set:JvmName("setNoteProperty")
     var note: String?
@@ -51,6 +52,7 @@ class Port(
         }
 
     private var _maliciousTarget: String? = ""
+
     @get:JvmName("getMaliciousTargetProperty")
     @set:JvmName("setMaliciousTargetProperty")
     var maliciousTarget: String?
@@ -60,6 +62,7 @@ class Port(
         }
 
     private var _on = false
+
     @get:JvmName("getOnProperty")
     @set:JvmName("setOnProperty")
     var on: Boolean
@@ -69,6 +72,7 @@ class Port(
         }
 
     private var _attacking = false
+
     @get:JvmName("getAttackingProperty")
     @set:JvmName("setAttackingProperty")
     var attacking: Boolean
@@ -80,6 +84,7 @@ class Port(
         }
 
     private var _overHeated = false
+
     @get:JvmName("getOverHeatedProperty")
     @set:JvmName("setOverHeatedProperty")
     var overHeated: Boolean
@@ -102,6 +107,7 @@ class Port(
         get() = _weakened
 
     private var _dummy = false
+
     @get:JvmName("getDummyProperty")
     @set:JvmName("setDummyProperty")
     var dummy: Boolean
@@ -111,6 +117,7 @@ class Port(
         }
 
     private var _program: Program? = null
+
     @get:JvmName("getProgramProperty")
     @set:JvmName("setProgramProperty")
     var program: Program?
@@ -120,6 +127,7 @@ class Port(
         }
 
     private var _fireWall: NewFireWall? = null
+
     @get:JvmName("getFireWallProperty")
     @set:JvmName("setFireWallProperty")
     var fireWall: NewFireWall?
@@ -130,6 +138,7 @@ class Port(
 
     private var _health = 100.0f
     private var healthSet = false
+
     @get:JvmName("getHealthProperty")
     @set:JvmName("setHealthProperty")
     var health: Float
@@ -142,6 +151,7 @@ class Port(
     private var maximumHealth = 100.0f
 
     private var _cpuCost = 0.0f
+
     @get:JvmName("getCpuCostProperty")
     @set:JvmName("setCpuCostProperty")
     var cpuCost: Float
@@ -151,6 +161,7 @@ class Port(
         }
 
     private var _accessing = ""
+
     @get:JvmName("getAccessingProperty")
     val accessing: String
         get() = _accessing
@@ -158,6 +169,7 @@ class Port(
     private var lastAccessed = 0L
 
     private var _targetHP = 100.0f
+
     @get:JvmName("getTargetHPProperty")
     @set:JvmName("setTargetHPProperty")
     var targetHP: Float
@@ -167,6 +179,7 @@ class Port(
         }
 
     private var _targetPettyCash = 0.0f
+
     @get:JvmName("getTargetPettyCashProperty")
     @set:JvmName("setTargetPettyCashProperty")
     var targetPettyCash: Float
@@ -176,6 +189,7 @@ class Port(
         }
 
     private var _targetCPUCost = 0.0f
+
     @get:JvmName("getTargetCPUCostProperty")
     @set:JvmName("setTargetCPUCostProperty")
     var targetCPUCost: Float
@@ -185,6 +199,7 @@ class Port(
         }
 
     private var _targetWatch = false
+
     @get:JvmName("getTargetWatchProperty")
     @set:JvmName("setTargetWatchProperty")
     var targetWatch: Boolean
@@ -194,6 +209,7 @@ class Port(
         }
 
     private var _currentPacket: PacketAssignment? = null
+
     @get:JvmName("getCurrentPacketProperty")
     @set:JvmName("setCurrentPacketProperty")
     var currentPacket: PacketAssignment?
@@ -205,11 +221,13 @@ class Port(
     private var healCount = 0
 
     private var _lastDamageWindowHandle = 0
+
     @get:JvmName("getLastDamageWindowHandleProperty")
     val lastDamageWindowHandle: Int
         get() = _lastDamageWindowHandle
 
     private var _lastDamageIP = ""
+
     @get:JvmName("getLastDamageIPProperty")
     val lastDamageIP: String
         get() = _lastDamageIP
@@ -244,49 +262,61 @@ class Port(
     fun setNumber(number: Int) {
         this.number = number
     }
+
     fun getType(): Int = type
     fun setType(type: Int) {
         this.type = type
     }
+
     fun getNote(): String? = note
     fun setNote(note: String?) {
         this.note = note
     }
+
     fun getMaliciousTarget(): String? = maliciousTarget
     fun setMaliciousTarget(maliciousTarget: String?) {
         this.maliciousTarget = maliciousTarget
     }
+
     fun getOn(): Boolean = on
     fun setOn(on: Boolean) {
         this.on = on
     }
+
     fun getAttacking(): Boolean = attacking
     fun setAttacking(attacking: Boolean) {
         this.attacking = attacking
     }
+
     fun getOverHeated(): Boolean = overHeated
     fun setOverHeated(overHeated: Boolean) {
         this.overHeated = overHeated
     }
+
     fun getDummy(): Boolean = dummy
     fun setDummy(dummy: Boolean) {
         this.dummy = dummy
     }
+
     fun getProgram(): Program? = program
     fun setProgram(program: Program?) {
         this.program = program
     }
+
     fun getFireWall(): NewFireWall = fireWall!!
     fun setFireWall(fireWall: NewFireWall?) {
         this.fireWall = fireWall
     }
+
     fun setFireWall(newFireWall: HackerFile?) {
         fireWall!!.loadHackerFile(newFireWall)
     }
+
     fun getHealth(): Float = health
     fun setHealth(health: Float) {
         this.health = health
     }
+
     fun getAccessing(): String = accessing
     fun getAccessingPort(): Int = accessingPort
     fun getWeakened(): Boolean = weakened
@@ -294,22 +324,27 @@ class Port(
     fun setTargetHP(targetHP: Float) {
         this.targetHP = targetHP
     }
+
     fun getTargetPettyCash(): Float = targetPettyCash
     fun setTargetPettyCash(targetPettyCash: Float) {
         this.targetPettyCash = targetPettyCash
     }
+
     fun getTargetCPUCost(): Float = targetCPUCost
     fun setTargetCPUCost(targetCPUCost: Float) {
         this.targetCPUCost = targetCPUCost
     }
+
     fun getTargetWatch(): Boolean = targetWatch
     fun setTargetWatch(targetWatch: Boolean) {
         this.targetWatch = targetWatch
     }
+
     fun getCurrentPacket(): PacketAssignment = currentPacket!!
     fun setCurrentPacket(PA: PacketAssignment?) {
         currentPacket = PA
     }
+
     fun getHealCount(): Int = healCount
     fun getLastDamageWindowHandle(): Int = lastDamageWindowHandle
     fun getLastDamageIP(): String = lastDamageIP
@@ -483,9 +518,15 @@ class Port(
         if (on) {
             if (command == HEAL_COMMAND) {
                 if (!myComputer.checkBank()) {
-                    myComputerHandler.addData(textMessage(MessageHandler.ACTIVE_BANK_NOT_FOUND), MyApplicationData.getSourceIP())
+                    myComputerHandler.addData(
+                        textMessage(MessageHandler.ACTIVE_BANK_NOT_FOUND),
+                        MyApplicationData.getSourceIP()
+                    )
                 } else if (overHeated) {
-                    myComputerHandler.addData(textMessage(MessageHandler.HEAL_FAIL_OVERHEATED), MyApplicationData.getSourceIP())
+                    myComputerHandler.addData(
+                        textMessage(MessageHandler.HEAL_FAIL_OVERHEATED),
+                        MyApplicationData.getSourceIP()
+                    )
                 } else if (healCount > myComputer.HEAL_LIMIT) {
                     myComputerHandler.addData(
                         structuredMessage(arrayOf(MessageHandler.HEAL_FAIL_LIMIT), arrayOf(myComputer.HEAL_LIMIT + 1)),
@@ -530,12 +571,24 @@ class Port(
                     )
                 } else if (!fireWall!!.getPettyCashFail(MyApplicationData.getSourceIP())) {
                     if (finalizeAllowed(MyApplicationData)) {
-                        val amount = myComputer.getPettyCash() * fireWall!!.getPettyCashReduction(MyApplicationData.getSourceIP())
-                        if (myComputerHandler.getMyComputerHandler().getComputer(MyApplicationData.getSourceIP())?.checkBank() == true) {
+                        val amount =
+                            myComputer.getPettyCash() * fireWall!!.getPettyCashReduction(MyApplicationData.getSourceIP())
+                        if (myComputerHandler.getMyComputerHandler().getComputer(MyApplicationData.getSourceIP())
+                                ?.checkBank() == true
+                        ) {
                             myComputerHandler.addData(ApplicationData(PettyCashDeltaPayload(-1.0f * amount), 0, ip), ip)
-                            myComputerHandler.addData(ApplicationData(PettyCashDeltaPayload(amount), 0, MyApplicationData.getSourceIP()), MyApplicationData.getSourceIP())
                             myComputerHandler.addData(
-                                structuredMessage(arrayOf(MessageHandler.EMPTY_PETTY_SUCCESS_GAME), arrayOf(nf.format(amount), ip)),
+                                ApplicationData(
+                                    PettyCashDeltaPayload(amount),
+                                    0,
+                                    MyApplicationData.getSourceIP()
+                                ), MyApplicationData.getSourceIP()
+                            )
+                            myComputerHandler.addData(
+                                structuredMessage(
+                                    arrayOf(MessageHandler.EMPTY_PETTY_SUCCESS_GAME),
+                                    arrayOf(nf.format(amount), ip)
+                                ),
                                 MyApplicationData.getSourceIP()
                             )
                             myComputerHandler.addData(
@@ -554,7 +607,12 @@ class Port(
                         }
                     }
                 } else {
-                    myComputerHandler.addData(structuredMessage(arrayOf(MessageHandler.EMPTY_PETTY_SUCCESS), arrayOf(nf.format(0))), MyApplicationData.getSourceIP())
+                    myComputerHandler.addData(
+                        structuredMessage(
+                            arrayOf(MessageHandler.EMPTY_PETTY_SUCCESS),
+                            arrayOf(nf.format(0))
+                        ), MyApplicationData.getSourceIP()
+                    )
                     myComputerHandler.addData(
                         structuredMessage(
                             arrayOf(MessageHandler.EMPTY_PETTY_SUCCESS_GAME),
@@ -596,7 +654,10 @@ class Port(
                 if (finalizeAllowed(MyApplicationData)) {
                     val payload = MyApplicationData.payloadAs<DeleteLogPayload>()
                     myComputer.deleteLogs(payload.ipAddress)
-                    myComputerHandler.addData(textMessage(MessageHandler.DELETE_LOGS_SUCCESS), MyApplicationData.getSourceIP())
+                    myComputerHandler.addData(
+                        textMessage(MessageHandler.DELETE_LOGS_SUCCESS),
+                        MyApplicationData.getSourceIP()
+                    )
                     myComputer.sendPacket()
                 }
                 resetPort(true, true)
@@ -607,9 +668,15 @@ class Port(
                 if (finalizeAllowed(MyApplicationData)) {
                     if (program != null) {
                         if (myComputer.getType() != Computer.NPC) {
-                            myComputerHandler.addData(codeMessage(program!!.getContent() as HashMap<Any?, Any?>), MyApplicationData.getSourceIP())
+                            myComputerHandler.addData(
+                                codeMessage(program!!.getContent() as HashMap<Any?, Any?>),
+                                MyApplicationData.getSourceIP()
+                            )
                         } else {
-                            myComputerHandler.addData(codeTextMessage("[Encrypted Data.]"), MyApplicationData.getSourceIP())
+                            myComputerHandler.addData(
+                                codeTextMessage("[Encrypted Data.]"),
+                                MyApplicationData.getSourceIP()
+                            )
                         }
                     }
                 }
@@ -636,7 +703,10 @@ class Port(
                         val data = payload.data
                         val replace = payload.replace
                         myComputer.editLogs(data, replace)
-                        myComputerHandler.addData(textMessage(MessageHandler.EDIT_LOGS_SUCCESS), MyApplicationData.getSourceIP())
+                        myComputerHandler.addData(
+                            textMessage(MessageHandler.EDIT_LOGS_SUCCESS),
+                            MyApplicationData.getSourceIP()
+                        )
                     }
                 }
                 resetPort(true, true)
@@ -660,17 +730,35 @@ class Port(
                         )
                     } else if (finalizeAllowed(MyApplicationData)) {
                         if (myComputer.lastBountyHTTPIP == MyApplicationData.getSourceIP()) {
-                            myComputerHandler.addData(textMessage(MessageHandler.CHANGE_DAILY_PAY_FAIL_BOUNTY), MyApplicationData.getSourceIP())
+                            myComputerHandler.addData(
+                                textMessage(MessageHandler.CHANGE_DAILY_PAY_FAIL_BOUNTY),
+                                MyApplicationData.getSourceIP()
+                            )
                             return
                         } else if (myComputer.getAdRevenueTarget() != targetIP) {
                             if (myComputer.getType() == Computer.NPC) {
-                                myComputerHandler.addData(floatCommand("httpxp", 10.0f, MyApplicationData.getSourcePort()), MyApplicationData.getSourceIP())
+                                myComputerHandler.addData(
+                                    floatCommand(
+                                        com.hackwars.rpc.GameCommandWires.HTTPXP,
+                                        10.0f,
+                                        MyApplicationData.getSourcePort()
+                                    ), MyApplicationData.getSourceIP()
+                                )
                             } else {
-                                myComputerHandler.addData(floatCommand("httpxp", 10.0f + myComputer.hTTPLevel * 10.0f, MyApplicationData.getSourcePort()), MyApplicationData.getSourceIP())
+                                myComputerHandler.addData(
+                                    floatCommand(
+                                        com.hackwars.rpc.GameCommandWires.HTTPXP,
+                                        10.0f + myComputer.hTTPLevel * 10.0f,
+                                        MyApplicationData.getSourcePort()
+                                    ), MyApplicationData.getSourceIP()
+                                )
                             }
 
                             if (myComputer.getType() != Computer.NPC) {
-                                myComputerHandler.addData(ApplicationData(DailyPaySetPayload(targetIP), 0, ip), MyApplicationData.getSourceIP())
+                                myComputerHandler.addData(
+                                    ApplicationData(DailyPaySetPayload(targetIP), 0, ip),
+                                    MyApplicationData.getSourceIP()
+                                )
                             }
                             myComputerHandler.addData(
                                 structuredMessage(
@@ -680,7 +768,10 @@ class Port(
                                 ),
                                 MyApplicationData.getSourceIP()
                             )
-                            myComputerHandler.addData(textMessage(MessageHandler.CHANGE_DAILY_PAY_SUCCESS_GAME), MyApplicationData.getSourceIP())
+                            myComputerHandler.addData(
+                                textMessage(MessageHandler.CHANGE_DAILY_PAY_SUCCESS_GAME),
+                                MyApplicationData.getSourceIP()
+                            )
                         } else {
                             myComputerHandler.addData(
                                 structuredMessage(
@@ -702,7 +793,10 @@ class Port(
                         ),
                         MyApplicationData.getSourceIP()
                     )
-                    myComputerHandler.addData(textMessage(MessageHandler.CHANGE_DAILY_PAY_SUCCESS_GAME), MyApplicationData.getSourceIP())
+                    myComputerHandler.addData(
+                        textMessage(MessageHandler.CHANGE_DAILY_PAY_SUCCESS_GAME),
+                        MyApplicationData.getSourceIP()
+                    )
                 }
                 resetPort(true, true)
                 return
@@ -712,7 +806,10 @@ class Port(
                 if (!myComputer.equipmentSheet.getDestroyWatchesImmune()) {
                     if (myComputer.getType() != Computer.NPC && finalizeAllowed(MyApplicationData)) {
                         myComputer.destroyWatches(number)
-                        myComputerHandler.addData(textMessage(MessageHandler.DESTROY_WATCHES_SUCCESS), MyApplicationData.getSourceIP())
+                        myComputerHandler.addData(
+                            textMessage(MessageHandler.DESTROY_WATCHES_SUCCESS),
+                            MyApplicationData.getSourceIP()
+                        )
                     }
                     resetPort(true, true)
                 }
@@ -721,7 +818,10 @@ class Port(
 
             if (command == ATTACK_COMMAND || command == MINE_COMMAND) {
                 if (command == MINE_COMMAND && type != REDIRECT) {
-                    myComputerHandler.addData(textMessage(MessageHandler.REDIRECT_FAIL_WRONG_TYPE), MyApplicationData.getSourceIP())
+                    myComputerHandler.addData(
+                        textMessage(MessageHandler.REDIRECT_FAIL_WRONG_TYPE),
+                        MyApplicationData.getSourceIP()
+                    )
                     return
                 }
                 val entryPayload = MyApplicationData.payloadAs<PortEntryPayload>()
@@ -735,7 +835,10 @@ class Port(
                     return
                 }
                 if (myComputer.getTotalLevel() < myComputer.noobSafety) {
-                    myComputerHandler.addData(textMessage(MessageHandler.ATTACK_FAIL_NOOB), MyApplicationData.getSourceIP())
+                    myComputerHandler.addData(
+                        textMessage(MessageHandler.ATTACK_FAIL_NOOB),
+                        MyApplicationData.getSourceIP()
+                    )
                     return
                 }
                 if (_accessing.isEmpty() || ((MyApplicationData.getSourceIP() == _accessing && MyApplicationData.getSourcePort() == accessingPort) && !weakened)) {
@@ -762,7 +865,10 @@ class Port(
                     if (entryPayload is LocalPortEntryPayload) {
                         myComputerHandler.addData(attackInitialize, MyApplicationData.getSourceIP())
                     } else {
-                        myComputerHandler.addData(attackInitialize, (entryPayload as RedirectedPortEntryPayload).targetIp)
+                        myComputerHandler.addData(
+                            attackInitialize,
+                            (entryPayload as RedirectedPortEntryPayload).targetIp
+                        )
                     }
                     lastAccessed = now
                 } else {
@@ -807,9 +913,19 @@ class Port(
 
                 val modify =
                     if (!zombieDamage) {
-                        fireWall!!.modifyDamage(damage, MyApplicationData.getSourceIP(), MyApplicationData.getSourcePort(), damageFromFireWall)
+                        fireWall!!.modifyDamage(
+                            damage,
+                            MyApplicationData.getSourceIP(),
+                            MyApplicationData.getSourcePort(),
+                            damageFromFireWall
+                        )
                     } else {
-                        fireWall!!.modifyDamage(damage, zombieSource, MyApplicationData.getSourcePort(), damageFromFireWall)
+                        fireWall!!.modifyDamage(
+                            damage,
+                            zombieSource,
+                            MyApplicationData.getSourcePort(),
+                            damageFromFireWall
+                        )
                     }
                 damagePort(modify)
 
@@ -832,13 +948,24 @@ class Port(
                         if ((100.0f - health) >= 100.0f / currentAmount) {
                             myComputer.setCommodityAmount(currentCommodity, currentAmount - sendAmount)
                             myComputerHandler.addData(
-                                ApplicationData(CommodityPayload(currentCommodity, sendAmount, MyApplicationData.getSourcePort(), IP), MyApplicationData.getSourcePort(), ip),
+                                ApplicationData(
+                                    CommodityPayload(
+                                        currentCommodity,
+                                        sendAmount,
+                                        MyApplicationData.getSourcePort(),
+                                        IP
+                                    ), MyApplicationData.getSourcePort(), ip
+                                ),
                                 MyApplicationData.getSourceIP()
                             )
                             currentRedirectXP += Computer.commodityXP[currentCommodity]
                             if (currentRedirectXP < MAX_REDIRECT_XP) {
                                 myComputerHandler.addData(
-                                    floatCommand("redirectxp", Computer.commodityXP[currentCommodity] * sendAmount, MyApplicationData.getSourcePort()),
+                                    floatCommand(
+                                        "redirectxp",
+                                        Computer.commodityXP[currentCommodity] * sendAmount,
+                                        MyApplicationData.getSourcePort()
+                                    ),
                                     MyApplicationData.getSourceIP()
                                 )
                             } else {
@@ -884,9 +1011,18 @@ class Port(
                         )
                     }
                     if (zombieDamage) {
-                        myComputerHandler.addData(ApplicationData(resolutionPayload, MyApplicationData.getSourcePort(), ip), zombieSource)
+                        myComputerHandler.addData(
+                            ApplicationData(
+                                resolutionPayload,
+                                MyApplicationData.getSourcePort(),
+                                ip
+                            ), zombieSource
+                        )
                     }
-                    myComputerHandler.addData(ApplicationData(resolutionPayload, MyApplicationData.getSourcePort(), ip), MyApplicationData.getSourceIP())
+                    myComputerHandler.addData(
+                        ApplicationData(resolutionPayload, MyApplicationData.getSourcePort(), ip),
+                        MyApplicationData.getSourceIP()
+                    )
                 }
 
                 if (health <= 0.0f && accessing == MyApplicationData.getSourceIP()) {
@@ -995,7 +1131,10 @@ class Port(
             val hf = payload.file
             myComputerHandler.addData(messageData(MessageHandler.FTP_PUT_FAIL, IP), MyApplicationData.getSourceIP())
             hf.setLocation("")
-            myComputerHandler.addData(ApplicationData(SaveFile(MyApplicationData.getSourceIP(), fetchPath, hf), 0, IP), MyApplicationData.getSourceIP())
+            myComputerHandler.addData(
+                ApplicationData(SaveFile(MyApplicationData.getSourceIP(), fetchPath, hf), 0, IP),
+                MyApplicationData.getSourceIP()
+            )
         }
     }
 

@@ -22,14 +22,14 @@ class ClueDataTest {
     @Test
     fun fromRpc_and_toRfc_roundtrip() {
         val params = arrayOf<Any?>("value", null)
-        val rpc = RemoteFunctionCall(1, ClueData.FUNCTION, params)
+        val rpc = RemoteFunctionCall(1, com.hackwars.rpc.GameCommandWires.CLUEDATA, params)
 
         val call = ClueData.fromRpc(rpc)
         assertEquals(params[0], call.ip)
         assertEquals(params[1], call.data)
         val serialized = call.toRfc()
 
-        assertEquals(ClueData.FUNCTION, serialized.function)
+        assertEquals(com.hackwars.rpc.GameCommandWires.CLUEDATA, serialized.function)
         assertArrayEquals(params, serialized.parameters as Array<*>)
     }
 }

@@ -22,7 +22,7 @@ class RequestTaskTest {
     @Test
     fun fromRpc_and_toRfc_roundtrip() {
         val params = arrayOf<Any?>(null, null, null, null)
-        val rpc = RemoteFunctionCall(1, RequestTask.FUNCTION, params)
+        val rpc = RemoteFunctionCall(1, com.hackwars.rpc.GameCommandWires.REQUESTTASK, params)
 
         val call = RequestTask.fromRpc(rpc)
         assertEquals(params[0], call.fileName)
@@ -31,7 +31,7 @@ class RequestTaskTest {
         assertEquals(params[3], call.targetIP)
         val serialized = call.toRfc()
 
-        assertEquals(RequestTask.FUNCTION, serialized.function)
+        assertEquals(com.hackwars.rpc.GameCommandWires.REQUESTTASK, serialized.function)
         assertArrayEquals(params, serialized.parameters as Array<*>)
     }
 }

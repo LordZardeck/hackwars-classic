@@ -6,24 +6,20 @@ This is the new OpenGL Hacktendo Player.
 
 package hacktendo;
 
-import javax.media.opengl.glu.*;
+import com.hackwars.state.GameState;
+import com.sun.opengl.util.FPSAnimator;
+import com.sun.opengl.util.GLUT;
+import gui.Hacker;
+
 import javax.media.opengl.*;
+import javax.media.opengl.glu.GLU;
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.*;
-
-import com.hackwars.state.GameState;
-import com.sun.opengl.util.*;
-import assignments.*;
-
-//Stuff borrowed from hacktendo.
-import java.awt.image.*;
-
-import java.io.*;
-
-import gui.Hacker;
-
-import java.util.*;
+import java.awt.image.BufferedImage;
+import java.io.BufferedReader;
+import java.io.FileReader;
+import java.util.HashMap;
 
 public class OpenGLViewport implements FocusListener, MouseListener, GLEventListener, KeyListener {
     /// //////////////////
@@ -135,16 +131,14 @@ public class OpenGLViewport implements FocusListener, MouseListener, GLEventList
             HashMap HM = (HashMap) fireWatch[1];
             HM.put("username", hacker.getUsername());
             GameState myGameState = hacker.getView();
-            Object[] send = new Object[]{note, HM, hacker.getUsername(), MyRenderEngine.getIP()};
-            myGameState.addFunctionCall(new RemoteFunctionCall(Hacker.HACKTENDO_PLAYER, "requesttrigger", send));
+            myGameState.addFunctionCall(new com.hackwars.rpc.RequestTrigger(note, HM, hacker.getUsername(), MyRenderEngine.getIP()).toRfc(Hacker.HACKTENDO_PLAYER));
         }
 
         //Save to a file on the player's computer.
         if (MyRenderEngine.getSaveFile() != null && !fileName.equals("")) {
             //Also save stuff to a player's local hard-drive.
             GameState myGameState = hacker.getView();
-            Object[] send = new Object[]{fileName, MyRenderEngine.getSaveFile(), hacker.getIP()};
-            myGameState.addFunctionCall(new RemoteFunctionCall(Hacker.HACKTENDO_PLAYER, "requestsave", send));
+            myGameState.addFunctionCall(new com.hackwars.rpc.RequestSave(fileName, MyRenderEngine.getSaveFile(), hacker.getIP()).toRfc(Hacker.HACKTENDO_PLAYER));
             MyRenderEngine.setSaveFile(null);
         }
 
@@ -153,8 +147,7 @@ public class OpenGLViewport implements FocusListener, MouseListener, GLEventList
             if (MyRenderEngine.getBeat()) {
                 //Also save stuff to a player's local hard-drive.
                 GameState myGameState = hacker.getView();
-                Object[] send = new Object[]{fileName, MyRenderEngine.getQuestID(), MyRenderEngine.getTaskName(), hacker.getIP()};
-                myGameState.addFunctionCall(new RemoteFunctionCall(Hacker.HACKTENDO_PLAYER, "requesttask", send));
+                myGameState.addFunctionCall(new com.hackwars.rpc.RequestTask(fileName, MyRenderEngine.getQuestID(), MyRenderEngine.getTaskName(), hacker.getIP()).toRfc(Hacker.HACKTENDO_PLAYER));
             }
         }
 

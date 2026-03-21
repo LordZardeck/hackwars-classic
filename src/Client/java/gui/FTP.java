@@ -4,14 +4,17 @@ package gui;
  * this is a ftp program gui.
  */
 
-import javax.swing.*;
-import javax.swing.event.*;
-import java.awt.*;
-import java.awt.event.*;
-
 import com.hackwars.state.GameState;
-import game.*;
-import assignments.*;
+import game.HackerFile;
+
+import javax.swing.*;
+import javax.swing.event.InternalFrameEvent;
+import javax.swing.event.UndoableEditEvent;
+import javax.swing.event.UndoableEditListener;
+import java.awt.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.FocusEvent;
+import java.awt.event.FocusListener;
 
 public class FTP extends Application implements UndoableEditListener, FocusListener {
     //data
@@ -60,8 +63,8 @@ public class FTP extends Application implements UndoableEditListener, FocusListe
 
 
     /**
-     populate()
-     create the main window and all of its components.
+     * populate()
+     * create the main window and all of its components.
      */
     public void populate() {
         shownDirectory = null;        //reset the directory that is shown in the source list
@@ -323,9 +326,7 @@ public class FTP extends Application implements UndoableEditListener, FocusListe
         Object objects[];
         MyHacker.setRequestedDirectory(Hacker.FTP);
         MyHacker.setCurrentFolder("");
-        objects = new Object[]{MyHacker.getEncryptedIP(), ""};
-        myGameState.setFunction("requestdirectory");
-        myGameState.addFunctionCall(new RemoteFunctionCall(Hacker.FTP, "requestdirectory", objects));
+        myGameState.addFunctionCall(new com.hackwars.rpc.RequestDirectory(MyHacker.getEncryptedIP(), "").toRfc(Hacker.FTP));
 
         String request = "";
         if (type == SHOP) {
@@ -342,9 +343,7 @@ public class FTP extends Application implements UndoableEditListener, FocusListe
         }
         //System.out.println("Requesting Secondary Directory");
         //System.out.println("Encrypted IP: "+MyHacker.getEncryptedIP());
-        objects = new Object[]{targetIP, request, MyHacker.getEncryptedIP(), port};
-        myGameState.setFunction("requestsecondarydirectory");
-        myGameState.addFunctionCall(new RemoteFunctionCall(Hacker.FTP, "requestsecondarydirectory", objects));
+        myGameState.addFunctionCall(new com.hackwars.rpc.RequestSecondaryDirectory(targetIP, request, MyHacker.getEncryptedIP(), port).toRfc(Hacker.FTP));
         setVisible(true);
 
         String[] ip = MyHacker.getIP().split("\\.");
@@ -368,10 +367,8 @@ public class FTP extends Application implements UndoableEditListener, FocusListe
             }
             MyHacker.setCurrentFolder(newFolder + name);
             //System.out.println("Requesting "+newFolder+name+"/");
-            Object objects[] = new Object[]{MyHacker.getEncryptedIP(), newFolder + name + "/"};
             MyHacker.setRequestedDirectory(Hacker.FTP);
-            myGameState.setFunction("requestdirectory");
-            myGameState.addFunctionCall(new RemoteFunctionCall(Hacker.FTP, "requestdirectory", objects));
+            myGameState.addFunctionCall(new com.hackwars.rpc.RequestDirectory(MyHacker.getEncryptedIP(), newFolder + name + "/").toRfc(Hacker.FTP));
             //requestDirectory();
         } else {
             if (!sourceDir.getText().equals("/home/")) {
@@ -385,11 +382,9 @@ public class FTP extends Application implements UndoableEditListener, FocusListe
                 //System.out.println(newFolder);
                 //System.out.println(folders[folders.length-1]);
                 //System.out.println("Go up a directory");
-                Object objects[] = new Object[]{MyHacker.getEncryptedIP(), newFolder};
                 MyHacker.setCurrentFolder(newFolder);
                 MyHacker.setRequestedDirectory(Hacker.FTP);
-                myGameState.setFunction("requestdirectory");
-                myGameState.addFunctionCall(new RemoteFunctionCall(Hacker.FTP, "requestdirectory", objects));
+                myGameState.addFunctionCall(new com.hackwars.rpc.RequestDirectory(MyHacker.getEncryptedIP(), newFolder).toRfc(Hacker.FTP));
             }
         }
         //list.setSelectedIndex(-1);
@@ -411,9 +406,7 @@ public class FTP extends Application implements UndoableEditListener, FocusListe
         if (!MyHacker.getCurrentFolder().equals(""))
             to = MyHacker.getCurrentFolder() + "/";
         MyHacker.setRequestedDirectory(Hacker.FTP);
-        Object objects[] = {targetIP, port, name, to, folder, MyHacker.getEncryptedIP(), pass, quantity};
-        myGameState.setFunction("requestdirectory");
-        myGameState.addFunctionCall(new RemoteFunctionCall(Hacker.FTP, "put", objects));
+        myGameState.addFunctionCall(new com.hackwars.rpc.Put(targetIP, port, name, to, folder, MyHacker.getEncryptedIP(), pass, quantity).toRfc(Hacker.FTP));
         messageWindow.setText(messageWindow.getText() + displayMessage + "\n");
         messageWindow.setCaretPosition(messageWindow.getText().length());
     }
@@ -434,9 +427,7 @@ public class FTP extends Application implements UndoableEditListener, FocusListe
         if (!MyHacker.getCurrentFolder().equals(""))
             to = MyHacker.getCurrentFolder() + "/";
         MyHacker.setRequestedDirectory(Hacker.FTP);
-        Object objects[] = {targetIP, port, name, to, folder, MyHacker.getEncryptedIP(), pass, quantity};
-        myGameState.setFunction("get");
-        myGameState.addFunctionCall(new RemoteFunctionCall(Hacker.FTP, "get", objects));
+        myGameState.addFunctionCall(new com.hackwars.rpc.Get(targetIP, port, name, to, folder, MyHacker.getEncryptedIP(), pass, quantity).toRfc(Hacker.FTP));
         messageWindow.setText(messageWindow.getText() + displayMessage + "\n");
         messageWindow.setCaretPosition(messageWindow.getText().length());
     }
@@ -520,10 +511,8 @@ public class FTP extends Application implements UndoableEditListener, FocusListe
                 MyHacker.setSecondaryFolder("Public");
             }
             //System.out.println("Requesting Secondary Directory - "+targetIP);
-            Object[] objects = new Object[]{targetIP, request, MyHacker.getEncryptedIP(), port};
             MyHacker.setRequestedDirectory(Hacker.FTP);
-            myGameState.setFunction("requestsecondarydirectory");
-            myGameState.addFunctionCall(new RemoteFunctionCall(Hacker.FTP, "requestsecondarydirectory", objects));
+            myGameState.addFunctionCall(new com.hackwars.rpc.RequestSecondaryDirectory(targetIP, request, MyHacker.getEncryptedIP(), port).toRfc(Hacker.FTP));
 
         }
 

@@ -10,7 +10,7 @@ import game.payload.ZombieAttackPayload
 import game.payloadAs
 
 class ZombieAttackHandler : AttackFunctionHandler {
-    override val functionName: String = "zombieattack"
+    override val functionName: String = com.hackwars.rpc.GameCommandWires.ZOMBIEATTACK
 
     override fun execute(program: AttackProgram, applicationData: ApplicationData) {
         if (!program.parentPort!!.attacking && !program.parentPort!!.overHeated) {

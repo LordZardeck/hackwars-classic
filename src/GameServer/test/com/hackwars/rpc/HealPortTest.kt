@@ -1,9 +1,7 @@
 package com.hackwars.rpc
 
 import assignments.RemoteFunctionCall
-import org.junit.Assert.assertArrayEquals
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertThrows
+import org.junit.Assert.*
 import org.junit.BeforeClass
 import org.junit.Test
 import util.Encryption
@@ -22,7 +20,7 @@ class HealPortTest {
 
     @Test
     fun fromRpc_readsEncryptedIpAndPort() {
-        val rpc = RemoteFunctionCall(1, HealPort.FUNCTION, arrayOf<Any?>("encrypted-ip", 21))
+        val rpc = RemoteFunctionCall(1, com.hackwars.rpc.GameCommandWires.HEALPORT, arrayOf<Any?>("encrypted-ip", 21))
 
         val call = HealPort.fromRpc(rpc)
 
@@ -36,19 +34,19 @@ class HealPortTest {
 
         val rpc = call.toRfc()
 
-        assertEquals(HealPort.FUNCTION, rpc.function)
+        assertEquals(com.hackwars.rpc.GameCommandWires.HEALPORT, rpc.function)
         assertArrayEquals(arrayOf("encrypted-ip", 21), rpc.parameters as Array<*>)
     }
 
     @Test
     fun fromRpc_throwsWhenPortHasWrongType() {
-        val rpc = RemoteFunctionCall(1, HealPort.FUNCTION, arrayOf<Any?>("encrypted-ip", "21"))
+        val rpc = RemoteFunctionCall(1, com.hackwars.rpc.GameCommandWires.HEALPORT, arrayOf<Any?>("encrypted-ip", "21"))
 
         val ex = assertThrows(IllegalParameterException::class.java) {
             HealPort.fromRpc(rpc)
         }
 
-        assertEquals(HealPort.FUNCTION, ex.function)
+        assertEquals(com.hackwars.rpc.GameCommandWires.HEALPORT, ex.function)
         assertEquals(1, ex.position)
         assertEquals(Int::class.javaObjectType.name, ex.expectedType)
         assertEquals(String::class.java.name, ex.actualType)

@@ -1,10 +1,12 @@
 package gui;
 
+import com.hackwars.rpc.GameCommandWires;
+
 public class Tutorial {
     //data
     private TutorialWindow window = null; //window to display the tutorial step.
     private int step = 0; //what step of the tutorial they are on.
-    private String function = "requestwebpage"; //function that needs to be performed for this step.
+    private String function = GameCommandWires.REQUESTWEBPAGE; //function that needs to be performed for this step.
     private Object[] check = new Object[]{"fjfjdkj"}; //other info that needs to be checked for this step.
 
     /**
@@ -91,11 +93,11 @@ public class Tutorial {
 
     public static void main(String args[]) {
         Tutorial T = new Tutorial();
-        T.setFunction("requestwebpage");
+        T.setFunction(GameCommandWires.REQUESTWEBPAGE);
         T.setCheck(new Object[]{"store1", new Integer(2)});
-        System.out.println(T.checkStep("requestwebpage", new Object[]{"store1"}));
-        System.out.println(T.checkStep("requestwebpage", new Object[]{"238.099.4.179"}));
-        System.out.println(T.checkStep("requestwebpage", new Object[]{"store1", new Integer(2)}));
+        System.out.println(T.checkStep(GameCommandWires.REQUESTWEBPAGE, new Object[]{"store1"}));
+        System.out.println(T.checkStep(GameCommandWires.REQUESTWEBPAGE, new Object[]{"238.099.4.179"}));
+        System.out.println(T.checkStep(GameCommandWires.REQUESTWEBPAGE, new Object[]{"store1", new Integer(2)}));
 
     }
 

@@ -3,20 +3,10 @@ package game
 import assignments.PacketWatch
 import com.hackwars.game.program.Program
 import com.hackwars.game.program.WatchProgram
-import com.hackwars.rpc.ChangeWatchType
-import com.hackwars.rpc.DeleteWatch
-import com.hackwars.rpc.FetchWatches
-import com.hackwars.rpc.InstallWatch
-import com.hackwars.rpc.SetWatchNote
-import com.hackwars.rpc.SetWatchObservedPorts
-import com.hackwars.rpc.SetWatchOnOff
-import com.hackwars.rpc.SetWatchQuantity
-import com.hackwars.rpc.SetWatchSearchFirewall
+import com.hackwars.rpc.*
 import game.payload.InstallEquipmentPayload
 import game.payload.RepairEquipmentPayload
 import game.payload.RequestEquipmentPayload
-import game.payloadAs
-import java.util.HashMap
 
 /**
  * Legacy watch/equipment command extraction from [Computer.processQueuedItem].
@@ -25,7 +15,7 @@ class LegacyWatchEquipmentCommands : LegacyApplicationDataHandler {
     override fun dispatch(computer: Computer, applicationData: ApplicationData, resolvedPort: Int): Boolean {
         val function = applicationData.command.wireName()
 
-        if (function == "changewatchtype") {
+        if (function == com.hackwars.rpc.GameCommandWires.CHANGEWATCHTYPE) {
             val payload = applicationData.payloadAs<ChangeWatchType>()
 
             val targetWatch = payload.watchID ?: return true
@@ -37,7 +27,7 @@ class LegacyWatchEquipmentCommands : LegacyApplicationDataHandler {
                 queueFetchWatches(computer)
             }
             return true
-        } else if (function == "installwatch") {
+        } else if (function == com.hackwars.rpc.GameCommandWires.INSTALLWATCH) {
             val payload = applicationData.payloadAs<InstallWatch>()
 
             val hackerFile = computer.fileSystem.getFile(payload.path, payload.name)
@@ -85,7 +75,7 @@ class LegacyWatchEquipmentCommands : LegacyApplicationDataHandler {
 
             queueFetchWatches(computer)
             return true
-        } else if (function == "requestequipment") {
+        } else if (function == com.hackwars.rpc.GameCommandWires.REQUESTEQUIPMENT) {
             val payload = applicationData.payloadAs<RequestEquipmentPayload>()
 
             var equipment = computer.MyFileSystem.getEquipment("")
@@ -114,7 +104,7 @@ class LegacyWatchEquipmentCommands : LegacyApplicationDataHandler {
             computer.PA.secondaryDirectory = equipment
             computer.systemChange = true
             return true
-        } else if (function == "installequipment") {
+        } else if (function == com.hackwars.rpc.GameCommandWires.INSTALLEQUIPMENT) {
             val payload = applicationData.payloadAs<InstallEquipmentPayload>()
 
             computer.MyEquipmentSheet.equip(payload.position, payload.name)
@@ -139,7 +129,7 @@ class LegacyWatchEquipmentCommands : LegacyApplicationDataHandler {
             computer.PA.secondaryDirectory = equipment
             computer.systemChange = true
             return true
-        } else if (function == "repairequipment") {
+        } else if (function == com.hackwars.rpc.GameCommandWires.REPAIREQUIPMENT) {
             val payload = applicationData.payloadAs<RepairEquipmentPayload>()
 
             if (payload.position != -1) {
@@ -156,7 +146,7 @@ class LegacyWatchEquipmentCommands : LegacyApplicationDataHandler {
                 computer.ip
             )
             return true
-        } else if (function == "fetchwatches") {
+        } else if (function == com.hackwars.rpc.GameCommandWires.FETCHWATCHES) {
             val packetWatches = arrayOfNulls<PacketWatch>(computer.MyWatchHandler.watches.size)
             val watchIterator = computer.MyWatchHandler.watches.iterator()
             var index = 0
@@ -168,7 +158,7 @@ class LegacyWatchEquipmentCommands : LegacyApplicationDataHandler {
             computer.PA.packetWatches = packetWatches.requireNoNulls()
             computer.systemChange = true
             return true
-        } else if (function == "setwatchquantity") {
+        } else if (function == com.hackwars.rpc.GameCommandWires.SETWATCHQUANTITY) {
             val payload = applicationData.payloadAs<SetWatchQuantity>()
 
             val watchId = payload.watchID ?: return true
@@ -177,7 +167,7 @@ class LegacyWatchEquipmentCommands : LegacyApplicationDataHandler {
             watch?.quantity = quantity
             queueFetchWatches(computer)
             return true
-        } else if (function == "setwatchonoff") {
+        } else if (function == com.hackwars.rpc.GameCommandWires.SETWATCHONOFF) {
             val payload = applicationData.payloadAs<SetWatchOnOff>()
 
             val watchId = payload.watchID ?: return true
@@ -200,7 +190,7 @@ class LegacyWatchEquipmentCommands : LegacyApplicationDataHandler {
             }
             queueFetchWatches(computer)
             return true
-        } else if (function == "setwatchsearchfirewall") {
+        } else if (function == com.hackwars.rpc.GameCommandWires.SETWATCHSEARCHFIREWALL) {
             val payload = applicationData.payloadAs<SetWatchSearchFirewall>()
 
             val watchId = payload.watchID ?: return true
@@ -211,7 +201,7 @@ class LegacyWatchEquipmentCommands : LegacyApplicationDataHandler {
             }
             queueFetchWatches(computer)
             return true
-        } else if (function == "setwatchnote") {
+        } else if (function == com.hackwars.rpc.GameCommandWires.SETWATCHNOTE) {
             val payload = applicationData.payloadAs<SetWatchNote>()
 
             val watchId = payload.watchID ?: return true
@@ -222,7 +212,7 @@ class LegacyWatchEquipmentCommands : LegacyApplicationDataHandler {
             }
             queueFetchWatches(computer)
             return true
-        } else if (function == "deletewatch") {
+        } else if (function == com.hackwars.rpc.GameCommandWires.DELETEWATCH) {
             val maxCpu = computer.maximumCPULoad
             if (computer.cPULoad <= maxCpu) {
                 val payload = applicationData.payloadAs<DeleteWatch>()
@@ -232,7 +222,7 @@ class LegacyWatchEquipmentCommands : LegacyApplicationDataHandler {
                 queueFetchWatches(computer)
             }
             return true
-        } else if (function == "setwatchobservedports") {
+        } else if (function == com.hackwars.rpc.GameCommandWires.SETWATCHOBSERVEDPORTS) {
             val payload = applicationData.payloadAs<SetWatchObservedPorts>()
 
             val watchId = payload.watchID ?: return true

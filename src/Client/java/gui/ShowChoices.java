@@ -1,11 +1,10 @@
 package gui;
 
-import javax.swing.*;
-import javax.swing.event.*;
-import java.awt.event.*;
-
-import assignments.*;
 import com.hackwars.state.GameState;
+
+import javax.swing.*;
+import javax.swing.event.InternalFrameEvent;
+import java.awt.event.ActionEvent;
 
 public class ShowChoices extends Application {
     public final static int BANK = 0;
@@ -83,18 +82,14 @@ public class ShowChoices extends Application {
 
     public void actionPerformed(ActionEvent e) {
         if (e.getActionCommand().equals("Cancel")) {
-            Object[] objects = {MyHacker.getEncryptedIP(), ip, new Integer(port)};
             GameState myGameState = MyHacker.getView();
-            myGameState.setFunction("finalizecancelled");
-            myGameState.addFunctionCall(new RemoteFunctionCall(0, "finalizecancelled", objects));
+            myGameState.addFunctionCall(new com.hackwars.rpc.FinalizeCancelled(MyHacker.getEncryptedIP(), ip, new Integer(port)).toRfc(0));
             dispose();
             return;
         }
         if (((String) comboBox.getSelectedItem()).equals("Empty Petty Cash")) {
-            Object[] objects = {MyHacker.getEncryptedIP(), ip, new Integer(port), windowHandle};
             GameState myGameState = MyHacker.getView();
-            myGameState.setFunction("emptypettycash");
-            myGameState.addFunctionCall(new RemoteFunctionCall(0, "emptypettycash", objects));
+            myGameState.addFunctionCall(new com.hackwars.rpc.EmptyPettyCash(MyHacker.getEncryptedIP(), ip, new Integer(port), windowHandle).toRfc(0));
         }
         if (((String) comboBox.getSelectedItem()).equals("Install New Script")) {
             ShowChoicesFileChooser SCFC = new ShowChoicesFileChooser(MyHacker, type, ip, port, windowHandle);
@@ -105,10 +100,8 @@ public class ShowChoices extends Application {
         //System.out.println(comboBox.getSelectedItem());
         if (((String) comboBox.getSelectedItem()).equals("Peek At Code")) {
             //System.out.println("Starting Up Peeking at Code");
-            Object[] objects = {MyHacker.getEncryptedIP(), ip, new Integer(port)};
             GameState myGameState = MyHacker.getView();
-            myGameState.setFunction("peekcode");
-            myGameState.addFunctionCall(new RemoteFunctionCall(0, "peekcode", objects));
+            myGameState.addFunctionCall(new com.hackwars.rpc.PeekCode(MyHacker.getEncryptedIP(), ip, new Integer(port)).toRfc(0));
             PeekAtCode PAC = new PeekAtCode(MyHacker, type, ip, port);
             MyHacker.getPanel().add(PAC);
             PAC.moveToFront();
@@ -116,10 +109,8 @@ public class ShowChoices extends Application {
         if (((String) comboBox.getSelectedItem()).equals("Peek At Logs")) {
             //System.out.println("Starting Up Peeking at Logs");
 
-            Object[] objects = {MyHacker.getEncryptedIP(), ip, new Integer(port)};
             GameState myGameState = MyHacker.getView();
-            myGameState.setFunction("peeklogs");
-            myGameState.addFunctionCall(new RemoteFunctionCall(0, "peeklogs", objects));
+            myGameState.addFunctionCall(new com.hackwars.rpc.PeekLogs(MyHacker.getEncryptedIP(), ip, new Integer(port)).toRfc(0));
             PeekAtCode PAC = new PeekAtCode(MyHacker, LOGS, ip, port);
             MyHacker.getPanel().add(PAC);
             PAC.moveToFront();
@@ -134,10 +125,8 @@ public class ShowChoices extends Application {
                     null,
                     MyHacker.getIP());
             if (answer != null) {
-                Object[] objects = {ip, new Integer(port), answer, MyHacker.getEncryptedIP(), windowHandle};
                 GameState myGameState = MyHacker.getView();
-                myGameState.setFunction("changedailypay");
-                myGameState.addFunctionCall(new RemoteFunctionCall(0, "changedailypay", objects));
+                myGameState.addFunctionCall(new com.hackwars.rpc.ChangeDailyPay(ip, new Integer(port), answer, MyHacker.getEncryptedIP(), windowHandle).toRfc(0));
             }
         }
         if (((String) comboBox.getSelectedItem()).equals("Open Public FTP")) {

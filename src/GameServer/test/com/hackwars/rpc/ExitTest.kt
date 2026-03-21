@@ -22,14 +22,14 @@ class ExitTest {
     @Test
     fun fromRpc_and_toRfc_roundtrip() {
         val params = arrayOf<Any?>(null, "value")
-        val rpc = RemoteFunctionCall(1, Exit.FUNCTION, params)
+        val rpc = RemoteFunctionCall(1, com.hackwars.rpc.GameCommandWires.EXIT, params)
 
         val call = Exit.fromRpc(rpc)
         assertEquals(params[0], call.targetIp)
         assertEquals(params[1], call.sourceIp)
         val serialized = call.toRfc()
 
-        assertEquals(Exit.FUNCTION, serialized.function)
+        assertEquals(com.hackwars.rpc.GameCommandWires.EXIT, serialized.function)
         assertArrayEquals(params, serialized.parameters as Array<*>)
     }
 }

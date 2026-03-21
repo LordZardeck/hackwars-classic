@@ -1,15 +1,14 @@
 package server.remote.handlers
 
 import assignments.RemoteFunctionCall
+import com.hackwars.rpc.Put
 import game.ApplicationData
-import com.hackwars.rpc.*
 import game.payload.PutFilePayload
 import server.remote.RemoteCallContext
 import server.remote.RemoteCallHandler
 import server.remote.RpcHandler
-import java.util.*
 
-@RpcHandler(Put.FUNCTION)
+@RpcHandler(com.hackwars.rpc.GameCommandWires.PUT)
 object PutHandler : RemoteCallHandler {
     override fun handle(rfc: RemoteFunctionCall, context: RemoteCallContext) {
         val parsedCall = Put.fromRpc(rfc)

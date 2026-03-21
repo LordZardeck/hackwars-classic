@@ -1,12 +1,14 @@
 package gui;
 
 
+import com.hackwars.state.GameState;
+
 import javax.swing.*;
 import java.awt.*;
-import java.awt.event.*;
-
-import com.hackwars.state.GameState;
-import assignments.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.awt.event.MouseEvent;
+import java.awt.event.MouseListener;
 
 /**
  * This is the popup menu for the Equipment Manager.
@@ -195,26 +197,21 @@ public class Inventory extends JButton implements MouseListener, ActionListener 
 
         if (e.getActionCommand().equals("Slot 1")) {
             MyHacker.setRequestedDirectory(Hacker.EQUIPMENT);
-            Object[] params = new Object[]{MyHacker.getEncryptedIP(), 1, fileName};
-            myGameState.addFunctionCall(new RemoteFunctionCall(Hacker.EQUIPMENT, "installequipment", params));
+            myGameState.addFunctionCall(new com.hackwars.rpc.InstallEquipment(MyHacker.getEncryptedIP(), 1, fileName).toRfc(Hacker.EQUIPMENT));
         }
         if (e.getActionCommand().equals("Slot 2")) {
             MyHacker.setRequestedDirectory(Hacker.EQUIPMENT);
-            Object[] params = new Object[]{MyHacker.getEncryptedIP(), 2, fileName};
-            myGameState.addFunctionCall(new RemoteFunctionCall(Hacker.EQUIPMENT, "installequipment", params));
+            myGameState.addFunctionCall(new com.hackwars.rpc.InstallEquipment(MyHacker.getEncryptedIP(), 2, fileName).toRfc(Hacker.EQUIPMENT));
         }
         if (e.getActionCommand().equals("Purchase")) {
             // TODO: Removed legacy remote domain lookup endpoint: http://www.hackwars.net/xmlrpc/domain.php
             String result = util.LegacyRemoteDefaults.normalizeDomain(ip);
-            Object objects[] = {result, MyHacker.getEncryptedIP(), fileName, 1};
-            myGameState.setFunction("requestpurchase");
-            myGameState.addFunctionCall(new RemoteFunctionCall(Hacker.BROWSER, "requestpurchase", objects));
+            myGameState.addFunctionCall(new com.hackwars.rpc.RequestPurchase(result, MyHacker.getEncryptedIP(), fileName, 1).toRfc(Hacker.BROWSER));
             MyHacker.setRequestedDirectory(Hacker.BROWSER);
         }
         if (e.getActionCommand().equals("Unequip")) {
-            Object[] params = new Object[]{MyHacker.getEncryptedIP(), equipped, null};
             MyHacker.setRequestedDirectory(Hacker.EQUIPMENT);
-            myGameState.addFunctionCall(new RemoteFunctionCall(Hacker.EQUIPMENT, "installequipment", params));
+            myGameState.addFunctionCall(new com.hackwars.rpc.InstallEquipment(MyHacker.getEncryptedIP(), equipped, null).toRfc(Hacker.EQUIPMENT));
             //dispose();
             //setVisible(false);
             if (sePanel != null) {
@@ -224,22 +221,18 @@ public class Inventory extends JButton implements MouseListener, ActionListener 
 
         }
         if (e.getActionCommand().equals("Equip")) {
-            Object[] params = new Object[]{MyHacker.getEncryptedIP(), 0, fileName};
             MyHacker.setRequestedDirectory(Hacker.EQUIPMENT);
-            myGameState.addFunctionCall(new RemoteFunctionCall(Hacker.EQUIPMENT, "installequipment", params));
+            myGameState.addFunctionCall(new com.hackwars.rpc.InstallEquipment(MyHacker.getEncryptedIP(), 0, fileName).toRfc(Hacker.EQUIPMENT));
         }
         if (e.getActionCommand().equals("Repair")) {
-            Object[] params = new Object[]{MyHacker.getEncryptedIP(), equipped, fileName};
             MyHacker.setRequestedDirectory(Hacker.EQUIPMENT);
-            myGameState.addFunctionCall(new RemoteFunctionCall(Hacker.EQUIPMENT, "repairequipment", params));
+            myGameState.addFunctionCall(new com.hackwars.rpc.RepairEquipment(MyHacker.getEncryptedIP(), equipped, fileName).toRfc(Hacker.EQUIPMENT));
 
         }
         if (e.getActionCommand().equals("Delete")) {
             int n = showDeleteDialog(fileName);
             if (n == 0) {
-                Object objects[] = {MyHacker.getEncryptedIP(), "", fileName};
-                myGameState.setFunction("deletefile");
-                myGameState.addFunctionCall(new RemoteFunctionCall(Hacker.EQUIPMENT, "deletefile", objects));
+                myGameState.addFunctionCall(new com.hackwars.rpc.DeleteFile(MyHacker.getEncryptedIP(), "", fileName).toRfc(Hacker.EQUIPMENT));
                 MyHacker.setRequestedDirectory(Hacker.EQUIPMENT);
             }
         }

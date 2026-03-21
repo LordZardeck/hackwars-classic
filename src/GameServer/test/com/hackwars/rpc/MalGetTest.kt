@@ -22,7 +22,7 @@ class MalGetTest {
     @Test
     fun fromRpc_and_toRfc_roundtrip() {
         val params = arrayOf<Any?>(null, 42, null, null, null, "value", 42)
-        val rpc = RemoteFunctionCall(1, MalGet.FUNCTION, params)
+        val rpc = RemoteFunctionCall(1, com.hackwars.rpc.GameCommandWires.MALGET, params)
 
         val call = MalGet.fromRpc(rpc)
         assertEquals(params[0], call.ip)
@@ -34,7 +34,7 @@ class MalGetTest {
         assertEquals(params[6], call.attackPort)
         val serialized = call.toRfc()
 
-        assertEquals(MalGet.FUNCTION, serialized.function)
+        assertEquals(com.hackwars.rpc.GameCommandWires.MALGET, serialized.function)
         assertArrayEquals(params, serialized.parameters as Array<*>)
     }
 }

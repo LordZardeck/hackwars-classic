@@ -22,13 +22,13 @@ class FacebookUpdateTest {
     @Test
     fun fromRpc_and_toRfc_roundtrip() {
         val params = arrayOf<Any?>(null)
-        val rpc = RemoteFunctionCall(1, FacebookUpdate.FUNCTION, params)
+        val rpc = RemoteFunctionCall(1, com.hackwars.rpc.GameCommandWires.FACEBOOKUPDATE, params)
 
         val call = FacebookUpdate.fromRpc(rpc)
         assertEquals(params[0], call.ip)
         val serialized = call.toRfc()
 
-        assertEquals(FacebookUpdate.FUNCTION, serialized.function)
+        assertEquals(com.hackwars.rpc.GameCommandWires.FACEBOOKUPDATE, serialized.function)
         assertArrayEquals(params, serialized.parameters as Array<*>)
     }
 }
