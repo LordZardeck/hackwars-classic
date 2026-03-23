@@ -184,43 +184,71 @@ class ComputerHandler @JvmOverloads constructor(
     }
 
     private fun processTask(task: ApplicationDataTask) {
+        val routedIp = resolveTaskIp(task.ip)
         if (task.applicationData == null) {
-            Logger.info("Unloading player ip={}", task.ip)
+            Logger.info("Unloading player ip={} routedIp={}", task.ip, routedIp)
             val computer = synchronized(computerLock) {
-                val loaded = computerList.get(task.ip) as? Computer
-                computerList.remove(task.ip)
+                val loaded = computerList.get(routedIp) as? Computer
+                computerList.remove(routedIp)
                 loaded
             }
-            serverBridge?.removeRandomKey(task.ip)
+            serverBridge?.removeRandomKey(routedIp)
             computer?.setRun(false)
             return
         }
 
         val current = synchronized(computerLock) {
-            computerList.get(task.ip) as? Computer
+            computerList.get(routedIp) as? Computer
         }
         if (current != null) {
             if (current.getLoaded()) {
-                Logger.debug("Dispatching task directly to loaded computer ip={}", task.ip)
+                Logger.debug("Dispatching task directly to loaded computer ip={} routedIp={}", task.ip, routedIp)
                 current.addData(task.applicationData)
             } else {
-                Logger.debug("Computer ip={} still loading; requeueing task", task.ip)
-                addData(task.applicationData, task.ip)
+                Logger.debug("Computer ip={} routedIp={} still loading; requeueing task", task.ip, routedIp)
+                addData(task.applicationData, routedIp)
             }
             return
         }
 
-        if (!on || task.ip == null) {
+        if (!on || routedIp == null) {
             return
         }
 
-        val computer = Computer(task.ip, this, -1, serverBridge)
+        if (isUnresolvedEncryptedToken(task.ip, routedIp)) {
+            Logger.warn(
+                "Dropping handler task for unresolved encrypted ip token={} payloadType={}",
+                task.ip,
+                task.applicationData?.javaClass?.simpleName
+            )
+            return
+        }
+
+        val computer = Computer(routedIp, this, -1, serverBridge)
         if (task.applicationData is ApplicationData) {
             computer.setLoadRequester(task.applicationData.sourceIP)
             computer.addData(task.applicationData)
         }
-        Logger.info("Created computer on demand for ip={} via handler task", task.ip)
+        Logger.info("Created computer on demand for ip={} routedIp={} via handler task", task.ip, routedIp)
         addComputer(computer)
         computer.loadSave()
+    }
+
+    private fun resolveTaskIp(ip: String?): String? {
+        if (ip == null) {
+            return null
+        }
+        val resolved = serverBridge?.resolveEncryptedIp(ip)
+        if (resolved != null && resolved != ip) {
+            Logger.info("Resolved encrypted handler ip {} to {}", ip, resolved)
+        }
+        return resolved ?: ip
+    }
+
+    private fun isUnresolvedEncryptedToken(originalIp: String?, routedIp: String): Boolean {
+        return originalIp != null &&
+            originalIp == routedIp &&
+            originalIp.length == 10 &&
+            originalIp.all { it in 'a'..'z' }
     }
 }

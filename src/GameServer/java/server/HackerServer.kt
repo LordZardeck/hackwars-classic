@@ -45,6 +45,7 @@ class HackerServer(e: MessageServer, serverID: String) : MessageCoordinator(e), 
 
     //Data.
     private val Keys = HashMap<Any?, Any?>()
+    private val TokenKeys = HashMap<String, String?>()
     private val IPs = HashMap<Any?, Any?>()
     private val runtime = GameServerRuntime()
     private var MyComputerHandler: ComputerHandler? = null
@@ -222,7 +223,23 @@ class HackerServer(e: MessageServer, serverID: String) : MessageCoordinator(e), 
      * reverses the encryption.
      */
     fun crypt(ip: String, clientHash: String?): String {
-        return Keys[ip + clientHash] as? String? ?: return ip
+        val resolvedIp = Keys[ip + clientHash] as? String?
+            ?: resolveEncryptedIp(ip)
+        if (resolvedIp == null && ip.length == 10 && ip.all { it in 'a'..'z' }) {
+            Logger.warn(
+                "Unable to resolve encrypted ip token={} clientHash={} through current session keys",
+                ip,
+                clientHash
+            )
+        }
+        return resolvedIp ?: ip
+    }
+
+    override fun resolveEncryptedIp(token: String?): String? {
+        if (token == null) {
+            return null
+        }
+        return TokenKeys[token]
     }
 
 
@@ -233,6 +250,11 @@ class HackerServer(e: MessageServer, serverID: String) : MessageCoordinator(e), 
     override fun removeRandomKey(ip: String?) {
         val hash = IPs[ip] as String?
         if (ip != null) Keys.remove(hash)
+        hash?.let { combinedKey ->
+            if (combinedKey.length >= 10) {
+                TokenKeys.remove(combinedKey.substring(0, 10))
+            }
+        }
         IPs.remove(ip)
         MyEncryption.remove(ip)
     }
@@ -249,6 +271,7 @@ class HackerServer(e: MessageServer, serverID: String) : MessageCoordinator(e), 
         }
 
         Keys[key + clientHash] = ip
+        TokenKeys[key] = ip
         IPs[ip] = key + clientHash
         val myPublicKey: ByteArray? = publicKey?.let { MyEncryption.init(publicKey, clientHash, ip) }
 

@@ -1,6 +1,8 @@
 package game.computer.session
 
 import com.hackwars.data.model.ForumLoginSnapshot
+import com.hackwars.data.model.JsonProfileWrite
+import com.hackwars.data.model.PersistedProfileSave
 import com.hackwars.data.service.GameAuthDataService
 import com.hackwars.data.service.GameProfileDataService
 import com.hackwars.data.service.GameTelemetryDataService
@@ -9,6 +11,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.awt.image.BufferedImage
+import java.time.LocalDateTime
 
 class ComputerSessionServiceTest {
     @Test
@@ -217,6 +220,29 @@ class ComputerSessionServiceTest {
         assertEquals(listOf("10.0.0.1"), profile.readIps)
     }
 
+    @Test
+    fun `load local save returns json manifest when available`() {
+        val profile = FakeProfileDataService(
+            persistedByIp = mutableMapOf(
+                "10.0.0.9" to PersistedProfileSave(
+                    userNum = 9,
+                    ip = "10.0.0.9",
+                    legacyXml = null,
+                    statsJson = """{"schemaVersion":1,"ip":"10.0.0.9"}""",
+                    statsJsonVersion = 1,
+                    statsJsonMigratedAt = LocalDateTime.parse("2024-01-01T00:00:00"),
+                )
+            )
+        )
+        val service = service(profile = profile)
+
+        val save = service.loadLocalSave("10.0.0.9", active = false)
+
+        assertEquals(9, save.userNum)
+        assertEquals("""{"schemaVersion":1,"ip":"10.0.0.9"}""", save.statsJson)
+        assertEquals(listOf("10.0.0.9"), profile.readIps)
+    }
+
     private fun service(
         config: ComputerSessionConfig = ComputerSessionConfig(),
         auth: GameAuthDataService = FakeAuthDataService(),
@@ -283,9 +309,25 @@ private class FakeAuthDataService(
 
 private class FakeProfileDataService(
     val xmlByIp: MutableMap<String, String?> = mutableMapOf(),
+    val persistedByIp: MutableMap<String, PersistedProfileSave> = mutableMapOf(),
 ) : GameProfileDataService {
     val readIps = mutableListOf<String>()
     val writes = mutableListOf<Pair<String, String>>()
+    val jsonWrites = mutableListOf<Pair<String, JsonProfileWrite>>()
+
+    override fun findPersistedProfileByIp(ip: String): PersistedProfileSave? {
+        readIps += ip
+        return persistedByIp[ip] ?: xmlByIp[ip]?.let { xml ->
+            PersistedProfileSave(
+                userNum = 1,
+                ip = ip,
+                legacyXml = xml,
+                statsJson = null,
+                statsJsonVersion = null,
+                statsJsonMigratedAt = null,
+            )
+        }
+    }
 
     override fun findProfileXmlByIp(ip: String): String? {
         readIps += ip
@@ -295,6 +337,19 @@ private class FakeProfileDataService(
     override fun upsertProfileXmlByIp(ip: String, xml: String) {
         writes += ip to xml
         xmlByIp[ip] = xml
+    }
+
+    override fun upsertProfileJsonByIp(ip: String, profile: JsonProfileWrite) {
+        jsonWrites += ip to profile
+        persistedByIp[ip] = PersistedProfileSave(
+            userNum = persistedByIp[ip]?.userNum ?: 1,
+            ip = ip,
+            legacyXml = xmlByIp[ip],
+            statsJson = profile.manifestJson,
+            statsJsonVersion = profile.version,
+            statsJsonMigratedAt = profile.migratedAt,
+            blobs = profile.blobs,
+        )
     }
 }
 

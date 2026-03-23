@@ -8,6 +8,7 @@ dependencies {
     ksp project(':RpcDispatchKsp')
     implementation 'org.apache.axis:axis:1.4'
     implementation 'org.antlr:antlr-runtime:3.0.1'
+    implementation 'com.google.code.gson:gson:2.10.1'
     implementation "org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2"
     implementation 'com.miglayout:miglayout-swing:11.4.2'
     testImplementation "org.jetbrains.kotlin:kotlin-test-junit:2.1.21"
@@ -36,7 +37,7 @@ sourceSets {
 tasks.register('runHackerServer', JavaExec) {
     group = 'application'
     description = 'Runs server.HackerServer with server id 1.'
-    dependsOn tasks.named('classes')
+    dependsOn tasks.named('classes'), project(':HackWars').tasks.named('classes')
     javaLauncher = javaToolchains.launcherFor {
         languageVersion = JavaLanguageVersion.of(rootProject.ext.javaToolchainVersion as Integer)
     }
@@ -46,7 +47,7 @@ tasks.register('runHackerServer', JavaExec) {
             sourceSets.main.runtimeClasspath,
             rootProject.ext.resourcesRootDir
     )
-    mainClass = 'server.HackerServer'
+    mainClass = 'server.HackerServerKt'
     args '1'
     workingDir = rootProject.ext.resourcesRootDir
 }

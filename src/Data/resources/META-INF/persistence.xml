@@ -18,6 +18,7 @@
         <class>com.hackwars.data.entity.hackwars.ItemEntity</class>
 
         <class>com.hackwars.data.entity.hackwars.UserSaveEntity</class>
+        <class>com.hackwars.data.entity.hackwars.UserStatsTextBlobEntity</class>
         <class>com.hackwars.data.entity.hackwars.UserPlayStatisticEntity</class>
         <class>com.hackwars.data.entity.hackwars.UserPlayStatisticId</class>
         <class>com.hackwars.data.entity.hackwars.BoughtItemEntity</class>

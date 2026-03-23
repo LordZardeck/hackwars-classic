@@ -3,6 +3,7 @@ package game.computer.session
 import com.hackwars.data.service.GameAuthDataService
 import com.hackwars.data.service.GameProfileDataService
 import com.hackwars.data.service.GameTelemetryDataService
+import com.hackwars.data.model.PersistedProfileSave
 import game.data.GameServerDataLocator
 
 class ComputerSessionService(
@@ -73,13 +74,21 @@ class ComputerSessionService(
     }
 
     fun loadLocalSaveXml(ip: String, active: Boolean): String {
-        ComputerSessionOverrides.localSaveXml(ip, active)?.let { return it }
+        val save = loadLocalSave(ip, active)
+        val xml = save.legacyXml
+        if (!xml.isNullOrBlank()) {
+            return xml
+        }
+        throw Exception("Unable to load local account data for ip=$ip. No legacy XML save payload found.")
+    }
+
+    fun loadLocalSave(ip: String, active: Boolean): PersistedProfileSave {
+        ComputerSessionOverrides.localSave(ip, active)?.let { return it }
 
         try {
-            // TODO: Removed legacy local login endpoint: http://127.0.0.1:8080/hackwars/login.html?ip=<ip>&serverID=1
-            val xml = profileDataService().findProfileXmlByIp(ip)
-            if (!xml.isNullOrBlank()) {
-                return xml
+            val save = profileDataService().findPersistedProfileByIp(ip)
+            if (save != null) {
+                return save
             }
         } catch (e: Exception) {
             throw Exception("Unable to load local account data for ip=$ip from the database: ${e.message}", e)

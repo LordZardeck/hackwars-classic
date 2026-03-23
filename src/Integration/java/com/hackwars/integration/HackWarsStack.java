@@ -48,7 +48,7 @@ public final class HackWarsStack implements AutoCloseable {
                 return result;
             }
         });
-        ComputerSessionOverrides.installLocalSaveOverride((ip, active) -> scenario.getPlayerIp().equals(ip) ? scenario.getSaveXml() : null);
+        ComputerSessionOverrides.installLocalSaveOverride((ip, active) -> scenario.getPlayerIp().equals(ip) ? scenario.getSaveProfile() : null);
 
         gameMessageServer = new MessageServer(1000, config.getGameOutPort());
         gameMessageServer.setClientJobSize(4);

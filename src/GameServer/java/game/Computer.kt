@@ -8,6 +8,8 @@ import com.hackwars.game.program.ShippingProgram
 import game.computer.dispatch.CommandDispatcher
 import game.computer.dispatch.CommandRegistry
 import game.computer.packet.*
+import game.computer.persistence.JsonComputerPersistence
+import game.computer.persistence.JsonComputerPersistenceSupport
 import game.computer.persistence.XmlComputerPersistence
 import game.computer.runtime.*
 import game.computer.runtime.RuntimeTickEventApplier.apply
@@ -332,6 +334,7 @@ open class Computer : GameServerService {
     @JvmField
     var preferences: HashMap<Any?, Any?>? = null
     var sendPreferences: Boolean = false
+    var legacySaveExtras: Map<String, String> = emptyMap()
 
     //MessageHandler
     @JvmField
@@ -340,8 +343,16 @@ open class Computer : GameServerService {
     @JvmField
     val sessionService: ComputerSessionService = ComputerSessionService()
     private val xmlComputerPersistence = XmlComputerPersistence()
+    private val jsonComputerPersistence = JsonComputerPersistence()
     private val persistenceSupport = LegacyComputerPersistenceSupport(xmlComputerPersistence)
-    private val loadCoordinator = ComputerLoadCoordinator(sessionService, xmlComputerPersistence, persistenceSupport)
+    private val jsonPersistenceSupport = JsonComputerPersistenceSupport(jsonComputerPersistence, persistenceSupport)
+    private val loadCoordinator = ComputerLoadCoordinator(
+        sessionService,
+        xmlComputerPersistence,
+        jsonComputerPersistence,
+        persistenceSupport,
+        jsonPersistenceSupport,
+    )
     private val standardPacketBuilder = ComputerPacketBuilder()
     private val damagePacketBuilder = ComputerDamagePacketBuilder()
     private val runtimeCoordinator = ComputerRuntimeCoordinator()
@@ -3295,6 +3306,8 @@ open class Computer : GameServerService {
         return (returnMe)
     }
 
+    fun outputJsonProfileWrite() = jsonPersistenceSupport.captureWrite(this)
+
     /**
      * This function encapsulates the loading of the file data-structure.
      */
@@ -3573,7 +3586,9 @@ open class Computer : GameServerService {
 internal class ComputerLoadCoordinator(
     private val sessionService: ComputerSessionService,
     private val xmlComputerPersistence: XmlComputerPersistence,
+    private val jsonComputerPersistence: JsonComputerPersistence,
     private val persistenceSupport: LegacyComputerPersistenceSupport,
+    private val jsonPersistenceSupport: JsonComputerPersistenceSupport,
     private val postLoadBootstrap: ComputerPostLoadBootstrap = ComputerPostLoadBootstrap()
 ) {
     companion object {
@@ -3583,8 +3598,17 @@ internal class ComputerLoadCoordinator(
     constructor(
         sessionService: ComputerSessionService,
         xmlComputerPersistence: XmlComputerPersistence,
-        persistenceSupport: LegacyComputerPersistenceSupport
-    ) : this(sessionService, xmlComputerPersistence, persistenceSupport, ComputerPostLoadBootstrap())
+        jsonComputerPersistence: JsonComputerPersistence,
+        persistenceSupport: LegacyComputerPersistenceSupport,
+        jsonPersistenceSupport: JsonComputerPersistenceSupport,
+    ) : this(
+        sessionService,
+        xmlComputerPersistence,
+        jsonComputerPersistence,
+        persistenceSupport,
+        jsonPersistenceSupport,
+        ComputerPostLoadBootstrap(),
+    )
 
     fun execute(computer: Computer) {
         try {
@@ -3604,9 +3628,18 @@ internal class ComputerLoadCoordinator(
 
             // TODO: Removed legacy remote function pack endpoint: http://www.hackwars.net/xmlrpc/functions.php
 
-            val xml = sessionService.loadLocalSaveXml(computer.ip, activeLoad)
-            val snapshot = xmlComputerPersistence.parse(xml)
-            persistenceSupport.restoreSnapshot(computer, snapshot)
+            val persistedSave = sessionService.loadLocalSave(computer.ip, activeLoad)
+            val statsJson = persistedSave.statsJson
+            if (!statsJson.isNullOrBlank()) {
+                jsonComputerPersistence.parse(statsJson)
+                jsonPersistenceSupport.restore(computer, statsJson, persistedSave.blobs)
+            } else {
+                val xml = persistedSave.legacyXml
+                    ?: throw IllegalStateException("No stats_json or legacy XML payload found for ip=${computer.ip}")
+                val snapshot = xmlComputerPersistence.parse(xml)
+                computer.legacySaveExtras = emptyMap()
+                persistenceSupport.restoreSnapshot(computer, snapshot)
+            }
             Logger.info("Finished load restore for ip={} activeLoad={}", computer.ip, activeLoad)
         } catch (e: Exception) {
             computer.errorMessage = e.message?.takeIf { it.isNotEmpty() }

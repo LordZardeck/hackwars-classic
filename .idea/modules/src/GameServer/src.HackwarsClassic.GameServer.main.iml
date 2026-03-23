@@ -59,6 +59,7 @@
     <orderEntry type="library" name="Gradle: ch.qos.logback:logback-classic:1.5.18" level="project" />
     <orderEntry type="library" name="Gradle: org.apache.axis:axis:1.4" level="project" />
     <orderEntry type="library" name="Gradle: org.antlr:antlr-runtime:3.0.1" level="project" />
+    <orderEntry type="library" name="Gradle: com.google.code.gson:gson:2.10.1" level="project" />
     <orderEntry type="library" name="Gradle: com.miglayout:miglayout-swing:11.4.2" level="project" />
     <orderEntry type="library" name="Gradle: com.google.protobuf:protobuf-java:3.25.5" level="project" />
     <orderEntry type="library" name="Gradle: org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm:1.10.2" level="project" />

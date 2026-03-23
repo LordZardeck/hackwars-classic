@@ -45,6 +45,7 @@
     <orderEntry type="jdk" jdkName="openjdk-25" jdkType="JavaSDK" />
     <orderEntry type="sourceFolder" forTests="false" />
     <orderEntry type="module" module-name="src.HackwarsClassic.Client.main" />
+    <orderEntry type="module" module-name="HackwarsClassic.Data.main" />
     <orderEntry type="module" module-name="src.HackwarsClassic.GameServer.main" />
     <orderEntry type="module" module-name="src.HackwarsClassic.ChatServer.main" />
     <orderEntry type="module" module-name="src.HackwarsClassic.HackWars.main" />
@@ -84,18 +85,17 @@
     <orderEntry type="library" name="Gradle: net.java.dev.gluegen:gluegen-rt-macosx-universal:1.0b05" level="project" />
     <orderEntry type="library" name="Gradle: net.java.dev.gluegen:gluegen-rt-windows-i586:1.0b05" level="project" />
     <orderEntry type="library" name="Gradle: net.java.dev.gluegen:gluegen-rt:1.0b05" level="project" />
-    <orderEntry type="module" module-name="HackwarsClassic.Data.main" />
     <orderEntry type="module" module-name="HackwarsClassic.RpcDispatchAnnotations.main" />
     <orderEntry type="library" name="Gradle: org.antlr:antlr-runtime:3.0.1" level="project" />
+    <orderEntry type="library" name="Gradle: com.zaxxer:HikariCP:5.1.0" level="project" />
+    <orderEntry type="library" name="Gradle: org.hibernate.orm:hibernate-core:6.4.4.Final" level="project" />
+    <orderEntry type="library" name="Gradle: jakarta.persistence:jakarta.persistence-api:3.1.0" level="project" />
+    <orderEntry type="library" name="Gradle: com.mysql:mysql-connector-j:8.4.0" level="project" />
     <orderEntry type="library" name="Gradle: mysql:mysql-connector-java:5.1.49" level="project" />
     <orderEntry type="library" name="Gradle: org.jetbrains.kotlin:kotlin-reflect:2.1.21" level="project" />
     <orderEntry type="library" name="Gradle: org.jetbrains:annotations:23.0.0" level="project" />
     <orderEntry type="library" name="Gradle: org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm:1.10.2" level="project" />
     <orderEntry type="library" name="Gradle: com.miglayout:miglayout-core:11.4.2" level="project" />
-    <orderEntry type="library" name="Gradle: com.zaxxer:HikariCP:5.1.0" level="project" />
-    <orderEntry type="library" name="Gradle: com.mysql:mysql-connector-j:8.4.0" level="project" />
-    <orderEntry type="library" name="Gradle: org.hibernate.orm:hibernate-core:6.4.4.Final" level="project" />
-    <orderEntry type="library" name="Gradle: jakarta.persistence:jakarta.persistence-api:3.1.0" level="project" />
     <orderEntry type="library" name="Gradle: org.antlr:stringtemplate:3.1-b1" level="project" />
     <orderEntry type="library" name="Gradle: jakarta.transaction:jakarta.transaction-api:2.0.1" level="project" />
     <orderEntry type="library" name="Gradle: org.jboss.logging:jboss-logging:3.5.0.Final" level="project" />

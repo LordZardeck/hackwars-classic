@@ -4,6 +4,7 @@ import com.hackwars.data.service.GameSearchDataService
 import com.plink.dolphinstem.ItemData
 import com.plink.dolphinstem.TextSource
 import com.plink.dolphinstem.WordData
+import game.computer.persistence.JsonComputerPersistence
 import hackersearch.assignments.SearchAssignment
 import hackersearch.assignments.SearchResult
 import hackersearch.assignments.SearchResultAssignment
@@ -36,6 +37,7 @@ open class SearchHandler(
     private val pendingOperations = AtomicInteger(0)
     private var workerJob: Job? = null
     private var snapshot = SearchSnapshot()
+    private val jsonComputerPersistence = JsonComputerPersistence()
 
     fun bindServer(server: SearchServer?) {
         myServer = server
@@ -245,7 +247,7 @@ open class SearchHandler(
                     continue
                 }
 
-                val loaded = loadBootstrapPage(row.statsXml)
+                val loaded = loadBootstrapPage(row)
                 if (loaded != null) {
                     applyIndexedPage(loaded.title, loaded.address, loaded.content)
                     indexedCount++
@@ -257,7 +259,21 @@ open class SearchHandler(
         }
     }
 
-    private fun loadBootstrapPage(data: String): BootstrapPage? {
+    private fun loadBootstrapPage(row: com.hackwars.data.model.SearchBootstrapRow): BootstrapPage? {
+        val statsJson = row.statsJson
+        if (!statsJson.isNullOrBlank()) {
+            return runCatching {
+                val manifest = jsonComputerPersistence.parse(statsJson)
+                val address = manifest.ip.ifBlank { row.ip }
+                val title = manifest.website.title.orEmpty()
+                val content = row.websiteBodyText
+                    ?: manifest.website.body?.inlineValue
+                    ?: ""
+                BootstrapPage(title, address, sanitizeText(content).lowercase())
+            }.getOrNull()
+        }
+
+        val data = row.statsXml ?: return null
         return runCatching {
             val loader = LoadXML()
             loader.loadByteArray(data.toByteArray())

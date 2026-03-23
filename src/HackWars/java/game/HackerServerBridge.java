@@ -7,5 +7,7 @@ public interface HackerServerBridge {
 
     Object[] getRandomKey(String ip, String clientHash, byte[] publicKey);
 
+    String resolveEncryptedIp(String token);
+
     void addData(Object o);
 }

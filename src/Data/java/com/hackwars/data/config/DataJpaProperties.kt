@@ -7,6 +7,7 @@ data class DataJpaProperties(
     val username: String = "root",
     val password: String = "",
     val showSql: Boolean = false,
+    val suppressVerboseHibernateResultLogs: Boolean = true,
     val maximumPoolSize: Int = 10,
     val minimumIdle: Int = 1,
     val connectionTimeoutMs: Long = 30_000,

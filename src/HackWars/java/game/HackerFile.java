@@ -361,28 +361,29 @@ public class HackerFile implements Serializable {
         String Keys[] = getTypeKeys();
         for (int i = 0; i < Keys.length; i++) {
             String key = Keys[i];
-            if (key.equals("specialAttribute1") || key.equals("specialAttribute2")) {
-                returnMe += "<" + key + ">\n";
-                HashMap specials = null;
-                if (key.equals("specialAttribute1")) {
-                    specials = getSpecial(1);
+	            if (key.equals("specialAttribute1") || key.equals("specialAttribute2")) {
+	                returnMe += "<" + key + ">\n";
+	                HashMap specials = null;
+	                if (key.equals("specialAttribute1")) {
+	                    specials = getSpecial(1);
                 } else {
                     specials = getSpecial(2);
                 }
 
-                String[] specialKeys = getSpecialKeys();
-                for (int j = 0; j < specialKeys.length; j++) {
-                    String specialKey = specialKeys[j];
-                    returnMe += "<" + specialKey + "><![CDATA[";
+	                String[] specialKeys = getSpecialKeys();
+	                for (int j = 0; j < specialKeys.length; j++) {
+	                    String specialKey = specialKeys[j];
+	                    String specialValue = specials == null ? null : (String) specials.get(specialKey);
+	                    returnMe += "<" + specialKey + "><![CDATA[";
 
-                    if (((String) specials.get(specialKey)) != null)
-                        returnMe += ((String) specials.get(specialKey)).replaceAll("]]>", "]]&gt;");
-                    else
-                        returnMe += ((String) specials.get(specialKey));
+	                    if (specialValue != null)
+	                        returnMe += specialValue.replaceAll("]]>", "]]&gt;");
+	                    else
+	                        returnMe += specialValue;
 
-                    returnMe += "]]></" + specialKey + ">\n";
-                }
-                returnMe += "</" + key + ">\n";
+	                    returnMe += "]]></" + specialKey + ">\n";
+	                }
+	                returnMe += "</" + key + ">\n";
             } else {
                 returnMe += "<" + key + "><![CDATA[";
                 if ((Content.get(key)) != null)
@@ -449,26 +450,27 @@ public class HackerFile implements Serializable {
         String checkSum = "";
         String Keys[] = HF.getTypeKeys();
 
-        for (int i = 0; i < Keys.length; i++) {
-            if (Keys[i].equals("specialAttribute1") || Keys[i].equals("specialAttribute2")) {
-                HashMap specials = null;
-                if (Keys[i].equals("specialAttribute1")) {
-                    specials = getSpecial(1);
+	        for (int i = 0; i < Keys.length; i++) {
+	            if (Keys[i].equals("specialAttribute1") || Keys[i].equals("specialAttribute2")) {
+	                HashMap specials = null;
+	                if (Keys[i].equals("specialAttribute1")) {
+	                    specials = getSpecial(1);
                 } else {
                     specials = getSpecial(2);
                 }
 
-                String[] specialKeys = getSpecialKeys();
-                for (int j = 0; j < specialKeys.length; j++) {
-                    String specialKey = specialKeys[j];
-                    if (((String) specials.get(specialKey)) != null)
-                        checkSum += (String) specials.get(specialKey);
-                    else
-                        checkSum += (String) specials.get(specialKey);
-                }
-            } else {
-                checkSum += HF.getContent().get(Keys[i]);
-            }
+	                String[] specialKeys = getSpecialKeys();
+	                for (int j = 0; j < specialKeys.length; j++) {
+	                    String specialKey = specialKeys[j];
+	                    String specialValue = specials == null ? null : (String) specials.get(specialKey);
+	                    if (specialValue != null)
+	                        checkSum += specialValue;
+	                    else
+	                        checkSum += specialValue;
+	                }
+	            } else {
+	                checkSum += HF.getContent().get(Keys[i]);
+	            }
         }
 
         return checkSum;

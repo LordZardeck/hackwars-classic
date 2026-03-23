@@ -12,6 +12,7 @@ import jakarta.persistence.Id
 import jakarta.persistence.Lob
 import jakarta.persistence.Table
 import java.io.Serializable
+import java.time.LocalDateTime
 
 @Entity
 @Table(name = "user", schema = "hackwars")
@@ -28,6 +29,40 @@ open class UserSaveEntity {
     @Basic(fetch = FetchType.LAZY)
     @Column(name = "stats")
     open var stats: ByteArray? = null
+
+    @Lob
+    @Basic(fetch = FetchType.LAZY)
+    @Column(name = "stats_json")
+    open var statsJson: String? = null
+
+    @Column(name = "stats_json_version")
+    open var statsJsonVersion: Int? = null
+
+    @Column(name = "stats_json_migrated_at")
+    open var statsJsonMigratedAt: LocalDateTime? = null
+}
+
+@Entity
+@Table(name = "user_stats_text_blob", schema = "hackwars")
+open class UserStatsTextBlobEntity {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "blob_id")
+    open var blobId: Long? = null
+
+    @Column(name = "user_num")
+    open var userNum: Int? = null
+
+    @Column(name = "blob_path")
+    open var blobPath: String? = null
+
+    @Column(name = "blob_kind")
+    open var blobKind: String? = null
+
+    @Lob
+    @Basic(fetch = FetchType.LAZY)
+    @Column(name = "text_content")
+    open var textContent: String? = null
 }
 
 @Embeddable

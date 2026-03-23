@@ -10,6 +10,11 @@ import com.hackwars.data.model.PendingPurchase
 import com.hackwars.data.model.SearchBootstrapRow
 import com.hackwars.data.service.GameSearchDataService
 import com.hackwars.data.service.GameWorldDataService
+import game.computer.persistence.BlobRef
+import game.computer.persistence.JsonComputerPersistence
+import game.computer.persistence.JsonComputerWebsiteSave
+import game.computer.persistence.JsonComputerSaveManifest
+import game.computer.persistence.TextFieldSave
 import hackersearch.assignments.SearchAssignment
 import hackersearch.assignments.SearchResult
 import hackersearch.server.SearchServer
@@ -72,6 +77,7 @@ class SearchHandlerTest {
         val service = FakeSearchDataService(
             rows = listOf(
                 SearchBootstrapRow(
+                    userNum = 1,
                     statsXml = """
                         <save>
                             <ip>example.com</ip>
@@ -79,11 +85,15 @@ class SearchHandlerTest {
                             <body>alpha beta gamma</body>
                         </save>
                     """.trimIndent(),
+                    statsJson = null,
+                    statsJsonVersion = null,
+                    websiteBodyText = null,
                     ip = "example.com",
                     daysSinceLastLogin = 20,
                     npc = "N",
                 ),
                 SearchBootstrapRow(
+                    userNum = 2,
                     statsXml = """
                         <save>
                             <ip>skip.example</ip>
@@ -91,6 +101,9 @@ class SearchHandlerTest {
                             <body>skip</body>
                         </save>
                     """.trimIndent(),
+                    statsJson = null,
+                    statsJsonVersion = null,
+                    websiteBodyText = null,
                     ip = "skip.example",
                     daysSinceLastLogin = 3,
                     npc = "N",
@@ -113,6 +126,47 @@ class SearchHandlerTest {
             assertEquals(1, service.requestCount)
             assertEquals(1, result.getSize())
             assertTrue(handler.getLoaded())
+        }
+    }
+
+    @Test
+    fun bootstrapFromDatabase_prefersJsonManifestAndBlobWebsiteBody() = runTest {
+        val json = JsonComputerPersistence().serialize(
+            JsonComputerSaveManifest(
+                ip = "json.example",
+                website = JsonComputerWebsiteSave(
+                    title = "Json Title",
+                    body = TextFieldSave(blobRef = BlobRef(path = "website/body", kind = "website-body")),
+                )
+            )
+        )
+        val service = FakeSearchDataService(
+            rows = listOf(
+                SearchBootstrapRow(
+                    userNum = 3,
+                    statsXml = null,
+                    statsJson = json,
+                    statsJsonVersion = 1,
+                    websiteBodyText = "json alpha beta gamma",
+                    ip = "json.example",
+                    daysSinceLastLogin = 20,
+                    npc = "N",
+                )
+            )
+        )
+
+        withStartedHandler(primeFromDatabase = true, searchDataService = service) { handler ->
+            val assignment = SearchAssignment(12)
+            assignment.setVector("json alpha")
+
+            val result = handler.requestSearch(assignment)
+
+            val results = result.getResults()
+            assertEquals(1, results.size)
+            val first = results[0] as SearchResult
+            assertEquals("json.example", first.getAddress())
+            assertEquals("Json Title", first.getTitle())
+            assertEquals("json alpha beta gamma", first.getDescription())
         }
     }
 

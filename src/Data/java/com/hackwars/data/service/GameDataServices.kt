@@ -6,6 +6,8 @@ import com.hackwars.data.model.ForumLoginSnapshot
 import com.hackwars.data.model.DropItemData
 import com.hackwars.data.model.NetworkDefinition
 import com.hackwars.data.model.PendingPurchase
+import com.hackwars.data.model.JsonProfileWrite
+import com.hackwars.data.model.PersistedProfileSave
 import com.hackwars.data.model.SearchBootstrapRow
 import com.hackwars.data.repository.AuthRepository
 import com.hackwars.data.repository.DomainRepository
@@ -27,9 +29,13 @@ interface GameAuthDataService {
 }
 
 interface GameProfileDataService {
+    fun findPersistedProfileByIp(ip: String): PersistedProfileSave?
+
     fun findProfileXmlByIp(ip: String): String?
 
     fun upsertProfileXmlByIp(ip: String, xml: String)
+
+    fun upsertProfileJsonByIp(ip: String, profile: JsonProfileWrite)
 }
 
 interface GameTelemetryDataService {
@@ -88,15 +94,25 @@ class DefaultGameAuthDataService(
 class DefaultGameProfileDataService(
     private val dataModule: DataModule,
 ) : GameProfileDataService {
-    override fun findProfileXmlByIp(ip: String): String? {
+    override fun findPersistedProfileByIp(ip: String): PersistedProfileSave? {
         return dataModule.withEntityManager { entityManager ->
-            UserSaveRepository(entityManager).findStatsXmlByIp(ip)
+            UserSaveRepository(entityManager).findPersistedProfileByIp(ip)
         }
+    }
+
+    override fun findProfileXmlByIp(ip: String): String? {
+        return findPersistedProfileByIp(ip)?.legacyXml
     }
 
     override fun upsertProfileXmlByIp(ip: String, xml: String) {
         dataModule.withTransaction { entityManager ->
             UserSaveRepository(entityManager).upsertStatsXmlByIp(ip, xml)
+        }
+    }
+
+    override fun upsertProfileJsonByIp(ip: String, profile: JsonProfileWrite) {
+        dataModule.withTransaction { entityManager ->
+            UserSaveRepository(entityManager).upsertJsonByIp(ip, profile)
         }
     }
 }

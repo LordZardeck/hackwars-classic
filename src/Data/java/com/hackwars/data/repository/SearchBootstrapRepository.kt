@@ -9,8 +9,19 @@ class SearchBootstrapRepository(private val entityManager: EntityManager) {
         @Suppress("UNCHECKED_CAST")
         val rows = entityManager.createNativeQuery(
             """
-            SELECT u.stats, u.ip, TO_DAYS(NOW()) - TO_DAYS(f.last_logged_in), f.npc
+            SELECT
+                u.num,
+                u.stats,
+                u.stats_json,
+                u.stats_json_version,
+                body_blob.text_content,
+                u.ip,
+                TO_DAYS(NOW()) - TO_DAYS(f.last_logged_in),
+                f.npc
             FROM hackwars.user u
+            LEFT JOIN hackwars.user_stats_text_blob body_blob
+                ON body_blob.user_num = u.num
+                AND body_blob.blob_path = 'website/body'
             LEFT JOIN hackerforum.users f
                 ON f.ip = u.ip
             ORDER BY u.num
@@ -18,17 +29,22 @@ class SearchBootstrapRepository(private val entityManager: EntityManager) {
         ).resultList as List<Array<Any?>>
 
         return rows.mapNotNull { row ->
-            val statsXml = when (val value = row[0]) {
+            val userNum = (row[0] as? Number)?.toInt() ?: return@mapNotNull null
+            val statsXml = when (val value = row[1]) {
                 is ByteArray -> String(value, StandardCharsets.UTF_8)
                 is String -> value
                 else -> value?.toString()
-            } ?: return@mapNotNull null
-            val ip = row[1]?.toString()?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
+            }
+            val ip = row[5]?.toString()?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
             SearchBootstrapRow(
+                userNum = userNum,
                 statsXml = statsXml,
+                statsJson = row[2]?.toString(),
+                statsJsonVersion = (row[3] as? Number)?.toInt(),
+                websiteBodyText = row[4]?.toString(),
                 ip = ip,
-                daysSinceLastLogin = (row[2] as? Number)?.toInt(),
-                npc = row[3]?.toString(),
+                daysSinceLastLogin = (row[6] as? Number)?.toInt(),
+                npc = row[7]?.toString(),
             )
         }
     }

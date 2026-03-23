@@ -1,11 +1,14 @@
 package game
 
 import com.hackwars.data.model.ForumActivity
+import com.hackwars.data.model.JsonProfileWrite
+import com.hackwars.data.model.PersistedProfileSave
 import com.hackwars.data.service.GameAuthDataService
 import com.hackwars.data.service.GameProfileDataService
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import org.mockito.kotlin.mock
+import java.time.LocalDateTime
 
 class CheckOutHandlerTest {
     @Test
@@ -19,7 +22,7 @@ class CheckOutHandlerTest {
 
         assertEquals("insert", handler.branch)
         assertEquals("10.0.0.1", handler.ip)
-        assertEquals("xml-data", handler.content)
+        assertEquals("json-data", handler.content)
     }
 
     @Test
@@ -33,7 +36,7 @@ class CheckOutHandlerTest {
 
         assertEquals("insert", handler.branch)
         assertEquals("10.0.0.2", handler.ip)
-        assertEquals("xml-data", handler.content)
+        assertEquals("json-data", handler.content)
     }
 
     @Test
@@ -47,7 +50,7 @@ class CheckOutHandlerTest {
 
         assertEquals("update", handler.branch)
         assertEquals("10.0.0.3", handler.ip)
-        assertEquals("xml-data", handler.content)
+        assertEquals("json-data", handler.content)
     }
 
     @Test
@@ -72,20 +75,20 @@ class CheckOutHandlerTest {
         var ip = ""
         var content = ""
 
-        override fun readComputerOutput(computer: Computer): String {
-            return "xml-data"
+        override fun readComputerOutput(computer: Computer): JsonProfileWrite {
+            return JsonProfileWrite("json-data", 1, LocalDateTime.parse("2024-01-01T00:00:00"))
         }
 
-        override fun insertProfile(ip: String, content: String) {
+        override fun insertProfile(ip: String, content: JsonProfileWrite) {
             branch = "insert"
             this.ip = ip
-            this.content = content
+            this.content = content.manifestJson
         }
 
-        override fun updateProfile(ip: String, content: String) {
+        override fun updateProfile(ip: String, content: JsonProfileWrite) {
             branch = "update"
             this.ip = ip
-            this.content = content
+            this.content = content.manifestJson
         }
     }
 
@@ -108,12 +111,28 @@ class CheckOutHandlerTest {
     private class FakeProfileDataService(
         val xmlByIp: MutableMap<String, String?> = mutableMapOf(),
     ) : GameProfileDataService {
+        override fun findPersistedProfileByIp(ip: String): PersistedProfileSave? {
+            val xml = xmlByIp[ip] ?: return null
+            return PersistedProfileSave(
+                userNum = 1,
+                ip = ip,
+                legacyXml = xml,
+                statsJson = null,
+                statsJsonVersion = null,
+                statsJsonMigratedAt = null,
+            )
+        }
+
         override fun findProfileXmlByIp(ip: String): String? {
             return xmlByIp[ip]
         }
 
         override fun upsertProfileXmlByIp(ip: String, xml: String) {
             xmlByIp[ip] = xml
+        }
+
+        override fun upsertProfileJsonByIp(ip: String, profile: JsonProfileWrite) {
+            xmlByIp[ip] = profile.manifestJson
         }
     }
 }

@@ -16,6 +16,7 @@ repositories {
 
 dependencies {
     implementation project(':Client')
+    implementation project(':Data')
     implementation project(':GameServer')
     implementation project(':ChatServer')
     implementation project(':HackWars')

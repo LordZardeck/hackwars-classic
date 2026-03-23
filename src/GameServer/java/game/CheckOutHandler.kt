@@ -1,5 +1,6 @@
 package game
 
+import com.hackwars.data.model.JsonProfileWrite
 import com.hackwars.data.service.GameAuthDataService
 import com.hackwars.data.service.GameProfileDataService
 import game.data.GameServerDataLocator
@@ -25,11 +26,11 @@ open class CheckOutHandler(
                     return "inactive"
                 }
             }
-            val result = profileDataService().findProfileXmlByIp(ip)
+            val result = profileDataService().findPersistedProfileByIp(ip)
             if (result == null) {
                 return null
             }
-            return result
+            return result.statsJson ?: result.legacyXml ?: ""
         } catch (e: Exception) {
             e.printStackTrace()
         }
@@ -64,21 +65,21 @@ open class CheckOutHandler(
         println("Finished Saving $ip")
     }
 
-    protected open fun readComputerOutput(computer: Computer): String {
-        return computer.outputXML()
+    protected open fun readComputerOutput(computer: Computer): JsonProfileWrite {
+        return computer.outputJsonProfileWrite()
     }
 
-    protected open fun insertProfile(ip: String, content: String) {
+    protected open fun insertProfile(ip: String, content: JsonProfileWrite) {
         try {
-            profileDataService().upsertProfileXmlByIp(ip, content)
+            profileDataService().upsertProfileJsonByIp(ip, content)
         } catch (e: Exception) {
             e.printStackTrace()
         }
     }
 
-    protected open fun updateProfile(ip: String, content: String) {
+    protected open fun updateProfile(ip: String, content: JsonProfileWrite) {
         try {
-            profileDataService().upsertProfileXmlByIp(ip, content)
+            profileDataService().upsertProfileJsonByIp(ip, content)
         } catch (e: Exception) {
             e.printStackTrace()
         }

@@ -1,12 +1,18 @@
 package com.hackwars.data.config
 
+import ch.qos.logback.classic.Level
+import ch.qos.logback.classic.LoggerContext
 import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
 import jakarta.persistence.EntityManagerFactory
 import jakarta.persistence.Persistence
+import org.slf4j.LoggerFactory
 
 object DataEntityManagerFactory {
     fun create(properties: DataJpaProperties): ManagedEntityManagerFactory {
+        if (properties.suppressVerboseHibernateResultLogs) {
+            suppressVerboseHibernateResultLogs()
+        }
         val dataSource = HikariDataSource(
             HikariConfig().apply {
                 poolName = "HackwarsDataPool"
@@ -33,6 +39,23 @@ object DataEntityManagerFactory {
         )
         val entityManagerFactory = Persistence.createEntityManagerFactory("hackwars-data", overrides)
         return ManagedEntityManagerFactory(dataSource, entityManagerFactory)
+    }
+
+    private fun suppressVerboseHibernateResultLogs() {
+        val loggerContext = LoggerFactory.getILoggerFactory() as? LoggerContext ?: return
+
+        // These categories emit bound parameter values and extracted result data.
+        val noisyLoggerNames = listOf(
+            "org.hibernate.orm.jdbc.bind",
+            "org.hibernate.orm.jdbc.extract",
+            "org.hibernate.orm.results",
+            "org.hibernate.type.descriptor.sql.BasicBinder",
+            "org.hibernate.type.descriptor.sql.BasicExtractor",
+        )
+
+        noisyLoggerNames.forEach { loggerName ->
+            loggerContext.getLogger(loggerName).level = Level.WARN
+        }
     }
 }
 

@@ -1,12 +1,18 @@
 package com.hackwars.integration;
 
 import com.hackwars.client.DeterministicClientAuthAccount;
+import com.hackwars.data.model.JsonProfileWrite;
+import com.hackwars.data.model.PersistedProfileSave;
 import game.computer.persistence.ComputerSnapshot;
 import game.computer.persistence.ComputerWebsiteSnapshot;
 import game.computer.persistence.ComputerStatsSnapshot;
+import game.computer.persistence.JsonComputerPersistence;
+import game.computer.persistence.JsonComputerPersistenceSupport;
 import game.computer.persistence.XmlComputerPersistence;
+import game.LegacyComputerPersistenceSupport;
 import util.PlayFabTokenVerifier;
 
+import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.Collections;
 
@@ -17,7 +23,7 @@ public final class SeedScenario {
     private final String offlineEncryptedIp;
     private final String websiteTitle;
     private final String websiteBody;
-    private final String saveXml;
+    private final PersistedProfileSave saveProfile;
 
     public SeedScenario(
         DeterministicClientAuthAccount account,
@@ -26,7 +32,7 @@ public final class SeedScenario {
         String offlineEncryptedIp,
         String websiteTitle,
         String websiteBody,
-        String saveXml
+        PersistedProfileSave saveProfile
     ) {
         this.account = account;
         this.playerIp = playerIp;
@@ -34,7 +40,7 @@ public final class SeedScenario {
         this.offlineEncryptedIp = offlineEncryptedIp;
         this.websiteTitle = websiteTitle;
         this.websiteBody = websiteBody;
-        this.saveXml = saveXml;
+        this.saveProfile = saveProfile;
     }
 
     public static SeedScenario defaultScenario() {
@@ -86,8 +92,22 @@ public final class SeedScenario {
             "<equipment>\n</equipment>\n<equipment>\n</equipment>\n<equipment>\n</equipment>\n",
             Collections.singletonMap("network", "true")
         );
-        String saveXml = new XmlComputerPersistence().serialize(snapshot);
-        return new SeedScenario(account, "100.10.1.42", "localuser", "LOCAL-IP", title, body, saveXml);
+        XmlComputerPersistence xmlPersistence = new XmlComputerPersistence();
+        String saveXml = xmlPersistence.serialize(snapshot);
+        JsonProfileWrite jsonWrite = new JsonComputerPersistenceSupport(
+            new JsonComputerPersistence(),
+            new LegacyComputerPersistenceSupport(xmlPersistence)
+        ).exportSnapshot(snapshot, Collections.emptyMap(), LocalDateTime.now());
+        PersistedProfileSave saveProfile = new PersistedProfileSave(
+            1,
+            "100.10.1.42",
+            saveXml,
+            jsonWrite.getManifestJson(),
+            jsonWrite.getVersion(),
+            jsonWrite.getMigratedAt(),
+            jsonWrite.getBlobs()
+        );
+        return new SeedScenario(account, "100.10.1.42", "localuser", "LOCAL-IP", title, body, saveProfile);
     }
 
     public DeterministicClientAuthAccount getAccount() {
@@ -115,7 +135,11 @@ public final class SeedScenario {
     }
 
     public String getSaveXml() {
-        return saveXml;
+        return saveProfile.getLegacyXml();
+    }
+
+    public PersistedProfileSave getSaveProfile() {
+        return saveProfile;
     }
 
     public PlayFabTokenVerifier.AuthResult authResultForSession(String sessionTicket) {

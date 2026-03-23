@@ -1,5 +1,7 @@
 package com.hackwars.data.model
 
+import java.time.LocalDateTime
+
 data class ForumLoginSnapshot(
     val ip: String,
     val npc: String,
@@ -59,8 +61,35 @@ data class NetworkDefinition(
         get() = storeNpcs.firstOrNull()?.ip.orEmpty()
 }
 
+data class PersistedTextBlob(
+    val path: String,
+    val kind: String,
+    val textContent: String,
+)
+
+data class PersistedProfileSave(
+    val userNum: Int,
+    val ip: String,
+    val legacyXml: String?,
+    val statsJson: String?,
+    val statsJsonVersion: Int?,
+    val statsJsonMigratedAt: LocalDateTime?,
+    val blobs: List<PersistedTextBlob> = emptyList(),
+)
+
+data class JsonProfileWrite(
+    val manifestJson: String,
+    val version: Int,
+    val migratedAt: LocalDateTime,
+    val blobs: List<PersistedTextBlob> = emptyList(),
+)
+
 data class SearchBootstrapRow(
-    val statsXml: String,
+    val userNum: Int,
+    val statsXml: String?,
+    val statsJson: String?,
+    val statsJsonVersion: Int?,
+    val websiteBodyText: String?,
     val ip: String,
     val daysSinceLastLogin: Int?,
     val npc: String?,
