@@ -1,6 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<project version="4">
-  <component name="DataSourcePerFileMappings">
-    <file url="file://$PROJECT_DIR$/src/main/resources/db/db-add-json-save-manifest.sql" value="a8e1b4fc-3e92-4db5-b2a3-38fd09e903c0" />
-  </component>
-</project>
