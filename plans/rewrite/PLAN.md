@@ -2,8 +2,8 @@
 
 ## Status Dashboard
 - Program status: `in_progress`
-- Current milestone: `Milestone 2`
-- Last completed milestone: `Milestone 1`
+- Current milestone: `Milestone 2 with Milestone 6 prep`
+- Last completed milestone: `Milestone 5 typed game-core tranche`
 - Locked architecture decisions: `accepted`
 - Living documents status: `active`
 - Rewrite scaffold status: `active`
@@ -74,7 +74,7 @@ flowchart LR
 | M2 | Feature inventory | `in_progress` | Every player-visible feature row exists with evidence, tests, and scope tags. |
 | M3 | Transport and auth foundation | `in_progress` | Framed TCP + protobuf + auth handshake + offline fake services are green. |
 | M4 | PostgreSQL + migrations + importer skeleton | `in_progress` | Dockerized Postgres, Liquibase, rollback validation, and importer skeleton are green. |
-| M5 | Game core | `todo` | State store, interest registry, command dispatcher, request callbacks, snapshots, and program scheduler are green. |
+| M5 | Game core | `done` | State store, interest registry, command dispatcher, request callbacks, snapshots, and program scheduler are green. |
 | M6 | Game feature slices | `todo` | Session, filesystem, economy, network, combat, and Hacktendo server slices are green. |
 | M7 | Chat server parity | `todo` | Chat sessions, channels, relations, moderation, and fanout are green. |
 | M8 | Client shell | `todo` | Copied login UI, root controller, stores, selectors, and base MVC are green. |
@@ -231,7 +231,7 @@ flowchart LR
   - Event and snapshot tables now exist in the rewrite-owned schema.
 
 ### RW-M4-002 - Add importer planning skeleton and migration smoke coverage
-- Status: `in_progress`
+- Status: `done`
 - Owner: `codex`
 - Depends on: `RW-M4-001`
 - Allowed write scope: `:RewritePersistence`
@@ -240,7 +240,44 @@ flowchart LR
 - Commit rule: `single green commit only`
 - Notes:
   - Legacy MySQL/XML/JSON descriptors now map to rewrite seed batches without touching legacy runtime code.
+  - JDBC-backed seed sink smoke coverage now writes minimal player, computer, and inventory slices into the rewrite schema.
   - Canonical schema breadth and end-to-end migrated-login validation are still pending.
+
+### RW-M5-001 - Land typed Kotlin game-core contracts and scheduler
+- Status: `done`
+- Owner: `codex`
+- Depends on: `RW-M3-001`, `RW-M4-001`
+- Allowed write scope: `:RewriteGameCore`
+- Verification command: `./gradlew :RewriteGameCore:test`
+- Artifacts: `src/RewriteGameCore/build/reports/tests/test`
+- Commit rule: `single green commit only`
+- Notes:
+  - `ComputerState`, `ComputerEvent`, `ComputerDelta`, `ProgramUpdate`, `CommandRegistry`, `InterestRegistry`, and typed commands now exist in Kotlin-first form.
+  - Request callbacks, stable lock ordering, and coroutine program scheduling are covered by unit tests.
+
+### RW-M5-002 - Add typed persistence adapters for state, events, and snapshots
+- Status: `done`
+- Owner: `codex`
+- Depends on: `RW-M5-001`, `RW-DATA-002`
+- Allowed write scope: `:RewritePersistence`
+- Verification command: `./gradlew :RewritePersistence:test :RewritePersistence:migrationTest`
+- Artifacts: `src/RewritePersistence/build/reports/tests`
+- Commit rule: `single green commit only`
+- Notes:
+  - JDBC repository, JSON-byte serializer, snapshot threshold logic, and deterministic replay coverage are in place.
+  - Base-state imports remain structural and still need broader legacy schema mapping.
+
+### RW-M5-003 - Prove typed bootstrap, scan, and preference mutation through the rewrite transport harness
+- Status: `done`
+- Owner: `codex`
+- Depends on: `RW-M5-001`, `RW-M3-002`
+- Allowed write scope: `:RewriteGameServer`, `:RewriteGameCore`
+- Verification command: `./gradlew :RewriteGameServer:test :RewriteTestKit:integrationTest`
+- Artifacts: `src/RewriteGameServer/build/reports/tests/test`
+- Commit rule: `single green commit only`
+- Notes:
+  - Session bootstrap now emits exactly one full snapshot after auth.
+  - `requestscan` is request/response-only, and `setpreferences` now proves event-first mutation plus delta fanout.
 
 ## Glossary
 - `Game state`: the authoritative server-side state for exactly one computer or IP-addressed entity.

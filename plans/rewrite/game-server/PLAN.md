@@ -7,8 +7,8 @@
 
 ## Architecture Checklist
 ### RW-GS-001 - Define canonical server contracts
-- Status: `todo`
-- Owner: `unassigned`
+- Status: `done`
+- Owner: `codex`
 - Depends on: `RW-M1-003`
 - Allowed write scope: `:RewriteGameCore`
 - Verification command: `./gradlew :RewriteGameCore:test`
@@ -17,10 +17,11 @@
 - Notes:
   - Stabilize `GameStateStore`, `InterestRegistry`, `CommandContext`, `DeltaPublisher`, and `ProgramScheduler`.
   - Freeze the minimum public interfaces before slice work fans out.
+  - Typed `ComputerState`, `ComputerEvent`, `ComputerDelta`, `ProgramUpdate`, and command contracts are now the canonical server surface.
 
 ### RW-GS-002 - Implement event-first state persistence hooks
-- Status: `todo`
-- Owner: `unassigned`
+- Status: `done`
+- Owner: `codex`
 - Depends on: `RW-GS-001`, `RW-DATA-002`
 - Allowed write scope: `:RewriteGameCore`, `:RewritePersistence`
 - Verification command: `./gradlew :RewriteGameCore:test :RewritePersistence:test`
@@ -29,10 +30,11 @@
 - Notes:
   - Every mutation appends an event immediately.
   - Snapshot save policy defaults to `50 events or 5 seconds`.
+  - JDBC repository coverage now proves typed event append, replay, JSON-byte roundtrip, and threshold-triggered snapshots.
 
 ### RW-GS-003 - Implement interest registry fanout
-- Status: `todo`
-- Owner: `unassigned`
+- Status: `done`
+- Owner: `codex`
 - Depends on: `RW-GS-001`
 - Allowed write scope: `:RewriteGameCore`
 - Verification command: `./gradlew :RewriteGameCore:test`
@@ -41,10 +43,11 @@
 - Notes:
   - One connection may subscribe to multiple game states.
   - All interested connections receive deltas for changed states.
+  - Reverse cleanup now removes leaked subscriptions when a connection is torn down.
 
 ### RW-GS-004 - Implement request and callback command path
-- Status: `todo`
-- Owner: `unassigned`
+- Status: `done`
+- Owner: `codex`
 - Depends on: `RW-GS-001`, `RW-PROTO-002`
 - Allowed write scope: `:RewriteGameCore`, `:RewriteGameServer`
 - Verification command: `./gradlew :RewriteGameCore:test :RewriteGameServer:test`
@@ -53,10 +56,11 @@
 - Notes:
   - Support fire-and-forget and request commands.
   - Request commands return through callbacks and correlation IDs.
+  - `requestscan` and `setpreferences` now prove decode -> dispatch -> correlated response behavior through the rewrite harness.
 
 ### RW-GS-005 - Implement isolated program scheduler
-- Status: `todo`
-- Owner: `unassigned`
+- Status: `done`
+- Owner: `codex`
 - Depends on: `RW-GS-001`
 - Allowed write scope: `:RewriteGameCore`
 - Verification command: `./gradlew :RewriteGameCore:test`
@@ -65,11 +69,12 @@
 - Notes:
   - Attack-like programs run in isolated coroutines with explicit lifetime and cancellation.
   - Programs publish scoped status updates plus resulting deltas.
+  - Virtual-time tests now cover start, tick, completion, explicit cancellation, and lifetime expiry.
 
 ## Vertical Slice Board
 ### RW-GS-S1 - Session bootstrap, auth success path, initial snapshot, ping, reconnect
-- Status: `todo`
-- Owner: `unassigned`
+- Status: `in_progress`
+- Owner: `codex`
 - Depends on: `RW-GS-001`, `RW-PROTO-001`
 - Allowed write scope: `:RewriteGameServer`, `:RewriteGameCore`, `:RewritePersistence`
 - Verification command: `./gradlew :RewriteGameServer:test`
@@ -78,6 +83,8 @@
 - Notes:
   - Send exactly one full snapshot after login.
   - No deltas before session bootstrap completes.
+  - Proof slice landed for auth success plus one bootstrap snapshot.
+  - Reconnect and full persistence-backed profile loading still need follow-on slice work.
 
 ### RW-GS-S2 - Filesystem, files, scripts, FTP, equipment install, firewall install
 - Status: `todo`
@@ -103,8 +110,8 @@
   - Cover deposit, withdraw, transfer, votes, purchases, and website save/load.
 
 ### RW-GS-S4 - Network switching, scan, quests, tasks, clues, search, bounties
-- Status: `todo`
-- Owner: `unassigned`
+- Status: `in_progress`
+- Owner: `codex`
 - Depends on: `RW-GS-S1`
 - Allowed write scope: `:RewriteGameCore`, `:RewriteGameServer`
 - Verification command: `./gradlew :RewriteGameCore:test :RewriteGameServer:test`
@@ -112,6 +119,7 @@
 - Commit rule: `single green commit only`
 - Notes:
   - Scan must be a single correlated response, not an ongoing subscription.
+  - Proof slice landed for `requestscan`; the rest of the feature family is still pending.
 
 ### RW-GS-S5 - Combat, redirect, zombie attack, watches, long-running programs
 - Status: `todo`

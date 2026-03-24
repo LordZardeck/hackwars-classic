@@ -36,8 +36,8 @@
   - Canonical schema breadth is still pending.
 
 ### RW-DATA-003 - Define canonical rewrite schema
-- Status: `todo`
-- Owner: `unassigned`
+- Status: `in_progress`
+- Owner: `codex`
 - Depends on: `RW-DATA-002`
 - Allowed write scope: `:RewritePersistence`
 - Verification command: `./gradlew :RewritePersistence:test :RewritePersistence:migrationTest`
@@ -45,10 +45,12 @@
 - Commit rule: `single green commit only`
 - Notes:
   - Cover auth/session metadata, player state, NPC state, chat relations, events, snapshots, and audit tables.
+  - Typed game-state persistence now covers event and snapshot storage for the M5 proof slice.
+  - Broader NPC/chat/audit tables are still pending.
 
 ### RW-DATA-004 - Build legacy importer skeleton
 - Status: `in_progress`
-- Owner: `unassigned`
+- Owner: `codex`
 - Depends on: `RW-DATA-003`
 - Allowed write scope: `:RewritePersistence`
 - Verification command: `./gradlew :RewritePersistence:test :RewritePersistence:migrationTest`
@@ -56,18 +58,19 @@
 - Commit rule: `single green commit only`
 - Notes:
   - Structural planner/sink abstractions exist for legacy MySQL/XML/JSON sources.
+  - JDBC seed sink now writes import batches plus minimal account/computer/inventory records into the rewrite schema.
   - Write only new PostgreSQL entities and snapshots.
 
 ### RW-DATA-005 - Add importer validation suite
 - Status: `in_progress`
-- Owner: `unassigned`
+- Owner: `codex`
 - Depends on: `RW-DATA-004`
 - Allowed write scope: `:RewritePersistence`, `:RewriteTestKit`
 - Verification command: `./gradlew :RewritePersistence:test :RewriteMigrationTest`
 - Artifacts: `build/reports/rewrite/migration`
 - Commit rule: `single green commit only`
 - Notes:
-  - Smoke coverage exists for migration up/down and seed-batch planning.
+  - Smoke coverage now includes migration up/down, seed-batch planning, and seeded account/computer import writes.
   - Representative player, NPC, website, relation, and purchase imports still need broader validation.
 
 ## Verification Gates

@@ -37,7 +37,7 @@
 
 ### RW-TEST-003 - Add Testcontainers-based integration harness
 - Status: `in_progress`
-- Owner: `unassigned`
+- Owner: `codex`
 - Depends on: `RW-DATA-001`
 - Allowed write scope: `:RewriteTestKit`, `:RewritePersistence`
 - Verification command: `./gradlew rewriteIntegrationTest rewriteMigrationTest`
@@ -45,6 +45,7 @@
 - Commit rule: `single green commit only`
 - Notes:
   - Rewrite persistence now has Testcontainers-backed test and migration smoke coverage.
+  - Typed game-core and rewrite game-server proof-slice tests now run green against the in-memory harness and JDBC repository.
   - Full-stack multi-service rewrite integration still needs isolated JVM-process coverage beyond the in-memory harness.
 
 ### RW-TEST-004 - Add UI screenshot baseline system

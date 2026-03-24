@@ -17,12 +17,14 @@ data class PersistedEvent(
     val streamId: String,
     val sequence: Long,
     val payload: ByteArray,
+    val recordedAt: Instant = Instant.EPOCH,
 )
 
 data class PersistedSnapshot(
     val streamId: String,
     val version: Long,
     val payload: ByteArray,
+    val recordedAt: Instant = Instant.EPOCH,
 )
 
 sealed interface LegacySourceDescriptor {
