@@ -4,6 +4,7 @@ import com.hackwars.rewrite.gamecore.CommandDispatcher
 import com.hackwars.rewrite.gamecore.CommandEnvelopeInput
 import com.hackwars.rewrite.gamecore.CommandMetadata
 import com.hackwars.rewrite.gamecore.CommandRegistry
+import com.hackwars.rewrite.gamecore.BankTransactionResponse
 import com.hackwars.rewrite.gamecore.CompileFileCommand
 import com.hackwars.rewrite.gamecore.CompileFilePayload
 import com.hackwars.rewrite.gamecore.CompileFileResponse
@@ -11,6 +12,8 @@ import com.hackwars.rewrite.gamecore.ComputerDelta
 import com.hackwars.rewrite.gamecore.ComputerState
 import com.hackwars.rewrite.gamecore.CreateFolderCommand
 import com.hackwars.rewrite.gamecore.CreateFolderPayload
+import com.hackwars.rewrite.gamecore.DepositCommand
+import com.hackwars.rewrite.gamecore.DepositPayload
 import com.hackwars.rewrite.gamecore.DecompileFileCommand
 import com.hackwars.rewrite.gamecore.DecompileFilePayload
 import com.hackwars.rewrite.gamecore.DecompileFileResponse
@@ -28,6 +31,9 @@ import com.hackwars.rewrite.gamecore.GameSessionBootstrapCommand
 import com.hackwars.rewrite.gamecore.GameSessionBootstrapResult
 import com.hackwars.rewrite.gamecore.GameStateId
 import com.hackwars.rewrite.gamecore.GameStatePublisher
+import com.hackwars.rewrite.gamecore.FacebookDepositPayload
+import com.hackwars.rewrite.gamecore.FacebookTransferPayload
+import com.hackwars.rewrite.gamecore.FacebookWithdrawPayload
 import com.hackwars.rewrite.gamecore.InstallApplicationCommand
 import com.hackwars.rewrite.gamecore.InstallApplicationPayload
 import com.hackwars.rewrite.gamecore.InstallApplicationResponse
@@ -39,6 +45,7 @@ import com.hackwars.rewrite.gamecore.InstallFirewallPayload
 import com.hackwars.rewrite.gamecore.InstallFirewallResponse
 import com.hackwars.rewrite.gamecore.InterestRegistry
 import com.hackwars.rewrite.gamecore.MutationAcceptedResponse
+import com.hackwars.rewrite.gamecore.PurchaseResponse
 import com.hackwars.rewrite.gamecore.ProgramLifecycleStatus
 import com.hackwars.rewrite.gamecore.ProgramUpdate
 import com.hackwars.rewrite.gamecore.RequestCommand
@@ -48,15 +55,28 @@ import com.hackwars.rewrite.gamecore.RequestFileCommand
 import com.hackwars.rewrite.gamecore.RequestFilePayload
 import com.hackwars.rewrite.gamecore.RequestSecondaryDirectoryCommand
 import com.hackwars.rewrite.gamecore.RequestSecondaryDirectoryPayload
+import com.hackwars.rewrite.gamecore.RequestPurchaseCommand
+import com.hackwars.rewrite.gamecore.RequestPurchasePayload
 import com.hackwars.rewrite.gamecore.RewriteGameJson
 import com.hackwars.rewrite.gamecore.SaveFileCommand
 import com.hackwars.rewrite.gamecore.SaveFilePayload
 import com.hackwars.rewrite.gamecore.ScanCommand
 import com.hackwars.rewrite.gamecore.ScanResponse
 import com.hackwars.rewrite.gamecore.SecondaryDirectoryListingResponse
+import com.hackwars.rewrite.gamecore.SellFileCommand
+import com.hackwars.rewrite.gamecore.SellFileCommandPayload
+import com.hackwars.rewrite.gamecore.SellFileMultiCommand
+import com.hackwars.rewrite.gamecore.SellFileMultiCommandPayload
+import com.hackwars.rewrite.gamecore.SellFileMultiResponse
+import com.hackwars.rewrite.gamecore.SellFileResponse
 import com.hackwars.rewrite.gamecore.SetPreferenceCommand
 import com.hackwars.rewrite.gamecore.SetPreferenceCommandResponse
 import com.hackwars.rewrite.gamecore.SetPreferencePayload
+import com.hackwars.rewrite.gamecore.TransferCommand
+import com.hackwars.rewrite.gamecore.TransferPayload
+import com.hackwars.rewrite.gamecore.TransferResponse
+import com.hackwars.rewrite.gamecore.WithdrawCommand
+import com.hackwars.rewrite.gamecore.WithdrawPayload
 import com.hackwars.rewrite.protocol.RewriteFrames
 import hackwars.rewrite.v1.CommandEnvelope
 import hackwars.rewrite.v1.CommandResponseStatus
@@ -77,7 +97,8 @@ fun interface GameConnectionTransport {
 class RewriteGameProtocolAdapter(
     private val dispatcher: CommandDispatcher,
     private val interestRegistry: InterestRegistry,
-    private val registry: CommandRegistry = defaultRegistry(),
+    private val serverId: String = "1",
+    private val registry: CommandRegistry = defaultRegistry(serverId),
 ) {
     suspend fun onSessionStarted(
         session: AuthenticatedGameSession,
@@ -253,6 +274,11 @@ class RewriteGameProtocolAdapter(
             is InstallApplicationResponse -> RewriteGameJson.encode(InstallApplicationResponse.serializer(), result)
             is InstallEquipmentResponse -> RewriteGameJson.encode(InstallEquipmentResponse.serializer(), result)
             is InstallFirewallResponse -> RewriteGameJson.encode(InstallFirewallResponse.serializer(), result)
+            is BankTransactionResponse -> RewriteGameJson.encode(BankTransactionResponse.serializer(), result)
+            is TransferResponse -> RewriteGameJson.encode(TransferResponse.serializer(), result)
+            is SellFileResponse -> RewriteGameJson.encode(SellFileResponse.serializer(), result)
+            is SellFileMultiResponse -> RewriteGameJson.encode(SellFileMultiResponse.serializer(), result)
+            is PurchaseResponse -> RewriteGameJson.encode(PurchaseResponse.serializer(), result)
             is ScanResponse -> RewriteGameJson.encode(ScanResponse.serializer(), result)
             is SetPreferenceCommandResponse -> RewriteGameJson.encode(SetPreferenceCommandResponse.serializer(), result)
             is GameSessionBootstrapResult -> RewriteGameJson.encode(GameSessionBootstrapResult.serializer(), result)
@@ -261,8 +287,70 @@ class RewriteGameProtocolAdapter(
     }
 
     private companion object {
-        fun defaultRegistry(): CommandRegistry {
+        fun defaultRegistry(serverId: String): CommandRegistry {
             return CommandRegistry()
+                .register("deposit") { input ->
+                    val payload = decodePayload(input, DepositPayload.serializer())
+                    val authenticatedStateId = requireAuthenticatedStateId(input)
+                    requirePayloadIpMatches(authenticatedStateId, payload.ip, input.commandName)
+                    DepositCommand(
+                        stateId = authenticatedStateId,
+                        amount = payload.amount,
+                        portNumber = payload.port,
+                    )
+                }
+                .register("withdraw") { input ->
+                    val payload = decodePayload(input, WithdrawPayload.serializer())
+                    val authenticatedStateId = requireAuthenticatedStateId(input)
+                    requirePayloadIpMatches(authenticatedStateId, payload.ip, input.commandName)
+                    WithdrawCommand(
+                        stateId = authenticatedStateId,
+                        amount = payload.amount,
+                        portNumber = payload.port,
+                    )
+                }
+                .register("transfer") { input ->
+                    val payload = decodePayload(input, TransferPayload.serializer())
+                    val authenticatedStateId = requireAuthenticatedStateId(input)
+                    requirePayloadIpMatches(authenticatedStateId, payload.ip, input.commandName)
+                    TransferCommand(
+                        sourceStateId = authenticatedStateId,
+                        targetStateId = GameStateId(payload.targetIp),
+                        amount = payload.amount,
+                        portNumber = payload.port,
+                    )
+                }
+                .register("facebookdeposit") { input ->
+                    val payload = decodePayload(input, FacebookDepositPayload.serializer())
+                    val authenticatedStateId = requireAuthenticatedStateId(input)
+                    requirePayloadIpMatches(authenticatedStateId, payload.ip, input.commandName)
+                    DepositCommand(
+                        stateId = authenticatedStateId,
+                        amount = payload.amount,
+                        portNumber = payload.defaultPort,
+                    )
+                }
+                .register("facebookwithdraw") { input ->
+                    val payload = decodePayload(input, FacebookWithdrawPayload.serializer())
+                    val authenticatedStateId = requireAuthenticatedStateId(input)
+                    requirePayloadIpMatches(authenticatedStateId, payload.ip, input.commandName)
+                    WithdrawCommand(
+                        stateId = authenticatedStateId,
+                        amount = payload.amount,
+                        portNumber = payload.defaultPort,
+                    )
+                }
+                .register("facebooktransfer") { input ->
+                    val payload = decodePayload(input, FacebookTransferPayload.serializer())
+                    val authenticatedStateId = requireAuthenticatedStateId(input)
+                    requirePayloadIpMatches(authenticatedStateId, payload.ip, input.commandName)
+                    TransferCommand(
+                        sourceStateId = authenticatedStateId,
+                        targetStateId = GameStateId(payload.targetIp),
+                        amount = payload.amount,
+                        portNumber = payload.defaultPort,
+                    )
+                }
                 .register("requestscan") { input ->
                     ScanCommand(
                         targetStateId = requireSingleStateId(
@@ -393,6 +481,38 @@ class RewriteGameProtocolAdapter(
                         portNumber = payload.portNumber,
                     )
                 }
+                .register("sellfile") { input ->
+                    val payload = decodePayload(input, SellFileCommandPayload.serializer())
+                    val authenticatedStateId = requireAuthenticatedStateId(input)
+                    requirePayloadIpMatches(authenticatedStateId, payload.ip, input.commandName)
+                    SellFileCommand(
+                        stateId = authenticatedStateId,
+                        path = payload.location,
+                        fileName = payload.fileName,
+                        compileCost = payload.compileCost,
+                    )
+                }
+                .register("sellfilemulti") { input ->
+                    val payload = decodePayload(input, SellFileMultiCommandPayload.serializer())
+                    val authenticatedStateId = requireAuthenticatedStateId(input)
+                    requirePayloadIpMatches(authenticatedStateId, payload.ip, input.commandName)
+                    SellFileMultiCommand(
+                        stateId = authenticatedStateId,
+                        storeStateId = canonicalStoreStateId(serverId),
+                        entries = payload.allFiles,
+                    )
+                }
+                .register("requestpurchase") { input ->
+                    val payload = decodePayload(input, RequestPurchasePayload.serializer())
+                    val authenticatedStateId = requireAuthenticatedStateId(input)
+                    requirePayloadIpMatches(authenticatedStateId, payload.sourceIp, input.commandName)
+                    RequestPurchaseCommand(
+                        buyerStateId = authenticatedStateId,
+                        sellerStateId = resolvePurchaseTarget(payload.targetIp, serverId),
+                        fileName = payload.fileName,
+                        requestedQuantity = payload.quantity,
+                    )
+                }
         }
 
         fun requireSingleStateId(
@@ -403,6 +523,34 @@ class RewriteGameProtocolAdapter(
                 ?: fallback
                 ?: error("Expected exactly one target state for ${input.commandName}.")
         }
+
+        fun requireAuthenticatedStateId(input: CommandEnvelopeInput): GameStateId {
+            return input.metadata.authenticatedStateId
+                ?: error("Command ${input.commandName} requires an authenticated state id.")
+        }
+
+        fun requirePayloadIpMatches(
+            authenticatedStateId: GameStateId,
+            payloadIp: String,
+            commandName: String,
+        ) {
+            require(authenticatedStateId.value == payloadIp) {
+                "Payload ip $payloadIp does not match authenticated state ${authenticatedStateId.value} for $commandName."
+            }
+        }
+
+        fun resolvePurchaseTarget(
+            targetIp: String,
+            serverId: String,
+        ): GameStateId {
+            return if (targetIp.startsWith("store")) {
+                canonicalStoreStateId(serverId)
+            } else {
+                GameStateId(targetIp)
+            }
+        }
+
+        fun canonicalStoreStateId(serverId: String): GameStateId = GameStateId("store$serverId")
 
         fun errorResponse(
             commandId: String,

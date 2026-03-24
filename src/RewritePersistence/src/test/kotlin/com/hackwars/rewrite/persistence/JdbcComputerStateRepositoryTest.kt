@@ -19,7 +19,14 @@ import com.hackwars.rewrite.gamecore.StoredFile
 import com.hackwars.rewrite.gamecore.StoredFileKind
 import com.hackwars.rewrite.gamecore.ApplicationInstalledEvent
 import com.hackwars.rewrite.gamecore.ApplicationKind
+import com.hackwars.rewrite.gamecore.EconomyBalanceAdjustedEvent
 import com.hackwars.rewrite.gamecore.InstalledApplication
+import com.hackwars.rewrite.gamecore.PurchasedFileReceivedEvent
+import com.hackwars.rewrite.gamecore.StoreFilePricedEvent
+import com.hackwars.rewrite.gamecore.StoreFilesLiquidatedEvent
+import com.hackwars.rewrite.gamecore.StoreInventoryReceivedEvent
+import com.hackwars.rewrite.gamecore.StoreLiquidationLineItem
+import com.hackwars.rewrite.gamecore.StoreListingPurchasedEvent
 import com.hackwars.rewrite.gamecore.buildFilePath
 import java.sql.Connection
 import java.sql.DriverManager
@@ -204,6 +211,157 @@ class JdbcComputerStateRepositoryTest {
         now = now.plusSeconds(6)
         runBlockingAppend(repository, stateId, listOf(PreferenceSetEvent("show_logs", "false")))
         assertEquals(1, countRows("rewrite_state_snapshot"))
+    }
+
+    @Test
+    fun replaysEconomyAndStoreEventsAcrossBuyerSellerRevenueAndShardStore() {
+        resetDatabase()
+        val buyerId = GameStateId("BUYER-IP")
+        val sellerId = GameStateId("SELLER-IP")
+        val revenueId = GameStateId("REV-IP")
+        val storeId = GameStateId("store1")
+        seedPlayerAndComputer(
+            stateId = buyerId,
+            state = ComputerState.empty(id = buyerId, playFabId = "PF-BUYER").copy(
+                economy = ComputerState.empty(id = buyerId).economy.copy(
+                    pettyCash = 1000.0,
+                    bankMoney = 100.0,
+                    defaultBankPort = 6,
+                ),
+            ),
+            playerId = "buyer-user",
+        )
+        seedPlayerAndComputer(
+            stateId = sellerId,
+            state = ComputerState.empty(id = sellerId, playFabId = "PF-SELLER").copy(
+                economy = ComputerState.empty(id = sellerId).economy.copy(pettyCash = 400.0),
+            ),
+            playerId = "seller-user",
+        )
+        seedPlayerAndComputer(
+            stateId = revenueId,
+            state = ComputerState.empty(id = revenueId, playFabId = "PF-REV").copy(
+                economy = ComputerState.empty(id = revenueId).economy.copy(pettyCash = 10.0),
+            ),
+            playerId = "revenue-user",
+        )
+        seedPlayerAndComputer(
+            stateId = storeId,
+            state = ComputerState.empty(id = storeId, playFabId = "PF-STORE"),
+            playerId = "store-user",
+        )
+
+        val repository = JdbcComputerStateRepository(
+            connectionFactory = ::newConnection,
+            serializer = serializer,
+            snapshotCoordinator = SnapshotCoordinator(eventThreshold = 1, timeThreshold = 5.seconds),
+        )
+
+        val pricedListing = StoredFile(
+            path = buildFilePath("/Store", "merchant.bin"),
+            name = "merchant.bin",
+            kind = StoredFileKind.APPLICATION_BINARY,
+            quantity = 3,
+            maker = "Medium",
+            compileCost = 100.0,
+            price = 196.0,
+            compiledBinary = CompiledBinaryMetadata(
+                applicationKind = ApplicationKind.BANKING,
+                bankingApplication = true,
+                outputName = "merchant.bin",
+            ),
+        )
+        val shardCopy = StoredFile(
+            path = buildFilePath("/Store", "rare.bin"),
+            name = "rare.bin",
+            kind = StoredFileKind.APPLICATION_BINARY,
+            quantity = 1,
+            maker = "High",
+            price = 1500.0,
+            compiledBinary = CompiledBinaryMetadata(
+                applicationKind = ApplicationKind.GENERIC,
+                outputName = "rare.bin",
+            ),
+        )
+
+        runBlockingAppend(
+            repository,
+            sellerId,
+            listOf(
+                FileSavedEvent(pricedListing),
+                StoreFilePricedEvent(
+                    filePath = pricedListing.path,
+                    price = 196.0,
+                ),
+                StoreFilesLiquidatedEvent(
+                    soldItems = listOf(
+                        StoreLiquidationLineItem(
+                            sourceFilePath = buildFilePath("/Public", "rare.bin"),
+                            remainingSourceFile = StoredFile(
+                                path = buildFilePath("/Public", "rare.bin"),
+                                name = "rare.bin",
+                                kind = StoredFileKind.APPLICATION_BINARY,
+                                quantity = 1,
+                                maker = "High",
+                                compiledBinary = CompiledBinaryMetadata(
+                                    applicationKind = ApplicationKind.GENERIC,
+                                    outputName = "rare.bin",
+                                ),
+                            ),
+                            creditedPettyCash = 1500.0,
+                        ),
+                    ),
+                ),
+                StoreListingPurchasedEvent(
+                    listingPath = pricedListing.path,
+                    remainingListing = pricedListing.copy(quantity = 1),
+                ),
+            ),
+        )
+        runBlockingAppend(
+            repository,
+            buyerId,
+            listOf(
+                PurchasedFileReceivedEvent(
+                    file = pricedListing.copy(
+                        path = buildFilePath("/", "merchant.bin"),
+                        quantity = 2,
+                    ),
+                    pettyCashDelta = -392.0,
+                ),
+            ),
+        )
+        runBlockingAppend(
+            repository,
+            revenueId,
+            listOf(
+                EconomyBalanceAdjustedEvent(pettyCashDelta = 392.0),
+            ),
+        )
+        runBlockingAppend(
+            repository,
+            storeId,
+            listOf(
+                StoreInventoryReceivedEvent(files = listOf(shardCopy)),
+            ),
+        )
+
+        val buyer = runBlockingLoad(repository, buyerId)
+        val seller = runBlockingLoad(repository, sellerId)
+        val revenue = runBlockingLoad(repository, revenueId)
+        val store = runBlockingLoad(repository, storeId)
+
+        requireNotNull(buyer)
+        requireNotNull(seller)
+        requireNotNull(revenue)
+        requireNotNull(store)
+        assertEquals(608.0, buyer.economy.pettyCash)
+        assertEquals(2, buyer.filesystem.filesByPath["/merchant.bin"]?.quantity)
+        assertEquals(1900.0, seller.economy.pettyCash)
+        assertEquals(1, seller.filesystem.filesByPath["/Store/merchant.bin"]?.quantity)
+        assertEquals(402.0, revenue.economy.pettyCash)
+        assertEquals(1, store.filesystem.filesByPath["/Store/rare.bin"]?.quantity)
+        assertTrue(countRows("rewrite_state_snapshot") >= 4)
     }
 
     private fun resetDatabase() {

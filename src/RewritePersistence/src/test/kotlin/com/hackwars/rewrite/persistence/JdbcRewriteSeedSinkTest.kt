@@ -64,18 +64,57 @@ class JdbcRewriteSeedSinkTest {
                 createdAt = Instant.EPOCH,
             ),
         )
+        writeBatch(
+            RewriteSeedBatch(
+                batchId = "player-store",
+                source = LegacyMySqlDumpDescriptor("/legacy/store.sql", "hackwars"),
+                seedPayload = SeedPlayerAccount(
+                    playerId = "store-user",
+                    playFabId = "PF-STORE",
+                    playerIp = "store1",
+                ),
+                createdAt = Instant.EPOCH,
+            ),
+        )
+        writeBatch(
+            RewriteSeedBatch(
+                batchId = "computer-store",
+                source = LegacyXmlDescriptor("/legacy/store.xml", "computer"),
+                seedPayload = SeedComputerState(
+                    computerId = "store1",
+                    playerId = "store-user",
+                    ipAddress = "store1",
+                ),
+                createdAt = Instant.EPOCH,
+            ),
+        )
+        writeBatch(
+            RewriteSeedBatch(
+                batchId = "inventory-store",
+                source = LegacyJsonDescriptor("/legacy/store-inventory.json", "inventory"),
+                seedPayload = SeedInventorySnapshot(
+                    computerId = "store1",
+                    notes = listOf("shard store note"),
+                ),
+                createdAt = Instant.EPOCH,
+            ),
+        )
 
-        assertEquals(3, countRows("rewrite_import_batch"))
-        assertEquals(1, countRows("rewrite_player_account"))
-        assertEquals(1, countRows("rewrite_computer_state"))
+        assertEquals(6, countRows("rewrite_import_batch"))
+        assertEquals(2, countRows("rewrite_player_account"))
+        assertEquals(2, countRows("rewrite_computer_state"))
 
         val state = loadStatePayload("LOCAL-IP")
+        val storeState = loadStatePayload("store1")
         assertTrue(state.filesystem.directoriesByPath.containsKey("/Public"))
         assertTrue(state.filesystem.directoriesByPath.containsKey("/Store"))
         assertTrue(state.filesystem.filesByPath.values.any { it.name == "note-1.txt" && it.contents == "migration note" })
         assertTrue(state.filesystem.filesByPath.containsKey("/readme.txt"))
         assertTrue(state.filesystem.filesByPath.containsKey("/Store/catalog.txt"))
         assertTrue(state.filesystem.filesByPath["/Public/bank.bin"]?.compiledBinary?.bankingApplication == true)
+        assertTrue(storeState.filesystem.directoriesByPath.containsKey("/Store"))
+        assertTrue(storeState.filesystem.filesByPath.containsKey("/Store/catalog.txt"))
+        assertTrue(storeState.filesystem.filesByPath.values.any { it.name == "note-1.txt" && it.contents == "shard store note" })
     }
 
     private fun resetDatabase() {

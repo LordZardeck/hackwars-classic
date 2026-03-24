@@ -1,6 +1,8 @@
 package com.hackwars.rewrite.gamecore
 
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlin.math.max
 
 class GameSessionBootstrapCommand(
     private val stateId: GameStateId,
@@ -613,6 +615,447 @@ class InstallFirewallCommand(
 }
 
 @Serializable
+data class DepositPayload(
+    val amount: Double,
+    val ip: String,
+    val port: Int,
+)
+
+@Serializable
+data class WithdrawPayload(
+    val amount: Double,
+    val ip: String,
+    val port: Int,
+)
+
+@Serializable
+data class TransferPayload(
+    val amount: Double,
+    val ip: String,
+    val targetIp: String,
+    val port: Int,
+)
+
+@Serializable
+data class SellFileCommandPayload(
+    val ip: String,
+    val location: String? = null,
+    val fileName: String,
+    val compileCost: Double? = null,
+    val quantity: Int? = null,
+)
+
+@Serializable
+data class SellFileMultiEntry(
+    val path: String,
+    val name: String,
+    val maker: String = "",
+    val quantity: Int,
+)
+
+@Serializable
+data class SellFileMultiCommandPayload(
+    val ip: String,
+    val allFiles: List<SellFileMultiEntry> = emptyList(),
+)
+
+@Serializable
+data class RequestPurchasePayload(
+    val targetIp: String,
+    val sourceIp: String,
+    val fileName: String,
+    val quantity: Int,
+)
+
+@Serializable
+data class FacebookDepositPayload(
+    val amount: Double,
+    val ip: String,
+    @SerialName("defaultPort")
+    val defaultPort: Int,
+)
+
+@Serializable
+data class FacebookWithdrawPayload(
+    val amount: Double,
+    val ip: String,
+    @SerialName("defaultPort")
+    val defaultPort: Int,
+)
+
+@Serializable
+data class FacebookTransferPayload(
+    val amount: Double,
+    val ip: String,
+    @SerialName("ip2")
+    val targetIp: String,
+    @SerialName("defaultPort")
+    val defaultPort: Int,
+)
+
+class DepositCommand(
+    private val stateId: GameStateId,
+    private val amount: Double,
+    private val portNumber: Int,
+) : RequestCommand<BankTransactionResponse> {
+    override val name: String = "deposit"
+    override val lifetime: CommandLifetime = CommandLifetime.defaultRequest
+    override val targetStateIds: Set<GameStateId> = setOf(stateId)
+
+    override suspend fun execute(context: CommandContext): BankTransactionResponse {
+        require(amount > 0.0) { "Deposit amount must be positive." }
+        val state = context.requireExistingState(stateId)
+        require(state.hasBankPort(portNumber)) {
+            "Deposit requires an active banking application on port $portNumber."
+        }
+        val appliedAmount = minOf(amount, state.economy.pettyCash)
+        require(appliedAmount > 0.0) { "Not enough petty cash to deposit." }
+
+        val updated = context.appendEvents(
+            id = stateId,
+            events = listOf(
+                EconomyBalanceAdjustedEvent(
+                    pettyCashDelta = -appliedAmount,
+                    bankMoneyDelta = appliedAmount,
+                ),
+            ),
+        )
+
+        return BankTransactionResponse(
+            stateId = stateId,
+            operation = "deposit",
+            portNumber = portNumber,
+            requestedAmount = amount,
+            appliedAmount = appliedAmount,
+            pettyCashAfter = updated.economy.pettyCash,
+            bankMoneyAfter = updated.economy.bankMoney,
+            version = updated.version,
+        )
+    }
+}
+
+class WithdrawCommand(
+    private val stateId: GameStateId,
+    private val amount: Double,
+    private val portNumber: Int,
+) : RequestCommand<BankTransactionResponse> {
+    override val name: String = "withdraw"
+    override val lifetime: CommandLifetime = CommandLifetime.defaultRequest
+    override val targetStateIds: Set<GameStateId> = setOf(stateId)
+
+    override suspend fun execute(context: CommandContext): BankTransactionResponse {
+        require(amount > 0.0) { "Withdraw amount must be positive." }
+        val state = context.requireExistingState(stateId)
+        require(state.hasBankPort(portNumber)) {
+            "Withdraw requires an active banking application on port $portNumber."
+        }
+        val appliedAmount = minOf(amount, state.economy.bankMoney)
+        require(appliedAmount > 0.0) { "Not enough bank money to withdraw." }
+
+        val updated = context.appendEvents(
+            id = stateId,
+            events = listOf(
+                EconomyBalanceAdjustedEvent(
+                    pettyCashDelta = appliedAmount,
+                    bankMoneyDelta = -appliedAmount,
+                ),
+            ),
+        )
+
+        return BankTransactionResponse(
+            stateId = stateId,
+            operation = "withdraw",
+            portNumber = portNumber,
+            requestedAmount = amount,
+            appliedAmount = appliedAmount,
+            pettyCashAfter = updated.economy.pettyCash,
+            bankMoneyAfter = updated.economy.bankMoney,
+            version = updated.version,
+        )
+    }
+}
+
+class TransferCommand(
+    private val sourceStateId: GameStateId,
+    private val targetStateId: GameStateId,
+    private val amount: Double,
+    private val portNumber: Int,
+) : RequestCommand<TransferResponse> {
+    override val name: String = "transfer"
+    override val lifetime: CommandLifetime = CommandLifetime.defaultRequest
+    override val targetStateIds: Set<GameStateId> = setOf(sourceStateId, targetStateId)
+
+    override suspend fun execute(context: CommandContext): TransferResponse {
+        require(amount > 0.0) { "Transfer amount must be positive." }
+        val states = context.loadStates(targetStateIds)
+        val sourceState = requireNotNull(states[sourceStateId]) {
+            "No game state exists for ${sourceStateId.value}."
+        }
+        val targetState = requireNotNull(states[targetStateId]) {
+            "No game state exists for ${targetStateId.value}."
+        }
+        require(sourceState.hasBankPort(portNumber)) {
+            "Transfer requires an active banking application on port $portNumber."
+        }
+        require(targetState.hasActiveDefaultBankPort()) {
+            "Transfer target ${targetStateId.value} does not have an active default bank port."
+        }
+
+        val appliedAmount = minOf(amount, sourceState.economy.pettyCash)
+        require(appliedAmount > 0.0) { "Not enough petty cash to transfer." }
+
+        if (sourceStateId == targetStateId) {
+            return TransferResponse(
+                sourceStateId = sourceStateId,
+                targetStateId = targetStateId,
+                portNumber = portNumber,
+                requestedAmount = amount,
+                appliedAmount = 0.0,
+                sourcePettyCashAfter = sourceState.economy.pettyCash,
+                targetPettyCashAfter = targetState.economy.pettyCash,
+                sourceVersion = sourceState.version,
+                targetVersion = targetState.version,
+            )
+        }
+
+        val updatedSource = context.appendEvents(
+            id = sourceStateId,
+            events = listOf(
+                EconomyBalanceAdjustedEvent(pettyCashDelta = -appliedAmount),
+            ),
+        )
+        val updatedTarget = context.appendEvents(
+            id = targetStateId,
+            events = listOf(
+                EconomyBalanceAdjustedEvent(pettyCashDelta = appliedAmount),
+            ),
+        )
+
+        return TransferResponse(
+            sourceStateId = sourceStateId,
+            targetStateId = targetStateId,
+            portNumber = portNumber,
+            requestedAmount = amount,
+            appliedAmount = appliedAmount,
+            sourcePettyCashAfter = updatedSource.economy.pettyCash,
+            targetPettyCashAfter = updatedTarget.economy.pettyCash,
+            sourceVersion = updatedSource.version,
+            targetVersion = updatedTarget.version,
+        )
+    }
+}
+
+class SellFileCommand(
+    private val stateId: GameStateId,
+    private val path: String?,
+    private val fileName: String,
+    private val compileCost: Double? = null,
+) : RequestCommand<SellFileResponse> {
+    override val name: String = "sellfile"
+    override val lifetime: CommandLifetime = CommandLifetime.defaultRequest
+    override val targetStateIds: Set<GameStateId> = setOf(stateId)
+
+    override suspend fun execute(context: CommandContext): SellFileResponse {
+        val state = context.requireExistingState(stateId)
+        val file = requireNotNull(state.filesystem.resolveFile(path, fileName)) {
+            "No file found at ${normalizeDirectoryPath(path, state.filesystem.currentPath)}/$fileName"
+        }
+        val resolvedCompileCost = compileCost?.takeIf { it > 0.0 } ?: file.compileCost.coerceAtLeast(0.0)
+        val makerFloor = makerFloorFor(file.maker)
+        val occupancyFactor = 1 + max(file.quantity, 1)
+        val price = max(
+            resolvedCompileCost * 2.0 - (resolvedCompileCost * 0.01 * occupancyFactor),
+            makerFloor,
+        )
+
+        val updated = context.appendEvents(
+            id = stateId,
+            events = listOf(
+                StoreFilePricedEvent(
+                    filePath = file.path,
+                    price = price,
+                ),
+            ),
+        )
+
+        return SellFileResponse(
+            stateId = stateId,
+            file = requireNotNull(updated.filesystem.filesByPath[file.path]),
+            version = updated.version,
+        )
+    }
+}
+
+class SellFileMultiCommand(
+    private val stateId: GameStateId,
+    private val storeStateId: GameStateId,
+    private val entries: List<SellFileMultiEntry>,
+) : RequestCommand<SellFileMultiResponse> {
+    override val name: String = "sellfilemulti"
+    override val lifetime: CommandLifetime = CommandLifetime.defaultRequest
+    override val targetStateIds: Set<GameStateId> = setOf(stateId, storeStateId)
+
+    override suspend fun execute(context: CommandContext): SellFileMultiResponse {
+        val state = context.requireExistingState(stateId)
+        context.requireExistingState(storeStateId)
+
+        val soldItems = entries.mapNotNull { entry ->
+            val source = state.filesystem.resolveFile(entry.path, entry.name) ?: return@mapNotNull null
+            val requestedQuantity = entry.quantity.coerceAtLeast(0)
+            if (requestedQuantity <= 0) {
+                return@mapNotNull null
+            }
+            val soldQuantity = minOf(requestedQuantity, source.quantity)
+            if (soldQuantity <= 0) {
+                return@mapNotNull null
+            }
+            val resolvedMaker = source.maker.ifBlank { entry.maker }
+            val unitPrice = source.price.takeIf { it > 0.0 } ?: makerFloorFor(resolvedMaker)
+            val remaining = source.copy(quantity = source.quantity - soldQuantity).takeIf { it.quantity > 0 }
+            SoldStoreFile(
+                sourceFilePath = source.path,
+                remainingSourceFile = remaining,
+                creditedPettyCash = unitPrice * soldQuantity,
+                storeCopy = source.copy(
+                    path = buildFilePath("/Store", source.name),
+                    quantity = soldQuantity,
+                    maker = resolvedMaker,
+                    price = unitPrice,
+                ),
+            )
+        }
+        require(soldItems.isNotEmpty()) { "No sellable files were provided." }
+
+        val updatedState = context.appendEvents(
+            id = stateId,
+            events = listOf(
+                StoreFilesLiquidatedEvent(
+                    soldItems = soldItems.map { sold ->
+                        StoreLiquidationLineItem(
+                            sourceFilePath = sold.sourceFilePath,
+                            remainingSourceFile = sold.remainingSourceFile,
+                            creditedPettyCash = sold.creditedPettyCash,
+                        )
+                    },
+                ),
+            ),
+        )
+        context.appendEvents(
+            id = storeStateId,
+            events = listOf(
+                StoreInventoryReceivedEvent(soldItems.map { it.storeCopy }),
+            ),
+        )
+
+        return SellFileMultiResponse(
+            stateId = stateId,
+            storeStateId = storeStateId,
+            soldFiles = soldItems.map { it.storeCopy },
+            creditedAmount = soldItems.sumOf { it.creditedPettyCash },
+            version = updatedState.version,
+        )
+    }
+}
+
+class RequestPurchaseCommand(
+    private val buyerStateId: GameStateId,
+    private val sellerStateId: GameStateId,
+    private val fileName: String,
+    private val requestedQuantity: Int,
+    private val revenueTargetHint: GameStateId? = null,
+) : RequestCommand<PurchaseResponse> {
+    override val name: String = "requestpurchase"
+    override val lifetime: CommandLifetime = CommandLifetime.defaultRequest
+    override val targetStateIds: Set<GameStateId> = buildSet {
+        add(buyerStateId)
+        add(sellerStateId)
+        if (revenueTargetHint != null) {
+            add(revenueTargetHint)
+        }
+    }
+
+    override suspend fun execute(context: CommandContext): PurchaseResponse {
+        require(buyerStateId != sellerStateId) { "Self-purchase is not allowed." }
+        val quantity = requestedQuantity.coerceAtLeast(1)
+        val states = context.loadStates(targetStateIds)
+        val buyerState = requireNotNull(states[buyerStateId]) {
+            "No buyer state exists for ${buyerStateId.value}."
+        }
+        val sellerState = requireNotNull(states[sellerStateId]) {
+            "No seller state exists for ${sellerStateId.value}."
+        }
+        val listing = requireNotNull(sellerState.filesystem.resolveFile("/Store", fileName)) {
+            "No store listing named $fileName exists for ${sellerStateId.value}."
+        }
+        require(listing.price > 0.0) { "Store listing $fileName is not purchasable." }
+
+        val fulfilledQuantity = minOf(quantity, listing.quantity)
+        require(fulfilledQuantity > 0) { "Requested purchase quantity is not available." }
+
+        val totalPrice = listing.price * fulfilledQuantity
+        require(buyerState.economy.pettyCash >= totalPrice) { "Not enough petty cash to purchase $fileName." }
+
+        val purchasedPath = buildFilePath("/", listing.name)
+        require(buyerState.canStoreFileAt(purchasedPath)) {
+            "Buyer ${buyerStateId.value} does not have enough filesystem capacity for ${listing.name}."
+        }
+
+        val revenueTargetStateId = resolveRevenueTargetStateId(
+            context = context,
+            sellerState = sellerState,
+            fallback = revenueTargetHint ?: sellerStateId,
+        )
+        val remainingListing = listing.copy(quantity = listing.quantity - fulfilledQuantity).takeIf { it.quantity > 0 }
+        val purchasedFile = listing.copy(
+            path = purchasedPath,
+            quantity = fulfilledQuantity,
+        )
+
+        val updatedSeller = context.appendEvents(
+            id = sellerStateId,
+            events = listOf(
+                StoreListingPurchasedEvent(
+                    listingPath = listing.path,
+                    remainingListing = remainingListing,
+                    pettyCashDelta = if (revenueTargetStateId == sellerStateId) totalPrice else 0.0,
+                ),
+            ),
+        )
+        val updatedBuyer = context.appendEvents(
+            id = buyerStateId,
+            events = listOf(
+                PurchasedFileReceivedEvent(
+                    file = purchasedFile,
+                    pettyCashDelta = -totalPrice,
+                ),
+            ),
+        )
+        val updatedRevenueTarget = if (revenueTargetStateId == sellerStateId) {
+            updatedSeller
+        } else {
+            context.appendEvents(
+                id = revenueTargetStateId,
+                events = listOf(
+                    EconomyBalanceAdjustedEvent(pettyCashDelta = totalPrice),
+                ),
+            )
+        }
+
+        return PurchaseResponse(
+            buyerStateId = buyerStateId,
+            sellerStateId = sellerStateId,
+            revenueTargetStateId = revenueTargetStateId,
+            purchasedFile = purchasedFile,
+            fulfilledQuantity = fulfilledQuantity,
+            totalPrice = totalPrice,
+            buyerVersion = updatedBuyer.version,
+            sellerVersion = updatedSeller.version,
+            revenueTargetVersion = updatedRevenueTarget.version,
+        )
+    }
+}
+
+@Serializable
 data class RequestDirectoryPayload(
     val path: String? = null,
 )
@@ -751,9 +1194,89 @@ private fun InstalledFirewall.toStoredFile(): StoredFile {
         maker = maker,
         compileCost = 0.0,
         cpuCost = cpuCost,
+        price = 0.0,
         compiledBinary = CompiledBinaryMetadata(
             firewallKind = kind,
             strength = strength,
         ),
     )
 }
+
+private data class SoldStoreFile(
+    val sourceFilePath: String,
+    val remainingSourceFile: StoredFile?,
+    val creditedPettyCash: Double,
+    val storeCopy: StoredFile,
+)
+
+private suspend fun resolveRevenueTargetStateId(
+    context: CommandContext,
+    sellerState: ComputerState,
+    fallback: GameStateId,
+): GameStateId {
+    val preferred = sellerState.website.storeRevenueTargetStateId ?: fallback
+    return if (context.loadState(preferred) != null) preferred else sellerState.id
+}
+
+private fun ComputerState.hasBankPort(portNumber: Int): Boolean {
+    return ports.any { port ->
+        port.number == portNumber &&
+            port.enabled &&
+            (port.installedApplication?.banking == true || port.installedApplication?.kind == ApplicationKind.BANKING)
+    }
+}
+
+private fun ComputerState.hasActiveDefaultBankPort(): Boolean {
+    val defaultPort = economy.defaultBankPort ?: return false
+    return hasBankPort(defaultPort)
+}
+
+private fun ComputerState.canStoreFileAt(filePath: String): Boolean {
+    if (filesystem.filesByPath.containsKey(filePath)) {
+        return true
+    }
+    if (hardware.hdMaximum <= 0) {
+        return true
+    }
+    return filesystem.filesByPath.size < hardware.hdMaximum
+}
+
+private fun makerFloorFor(maker: String): Double {
+    return MAKER_FLOOR_BY_NAME[maker] ?: 0.0
+}
+
+private val MAKER_FLOOR_BY_NAME: Map<String, Double> = linkedMapOf(
+    "Alexander" to 15.0,
+    "Low" to 30.0,
+    "Medium" to 150.0,
+    "High" to 1500.0,
+    "Rare" to 15000.0,
+    "Holiday" to 250.0,
+    "I" to 15.0,
+    "II" to 23.0,
+    "III" to 36.0,
+    "IV" to 56.0,
+    "V" to 87.0,
+    "VI" to 134.0,
+    "VII" to 208.0,
+    "VIII" to 322.0,
+    "IX" to 500.0,
+    "X" to 775.0,
+    "XI" to 1201.0,
+    "XII" to 1861.0,
+    "XIII" to 2885.0,
+    "XIV" to 4471.0,
+    "XV" to 6930.0,
+    "XVI" to 10742.0,
+    "XVII" to 16649.0,
+    "XVIII" to 25807.0,
+    "XIX" to 40000.0,
+    "XX" to 62000.0,
+    "Trash.I" to 15.0,
+    "Trash.II" to 17.0,
+    "Trash.III" to 19.0,
+    "Trash.IV" to 21.0,
+    "Trash.V" to 24.0,
+    "Trash.VI" to 27.0,
+    "Trash.VII" to 30.0,
+)

@@ -101,16 +101,30 @@
   - Rewrite game-core tests now cover request-directory/request-file/request-secondary-directory, path normalization, save/create/delete/delete-multi, compile/decompile petty-cash and XP side effects, banking-app install, equipment install, and firewall replacement semantics.
   - Rewrite game-server harness tests now prove one-shot read responses, targeted filesystem/economy/port deltas, banking default-port selection, and replaced-firewall return-to-disk behavior.
 
-### RW-GS-S3 - Economy, websites, store, banking, purchases, resale, votes
+### RW-GS-S3A - Economy, banking, purchases, and resale
+- Status: `done`
+- Owner: `codex`
+- Depends on: `RW-GS-S1`, `RW-GS-S2`
+- Allowed write scope: `:RewriteGameCore`, `:RewriteGameServer`, `:RewritePersistence`
+- Verification command: `./gradlew :RewriteGameCore:test :RewritePersistence:test :RewritePersistence:migrationTest :RewriteGameServer:test :RewriteTestKit:integrationTest`
+- Artifacts: `build/reports/tests/test`
+- Commit rule: `single green commit only`
+- Notes:
+  - Covers deposit, withdraw, transfer, Facebook banking aliases, single-file pricing, multi-file liquidation, and request-purchase.
+  - Store inventory remains inside typed filesystem state, with canonical shard-store routing through `store$serverId`.
+  - Rewrite tests now prove canonical and Facebook banking wires, shard-store delta fanout, explicit revenue-target credits, and typed JDBC replay for economy/store events.
+
+### RW-GS-S3B - Websites, browser requests, submit, vote, and page save/load
 - Status: `todo`
 - Owner: `unassigned`
-- Depends on: `RW-GS-S1`
+- Depends on: `RW-GS-S3A`
 - Allowed write scope: `:RewriteGameCore`, `:RewriteGameServer`
 - Verification command: `./gradlew :RewriteGameCore:test :RewriteGameServer:test`
 - Artifacts: `build/reports/tests/test`
 - Commit rule: `single green commit only`
 - Notes:
-  - Cover deposit, withdraw, transfer, votes, purchases, and website save/load.
+  - Covers `requestwebpage`, `requestpage`, `savepage`, `submit`, `vote`, and related HTTP/browser flows.
+  - Daily pay and empty-petty-cash remain deferred to the later combat/economy crossover slice.
 
 ### RW-GS-S4 - Network switching, scan, quests, tasks, clues, search, bounties
 - Status: `in_progress`

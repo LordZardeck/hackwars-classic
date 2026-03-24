@@ -219,6 +219,7 @@ data class StoredFile(
     val maker: String = "",
     val compileCost: Double = 0.0,
     val cpuCost: Double = 0.0,
+    val price: Double = 0.0,
     val compiledBinary: CompiledBinaryMetadata? = null,
 )
 
@@ -226,6 +227,7 @@ data class StoredFile(
 data class WebsiteState(
     val title: String = "",
     val body: String = "",
+    val storeRevenueTargetStateId: GameStateId? = null,
 )
 
 @Serializable
@@ -380,6 +382,210 @@ data class FileDeletedEvent(
 
     override fun toProjection(state: ComputerState): DeltaProjection {
         return StateSectionsDeltaProjection(filesystem = state.filesystem)
+    }
+}
+
+@Serializable
+@SerialName("economy_balance_adjusted")
+data class EconomyBalanceAdjustedEvent(
+    val pettyCashDelta: Double = 0.0,
+    val bankMoneyDelta: Double = 0.0,
+) : ComputerEvent {
+    override val changedPaths: Set<String> = buildSet {
+        if (pettyCashDelta != 0.0) {
+            add("economy.pettyCash")
+        }
+        if (bankMoneyDelta != 0.0) {
+            add("economy.bankMoney")
+        }
+    }.ifEmpty { setOf("economy") }
+    override val deltaKeys: Set<String> = setOf("economy")
+
+    override fun applyTo(state: ComputerState, nextVersion: Long): ComputerState {
+        return state.copy(
+            version = nextVersion,
+            economy = state.economy.copy(
+                pettyCash = state.economy.pettyCash + pettyCashDelta,
+                bankMoney = state.economy.bankMoney + bankMoneyDelta,
+            ),
+            runtime = state.runtime.withMutationVersion(nextVersion),
+        )
+    }
+
+    override fun toProjection(state: ComputerState): DeltaProjection {
+        return StateSectionsDeltaProjection(economy = state.economy)
+    }
+}
+
+@Serializable
+@SerialName("store_file_priced")
+data class StoreFilePricedEvent(
+    val filePath: String,
+    val price: Double,
+) : ComputerEvent {
+    override val changedPaths: Set<String> = setOf("filesystem.filesByPath.$filePath.price")
+    override val deltaKeys: Set<String> = setOf("filesystem")
+
+    override fun applyTo(state: ComputerState, nextVersion: Long): ComputerState {
+        val existing = state.filesystem.filesByPath[filePath] ?: return state.copy(
+            version = nextVersion,
+            runtime = state.runtime.withMutationVersion(nextVersion),
+        )
+        return state.copy(
+            version = nextVersion,
+            filesystem = state.filesystem.saveFile(existing.copy(price = price)),
+            runtime = state.runtime.withMutationVersion(nextVersion),
+        )
+    }
+
+    override fun toProjection(state: ComputerState): DeltaProjection {
+        return StateSectionsDeltaProjection(filesystem = state.filesystem)
+    }
+}
+
+@Serializable
+data class StoreLiquidationLineItem(
+    val sourceFilePath: String,
+    val remainingSourceFile: StoredFile? = null,
+    val creditedPettyCash: Double,
+)
+
+@Serializable
+@SerialName("store_files_liquidated")
+data class StoreFilesLiquidatedEvent(
+    val soldItems: List<StoreLiquidationLineItem>,
+) : ComputerEvent {
+    override val changedPaths: Set<String> = buildSet {
+        soldItems.forEach { add("filesystem.filesByPath.${it.sourceFilePath}") }
+        add("economy.pettyCash")
+    }
+    override val deltaKeys: Set<String> = setOf("filesystem", "economy")
+
+    override fun applyTo(state: ComputerState, nextVersion: Long): ComputerState {
+        var filesystem = state.filesystem
+        var pettyCashDelta = 0.0
+        soldItems.forEach { item ->
+            filesystem = filesystem.deleteFileByPath(item.sourceFilePath)
+            if (item.remainingSourceFile != null) {
+                filesystem = filesystem.saveFile(item.remainingSourceFile)
+            }
+            pettyCashDelta += item.creditedPettyCash
+        }
+        return state.copy(
+            version = nextVersion,
+            filesystem = filesystem,
+            economy = state.economy.copy(
+                pettyCash = state.economy.pettyCash + pettyCashDelta,
+            ),
+            runtime = state.runtime.withMutationVersion(nextVersion),
+        )
+    }
+
+    override fun toProjection(state: ComputerState): DeltaProjection {
+        return StateSectionsDeltaProjection(
+            filesystem = state.filesystem,
+            economy = state.economy,
+        )
+    }
+}
+
+@Serializable
+@SerialName("store_inventory_received")
+data class StoreInventoryReceivedEvent(
+    val files: List<StoredFile>,
+) : ComputerEvent {
+    override val changedPaths: Set<String> = files
+        .mapTo(linkedSetOf()) { "filesystem.filesByPath.${it.path}" }
+    override val deltaKeys: Set<String> = setOf("filesystem")
+
+    override fun applyTo(state: ComputerState, nextVersion: Long): ComputerState {
+        var filesystem = state.filesystem
+        files.forEach { file ->
+            filesystem = filesystem.addOrIncrement(file)
+        }
+        return state.copy(
+            version = nextVersion,
+            filesystem = filesystem,
+            runtime = state.runtime.withMutationVersion(nextVersion),
+        )
+    }
+
+    override fun toProjection(state: ComputerState): DeltaProjection {
+        return StateSectionsDeltaProjection(filesystem = state.filesystem)
+    }
+}
+
+@Serializable
+@SerialName("store_listing_purchased")
+data class StoreListingPurchasedEvent(
+    val listingPath: String,
+    val remainingListing: StoredFile? = null,
+    val pettyCashDelta: Double = 0.0,
+) : ComputerEvent {
+    override val changedPaths: Set<String> = buildSet {
+        add("filesystem.filesByPath.$listingPath")
+        if (pettyCashDelta != 0.0) {
+            add("economy.pettyCash")
+        }
+    }
+    override val deltaKeys: Set<String> = buildSet {
+        add("filesystem")
+        if (pettyCashDelta != 0.0) {
+            add("economy")
+        }
+    }
+
+    override fun applyTo(state: ComputerState, nextVersion: Long): ComputerState {
+        var filesystem = state.filesystem.deleteFileByPath(listingPath)
+        if (remainingListing != null) {
+            filesystem = filesystem.saveFile(remainingListing)
+        }
+        return state.copy(
+            version = nextVersion,
+            filesystem = filesystem,
+            economy = state.economy.copy(
+                pettyCash = state.economy.pettyCash + pettyCashDelta,
+            ),
+            runtime = state.runtime.withMutationVersion(nextVersion),
+        )
+    }
+
+    override fun toProjection(state: ComputerState): DeltaProjection {
+        return StateSectionsDeltaProjection(
+            filesystem = state.filesystem,
+            economy = state.economy.takeIf { pettyCashDelta != 0.0 },
+        )
+    }
+}
+
+@Serializable
+@SerialName("purchased_file_received")
+data class PurchasedFileReceivedEvent(
+    val file: StoredFile,
+    val pettyCashDelta: Double,
+) : ComputerEvent {
+    override val changedPaths: Set<String> = setOf(
+        "filesystem.filesByPath.${file.path}",
+        "economy.pettyCash",
+    )
+    override val deltaKeys: Set<String> = setOf("filesystem", "economy")
+
+    override fun applyTo(state: ComputerState, nextVersion: Long): ComputerState {
+        return state.copy(
+            version = nextVersion,
+            filesystem = state.filesystem.addOrIncrement(file),
+            economy = state.economy.copy(
+                pettyCash = state.economy.pettyCash + pettyCashDelta,
+            ),
+            runtime = state.runtime.withMutationVersion(nextVersion),
+        )
+    }
+
+    override fun toProjection(state: ComputerState): DeltaProjection {
+        return StateSectionsDeltaProjection(
+            filesystem = state.filesystem,
+            economy = state.economy,
+        )
     }
 }
 
@@ -784,6 +990,60 @@ data class InstallFirewallResponse(
     val installedFirewall: InstalledFirewall,
     val returnedFirewall: StoredFile?,
     val version: Long,
+)
+
+@Serializable
+data class BankTransactionResponse(
+    val stateId: GameStateId,
+    val operation: String,
+    val portNumber: Int,
+    val requestedAmount: Double,
+    val appliedAmount: Double,
+    val pettyCashAfter: Double,
+    val bankMoneyAfter: Double,
+    val version: Long,
+)
+
+@Serializable
+data class TransferResponse(
+    val sourceStateId: GameStateId,
+    val targetStateId: GameStateId,
+    val portNumber: Int,
+    val requestedAmount: Double,
+    val appliedAmount: Double,
+    val sourcePettyCashAfter: Double,
+    val targetPettyCashAfter: Double,
+    val sourceVersion: Long,
+    val targetVersion: Long,
+)
+
+@Serializable
+data class SellFileResponse(
+    val stateId: GameStateId,
+    val file: StoredFile,
+    val version: Long,
+)
+
+@Serializable
+data class SellFileMultiResponse(
+    val stateId: GameStateId,
+    val storeStateId: GameStateId,
+    val soldFiles: List<StoredFile>,
+    val creditedAmount: Double,
+    val version: Long,
+)
+
+@Serializable
+data class PurchaseResponse(
+    val buyerStateId: GameStateId,
+    val sellerStateId: GameStateId,
+    val revenueTargetStateId: GameStateId,
+    val purchasedFile: StoredFile,
+    val fulfilledQuantity: Int,
+    val totalPrice: Double,
+    val buyerVersion: Long,
+    val sellerVersion: Long,
+    val revenueTargetVersion: Long,
 )
 
 @Serializable
