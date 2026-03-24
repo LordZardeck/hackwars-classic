@@ -213,11 +213,11 @@ class NewFireWall() {
         this.maxSpecialAttributeValue = ("" + firewall[MAX_SPECIAL_VALUE]).toFloat()
 
         val HF = HackerFile(HackerFile.NEW_FIREWALL)
-        HF.setName(this.name)
+        HF.name = this.name
         HF.setDescription(this.description)
-        HF.setMaker(this.maker)
-        HF.setQuantity(1)
-        HF.setCPUCost(this.cpuCost)
+        HF.maker = this.maker
+        HF.quantity = 1
+        HF.cPUCost = this.cpuCost
         val content = HashMap<Any?, Any?>()
 
         price += setBankAbsorption(content)
@@ -232,7 +232,7 @@ class NewFireWall() {
         price += calculatePrice()
         content["store_price"] = "" + price
         content["name"] = name
-        HF.setContent(content)
+        HF.content = content
         return HF
     }
 
@@ -383,9 +383,9 @@ class NewFireWall() {
     fun loadHackerFile(hf: HackerFile?) {
         resetVariables()
         this.name = hf!!.name
-        val content = hf.content
-        val special1 = hf.getSpecial(1)
-        val special2 = hf.getSpecial(2)
+        val content = hf.content as? MutableMap<Any?, Any?> ?: return
+        val special1 = hf.getSpecial(1) as? Map<*, *> ?: emptyMap<Any?, Any?>()
+        val special2 = hf.getSpecial(2) as? Map<*, *> ?: emptyMap<Any?, Any?>()
 
         val a1 = special1["name"] as String
         var v1 = special1["value"] as String
@@ -438,56 +438,56 @@ class NewFireWall() {
         }
         this.attackDamage = ("" + content["attack_damage"]).toFloat()
         this.equipLevel = ("" + content["equip_level"]).toFloat().toInt()
-        this.cpuCost = hf.cpuCost
+        this.cpuCost = hf.cPUCost
         if (name == "") {
             name = content["name"] as String
         }
         this.hackerFile = hf
     }
 
-    fun getName(): String = hackerFile!!.name
+    fun getName(): String = hackerFile!!.name.orEmpty()
 
     fun getHackerFile(): HackerFile = hackerFile!!
 
-    fun getType(): HashMap<Any?, Any?> = hackerFile!!.content
+    fun getType(): HashMap<Any?, Any?> = (hackerFile!!.content as? HashMap<Any?, Any?>) ?: HashMap()
 
     fun updateFirewall(oldFirewall: Int): HackerFile {
         val HF = HackerFile(HackerFile.NEW_FIREWALL)
         val content = HashMap<Any?, Any?>()
         var price = 0.0f
         if (oldFirewall == NoFireWall) {
-            HF.setName("None")
+            HF.name = "None"
             content["name"] = "None"
             content["attack_damage"] = "0"
         } else if (oldFirewall == BasicFireWall) {
-            HF.setName("DataShield")
+            HF.name = "DataShield"
             content["name"] = "DataShield"
             content["attack_damage"] = "0"
         } else if (oldFirewall == MediumFireWall) {
-            HF.setName("DigitalFortress")
+            HF.name = "DigitalFortress"
             content["name"] = "DigitalFortress"
             content["attack_damage"] = "0"
         } else if (oldFirewall == GreaterFireWall) {
-            HF.setName("RubyGuardian")
+            HF.name = "RubyGuardian"
             content["name"] = "RubyGuardian"
             content["attack_damage"] = "0"
         } else if (oldFirewall == BasicAttackingFireWall) {
-            HF.setName("DataShield")
+            HF.name = "DataShield"
             content["name"] = "DataShield"
             this.name = HF.name
             price += generateAttackValue(content)
         } else if (oldFirewall == MediumAttackingFireWall) {
-            HF.setName("DigitalFortress")
+            HF.name = "DigitalFortress"
             content["name"] = "DigitalFortress"
             this.name = HF.name
             price += generateAttackValue(content)
         } else if (oldFirewall == GreaterAttackingFireWall) {
-            HF.setName("RubyGuardian")
+            HF.name = "RubyGuardian"
             content["name"] = "RubyGuardian"
             this.name = HF.name
             price += generateAttackValue(content)
         } else if (oldFirewall == UltimateAttackingFireWall) {
-            HF.setName("DiamondDefender")
+            HF.name = "DiamondDefender"
             content["name"] = "DiamondDefender"
             this.name = HF.name
             price += generateAttackValue(content)
@@ -502,9 +502,9 @@ class NewFireWall() {
         val maxSpecialAttributeValue = ("" + firewall[MAX_SPECIAL_VALUE]).toFloat()
 
         HF.setDescription(description)
-        HF.setMaker(maker)
-        HF.setQuantity(1)
-        HF.setCPUCost(cpuCost)
+        HF.maker = maker
+        HF.quantity = 1
+        HF.cPUCost = cpuCost
         content["bank_damage_modifier"] = "" + baseDamageModifier
         content["attack_damage_modifier"] = "" + baseDamageModifier
         content["redirect_damage_modifier"] = "" + baseDamageModifier
@@ -520,8 +520,8 @@ class NewFireWall() {
         }
         price += firewall[BASE_PRICE] as Float
         content["store_price"] = price
-        HF.setContent(content)
-        HF.setPrice(0.0f)
+        HF.content = content
+        HF.price = 0.0f
         return HF
     }
 
@@ -644,7 +644,7 @@ class NewFireWall() {
         fun createNoneFirewall(): HackerFile {
             val HF = HackerFile(HackerFile.NEW_FIREWALL)
             val content = HashMap<Any?, Any?>()
-            HF.setName("None")
+            HF.name = "None"
 
             val firewall = firewalls[HF.name] as Array<Any?>
             content["equip_level"] = firewall[EQUIP_LEVEL]
@@ -655,9 +655,9 @@ class NewFireWall() {
             val maxSpecialAttributeValue = ("" + firewall[MAX_SPECIAL_VALUE]).toFloat()
 
             HF.setDescription(description)
-            HF.setMaker(maker)
-            HF.setQuantity(1)
-            HF.setCPUCost(cpuCost)
+            HF.maker = maker
+            HF.quantity = 1
+            HF.cPUCost = cpuCost
 
             content["bank_damage_modifier"] = "" + baseDamageModifier
             content["attack_damage_modifier"] = "" + baseDamageModifier
@@ -674,8 +674,8 @@ class NewFireWall() {
                 content["specialAttribute" + (i + 1)] = special
             }
 
-            HF.setContent(content)
-            HF.setPrice(0.0f)
+            HF.content = content
+            HF.price = 0.0f
             return HF
         }
     }

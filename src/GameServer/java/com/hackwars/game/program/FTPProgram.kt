@@ -100,13 +100,13 @@ class FTPProgram(
                     this@FTPProgram.computer!!.setDrop(HF)
                 }
                 directory[0] = id
-                listing!![0] = HF!!.getName()
-                listing[1] = HF!!.getType()
-                listing[2] = HF!!.getQuantity()
-                listing[3] = HF!!.getPrice()
-                listing[4] = HF!!.getMaker()
-                listing[5] = HF!!.getCPUCost()
-                listing[6] = HF!!.getPublicDescription()
+                listing!![0] = HF!!.name
+                listing[1] = HF!!.type
+                listing[2] = HF!!.quantity
+                listing[3] = HF!!.price
+                listing[4] = HF!!.maker
+                listing[5] = HF!!.cPUCost
+                listing[6] = HF!!.publicDescription
                 directory[1] = listing
             }
 
@@ -134,7 +134,7 @@ class FTPProgram(
                     val files = this@FTPProgram.computer!!.fileSystem.getWebDirectory("Public/")
                     for (i in files!!.indices) {
                         if (files[i] is HackerFile) {
-                            name = (files[i] as HackerFile).getName()
+                            name = (files[i] as HackerFile).name
                             break
                         }
                     }
@@ -146,19 +146,19 @@ class FTPProgram(
                     val sourceFile = MyFileSystem!!.getFile(fetchPath, name)
                     var quantity = 1
                     if (sourceFile != null) {
-                        if (sourceFile.isStacking()) {
-                            quantity = sourceFile.getQuantity() - 1
+                        if (sourceFile.isStacking) {
+                            quantity = sourceFile.quantity - 1
                         }
                     } else return
 
-                    sourceFile.setQuantity(quantity)
-                    if (sourceFile.getQuantity() <= 0 || !sourceFile.isStacking()) {
+                    sourceFile.quantity = quantity
+                    if (sourceFile.quantity <= 0 || !sourceFile.isStacking) {
                         MyFileSystem!!.deleteFile(fetchPath, name)
                     }
 
                     transferred = sourceFile.clone()
-                    transferred.setQuantity(1)
-                    transferred.setLocation(path)
+                    transferred.quantity = 1
+                    transferred.location = path
                 }
             } else {
                 transferred = this@FTPProgram.computer!!.getDrop()
@@ -203,21 +203,21 @@ class FTPProgram(
 
             var quantity = 1
             if (sourceFile != null) {
-                if (sourceFile.isStacking()) {
-                    if (sourceFile.getQuantity() < getQuantity) return
+                if (sourceFile.isStacking) {
+                    if (sourceFile.quantity < getQuantity) return
 
-                    quantity = sourceFile.getQuantity() - getQuantity
+                    quantity = sourceFile.quantity - getQuantity
                 }
             } else return
 
-            sourceFile.setQuantity(quantity)
-            if (sourceFile.getQuantity() <= 0 || !sourceFile.isStacking()) {
+            sourceFile.quantity = quantity
+            if (sourceFile.quantity <= 0 || !sourceFile.isStacking) {
                 MyFileSystem!!.deleteFile(path, name)
             }
 
             HF = sourceFile.clone()
-            HF!!.setQuantity(getQuantity)
-            HF!!.setLocation(fetchPath)
+            HF!!.quantity = getQuantity
+            HF!!.location = fetchPath
             this.fetchPath = fetchPath
 
             script = getScript
@@ -240,21 +240,21 @@ class FTPProgram(
 
             var quantity = 1
             if (sourceFile != null) {
-                if (sourceFile.isStacking()) {
-                    if (sourceFile.getQuantity() < putQuantity) return
+                if (sourceFile.isStacking) {
+                    if (sourceFile.quantity < putQuantity) return
 
-                    quantity = sourceFile.getQuantity() - putQuantity
+                    quantity = sourceFile.quantity - putQuantity
                 }
             } else return
 
-            sourceFile.setQuantity(quantity)
-            if (sourceFile.getQuantity() <= 0 || !sourceFile.isStacking()) {
+            sourceFile.quantity = quantity
+            if (sourceFile.quantity <= 0 || !sourceFile.isStacking) {
                 MyFileSystem!!.deleteFile(fetchPath, name)
             }
 
             val sendFile = sourceFile.clone()
-            sendFile.setQuantity(putQuantity)
-            sendFile.setLocation(tpath)
+            sendFile.quantity = putQuantity
+            sendFile.location = tpath
 
             this@FTPProgram.computerHandler!!.addData(
                 ApplicationData(
@@ -294,7 +294,7 @@ class FTPProgram(
                     messageData(MessageHandler.FTP_PUT_FAIL_HD_FULL, this.iP),
                     applicationData.getSourceIP()
                 )
-                HF!!.setLocation("")
+                HF!!.location = ""
                 this@FTPProgram.computerHandler!!.addData(
                     ApplicationData(SaveFile(applicationData.getSourceIP(), fetchPath, HF), 0, this.iP),
                     applicationData.getSourceIP()
@@ -306,7 +306,7 @@ class FTPProgram(
                         messageData(MessageHandler.FTP_FAIL_PASSWORD_INCORRECT, this.iP),
                         applicationData.getSourceIP()
                     )
-                    HF!!.setLocation("")
+                    HF!!.location = ""
                     this@FTPProgram.computerHandler!!.addData(
                         ApplicationData(SaveFile(applicationData.getSourceIP(), fetchPath, HF), 0, this.iP),
                         applicationData.getSourceIP()

@@ -250,17 +250,19 @@ open class FileSystem(private val MyComputer: Computer) {
      Add a file to the file system.
      */
     fun addFile(HF: HackerFile, checkSpace: Boolean): Boolean {
-        if (HF.getType() == HackerFile.BOUNTY || HF.getType() == HackerFile.PCI || HF.getType() == HackerFile.AGP) {
-            val STimeOut = HF.getContent().get("timeout") as String?
+        if (HF.type == HackerFile.BOUNTY || HF.type == HackerFile.PCI || HF.type == HackerFile.AGP) {
+            val content = HF.content as? HashMap<Any?, Any?> ?: hashMapOf()
+            val STimeOut = content["timeout"] as String?
             var timeOut = MyComputer.currentTime
 
             if (STimeOut == null || STimeOut == "") {
-                HF.getContent()["timeout"] = "" + timeOut
+                content["timeout"] = "" + timeOut
+                HF.content = content
             } else {
                 timeOut = java.lang.Long.valueOf(STimeOut)
             }
 
-            if (MyComputer.currentTime - timeOut > 86400000L && (HF.getType() == HackerFile.AGP || HF.getType() == HackerFile.PCI)) {
+            if (MyComputer.currentTime - timeOut > 86400000L && (HF.type == HackerFile.AGP || HF.type == HackerFile.PCI)) {
                 if (MyComputer.getIP() == "900.800.7.006") {
                     return true
                 }
@@ -273,7 +275,7 @@ open class FileSystem(private val MyComputer: Computer) {
             }
         }
 
-        val locationPath = HF.getLocation().split("/".toRegex()).dropLastWhile { it.isEmpty() }.toTypedArray()
+        val locationPath = HF.location.orEmpty().split("/".toRegex()).dropLastWhile { it.isEmpty() }.toTypedArray()
         var currentHashMap = root
         for (i in locationPath.indices) {
             if (locationPath[i] != "") {
@@ -287,7 +289,7 @@ open class FileSystem(private val MyComputer: Computer) {
             }
         }
         var Exists = false
-        if (currentHashMap[HF.getName()] != null) {
+        if (currentHashMap[HF.name] != null) {
             Exists = true
         }
 
@@ -297,7 +299,7 @@ open class FileSystem(private val MyComputer: Computer) {
             }
         }
 
-        currentHashMap[HF.getName()] = HF
+        currentHashMap[HF.name] = HF
         if (!Exists) {
             quota++
         }
@@ -371,15 +373,15 @@ open class FileSystem(private val MyComputer: Computer) {
             } else {
                 val HF = ME.value as HackerFile
                 val O = arrayOfNulls<Any>(9)
-                O[0] = HF.getName()
-                O[1] = Integer.valueOf(HF.getType())
-                O[2] = Integer.valueOf(HF.getQuantity())
-                O[3] = java.lang.Float.valueOf(HF.getPrice())
-                O[4] = HF.getMaker()
-                O[5] = HF.getCPUCost()
-                O[6] = HF.getPublicDescription()
-                if (HF.getType() == HackerFile.NEW_FIREWALL) {
-                    val content = HF.getContent()
+                O[0] = HF.name
+                O[1] = Integer.valueOf(HF.type)
+                O[2] = Integer.valueOf(HF.quantity)
+                O[3] = java.lang.Float.valueOf(HF.price)
+                O[4] = HF.maker
+                O[5] = HF.cPUCost
+                O[6] = HF.publicDescription
+                if (HF.type == HackerFile.NEW_FIREWALL) {
+                    val content = HF.content as? HashMap<Any?, Any?> ?: hashMapOf()
                     var priceObject = content["store_price"]
                     if (priceObject == null) {
                         O[7] = 0.0f
@@ -390,9 +392,9 @@ open class FileSystem(private val MyComputer: Computer) {
                         val price = java.lang.Float.valueOf("" + priceObject)
                         O[7] = price
                     }
-                    O[8] = HF.getContent()
-                } else if (Computer.makers.containsKey(HF.getMaker())) {
-                    val price = Computer.makers[HF.getMaker()] as Float
+                    O[8] = HF.content
+                } else if (Computer.makers.containsKey(HF.maker)) {
+                    val price = Computer.makers[HF.maker] as Float
                     O[7] = price
                     O[8] = null
                 } else {
@@ -431,9 +433,9 @@ open class FileSystem(private val MyComputer: Computer) {
             } else {
                 var HF = ME.value as HackerFile?
                 if (HF != null) {
-                    if (HF.getType() != HackerFile.BOUNTY && HF.getType() != HackerFile.AGP && HF.getType() != HackerFile.PCI && HF.getType() != HackerFile.HD && HF.getType() != HackerFile.MEMORY && HF.getType() != HackerFile.CPU && HF.getType() != HackerFile.NEW_FIREWALL) {
+                    if (HF.type != HackerFile.BOUNTY && HF.type != HackerFile.AGP && HF.type != HackerFile.PCI && HF.type != HackerFile.HD && HF.type != HackerFile.MEMORY && HF.type != HackerFile.CPU && HF.type != HackerFile.NEW_FIREWALL) {
                         HF = HF.clone()
-                        HF.setContent(null)
+                        HF.content = null
                     }
                 }
                 HF
@@ -491,7 +493,7 @@ open class FileSystem(private val MyComputer: Computer) {
             val ME = DirectoryIterator.next() as Map.Entry<Any?, Any?>
             val o: Any? = if (ME.value is HashMap<*, *>) ME.key else ME.value as HackerFile
             if (o is HackerFile) {
-                if (o.getType() == HackerFile.AGP || o.getType() == HackerFile.PCI) {
+                if (o.type == HackerFile.AGP || o.type == HackerFile.PCI) {
                     ReturnMe[i] = o
                 } else {
                     ReturnMe[i] = null
@@ -547,7 +549,7 @@ open class FileSystem(private val MyComputer: Computer) {
         for (i in rootFiles.indices) {
             if (rootFiles[i] is HackerFile) {
                 val HF = rootFiles[i] as HackerFile
-                if (HF.getType() == FileType) {
+                if (HF.type == FileType) {
                     returnMe.add(HF)
                 }
             }

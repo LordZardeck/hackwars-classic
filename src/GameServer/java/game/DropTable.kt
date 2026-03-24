@@ -76,7 +76,7 @@ open class DropTable @JvmOverloads constructor(
             temp = LX.findNodeRecursive(N, "cpu", 0)
             temp = LX.findNodeRecursive(temp, "#text", 0)
             val cpu = java.lang.Float.valueOf(temp.nodeValue)
-            HF.cpuCost = cpu
+            HF.cPUCost = cpu
 
             temp = LX.findNodeRecursive(N, "maker", 0)
             temp = LX.findNodeRecursive(temp, "#text", 0)
@@ -88,7 +88,7 @@ open class DropTable @JvmOverloads constructor(
             val Script = HashMap<Any?, Any?>()
             val N2 = LX.findNodeRecursive(N, "content", 0)
             if (N2 != null) {
-                val Keys = HF.getTypeKeys()
+                val Keys = HF.typeKeys
                 for (ii in Keys.indices) {
                     temp = LX.findNodeRecursive(N2, Keys[ii], 0)
                     if (temp != null) {
@@ -142,7 +142,7 @@ open class DropTable @JvmOverloads constructor(
 
             when (file?.name) {
                 "Equipment", "LowEquipment", "MediumEquipment", "HighEquipment", "RareEquipment" -> {
-                    return generateHardware(HardwareRarity.fromMaker(file.maker))
+                    return generateHardware(HardwareRarity.fromMaker(file.maker.orEmpty()))
                 }
             }
 
@@ -159,7 +159,7 @@ open class DropTable @JvmOverloads constructor(
 
         when (file?.name) {
             "Equipment", "LowEquipment", "MediumEquipment", "HighEquipment", "RareEquipment" -> {
-                return generateHardware(HardwareRarity.fromMaker(file.maker))
+                return generateHardware(HardwareRarity.fromMaker(file.maker.orEmpty()))
             }
         }
 

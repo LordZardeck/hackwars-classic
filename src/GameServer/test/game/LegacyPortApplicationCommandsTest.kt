@@ -68,8 +68,8 @@ class LegacyPortApplicationCommandsTest {
         val fixture = baseComputer("3.3.3.3")
         `when`(fixture.fileSystem.getSpaceLeft()).thenReturn(1)
         val installed = HackerFile(HackerFile.NEW_FIREWALL)
-        installed.setName("Shield")
-        installed.setQuantity(0)
+        installed.name = "Shield"
+        installed.quantity = 0
 
         val firewall = mock(NewFireWall::class.java)
         `when`(firewall.getHackerFile()).thenReturn(installed)
@@ -89,7 +89,7 @@ class LegacyPortApplicationCommandsTest {
         verify(fixture.fileSystem).addFile(installed, false)
         val firewallCaptor = argumentCaptor<HackerFile>()
         verify(port).setFireWall(firewallCaptor.capture())
-        assertEquals("None", firewallCaptor.firstValue.getName())
+        assertEquals("None", firewallCaptor.firstValue.name)
         assertNotNull(firewallCaptor.firstValue)
         val messageCaptor = argumentCaptor<Array<out Any?>>()
         val parameterCaptor = argumentCaptor<Array<Any?>>()
@@ -105,7 +105,7 @@ class LegacyPortApplicationCommandsTest {
         val firewallFile = HackerFile(HackerFile.NEW_FIREWALL)
         val content = HashMap<Any?, Any?>()
         content["equip_level"] = "5"
-        firewallFile.setContent(content)
+        firewallFile.content = content
         `when`(fixture.fileSystem.getFile("Public/", "wall")).thenReturn(firewallFile)
         fixture.stats["FireWall"] = 0.0f
         doReturn(0).`when`(fixture.computer).getLevel(anyFloat())
@@ -145,13 +145,13 @@ class LegacyPortApplicationCommandsTest {
     fun dispatch_installApplication_createsDefaultBankPortAndRefreshes() {
         val fixture = baseComputer("5.5.5.6")
         val application = HackerFile(HackerFile.BANKING_COMPILED)
-        application.setQuantity(2)
-        application.setCPUCost(0f)
+        application.quantity = 2
+        application.cPUCost = 0f
         val content = HashMap<Any?, Any?>()
         content["deposit"] = "dep"
         content["withdraw"] = "wd"
         content["transfer"] = "tr"
-        application.setContent(content)
+        application.content = content
         `when`(fixture.fileSystem.getFile("Public/", "bank")).thenReturn(application)
 
         val handled = handler.dispatch(
@@ -167,7 +167,7 @@ class LegacyPortApplicationCommandsTest {
         assertEquals(6, installedPort.getNumber())
         assertEquals(Port.BANKING, installedPort.getType())
         assertTrue(installedPort.getOn())
-        assertEquals(1, application.getQuantity())
+        assertEquals(1, application.quantity)
         assertFetchPortsRefresh(fixture.networkSwitch, "5.5.5.6")
     }
 
@@ -190,13 +190,13 @@ class LegacyPortApplicationCommandsTest {
     fun dispatch_replaceApplication_whenPortIsUnderAttack_addsFailureAndLeavesFileUntouched() {
         val fixture = baseComputer("6.6.6.7")
         val application = HackerFile(HackerFile.BANKING_COMPILED)
-        application.setQuantity(2)
-        application.setCPUCost(0f)
+        application.quantity = 2
+        application.cPUCost = 0f
         val content = HashMap<Any?, Any?>()
         content["deposit"] = "dep"
         content["withdraw"] = "wd"
         content["transfer"] = "tr"
-        application.setContent(content)
+        application.content = content
         `when`(fixture.fileSystem.getFile("Public/", "bank")).thenReturn(application)
 
         val port = mock(Port::class.java)
@@ -214,7 +214,7 @@ class LegacyPortApplicationCommandsTest {
         )
 
         assertTrue(handled)
-        assertEquals(2, application.getQuantity())
+        assertEquals(2, application.quantity)
         verify(fixture.computer).addMessage(MessageHandler.REPLACE_APPLICATION_UNDER_ATTACK)
         assertFetchPortsRefresh(fixture.networkSwitch, "6.6.6.7")
     }
@@ -223,18 +223,18 @@ class LegacyPortApplicationCommandsTest {
     fun dispatch_installFirewall_replacesExistingFirewallAndRefreshes() {
         val fixture = baseComputer("6.6.6.8")
         val firewallFile = HackerFile(HackerFile.NEW_FIREWALL)
-        firewallFile.setQuantity(2)
-        firewallFile.setCPUCost(0f)
+        firewallFile.quantity = 2
+        firewallFile.cPUCost = 0f
         val content = HashMap<Any?, Any?>()
         content["equip_level"] = "0"
-        firewallFile.setContent(content)
+        firewallFile.content = content
         `when`(fixture.fileSystem.getFile("Public/", "wall")).thenReturn(firewallFile)
         fixture.stats["FireWall"] = 0.0f
         doReturn(0).`when`(fixture.computer).getLevel(anyFloat())
 
         val installed = HackerFile(HackerFile.NEW_FIREWALL)
-        installed.setName("OldWall")
-        installed.setQuantity(0)
+        installed.name = "OldWall"
+        installed.quantity = 0
         val existingFirewall = mock(NewFireWall::class.java)
         `when`(existingFirewall.getHackerFile()).thenReturn(installed)
 
@@ -250,7 +250,7 @@ class LegacyPortApplicationCommandsTest {
         )
 
         assertTrue(handled)
-        assertEquals(1, firewallFile.getQuantity())
+        assertEquals(1, firewallFile.quantity)
         verify(fixture.fileSystem).addFile(installed, false)
         verify(port).setFireWall(firewallFile)
         val messageCaptor = argumentCaptor<Array<out Any?>>()

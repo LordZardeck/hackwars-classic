@@ -118,8 +118,8 @@ open class MakeClue(private val MyFileSystem: FileSystem, private val MyComputer
      */
     fun checkFile(HF: HackerFile, MyComputer: Computer, Result: String, ClueType: Int) {
         try {
-            if (HF.getType() == HackerFile.CLUE) {
-                val Content = HF.getContent()
+            if (HF.type == HackerFile.CLUE) {
+                val Content = HF.content as? MutableMap<Any?, Any?> ?: return
                 var currentStep = Integer.valueOf(Content["currentstep"] as String)
                 var data = Content["step$currentStep"] as String
                 var ClueData = data.split("\\+".toRegex()).toTypedArray()
@@ -136,11 +136,11 @@ open class MakeClue(private val MyFileSystem: FileSystem, private val MyComputer
                     HF.setDescription(ClueData[1])
                     DataType = Integer.valueOf(ClueData[0])
                     if (DataType == FINISH) {
-                        if (HF.getName().indexOf("Gateway Document") == -1) {
+                        if (HF.name.orEmpty().indexOf("Gateway Document") == -1) {
                             val MyDropTable = DropTable(0, MyComputer)
                             val clueLevel = Integer.valueOf(Content["cluelevel"] as String).toInt()
 
-                            MyComputer.fileSystem.deleteFile("", HF.getName())
+                            MyComputer.fileSystem.deleteFile("", HF.name)
                             MyComputer.addMessage("Congratulations! You have completed all the tasks assigned in a secret document.")
                             MyComputer.addMessage("")
                             MyComputer.addMessage("Rewards:")
@@ -166,8 +166,8 @@ open class MakeClue(private val MyFileSystem: FileSystem, private val MyComputer
                                 H1 = MyDropTable.generateDrop()
                                 H2 = MyDropTable.generateDrop()
                             }
-                            MyComputer.addMessage("Rewarded File " + H1!!.getName())
-                            MyComputer.addMessage("Rewarded File " + H2!!.getName())
+                            MyComputer.addMessage("Rewarded File " + H1!!.name)
+                            MyComputer.addMessage("Rewarded File " + H2!!.name)
 
                             MyComputer.computerHandler.addData(
                                 ApplicationData(SaveFile(MyComputer.getIP(), "", H1!!), 0, MyComputer.getIP()),
@@ -178,14 +178,14 @@ open class MakeClue(private val MyFileSystem: FileSystem, private val MyComputer
                                 MyComputer.getIP()
                             )
                         } else {
-                            MyComputer.fileSystem.deleteFile("", HF.getName())
+                            MyComputer.fileSystem.deleteFile("", HF.name)
                             MyComputer.computerHandler.addData(
                                 ApplicationData(
                                     RequestNetworkHopPayload(MyComputer.getIP()),
                                     0,
                                     MyComputer.getIP()
                                 ),
-                                HF.getMaker()
+                                HF.maker
                             )
                         }
                     }
@@ -204,16 +204,16 @@ open class MakeClue(private val MyFileSystem: FileSystem, private val MyComputer
         val HF = HackerFile(HackerFile.CLUE)
 
         if (!MyComputer.isGateway()) {
-            HF.setName(DROP_NAME[clueLevel])
+            HF.name = DROP_NAME[clueLevel]
         } else {
-            HF.setName("Gateway Document")
+            HF.name = "Gateway Document"
         }
 
-        HF.setQuantity(1)
+        HF.quantity = 1
         if (!MyComputer.isGateway()) {
-            HF.setMaker("Johnny Heart")
+            HF.maker = "Johnny Heart"
         } else {
-            HF.setMaker(MyComputer.getIP())
+            HF.maker = MyComputer.getIP()
         }
 
         val Data = HashMap<Any?, Any?>()
@@ -232,7 +232,7 @@ open class MakeClue(private val MyFileSystem: FileSystem, private val MyComputer
         val ClueData = data.split("\\+".toRegex()).toTypedArray()
         HF.setDescription(ClueData[1])
 
-        HF.setContent(Data)
+        HF.content = Data
         return HF
     }
 

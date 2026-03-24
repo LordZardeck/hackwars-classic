@@ -19,12 +19,12 @@ class LegacyScriptInstallCommands : LegacyApplicationDataHandler {
 
         val hackerFile = computer.MyFileSystem.getFile(payload.path, payload.file)
         if (hackerFile != null) {
-            hackerFile.setQuantity(hackerFile.getQuantity() - 1)
-            if (hackerFile.getQuantity() <= 0) {
+            hackerFile.quantity = hackerFile.quantity - 1
+            if (hackerFile.quantity <= 0) {
                 computer.MyFileSystem.deleteFile(payload.path, payload.file)
             }
 
-            val content = hackerFile.getContent() as HashMap<*, *>
+            val content = hackerFile.content as? HashMap<*, *> ?: hashMapOf<Any?, Any?>()
             val forwardedPayload = InstallScriptPayload(content, payload.maliciousParameters)
             computer.MyComputerHandler.addData(
                 ApplicationData(forwardedPayload, payload.targetPort, computer.ip),

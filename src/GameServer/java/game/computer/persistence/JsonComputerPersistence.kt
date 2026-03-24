@@ -297,17 +297,18 @@ class JsonComputerPersistenceSupport(
                 val rawSpecial = rawContent[key] as? Map<*, *> ?: emptyMap<Any?, Any?>()
                 val fields = LinkedHashMap<String, TextFieldSave>()
                 file.specialKeys.forEach { specialKey ->
+                    val nestedKey = specialKey ?: return@forEach
                     val rawValue = rawSpecial[specialKey]?.toString()
                     val textField = captureFileText(
                         file.type,
                         key,
                         rawValue,
-                        "$basePath/content/$key/$specialKey",
+                        "$basePath/content/$key/$nestedKey",
                         blobs,
-                        specialKey = specialKey,
+                        specialKey = nestedKey,
                     )
                     if (textField != null) {
-                        fields[specialKey] = textField
+                        fields[nestedKey] = textField
                     }
                 }
                 if (fields.isNotEmpty()) {
@@ -336,7 +337,7 @@ class JsonComputerPersistenceSupport(
             description = file.publicDescription ?: "",
             price = file.price,
             quantity = file.quantity,
-            cpuCost = file.cpuCost,
+            cpuCost = file.cPUCost,
             maker = file.maker ?: "",
             content = content,
             specialAttributes = specialAttributes,
@@ -429,7 +430,7 @@ class JsonComputerPersistenceSupport(
         result.setDescription(file.description)
         result.price = file.price
         result.quantity = file.quantity
-        result.cpuCost = file.cpuCost
+        result.cPUCost = file.cpuCost
         result.maker = file.maker
 
         val content = HashMap<String, Any?>()

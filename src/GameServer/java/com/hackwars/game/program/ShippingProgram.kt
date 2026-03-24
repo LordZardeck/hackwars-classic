@@ -440,13 +440,13 @@ class ShippingProgram(computer: Computer?, computerHandler: NetworkSwitch?, priv
 
         LastFile = HF
 
-        HF.setQuantity(HF.getQuantity() - 1)
-        if (HF.getQuantity() <= 0) {
+        HF.quantity = HF.quantity - 1
+        if (HF.quantity <= 0) {
             computer!!.fileSystem
                 .deleteFile(MaliciousCode!![targetPortType]!![0], MaliciousCode!![targetPortType]!![1])
         }
 
-        return (HF.getContent())
+        return (HF.content)
     }
 
     /**

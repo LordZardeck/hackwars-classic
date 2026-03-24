@@ -38,7 +38,7 @@ class DropTableTest {
         val result = dropTable.generateDrop()
 
         assertNotNull(result)
-        assertEquals("QuestNote", result.getName())
+        assertEquals("QuestNote", result.name)
         assertEquals(7, service.requestedDropId)
     }
 

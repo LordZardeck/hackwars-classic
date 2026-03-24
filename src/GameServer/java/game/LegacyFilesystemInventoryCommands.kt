@@ -47,7 +47,7 @@ class LegacyFilesystemInventoryCommands : LegacyApplicationDataHandler {
                 var file = computer.MyFileSystem.getFile(path, name)
                 if (file != null && (file.type == HackerFile.GAME || file.type == HackerFile.GAME_PROJECT)) {
                     file = file.clone()
-                    file.setContent(null)
+                    file.content = null
                 }
                 computer.PA.setFile(file)
                 computer.systemChange = true
@@ -61,7 +61,7 @@ class LegacyFilesystemInventoryCommands : LegacyApplicationDataHandler {
                 val loadFile = HashMap<Any?, Any?>()
                 val saveFile = computer.MyFileSystem.getFile("", "$name.save")
                 if (saveFile != null) {
-                    val data = saveFile.getContent()["data"] as String?
+                    val data = (saveFile.content as? Map<*, *>)?.get("data") as String?
                     if (data != null) {
                         val entries = data.split("\n")
                         try {
@@ -111,7 +111,7 @@ class LegacyFilesystemInventoryCommands : LegacyApplicationDataHandler {
                 val price = payload.price ?: 0.0f
                 val file = computer.MyFileSystem.getFile(path, name)
                 if (file != null) {
-                    file.setPrice(price)
+                    file.price = price
                     computer.PA.setFile(file)
                 }
                 computer.systemChange = true
@@ -151,13 +151,13 @@ class LegacyFilesystemInventoryCommands : LegacyApplicationDataHandler {
                     levels["Merchanting"] = Integer.valueOf(100)
                     levels["Watch"] = Integer.valueOf(100)
                     try {
-                        val result = executeCompileApplication(computer, existingFile.type, existingFile.getContent(), levels)
+                        val result = executeCompileApplication(computer, existingFile.type, existingFile.content as? HashMap<*, *> ?: hashMapOf<Any?, Any?>(), levels)
                         if (result != null && (result["error"] as String).length == 0) {
                             compilePrice = ((result["price"] as Double).toFloat())
                         }
                     } catch (_: Exception) {
                     }
-                    existingFile.setQuantity(existingFile.quantity - 1)
+                    existingFile.quantity = existingFile.quantity - 1
                     if (existingFile.quantity <= 0) {
                         computer.MyFileSystem.deleteFile(path, existingFile.name)
                     }
@@ -183,14 +183,14 @@ class LegacyFilesystemInventoryCommands : LegacyApplicationDataHandler {
                     )
 
                     if (file.type != HackerFile.HTTP) {
-                        file.setType(file.type + 1)
+                        file.type = file.type + 1
                     }
                     if (existingFile.type != HackerFile.HTTP_SCRIPT) {
-                        file.setType(existingFile.type + 1)
+                        file.type = existingFile.type + 1
                     } else {
-                        file.setType(HackerFile.HTTP_SCRIPT)
+                        file.type = HackerFile.HTTP_SCRIPT
                     }
-                    file.setName(existingFile.name.replace("\\.bin".toRegex(), ""))
+                    file.name = existingFile.name.orEmpty().replace("\\.bin".toRegex(), "")
                     computer.MyComputerHandler.addData(
                         ApplicationData(PettyCashDeltaPayload(compilePrice), 0, computer.ip),
                         computer.ip
@@ -215,14 +215,14 @@ class LegacyFilesystemInventoryCommands : LegacyApplicationDataHandler {
                         if (file.type != HackerFile.NEW_FIREWALL) {
                             totalPay += (Computer.makers[maker] as Float) * quantity.toInt()
                         } else {
-                            val content = file.getContent()
+                            val content = file.content as? Map<*, *> ?: emptyMap<Any?, Any?>()
                             val price = content["store_price"]
                             if (price != null) {
                                 totalPay += java.lang.Float.parseFloat("" + price)
                             }
                         }
                         if (file != null && file.quantity >= quantity.toInt()) {
-                            file.setQuantity(file.quantity - quantity.toInt())
+                            file.quantity = file.quantity - quantity.toInt()
                             if (file.quantity <= 0) {
                                 computer.MyFileSystem.deleteFile(path, file.name)
                             }
@@ -287,11 +287,11 @@ class LegacyFilesystemInventoryCommands : LegacyApplicationDataHandler {
                 playerLevels["Redirecting"] = Integer.valueOf(computer.getLevel(computer.Stats["Redirecting"] as Float))
 
                 try {
-                    val result = executeCompileApplication(computer, file.type, file.getContent(), playerLevels)
+                    val result = executeCompileApplication(computer, file.type, file.content as? HashMap<*, *> ?: hashMapOf<Any?, Any?>(), playerLevels)
                     if (result != null && (result["error"] as String).length == 0) {
                         val cpuCost = (result["cpucost"] as Double).toFloat()
                         price = (result["price"] as Double).toFloat()
-                        file.setCPUCost(cpuCost)
+                        file.cPUCost = cpuCost
                     }
                 } catch (_: Exception) {
                     success = false
@@ -339,7 +339,7 @@ class LegacyFilesystemInventoryCommands : LegacyApplicationDataHandler {
                         ApplicationData(PettyCashDeltaPayload(price * -1.0f), 0, computer.ip),
                         computer.ip
                     )
-                    file.setMaker(computer.userName)
+                    file.maker = computer.userName
                     computer.saveFile(file, existingFile, path)
                 }
                 return true
@@ -372,7 +372,7 @@ class LegacyFilesystemInventoryCommands : LegacyApplicationDataHandler {
             minimumSellPrice = Computer.makers[file.maker] as Float
         }
 
-        file.setQuantity(1)
+        file.quantity = 1
         var compilePrice = payload.compileCost
         val playerLevels = HashMap<Any?, Any?>()
         playerLevels["Attack"] = Integer.valueOf(100)
@@ -382,7 +382,7 @@ class LegacyFilesystemInventoryCommands : LegacyApplicationDataHandler {
         playerLevels["Redirecting"] = Integer.valueOf(100)
 
         try {
-            val result = executeCompileApplication(computer, file.type, file.getContent(), playerLevels)
+            val result = executeCompileApplication(computer, file.type, file.content as? HashMap<*, *> ?: hashMapOf<Any?, Any?>(), playerLevels)
             if (result != null && (result["error"] as String).length == 0) {
                 compilePrice = (result["price"] as Double).toFloat()
             }
@@ -409,14 +409,14 @@ class LegacyFilesystemInventoryCommands : LegacyApplicationDataHandler {
             sellPrice = minimumSellPrice
         }
 
-        file.setPrice(sellPrice)
+        file.price = sellPrice
 
         if (file.type == HackerFile.NEW_FIREWALL) {
             success = false
         }
 
         if (success) {
-            file.setLocation("Store/")
+            file.location = "Store/"
             computer.saveFile(file, existingFile, path)
 
             if (file.type == HackerFile.PCI || file.type == HackerFile.AGP) {

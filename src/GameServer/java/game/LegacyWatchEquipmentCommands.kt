@@ -34,7 +34,7 @@ class LegacyWatchEquipmentCommands : LegacyApplicationDataHandler {
 
             if (computer.MyWatchHandler.watches.size < 21) {
                 if (hackerFile != null && hackerFile.type == HackerFile.WATCH_COMPILED) {
-                    val cpuCheck = computer.cPULoad + hackerFile.cpuCost
+                    val cpuCheck = computer.cPULoad + hackerFile.cPUCost
                     val maxCpu = computer.maximumCPULoad
                     if (cpuCheck <= maxCpu) {
                         hackerFile.quantity = hackerFile.quantity - 1
@@ -45,7 +45,7 @@ class LegacyWatchEquipmentCommands : LegacyApplicationDataHandler {
                         val watch = Watch(computer)
                         watch.type = payload.type
                         watch.searchFireWall = 0
-                        watch.actualCpuCost = hackerFile.cpuCost
+                        watch.actualCpuCost = hackerFile.cPUCost
                         watch.note = payload.name
                         watch.on = false
                         watch.quantity = 0.0f

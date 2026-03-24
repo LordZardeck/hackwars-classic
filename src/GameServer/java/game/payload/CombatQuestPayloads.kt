@@ -314,7 +314,7 @@ object CombatQuestSupport {
         if (questItems != null) {
             for (index in questItems.indices) {
                 val file = questItems[index] as game.HackerFile
-                val content = file.content
+                val content = file.content as? Map<*, *> ?: continue
                 val itemName = content["itemname"] as? String ?: continue
                 response[itemName] = "true"
                 response["${itemName}_quantity"] = file.quantity.toString()

@@ -133,7 +133,7 @@ class EquipmentSheet {
     }
 
     private fun buildCardBonuses(card: HackerFile): List<BonusData> {
-        val content = card.content
+        val content = card.content as? Map<*, *> ?: return emptyList()
         return buildList {
             add(getBonusData(card, content.requireInt("attribute0"), content.requireInt("quality0")))
             add(getBonusData(card, content.requireInt("attribute1"), content.requireInt("quality1")))
@@ -191,7 +191,7 @@ class EquipmentSheet {
     fun describeCard(card: HackerFile?) {
         card ?: return
         val bonusCheck = BonusData(card)
-        val content = card.content
+        val content = card.content as? MutableMap<Any?, Any?> ?: return
         val descriptions = buildList {
             add(describeAttribute(content.requireInt("attribute0"), content.requireInt("quality0"), bonusCheck))
             add(describeAttribute(content.requireInt("attribute1"), content.requireInt("quality1"), bonusCheck))
@@ -200,7 +200,7 @@ class EquipmentSheet {
                 ?.let { add(describeAttribute(it.attribute, it.quality, bonusCheck)) }
         }
 
-        card.content["bonusdata"] = descriptions.joinToString("|")
+        content["bonusdata"] = descriptions.joinToString("|")
     }
 
     fun describeAttribute(attribute: Int, quality: Int, bonusData: BonusData): String {

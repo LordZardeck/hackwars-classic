@@ -22,7 +22,7 @@ class PortTypedPayloadTest {
 
         val port = Port(computer, computerHandler)
         val file = HackerFile(HackerFile.HTTP)
-        file.setName("artifact")
+        file.name = "artifact"
 
         port.friendlyPut(
             ApplicationData(

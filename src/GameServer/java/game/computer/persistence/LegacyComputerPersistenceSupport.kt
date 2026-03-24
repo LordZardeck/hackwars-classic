@@ -253,18 +253,17 @@ class LegacyComputerPersistenceSupport(
         val file = HackerFile(type)
 
         file.name = text(loadXml.findNode(node, "name", 0), loadXml) ?: "CORRUPT(DELETE)"
-        text(loadXml.findNode(node, "location", 0), loadXml)?.let(file::setLocation)
+        file.location = text(loadXml.findNode(node, "location", 0), loadXml)
         text(loadXml.findNode(node, "description", 0), loadXml)?.let(file::setDescription)
         file.price = text(loadXml.findNode(node, "price", 0), loadXml)?.toFloatOrNull() ?: 0f
         file.quantity = text(loadXml.findNode(node, "quantity", 0), loadXml)?.toIntOrNull() ?: 0
-        file.cpuCost = text(loadXml.findNode(node, "cpu", 0), loadXml)?.toFloatOrNull() ?: 0f
-        text(loadXml.findNode(node, "maker", 0), loadXml)?.let(file::setMaker)
+        file.cPUCost = text(loadXml.findNode(node, "cpu", 0), loadXml)?.toFloatOrNull() ?: 0f
+        file.maker = text(loadXml.findNode(node, "maker", 0), loadXml)
 
-        val content = HashMap<String, Any>()
+        val content = HashMap<Any?, Any?>()
         val contentNode = loadXml.findNode(node, "content", 0)
         if (contentNode != null) {
-            file.getTypeKeys().forEach { rawKey ->
-                val key = rawKey ?: return@forEach
+            file.typeKeys.forEach { key ->
                 val keyNode = loadXml.findNode(contentNode, key, 0)
                 if (keyNode == null) {
                     content[key] = ""
@@ -357,14 +356,14 @@ class LegacyComputerPersistenceSupport(
             if (file.type != HackerFile.FIREWALL) {
                 computer.MyFileSystem.addFile(file, false)
             } else {
-                val content = file.content
+                val content = file.content as? Map<*, *> ?: emptyMap<Any?, Any?>()
                 val firewallLevel = (content["data"] as? String)?.toIntOrNull() ?: 0
                 val quantity = file.quantity
                 var generatedName = ""
                 repeat(quantity) { offset ->
                     val generated = NewFireWall().updateFirewall(firewallLevel)
                     if (generatedName.isEmpty()) {
-                        generatedName = generated.name
+                        generatedName = generated.name.orEmpty()
                     } else {
                         generated.name = generatedName + offset
                     }

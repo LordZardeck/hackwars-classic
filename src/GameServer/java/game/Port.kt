@@ -1130,7 +1130,7 @@ class Port(
             val fetchPath = payload.fetchPath
             val hf = payload.file
             myComputerHandler.addData(messageData(MessageHandler.FTP_PUT_FAIL, IP), MyApplicationData.getSourceIP())
-            hf.setLocation("")
+            hf.location = ""
             myComputerHandler.addData(
                 ApplicationData(SaveFile(MyApplicationData.getSourceIP(), fetchPath, hf), 0, IP),
                 MyApplicationData.getSourceIP()

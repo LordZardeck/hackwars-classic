@@ -31,12 +31,12 @@ class LegacyScriptInstallCommandsTest {
     fun dispatch_requestInstallScript_queuesInstallScriptAndDeletesExhaustedFile() {
         val fixture = baseComputer("2.2.2.2")
         val hackerFile = HackerFile(HackerFile.BANKING_COMPILED)
-        hackerFile.setQuantity(1)
+        hackerFile.quantity = 1
         val content = HashMap<Any?, Any?>()
         content["deposit"] = "dep"
         content["withdraw"] = "wd"
         content["transfer"] = "tr"
-        hackerFile.setContent(content)
+        hackerFile.content = content
         whenever(fixture.fileSystem.getFile("Public/", "bank")).thenReturn(hackerFile)
 
         val maliciousParameters = arrayOf<Any>("target", 5.0f)

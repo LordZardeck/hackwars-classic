@@ -70,8 +70,8 @@ class LegacyFilesystemInventoryCommandsTest {
 
         assertTrue(handled)
         assertNotNull(computer.PA.getFile())
-        assertNull(computer.PA.getFile().getContent())
-        assertNotNull(file.getContent())
+        assertNull(computer.PA.getFile().content)
+        assertNotNull(file.content)
     }
 
     @Test
@@ -84,7 +84,7 @@ class LegacyFilesystemInventoryCommandsTest {
         val saveContent = HashMap<Any?, Any?>()
         saveContent["data"] = "name\tstring\tplayer\nalive\tbool\ttrue\nscore\tint\t7"
         saveContent["level"] = "1"
-        saveFile.setContent(saveContent)
+        saveFile.content = saveContent
         computer.MyFileSystem.addFile(saveFile, true)
 
         val handled = handler.dispatch(
@@ -212,36 +212,36 @@ class LegacyFilesystemInventoryCommandsTest {
 
     private fun textFile(name: String): HackerFile {
         val file = HackerFile(HackerFile.TEXT)
-        file.setName(name)
-        file.setLocation("")
+        file.name = name
+        file.location = ""
         file.setDescription("text")
-        file.setQuantity(1)
+        file.quantity = 1
         val content = HashMap<Any?, Any?>()
         content["data"] = "hello"
         content["level"] = "1"
-        file.setContent(content)
+        file.content = content
         return file
     }
 
     private fun gameFile(name: String): HackerFile {
         val file = HackerFile(HackerFile.GAME)
-        file.setName(name)
-        file.setLocation("")
+        file.name = name
+        file.location = ""
         file.setDescription("game")
-        file.setQuantity(1)
+        file.quantity = 1
         val content = HashMap<Any?, Any?>()
         content["data"] = "payload"
         content["level"] = "1"
-        file.setContent(content)
+        file.content = content
         return file
     }
 
     private fun clueFile(name: String, description: String): HackerFile {
         val file = HackerFile(HackerFile.CLUE)
-        file.setName(name)
-        file.setLocation("")
+        file.name = name
+        file.location = ""
         file.setDescription(description)
-        file.setQuantity(1)
+        file.quantity = 1
         val content = HashMap<Any?, Any?>()
         content["currentstep"] = "1"
         content["cluelevel"] = "1"
@@ -251,7 +251,7 @@ class LegacyFilesystemInventoryCommandsTest {
         content["step3"] = "d"
         content["step4"] = "e"
         content["step5"] = "f"
-        file.setContent(content)
+        file.content = content
         return file
     }
 }

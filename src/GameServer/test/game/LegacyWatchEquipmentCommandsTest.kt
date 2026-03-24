@@ -158,8 +158,8 @@ class LegacyWatchEquipmentCommandsTest {
             assertNotNull(fixture.computer.PA.getSecondaryDirectory())
             assertEquals(13, fixture.computer.PA.getSecondaryDirectory()[0])
             val returned = fixture.computer.PA.getDirectory()[1] as HackerFile
-            assertEquals("Alpha AGP", returned.getName())
-            assertNotNull(returned.getContent()["bonusdata"])
+            assertEquals("Alpha AGP", returned.name)
+            assertNotNull((returned.content as Map<*, *>)["bonusdata"])
         } finally {
             fixture.close()
         }
@@ -187,14 +187,14 @@ class LegacyWatchEquipmentCommandsTest {
 
         fun createEquipmentFile(type: Int, name: String): HackerFile {
             val file = HackerFile(type)
-            file.setLocation("")
-            file.setName(name)
+            file.location = ""
+            file.name = name
             val content = HashMap<Any?, Any?>()
             content["attribute0"] = "0"
             content["quality0"] = "0"
             content["attribute1"] = "1"
             content["quality1"] = "0"
-            file.setContent(content)
+            file.content = content
             return file
         }
     }

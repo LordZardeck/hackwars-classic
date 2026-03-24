@@ -713,7 +713,7 @@ class Computer : GameServerService {
                 //pettyCash=respawnMoney;
             } else if (HackType == Port.FTP) {
                 val HF = MyDropTable!!.generateDrop()
-                HF.setLocation("Public/")
+                HF.location = "Public/"
                 MyComputerHandler!!.addData(
                     ApplicationData(game.payload.SaveFileRequestPayload("Public/", HF), 0, ip),
                     ip
@@ -1598,7 +1598,7 @@ class Computer : GameServerService {
         var Content: HashMap<*, *>? = null
         if (ChallengeFiles != null) for (i in ChallengeFiles.indices) {
             val TempFile = ChallengeFiles.get(i) as HackerFile
-            Content = TempFile.getContent()
+            Content = TempFile.content
             val identifier = Content!!.get("identifier") as String?
             if (identifier != null) if (challengeID == identifier) {
                 ChallengeFile = TempFile
@@ -1902,33 +1902,33 @@ class Computer : GameServerService {
      * 
      */
     fun checkRename(HF: HackerFile, path: String): HackerFile {
-        var HFCheck = MyFileSystem!!.getFile(path, HF.getName())
+        var HFCheck = MyFileSystem!!.getFile(path, HF.name)
         if (HFCheck != null) {
-            if (HFCheck.isStacking()) {
-                if (HF.checkSumFailed(HFCheck) || (HF.getType() == HackerFile.BOUNTY && ip == store)) {
-                    val nameCheck = HF.getName()
+            if (HFCheck.isStacking) {
+                if (HF.checkSumFailed(HFCheck) || (HF.type == HackerFile.BOUNTY && ip == store)) {
+                    val nameCheck = HF.name
                     var i = 0
                     var name = nameCheck + i
                     var TF: HackerFile? = null
-                    HF.setName(name)
+                    HF.name = name
                     //  System.out.println("Changing name to "+name);
-                    if (HF.getType() != HackerFile.BOUNTY) { //Check for identical files, bounties are a special case.
-                        while ((MyFileSystem!!.getFile(path, name).also { TF = it }) != null && HF.checkSumFailed(TF)) {
+                    if (HF.type != HackerFile.BOUNTY) { //Check for identical files, bounties are a special case.
+                        while ((MyFileSystem!!.getFile(path, name).also { TF = it }) != null && HF.checkSumFailed(TF!!)) {
                             i++
                             //        System.out.println("Changing name to "+(nameCheck+i));
                             name = nameCheck + i
-                            HF.setName(name)
+                            HF.name = name
                         }
                     } else {
                         while ((MyFileSystem!!.getFile(path, name).also { TF = it }) != null) {
                             i++
                             name = nameCheck + i
-                            HF.setName(name)
+                            HF.name = name
                         }
                     }
 
-                    HF.setName(name)
-                    if (TF == null || HF.checkSumFailed(TF)) HFCheck = null
+                    HF.name = name
+                    if (TF == null || HF.checkSumFailed(TF!!)) HFCheck = null
                     else HFCheck = TF
                 }
             }
@@ -1941,21 +1941,21 @@ class Computer : GameServerService {
      */
     fun saveFile(HF: HackerFile, HFCheck: HackerFile?, path: String) {
         var HF = HF
-        val nameCheck = HF.getName()
+        val nameCheck = HF.name
         HF = checkRename(HF, path)
 
-        var quantity = HF.getQuantity()
+        var quantity = HF.quantity
         if (quantity == 0) quantity = 1
 
         val price = 0f
         if (HFCheck != null) { //Does the file already exist on disk?
-            if (HFCheck.getQuantity() == -1) {
+            if (HFCheck.quantity == -1) {
                 quantity = -1
-            } else if (HFCheck.isStacking() && HF.getName() == HFCheck.getName()) {
-                quantity = HFCheck.getQuantity() + HF.getQuantity()
+            } else if (HFCheck.isStacking && HF.name == HFCheck.name) {
+                quantity = HFCheck.quantity + HF.quantity
             }
         }
-        HF.setQuantity(quantity)
+        HF.quantity = quantity
 
         if (!MyFileSystem!!.addFile(HF, true)) { //Check whether the file system can accept a new file.
             addMessage(MessageHandler.HD_FULL)
@@ -1977,21 +1977,21 @@ class Computer : GameServerService {
      */
     private fun saveFileTemp(HF: HackerFile, HFCheck: HackerFile?, path: String, newQuantity: Int) {
         var HF = HF
-        val nameCheck = HF.getName()
+        val nameCheck = HF.name
         HF = checkRename(HF, path)
 
-        var quantity = HF.getQuantity()
+        var quantity = HF.quantity
         if (quantity == 0) quantity = 1
 
         val price = 0f
         if (HFCheck != null) { //Does the file already exist on disk?
-            if (HFCheck.getQuantity() == -1) {
+            if (HFCheck.quantity == -1) {
                 quantity = -1
-            } else if (HFCheck.isStacking() && HF.getName() == HFCheck.getName()) {
-                quantity = HFCheck.getQuantity() + HF.getQuantity()
+            } else if (HFCheck.isStacking && HF.name == HFCheck.name) {
+                quantity = HFCheck.quantity + HF.quantity
             }
         }
-        HF.setQuantity(newQuantity) // sorry, but i'm ignoring all that crap about quantity
+        HF.quantity = newQuantity // sorry, but i'm ignoring all that crap about quantity
 
         if (!MyFileSystem!!.addFile(HF, true)) { //Check whether the file system can accept a new file.
             addMessage(MessageHandler.HD_FULL)

@@ -25,7 +25,7 @@ open class MakeBounty(private val MyFileSystem: FileSystem) {
             for (i in RootFiles!!.indices) {
                 if (RootFiles[i] is HackerFile) {
                     val HF = RootFiles[i] as HackerFile
-                    if (HF.getType() == HackerFile.BOUNTY) {
+                    if (HF.type == HackerFile.BOUNTY) {
                         if (checkFile(HF, MyComputer, InstallFile, BountyType, target, setIP)) {
                             return
                         }
@@ -46,10 +46,7 @@ open class MakeBounty(private val MyFileSystem: FileSystem) {
         target: String?,
         setIP: String
     ): Boolean {
-        var Content: HashMap<Any?, Any?>? = null
-        if (HF != null) {
-            Content = HF.getContent()
-        }
+        val Content = HF?.content as? HashMap<Any?, Any?> ?: return false
 
         if (Content != null) {
             var count = Integer.valueOf(Content["count"] as String)
@@ -62,7 +59,7 @@ open class MakeBounty(private val MyFileSystem: FileSystem) {
             var success = true
 
             try {
-                if (HF!!.getType() == HackerFile.BOUNTY) {
+                if (HF!!.type == HackerFile.BOUNTY) {
                     if (BountyType == SCAN && BountyType == CheckBountyType) {
                         if (checkTarget != target && checkTarget != "*") {
                             success = false
@@ -76,7 +73,7 @@ open class MakeBounty(private val MyFileSystem: FileSystem) {
                             success = false
                         }
                         if (InstallFile != null) {
-                            if (scriptName != InstallFile.getName() || maker != InstallFile.getMaker()) {
+                            if (scriptName != InstallFile.name || maker != InstallFile.maker) {
                                 success = false
                             }
                         }
@@ -108,16 +105,16 @@ open class MakeBounty(private val MyFileSystem: FileSystem) {
                     count -= 1
                     Content["count"] = "" + count
                     if (count <= 0) {
-                        MyFileSystem.deleteFile(HF.getLocation(), HF.getName())
+                        MyFileSystem.deleteFile(HF.location, HF.name)
                         MyComputer.computerHandler
                             .addData(
-                                ApplicationData(CheckBountyPayload(HF.getName()), 0, MyComputer.getIP()),
+                                ApplicationData(CheckBountyPayload(HF.name.orEmpty()), 0, MyComputer.getIP()),
                                 MyComputer.storeIP
                             )
                         MyComputer.computerHandler
                             .addData(
                                 ApplicationData(
-                                    DeleteFile(MyComputer.storeIP ?: return true, "Store/", HF.getName()),
+                                    DeleteFile(MyComputer.storeIP ?: return true, "Store/", HF.name.orEmpty()),
                                     0,
                                     MyComputer.getIP()
                                 ),

@@ -219,16 +219,16 @@ class LegacyEconomyWebSocialCommands : LegacyApplicationDataHandler {
                     val hackerFile = computer.MyFileSystem.getFile("Store/", payload.fileName)
                     if (hackerFile != null) {
                         var quantity = payload.quantity
-                        if (hackerFile.getQuantity() < quantity && hackerFile.getQuantity() != -1) {
-                            quantity = hackerFile.getQuantity()
+                        if (hackerFile.quantity < quantity && hackerFile.quantity != -1) {
+                            quantity = hackerFile.quantity
                         }
 
                         val purchasedFile = hackerFile.clone()
-                        purchasedFile.setQuantity(quantity)
+                        purchasedFile.quantity = quantity
 
-                        if (hackerFile.getQuantity() != -1) {
-                            hackerFile.setQuantity(hackerFile.getQuantity() - quantity)
-                            if (hackerFile.getQuantity() <= 0) {
+                        if (hackerFile.quantity != -1) {
+                            hackerFile.quantity = hackerFile.quantity - quantity
+                            if (hackerFile.quantity <= 0) {
                                 computer.MyFileSystem.deleteFile("Store/", payload.fileName)
                             }
                         }
@@ -260,22 +260,23 @@ class LegacyEconomyWebSocialCommands : LegacyApplicationDataHandler {
                 val hackerFile = payload.file
                 val payTarget = payload.revenueTarget
                 val sellerType = payload.sellerType
-                val quantity = hackerFile.getQuantity()
-                val existingFile = computer.MyFileSystem.getFile("", hackerFile.getName())
+                val quantity = hackerFile.quantity
+                val existingFile = computer.MyFileSystem.getFile("", hackerFile.name)
+                val hackerFileContent = hackerFile.content as? HashMap<Any?, Any?> ?: hashMapOf()
 
                 var level = 0.0f
-                if (hackerFile.getType() == HackerFile.CPU) {
-                    level = (hackerFile.getContent()["level"] as String).toFloat()
-                } else if (hackerFile.getType() == HackerFile.HD) {
-                    level = (hackerFile.getContent()["level"] as String).toFloat()
-                } else if (hackerFile.getType() == HackerFile.FIREWALL) {
-                    level = (hackerFile.getContent()["level"] as String).toFloat()
-                } else if (hackerFile.getType() == HackerFile.MEMORY) {
-                    level = (hackerFile.getContent()["level"] as String).toFloat()
+                if (hackerFile.type == HackerFile.CPU) {
+                    level = (hackerFileContent["level"] as String).toFloat()
+                } else if (hackerFile.type == HackerFile.HD) {
+                    level = (hackerFileContent["level"] as String).toFloat()
+                } else if (hackerFile.type == HackerFile.FIREWALL) {
+                    level = (hackerFileContent["level"] as String).toFloat()
+                } else if (hackerFile.type == HackerFile.MEMORY) {
+                    level = (hackerFileContent["level"] as String).toFloat()
                 }
 
                 var totalLevel = 0.0f
-                if (hackerFile.getType() != HackerFile.FIREWALL) {
+                if (hackerFile.type != HackerFile.FIREWALL) {
                     totalLevel += computer.getLevel(computer.Stats["Attack"] as Float)
                     totalLevel += computer.getLevel(computer.Stats["Bank"] as Float)
                     totalLevel += computer.getLevel(computer.Stats["Watch"] as Float)
@@ -287,7 +288,7 @@ class LegacyEconomyWebSocialCommands : LegacyApplicationDataHandler {
                 totalLevel += computer.getLevel(computer.Stats["FireWall"] as Float)
 
                 val mult = (computer.getLevel(computer.Stats["Bank"] as Float) - 50.0f) / 100.0f
-                val price = (quantity * hackerFile.getPrice()) - (quantity * hackerFile.getPrice() * mult)
+                val price = (quantity * hackerFile.price) - (quantity * hackerFile.price * mult)
 
                 if (computer.MyFileSystem.getSpaceLeft() <= 0) {
                     computer.addMessage(MessageHandler.PURCHASE_FAIL_HD_FULL)
@@ -307,7 +308,7 @@ class LegacyEconomyWebSocialCommands : LegacyApplicationDataHandler {
                         ApplicationData(SaveFile(computer.ip, "Store/", hackerFile), 0, computer.ip),
                         applicationData.sourceIP
                     )
-                } else if (computer.MyFileSystem.getSpaceLeft() < 1 && !((hackerFile.getType() == HackerFile.CPU || hackerFile.getType() == HackerFile.HD || hackerFile.getType() == HackerFile.MEMORY) || existingFile != null)) {
+                } else if (computer.MyFileSystem.getSpaceLeft() < 1 && !((hackerFile.type == HackerFile.CPU || hackerFile.type == HackerFile.HD || hackerFile.type == HackerFile.MEMORY) || existingFile != null)) {
                     computer.addMessage(MessageHandler.PURCHASE_FAIL_HD_FULL)
                     computer.getComputerHandler().addData(
                         ApplicationData(SaveFile(computer.ip, "Store/", hackerFile), 0, computer.ip),
@@ -321,38 +322,39 @@ class LegacyEconomyWebSocialCommands : LegacyApplicationDataHandler {
                     computer.addMessage(MessageHandler.PURCHASE_FAIL_NOT_HIGH_ENOUGH_LEVEL)
                 } else {
                     var buyFail = false
-                    if (hackerFile.getType() == HackerFile.CPU) {
-                        val type = (hackerFile.getContent()["data"] as String).toInt()
+                    if (hackerFile.type == HackerFile.CPU) {
+                        val type = (hackerFileContent["data"] as String).toInt()
                         if (Computer.CPU_CHART[type] > Computer.CPU_CHART[computer.cputype]) {
                             computer.cputype = type
-                            computer.addMessage(MessageHandler.PURCHASE_NEW_CPU, arrayOf<Any?>(hackerFile.getName()))
+                            computer.addMessage(MessageHandler.PURCHASE_NEW_CPU, arrayOf<Any?>(hackerFile.name))
                         } else {
                             buyFail = true
                             computer.addMessage(MessageHandler.PURCHASE_FAIL_OLDER_CPU)
                         }
-                    } else if (hackerFile.getType() == HackerFile.HD) {
-                        val type = (hackerFile.getContent()["data"] as String).toInt()
+                    } else if (hackerFile.type == HackerFile.HD) {
+                        val type = (hackerFileContent["data"] as String).toInt()
                         if (computer.MyFileSystem.checkType(type)) {
                             computer.MyFileSystem.setHDType(type)
-                            computer.addMessage(MessageHandler.PURCHASE_NEW_HD, arrayOf<Any?>(hackerFile.getName()))
+                            computer.addMessage(MessageHandler.PURCHASE_NEW_HD, arrayOf<Any?>(hackerFile.name))
                         } else {
                             buyFail = true
                             computer.addMessage(MessageHandler.PURCHASE_FAIL_OLDER_HD)
                         }
-                    } else if (hackerFile.getType() == HackerFile.MEMORY) {
-                        val type = (hackerFile.getContent()["data"] as String).toInt()
+                    } else if (hackerFile.type == HackerFile.MEMORY) {
+                        val type = (hackerFileContent["data"] as String).toInt()
                         if (Computer.MEMORY_CHART[type] > Computer.MEMORY_CHART[computer.memorytype] || Computer.WATCH_CHART[type] > Computer.WATCH_CHART[computer.memorytype]) {
                             computer.memorytype = type
-                            computer.addMessage(MessageHandler.PURCHASE_NEW_MEMORY, arrayOf<Any?>(hackerFile.getName()))
+                            computer.addMessage(MessageHandler.PURCHASE_NEW_MEMORY, arrayOf<Any?>(hackerFile.name))
                         } else {
                             buyFail = true
                             computer.addMessage(MessageHandler.PURCHASE_FAIL_OLDER_MEMORY)
                         }
                     } else {
-                        hackerFile.setLocation("")
-                        if (hackerFile.getType() == HackerFile.FIREWALL) {
-                            val setLevel = hackerFile.getContent()
+                        hackerFile.location = ""
+                        if (hackerFile.type == HackerFile.FIREWALL) {
+                            val setLevel = hackerFileContent
                             setLevel["level"] = "0"
+                            hackerFile.content = setLevel
                         }
                         computer.getComputerHandler().addData(
                             ApplicationData(SaveFile(computer.ip, "", hackerFile), 0, computer.ip),
@@ -361,7 +363,7 @@ class LegacyEconomyWebSocialCommands : LegacyApplicationDataHandler {
                         val format = NumberFormat.getCurrencyInstance()
                         computer.addMessage(
                             MessageHandler.PURCHASE_SUCCESS,
-                            arrayOf<Any?>(quantity, hackerFile.getName(), format.format(price))
+                            arrayOf<Any?>(quantity, hackerFile.name, format.format(price))
                         )
                     }
 

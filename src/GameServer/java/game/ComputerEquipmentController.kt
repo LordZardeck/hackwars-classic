@@ -69,7 +69,7 @@ class ComputerEquipmentController(private val computer: Computer) {
             computer.getIP(),
         )
 
-        val content = equipment.content
+        val content = equipment.content as? MutableMap<Any?, Any?> ?: return
         val maxQuality = content["maxquality"]?.toString()?.toFloatOrNull() ?: DEFAULT_QUALITY
         content["currentquality"] = maxQuality.toString()
 
@@ -91,7 +91,7 @@ class ComputerEquipmentController(private val computer: Computer) {
     fun degrade(equipment: HackerFile?) {
         equipment ?: return
 
-        val content = equipment.content
+        val content = equipment.content as? MutableMap<Any?, Any?> ?: return
         val maxQuality = content["maxquality"]?.toString()?.takeUnless { it.isBlank() || it == "null" }?.toFloatOrNull()
         var currentQuality = content["currentquality"]?.toString()?.toFloatOrNull()
         val lastDegrade = content["lastdegrade"]?.toString()?.toLongOrNull()
@@ -225,7 +225,7 @@ class ComputerEquipmentController(private val computer: Computer) {
     }
 
     private fun buildCommodityUsage(equipment: HackerFile): IntArray {
-        val content = equipment.content
+        val content = equipment.content as? Map<*, *> ?: return IntArray(EquipmentSheet.commodityAmounts.size)
         val quality0 = content.requireInt("quality0")
         val quality1 = content.requireInt("quality1")
 

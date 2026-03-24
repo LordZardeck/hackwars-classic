@@ -167,15 +167,15 @@ class LegacyEconomyWebSocialCommandsTest {
             )
 
             assertTrue(handled)
-            assertEquals(1, offer.getQuantity())
+            assertEquals(1, offer.quantity)
             assertEquals(1, fixture.dispatches.size)
             val dispatch = fixture.dispatches[0]
             assertEquals("buyer-ip", dispatch.targetIp)
             assertEquals("continuepurchase", dispatch.applicationData.command.wireName())
             val payload = dispatch.applicationData.payload as ContinuePurchasePayload
             val reserved = payload.file
-            assertEquals("bundle.bin", reserved.getName())
-            assertEquals(2, reserved.getQuantity())
+            assertEquals("bundle.bin", reserved.name)
+            assertEquals(2, reserved.quantity)
             assertEquals("store-revenue", payload.revenueTarget)
             assertEquals(fixture.computer.type, payload.sellerType)
         } finally {
@@ -192,10 +192,10 @@ class LegacyEconomyWebSocialCommandsTest {
             fixture.computer.pettyCash = 500.0f
 
             val file = HackerFile(HackerFile.TEXT)
-            file.setName("guide.txt")
-            file.setContent(HashMap<Any?, Any?>())
-            file.setPrice(10.0f)
-            file.setQuantity(1)
+            file.name = "guide.txt"
+            file.content = HashMap<Any?, Any?>()
+            file.price = 10.0f
+            file.quantity = 1
 
             val handled = fixture.handler.dispatch(
                 fixture.computer,
@@ -281,12 +281,12 @@ class LegacyEconomyWebSocialCommandsTest {
 
         fun addStoreFile(name: String, quantity: Int, price: Float): HackerFile {
             val file = HackerFile(HackerFile.TEXT)
-            file.setName(name)
-            file.setQuantity(quantity)
-            file.setPrice(price)
-            file.setMaker("Alexander")
-            file.setContent(HashMap<Any?, Any?>())
-            file.setLocation("Store/")
+            file.name = name
+            file.quantity = quantity
+            file.price = price
+            file.maker = "Alexander"
+            file.content = HashMap<Any?, Any?>()
+            file.location = "Store/"
             assertTrue(computer.MyFileSystem.addFile(file, true))
             return file
         }
