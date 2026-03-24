@@ -193,7 +193,7 @@ class LegacyEconomyWebSocialCommandsTest {
 
             val file = HackerFile(HackerFile.TEXT)
             file.name = "guide.txt"
-            file.content = HashMap<Any?, Any?>()
+            file.setContent(HashMap<Any?, Any?>())
             file.price = 10.0f
             file.quantity = 1
 
@@ -285,7 +285,7 @@ class LegacyEconomyWebSocialCommandsTest {
             file.quantity = quantity
             file.price = price
             file.maker = "Alexander"
-            file.content = HashMap<Any?, Any?>()
+            file.setContent(HashMap<Any?, Any?>())
             file.location = "Store/"
             assertTrue(computer.MyFileSystem.addFile(file, true))
             return file

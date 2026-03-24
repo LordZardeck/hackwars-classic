@@ -1,5 +1,6 @@
 package game.payload
 
+import com.hackwars.rpc.GameCommands
 import game.ApplicationCommand
 import game.ApplicationPayload
 import game.HackerFile
@@ -144,7 +145,7 @@ data class MalGetPayload(
     val sourcePort: Int?,
     val attackPort: Int?
 ) : ApplicationPayload {
-    override fun getCommand(): ApplicationCommand = MALGET_COMMAND
+    override fun getCommand(): ApplicationCommand = GameCommands.MALGET.command
 
     fun legacyParameters(): Any = if (sourcePort == null) {
         arrayOf<Any?>(targetIp, name, fetchPath, targetPath, password, attackPort)

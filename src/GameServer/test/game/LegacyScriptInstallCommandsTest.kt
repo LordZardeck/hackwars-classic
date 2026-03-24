@@ -36,7 +36,7 @@ class LegacyScriptInstallCommandsTest {
         content["deposit"] = "dep"
         content["withdraw"] = "wd"
         content["transfer"] = "tr"
-        hackerFile.content = content
+        hackerFile.setContent(content)
         whenever(fixture.fileSystem.getFile("Public/", "bank")).thenReturn(hackerFile)
 
         val maliciousParameters = arrayOf<Any>("target", 5.0f)
@@ -59,7 +59,7 @@ class LegacyScriptInstallCommandsTest {
         assertEquals(44, forwarded.port)
         assertEquals("2.2.2.2", forwarded.sourceIP)
         val payload = forwarded.payload as InstallScriptPayload
-        assertSame(content, payload.script)
+        assertEquals(content, payload.script)
         assertSame(maliciousParameters, payload.maliciousParameters)
     }
 

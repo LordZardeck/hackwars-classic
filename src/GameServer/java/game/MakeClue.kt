@@ -119,9 +119,9 @@ open class MakeClue(private val MyFileSystem: FileSystem, private val MyComputer
     fun checkFile(HF: HackerFile, MyComputer: Computer, Result: String, ClueType: Int) {
         try {
             if (HF.type == HackerFile.CLUE) {
-                val Content = HF.content as? MutableMap<Any?, Any?> ?: return
-                var currentStep = Integer.valueOf(Content["currentstep"] as String)
-                var data = Content["step$currentStep"] as String
+                val content = HF.content as? ClueContent ?: return
+                var currentStep = content.currentStep.toInt()
+                var data = content.steps.getOrNull(currentStep).orEmpty()
                 var ClueData = data.split("\\+".toRegex()).toTypedArray()
                 var DataType = Integer.valueOf(ClueData[0])
                 val Output = ClueData[2]
@@ -130,15 +130,16 @@ open class MakeClue(private val MyFileSystem: FileSystem, private val MyComputer
                 if (DataType == ClueType && Output == Result) {
                     MyComputer.addMessage(MessageHandler.SECRET_DOCUMENT_TASK_COMPLETED)
                     currentStep += 1
-                    Content["currentstep"] = "" + currentStep
-                    data = Content["step$currentStep"] as String
+                    val updatedSteps = content.steps.toMutableList()
+                    data = updatedSteps.getOrNull(currentStep).orEmpty()
                     ClueData = data.split("\\+".toRegex()).toTypedArray()
+                    HF.content = content.copy(currentStep = currentStep.toString(), steps = updatedSteps)
                     HF.setDescription(ClueData[1])
                     DataType = Integer.valueOf(ClueData[0])
                     if (DataType == FINISH) {
                         if (HF.name.orEmpty().indexOf("Gateway Document") == -1) {
                             val MyDropTable = DropTable(0, MyComputer)
-                            val clueLevel = Integer.valueOf(Content["cluelevel"] as String).toInt()
+                            val clueLevel = content.clueLevel.toInt()
 
                             MyComputer.fileSystem.deleteFile("", HF.name)
                             MyComputer.addMessage("Congratulations! You have completed all the tasks assigned in a secret document.")
@@ -216,23 +217,23 @@ open class MakeClue(private val MyFileSystem: FileSystem, private val MyComputer
             HF.maker = MyComputer.getIP()
         }
 
-        val Data = HashMap<Any?, Any?>()
-        Data["currentstep"] = "0"
-        Data["cluelevel"] = "" + clueLevel
+        val data = MutableList(6) { "" }
         for (i in 0..5) {
-            Data["step$i"] = ""
+            data[i] = ""
         }
         var ii = 0
         while (ii < DROP_COUNT[clueLevel]) {
-            Data["step$ii"] = generateClue()
+            data[ii] = generateClue()
             ii++
         }
-        Data["step$ii"] = "" + FINISH + "+N/A+N/A"
-        val data = Data["step0"] as String
-        val ClueData = data.split("\\+".toRegex()).toTypedArray()
-        HF.setDescription(ClueData[1])
-
-        HF.content = Data
+        data[ii] = "" + FINISH + "+N/A+N/A"
+        val clueData = data[0].split("\\+".toRegex()).toTypedArray()
+        HF.content = ClueContent(
+            currentStep = "0",
+            clueLevel = clueLevel.toString(),
+            steps = data,
+        )
+        HF.setDescription(clueData[1])
         return HF
     }
 

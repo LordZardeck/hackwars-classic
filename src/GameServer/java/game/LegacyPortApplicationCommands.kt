@@ -78,7 +78,7 @@ class LegacyPortApplicationCommands : LegacyApplicationDataHandler {
         val hackerFile = computer.MyFileSystem.getFile(path, name)
 
         if (hackerFile != null) {
-            val equipLevel = (hackerFile.content as? Map<*, *>)?.get("equip_level")?.toString()?.toIntOrNull() ?: return
+            val equipLevel = (hackerFile.content as? NewFirewallContent)?.equipLevel?.toIntOrNull() ?: return
             if (computer.getLevel(computer.Stats["FireWall"] as Float) >= equipLevel) {
                 val cpuCheck = computer.cPULoad + hackerFile.cPUCost
                 val maxCPU = computer.maximumCPULoad
@@ -158,7 +158,7 @@ class LegacyPortApplicationCommands : LegacyApplicationDataHandler {
                     if (portType >= 0) {
                         port.setType(portType)
                         port.setMaliciousTarget(computer.ip)
-                        val script = hackerFile.content as? HashMap<*, *> ?: return
+                        val script = HashMap(HackerFileInterop.legacyContentMap(hackerFile))
                         var newProgram: Program? = null
                         port.setCPUCost(hackerFile.cPUCost)
 
@@ -227,7 +227,7 @@ class LegacyPortApplicationCommands : LegacyApplicationDataHandler {
                         port.setDummy(false)
                         port.setOn(true)
                         port.setMaliciousTarget(computer.ip)
-                        val script = hackerFile.content as? HashMap<*, *> ?: return
+                        val script = HashMap(HackerFileInterop.legacyContentMap(hackerFile))
                         var newProgram: Program? = null
 
                         if (portType == Port.ATTACK) {

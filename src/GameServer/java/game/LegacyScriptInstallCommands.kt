@@ -24,7 +24,7 @@ class LegacyScriptInstallCommands : LegacyApplicationDataHandler {
                 computer.MyFileSystem.deleteFile(payload.path, payload.file)
             }
 
-            val content = hackerFile.content as? HashMap<*, *> ?: hashMapOf<Any?, Any?>()
+            val content = HashMap(HackerFileInterop.legacyContentMap(hackerFile))
             val forwardedPayload = InstallScriptPayload(content, payload.maliciousParameters)
             computer.MyComputerHandler.addData(
                 ApplicationData(forwardedPayload, payload.targetPort, computer.ip),

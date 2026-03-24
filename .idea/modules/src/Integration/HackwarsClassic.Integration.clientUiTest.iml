@@ -44,12 +44,12 @@
     <content url="file://$MODULE_DIR$/../../../../src/Integration/clientUiTestResources" />
     <orderEntry type="jdk" jdkName="openjdk-25" jdkType="JavaSDK" />
     <orderEntry type="sourceFolder" forTests="false" />
-    <orderEntry type="module" module-name="src.HackwarsClassic.Client.main~1" />
+    <orderEntry type="module" module-name="src.HackwarsClassic.Client.main" />
     <orderEntry type="module" module-name="HackwarsClassic.Data.main" />
-    <orderEntry type="module" module-name="src.HackwarsClassic.GameServer.main~1" />
-    <orderEntry type="module" module-name="src.HackwarsClassic.ChatServer.main~1" />
-    <orderEntry type="module" module-name="src.HackwarsClassic.HackWars.main~1" />
-    <orderEntry type="module" module-name="src.HackwarsClassic.Networking.main~1" />
+    <orderEntry type="module" module-name="src.HackwarsClassic.GameServer.main" />
+    <orderEntry type="module" module-name="src.HackwarsClassic.ChatServer.main" />
+    <orderEntry type="module" module-name="src.HackwarsClassic.HackWars.main" />
+    <orderEntry type="module" module-name="src.HackwarsClassic.Networking.main" />
     <orderEntry type="library" name="Gradle: org.jetbrains.kotlin:kotlin-test-junit:2.1.21" level="project" />
     <orderEntry type="library" name="Gradle: org.jetbrains.kotlin:kotlin-stdlib:2.1.21" level="project" />
     <orderEntry type="library" name="Gradle: ch.qos.logback:logback-classic:1.5.18" level="project" />

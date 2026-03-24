@@ -69,9 +69,9 @@ class ComputerEquipmentController(private val computer: Computer) {
             computer.getIP(),
         )
 
-        val content = equipment.content as? MutableMap<Any?, Any?> ?: return
-        val maxQuality = content["maxquality"]?.toString()?.toFloatOrNull() ?: DEFAULT_QUALITY
-        content["currentquality"] = maxQuality.toString()
+        val content = equipment.content as? EquipmentLicenseContent ?: return
+        val maxQuality = content.maxQuality.toFloatOrNull() ?: DEFAULT_QUALITY
+        equipment.content = content.copy(currentQuality = maxQuality.toString())
 
         computer.setRepaired(true)
         computer.addMessage(
@@ -91,22 +91,23 @@ class ComputerEquipmentController(private val computer: Computer) {
     fun degrade(equipment: HackerFile?) {
         equipment ?: return
 
-        val content = equipment.content as? MutableMap<Any?, Any?> ?: return
-        val maxQuality = content["maxquality"]?.toString()?.takeUnless { it.isBlank() || it == "null" }?.toFloatOrNull()
-        var currentQuality = content["currentquality"]?.toString()?.toFloatOrNull()
-        val lastDegrade = content["lastdegrade"]?.toString()?.toLongOrNull()
+        val content = equipment.content as? EquipmentLicenseContent ?: return
+        val maxQuality = content.maxQuality.takeUnless { it.isBlank() || it == "null" }?.toFloatOrNull()
+        var currentQuality = content.currentQuality.toFloatOrNull()
+        val lastDegrade = content.lastDegrade.toLongOrNull()
 
         if (maxQuality == null || currentQuality == null || lastDegrade == null) {
-            resetDegradation(content)
+            equipment.content = resetDegradation(content)
             return
         }
 
         if (computer.currentTime - lastDegrade >= DEGRADE_RATE.toLong()) {
-            content["lastdegrade"] = computer.currentTime.toString()
+            var updated = content.copy(lastDegrade = computer.currentTime.toString())
             currentQuality--
             if (currentQuality >= 0) {
-                content["currentquality"] = currentQuality.toString()
+                updated = updated.copy(currentQuality = currentQuality.toString())
             }
+            equipment.content = updated
         }
     }
 
@@ -225,9 +226,9 @@ class ComputerEquipmentController(private val computer: Computer) {
     }
 
     private fun buildCommodityUsage(equipment: HackerFile): IntArray {
-        val content = equipment.content as? Map<*, *> ?: return IntArray(EquipmentSheet.commodityAmounts.size)
-        val quality0 = content.requireInt("quality0")
-        val quality1 = content.requireInt("quality1")
+        val content = equipment.content as? EquipmentLicenseContent ?: return IntArray(EquipmentSheet.commodityAmounts.size)
+        val quality0 = content.requireInt(EquipmentField.QUALITY0)
+        val quality1 = content.requireInt(EquipmentField.QUALITY1)
 
         return IntArray(EquipmentSheet.commodityAmounts.size) { commodityIndex ->
             EquipmentSheet.commodityAmounts[commodityIndex][quality0] + EquipmentSheet.commodityAmounts[commodityIndex][quality1]
@@ -241,11 +242,12 @@ class ComputerEquipmentController(private val computer: Computer) {
         return if (segments.isEmpty()) "" else segments.joinToString(separator = " ", postfix = " ")
     }
 
-    private fun resetDegradation(content: MutableMap<Any?, Any?>) {
-        content["maxquality"] = DEFAULT_QUALITY.toString()
-        content["currentquality"] = DEFAULT_QUALITY.toString()
-        content["lastdegrade"] = computer.currentTime.toString()
-    }
+    private fun resetDegradation(content: EquipmentLicenseContent): EquipmentLicenseContent =
+        content.copy(
+            maxQuality = DEFAULT_QUALITY.toString(),
+            currentQuality = DEFAULT_QUALITY.toString(),
+            lastDegrade = computer.currentTime.toString(),
+        )
 
     companion object {
         const val DEGRADE_RATE = 1400000

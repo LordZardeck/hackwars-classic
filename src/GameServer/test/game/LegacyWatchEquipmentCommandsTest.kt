@@ -159,7 +159,38 @@ class LegacyWatchEquipmentCommandsTest {
             assertEquals(13, fixture.computer.PA.getSecondaryDirectory()[0])
             val returned = fixture.computer.PA.getDirectory()[1] as HackerFile
             assertEquals("Alpha AGP", returned.name)
-            assertNotNull((returned.content as Map<*, *>)["bonusdata"])
+            assertNotNull(returned.getContent()["bonusdata"])
+        } finally {
+            fixture.close()
+        }
+    }
+
+    @Test
+    fun dispatch_requestEquipment_describesIntegerBonusesWithoutFormatterCrash() {
+        val fixture = TestFixture()
+        try {
+            val hdCard = HackerFile(HackerFile.AGP)
+            hdCard.location = ""
+            hdCard.name = "Storage AGP"
+            val content = HashMap<Any?, Any?>()
+            content["attribute0"] = "3"
+            content["quality0"] = "0"
+            content["attribute1"] = "2"
+            content["quality1"] = "0"
+            hdCard.setContent(content)
+            fixture.computer.MyFileSystem.addFile(hdCard, false)
+
+            val handled = fixture.handler.dispatch(
+                fixture.computer,
+                ApplicationData(RequestEquipmentPayload(17), 0, fixture.computer.ip),
+                0
+            )
+
+            assertTrue(handled)
+            val returned = fixture.computer.PA.getDirectory()[1] as HackerFile
+            val bonusData = returned.getContent()["bonusdata"] as String
+            assertTrue(bonusData.contains("HD Space"))
+            assertTrue(bonusData.contains("Watch"))
         } finally {
             fixture.close()
         }
@@ -194,7 +225,7 @@ class LegacyWatchEquipmentCommandsTest {
             content["quality0"] = "0"
             content["attribute1"] = "1"
             content["quality1"] = "0"
-            file.content = content
+            file.setContent(content)
             return file
         }
     }

@@ -4,10 +4,19 @@ import com.google.gson.Gson
 import com.google.gson.GsonBuilder
 import com.hackwars.data.model.JsonProfileWrite
 import com.hackwars.data.model.PersistedTextBlob
+import game.BountyFileKind
+import game.ChallengeFileKind
+import game.ClueFileKind
 import game.Computer
 import game.HackerFile
+import game.HackerFileKind
 import game.LegacyComputerPersistenceSupport
+import game.LegacyHackerFileCodec
+import game.NewFirewallFileKind
 import game.Port
+import game.ProgramKind
+import game.QuestGameFileKind
+import game.TextFileKind
 import org.w3c.dom.Node
 import util.LoadXML
 import java.time.LocalDateTime
@@ -289,18 +298,16 @@ class JsonComputerPersistenceSupport(
     private fun toHackerFileSave(file: HackerFile, basePath: String, blobs: MutableList<PersistedTextBlob>): HackerFileSave {
         val content = LinkedHashMap<String, TextFieldSave>()
         val specialAttributes = LinkedHashMap<String, Map<String, TextFieldSave>>()
-        val rawContent = file.content as? Map<*, *> ?: emptyMap<Any?, Any?>()
+        val rawContent = LegacyHackerFileCodec.toLegacyContentMap(file.kind, file.content)
 
-        file.typeKeys.forEach { rawKey ->
-            val key = rawKey ?: return@forEach
+        LegacyHackerFileCodec.typeKeys(file.kind).forEach { key ->
             if (key == "specialAttribute1" || key == "specialAttribute2") {
                 val rawSpecial = rawContent[key] as? Map<*, *> ?: emptyMap<Any?, Any?>()
                 val fields = LinkedHashMap<String, TextFieldSave>()
-                file.specialKeys.forEach { specialKey ->
-                    val nestedKey = specialKey ?: return@forEach
-                    val rawValue = rawSpecial[specialKey]?.toString()
+                LegacyHackerFileCodec.specialKeys(file.kind).forEach { nestedKey ->
+                    val rawValue = rawSpecial[nestedKey]?.toString()
                     val textField = captureFileText(
-                        file.type,
+                        file.kind,
                         key,
                         rawValue,
                         "$basePath/content/$key/$nestedKey",
@@ -313,12 +320,12 @@ class JsonComputerPersistenceSupport(
                 }
                 if (fields.isNotEmpty()) {
                     specialAttributes[key] = fields
-                } else if (file.type == HackerFile.NEW_FIREWALL) {
+                } else if (file.kind == NewFirewallFileKind) {
                     specialAttributes[key] = blankSpecialAttributes()
                 }
             } else {
                 val textField = captureFileText(
-                    file.type,
+                    file.kind,
                     key,
                     rawContent[key]?.toString(),
                     "$basePath/content/$key",
@@ -331,7 +338,7 @@ class JsonComputerPersistenceSupport(
         }
 
         return HackerFileSave(
-            type = file.type,
+            type = file.kind.legacyId,
             name = file.name ?: "",
             location = file.location ?: "",
             description = file.publicDescription ?: "",
@@ -355,7 +362,7 @@ class JsonComputerPersistenceSupport(
             appendTag("cpu", port.cpuCost)
             appendCdataTag("note", port.note)
             append("<firewall>")
-            append(port.firewall?.let { toHackerFile(it, blobMap).outputXML() } ?: defaultFirewallXml())
+            append(port.firewall?.let { LegacyHackerFileCodec.serializeXml(toHackerFile(it, blobMap)) } ?: defaultFirewallXml())
             append("</firewall>\n")
             appendTag("dummy", if (port.dummy) 1 else 0)
             appendCdataTag("malicioustarget", port.maliciousTarget)
@@ -386,7 +393,7 @@ class JsonComputerPersistenceSupport(
     private fun writeFileSystemXml(fileSystem: FileSystemSave, blobMap: Map<String, String>): String = buildString {
         append("<files>\n")
         fileSystem.directories.forEach { appendCdataTag("directory", it) }
-        fileSystem.files.forEach { append(toHackerFile(it, blobMap).outputXML()) }
+        fileSystem.files.forEach { append(LegacyHackerFileCodec.serializeXml(toHackerFile(it, blobMap))) }
         append("</files>\n")
     }
 
@@ -398,7 +405,7 @@ class JsonComputerPersistenceSupport(
         }
         slots.forEach { slot ->
             append("<equipment>\n")
-            slot.file?.let { append(toHackerFile(it, blobMap).outputXML()) }
+            slot.file?.let { append(LegacyHackerFileCodec.serializeXml(toHackerFile(it, blobMap))) }
             append("</equipment>\n")
         }
     }
@@ -424,7 +431,7 @@ class JsonComputerPersistenceSupport(
     }
 
     private fun toHackerFile(file: HackerFileSave, blobMap: Map<String, String>): HackerFile {
-        val result = HackerFile(file.type)
+        val result = HackerFile(LegacyHackerFileCodec.kindForLegacyId(file.type))
         result.name = file.name
         result.location = file.location
         result.setDescription(file.description)
@@ -433,7 +440,7 @@ class JsonComputerPersistenceSupport(
         result.cPUCost = file.cpuCost
         result.maker = file.maker
 
-        val content = HashMap<String, Any?>()
+        val content = LinkedHashMap<String, Any?>()
         file.content.forEach { (key, value) ->
             content[key] = resolveText(value, blobMap)
         }
@@ -444,27 +451,27 @@ class JsonComputerPersistenceSupport(
             }
             content[key] = nested
         }
-        if (file.type == HackerFile.NEW_FIREWALL) {
+        if (result.kind == NewFirewallFileKind) {
             listOf("specialAttribute1", "specialAttribute2").forEach { key ->
                 if (!content.containsKey(key)) {
-                    content[key] = HashMap(blankSpecialAttributeValues())
+                    content[key] = LinkedHashMap(blankSpecialAttributeValues())
                 }
             }
         }
-        result.content = content
+        result.content = LegacyHackerFileCodec.parseLegacyContent(result.kind, content)
         return result
     }
 
     private fun captureFileText(
-        fileType: Int,
+        fileKind: HackerFileKind,
         key: String,
         value: String?,
         path: String,
         blobs: MutableList<PersistedTextBlob>,
         specialKey: String? = null,
     ): TextFieldSave? {
-        return if (shouldBlobFileContent(fileType, key, specialKey) && !value.isNullOrEmpty()) {
-            blobText(path, fileBlobKind(fileType, key, specialKey), value, blobs)
+        return if (shouldBlobFileContent(fileKind, key, specialKey) && !value.isNullOrEmpty()) {
+            blobText(path, fileBlobKind(fileKind, key, specialKey), value, blobs)
         } else if (value != null) {
             TextFieldSave(inlineValue = value)
         } else {
@@ -578,29 +585,15 @@ class JsonComputerPersistenceSupport(
         }
     }
 
-    private fun shouldBlobFileContent(fileType: Int, key: String, specialKey: String? = null): Boolean {
+    private fun shouldBlobFileContent(fileKind: HackerFileKind, key: String, specialKey: String? = null): Boolean {
         return when {
-            fileType in setOf(
-                HackerFile.BANKING_COMPILED,
-                HackerFile.BANKING_SCRIPT,
-                HackerFile.ATTACKING_COMPILED,
-                HackerFile.ATTACKING_SCRIPT,
-                HackerFile.WATCH_COMPILED,
-                HackerFile.WATCH_SCRIPT,
-                HackerFile.FTP_COMPILED,
-                HackerFile.FTP_SCRIPT,
-                HackerFile.HTTP,
-                HackerFile.HTTP_SCRIPT,
-                HackerFile.SHIPPING_COMPILED,
-                HackerFile.SHIPPING_SCRIPT,
-            ) -> true
-
-            fileType == HackerFile.TEXT && key == "data" -> true
-            fileType == HackerFile.CLUE && key.startsWith("step") -> true
-            fileType == HackerFile.BOUNTY && key == "script" -> true
-            fileType == HackerFile.CHALLENGE && key in setOf("input", "output", "task") -> true
-            fileType == HackerFile.QUEST_GAME && key in setOf("data", "task") -> true
-            fileType == HackerFile.NEW_FIREWALL &&
+            fileKind is ProgramKind -> true
+            fileKind == TextFileKind && key == "data" -> true
+            fileKind == ClueFileKind && key.startsWith("step") -> true
+            fileKind == BountyFileKind && key == "script" -> true
+            fileKind == ChallengeFileKind && key in setOf("input", "output", "task") -> true
+            fileKind == QuestGameFileKind && key in setOf("data", "task") -> true
+            fileKind == NewFirewallFileKind &&
                 key in setOf("specialAttribute1", "specialAttribute2") &&
                 specialKey in setOf("long_desc", "short_desc") -> true
 
@@ -608,14 +601,14 @@ class JsonComputerPersistenceSupport(
         }
     }
 
-    private fun fileBlobKind(fileType: Int, key: String, specialKey: String?): String {
+    private fun fileBlobKind(fileKind: HackerFileKind, key: String, specialKey: String?): String {
         return when {
-            fileType == HackerFile.TEXT && key == "data" -> "file-text"
-            fileType == HackerFile.CLUE && key.startsWith("step") -> "clue-text"
-            fileType == HackerFile.BOUNTY && key == "script" -> "bounty-script"
-            fileType == HackerFile.CHALLENGE && key in setOf("input", "output", "task") -> "challenge-text"
-            fileType == HackerFile.QUEST_GAME && key in setOf("data", "task") -> "quest-game-text"
-            fileType == HackerFile.NEW_FIREWALL && specialKey in setOf("long_desc", "short_desc") -> "firewall-description"
+            fileKind == TextFileKind && key == "data" -> "file-text"
+            fileKind == ClueFileKind && key.startsWith("step") -> "clue-text"
+            fileKind == BountyFileKind && key == "script" -> "bounty-script"
+            fileKind == ChallengeFileKind && key in setOf("input", "output", "task") -> "challenge-text"
+            fileKind == QuestGameFileKind && key in setOf("data", "task") -> "quest-game-text"
+            fileKind == NewFirewallFileKind && specialKey in setOf("long_desc", "short_desc") -> "firewall-description"
             else -> "file-content"
         }
     }

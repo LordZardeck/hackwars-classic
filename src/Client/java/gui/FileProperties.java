@@ -5,7 +5,11 @@ package gui;
  */
 
 import com.hackwars.state.GameState;
+import game.EquipmentLicenseContent;
+import game.FirewallSpecialAttribute;
 import game.HackerFile;
+import game.HackerFileInterop;
+import game.NewFirewallContent;
 import net.miginfocom.swing.MigLayout;
 
 import javax.swing.*;
@@ -14,8 +18,6 @@ import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.text.DecimalFormat;
 import java.text.NumberFormat;
-import java.util.HashMap;
-
 public class FileProperties extends Application {
     private Hacker hacker;
     private String fileName, folder;
@@ -104,16 +106,16 @@ public class FileProperties extends Application {
         description.setWrapStyleWord(true);
         description.setEditable(false);
         name.setText(file.getName());
-        type.setText(Home.TYPES[file.getType()]);
+        type.setText(HackerFileInterop.displayName(file));
         maker.setText(file.getMaker());
         NumberFormat nf = NumberFormat.getCurrencyInstance();
         price.setText(nf.format(file.getPrice()));
         description.setText(file.getPublicDescription());
         cpu.setText("" + file.getCPUCost());
         quantity.setText("" + file.getQuantity());
-        if (file.getType() == HackerFile.AGP || file.getType() == HackerFile.PCI) {
+        if (HackerFileInterop.isEquipmentLicense(file)) {
             tabbedPane.addTab("Advanced", getCardPanel(file));
-        } else if (file.getType() == HackerFile.NEW_FIREWALL) {
+        } else if (HackerFileInterop.isNewFirewall(file)) {
             tabbedPane.addTab("Advanced", getFirewallPanel(file));
         }
     }
@@ -121,21 +123,22 @@ public class FileProperties extends Application {
     public JPanel getCardPanel(HackerFile file) {
         JPanel returnPanel = new JPanel();
         returnPanel.setLayout(new MigLayout("wrap 2,align leading"));
-        HashMap content = file.getContent();
+        EquipmentLicenseContent content = HackerFileInterop.equipmentContent(file);
+        if (content == null) {
+            return returnPanel;
+        }
         float durability = 50.0f;
         float max = 50.0f;
         try {//In case it's hardware that hasn't had a durability set for some reason, e.g., old hardware.
-            durability = Float.valueOf((String) content.get("currentquality"));
-            max = Float.valueOf((String) content.get("maxquality"));
+            durability = Float.valueOf(content.getCurrentQuality());
+            max = Float.valueOf(content.getMaxQuality());
         } catch (Exception e) {
         }
         returnPanel.add(new JLabel("Durability:"));
         returnPanel.add(new JLabel(durability + "/" + max));
-        int a1 = Integer.valueOf((String) content.get("attribute0"));
-        int a2 = Integer.valueOf((String) content.get("attribute1"));
-        int quality1 = Integer.valueOf((String) content.get("quality0"));
-        int quality2 = Integer.valueOf((String) content.get("quality1"));
-        String values = (String) content.get("bonusdata");
+        int quality1 = Integer.valueOf(content.getQuality0());
+        int quality2 = Integer.valueOf(content.getQuality1());
+        String values = content.getBonusData();
         String[] v = values.split("\\|");
         String value1 = v[0];
         String value2 = v[1];
@@ -186,11 +189,14 @@ public class FileProperties extends Application {
     }
 
     private JPanel getFirewallPanel(HackerFile file) {
-        HashMap content = file.getContent();
         JPanel returnPanel = new JPanel();
         returnPanel.setLayout(new MigLayout("wrap 2,align leading"));
+        NewFirewallContent content = HackerFileInterop.firewallContent(file);
+        if (content == null) {
+            return returnPanel;
+        }
 
-        String equipLevel = "" + content.get("equip_level");
+        String equipLevel = content.getEquipLevel();
         returnPanel.add(new JLabel("Firewall Level Required for Use: "));
         returnPanel.add(new JLabel(equipLevel));
 
@@ -199,39 +205,38 @@ public class FileProperties extends Application {
         float percent = 0.0f;
         //if(type == PacketPort.BANKING){
         returnPanel.add(new JLabel("Bank Damage Allowed: "));
-        abs = Float.parseFloat("" + content.get("bank_damage_modifier"));
+        abs = Float.parseFloat(content.getBankDamageModifier());
         percent = abs * 100;
         returnPanel.add(new JLabel(format.format(percent) + "%"));
 
-        abs = Float.parseFloat("" + content.get("attack_damage_modifier"));
+        abs = Float.parseFloat(content.getAttackDamageModifier());
         percent = abs * 100;
         returnPanel.add(new JLabel("Attack Damage Allowed: "));
         returnPanel.add(new JLabel(format.format(percent) + "%"));
 
-        abs = Float.parseFloat("" + content.get("ftp_damage_modifier"));
+        abs = Float.parseFloat(content.getFtpDamageModifier());
         percent = abs * 100;
         returnPanel.add(new JLabel("FTP Damage Allowed: "));
         returnPanel.add(new JLabel(format.format(percent) + "%"));
 
-        abs = Float.parseFloat("" + content.get("redirect_damage_modifier"));
+        abs = Float.parseFloat(content.getRedirectDamageModifier());
         percent = abs * 100;
         returnPanel.add(new JLabel("Redirect Damage Allowed: "));
         returnPanel.add(new JLabel(format.format(percent) + "%"));
 
-        abs = Float.parseFloat("" + content.get("http_damage_modifier"));
+        abs = Float.parseFloat(content.getHttpDamageModifier());
         percent = abs * 100;
         returnPanel.add(new JLabel("HTTP Damage Allowed: "));
         returnPanel.add(new JLabel(format.format(percent) + "%"));
 
         returnPanel.add(new JLabel("Attack Damage: "));
-        returnPanel.add(new JLabel("" + content.get("attack_damage")));
+        returnPanel.add(new JLabel(content.getAttackDamage()));
 
         //special attributes
 
-        HashMap specials1 = (HashMap) content.get("specialAttribute1");
-
-        String sa1 = (String) specials1.get("short_desc");
-        String v1 = (String) specials1.get("value");
+        FirewallSpecialAttribute specials1 = content.getSpecialAttribute1();
+        String sa1 = specials1.getShortDescription();
+        String v1 = specials1.getValue();
         returnPanel.add(new JLabel("Special Attributes: "), "span,wrap");
         if (!sa1.equals("")) {
 
@@ -242,10 +247,9 @@ public class FileProperties extends Application {
         }
 
 
-        HashMap specials2 = (HashMap) content.get("specialAttribute2");
-
-        String sa2 = (String) specials2.get("short_desc");
-        String v2 = (String) specials2.get("value");
+        FirewallSpecialAttribute specials2 = content.getSpecialAttribute2();
+        String sa2 = specials2.getShortDescription();
+        String v2 = specials2.getValue();
 
         if (!sa2.equals("")) {
             float value = Float.parseFloat(v2);

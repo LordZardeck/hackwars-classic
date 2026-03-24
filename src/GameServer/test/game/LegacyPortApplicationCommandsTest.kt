@@ -105,7 +105,7 @@ class LegacyPortApplicationCommandsTest {
         val firewallFile = HackerFile(HackerFile.NEW_FIREWALL)
         val content = HashMap<Any?, Any?>()
         content["equip_level"] = "5"
-        firewallFile.content = content
+        firewallFile.setContent(content)
         `when`(fixture.fileSystem.getFile("Public/", "wall")).thenReturn(firewallFile)
         fixture.stats["FireWall"] = 0.0f
         doReturn(0).`when`(fixture.computer).getLevel(anyFloat())
@@ -151,7 +151,7 @@ class LegacyPortApplicationCommandsTest {
         content["deposit"] = "dep"
         content["withdraw"] = "wd"
         content["transfer"] = "tr"
-        application.content = content
+        application.setContent(content)
         `when`(fixture.fileSystem.getFile("Public/", "bank")).thenReturn(application)
 
         val handled = handler.dispatch(
@@ -196,7 +196,7 @@ class LegacyPortApplicationCommandsTest {
         content["deposit"] = "dep"
         content["withdraw"] = "wd"
         content["transfer"] = "tr"
-        application.content = content
+        application.setContent(content)
         `when`(fixture.fileSystem.getFile("Public/", "bank")).thenReturn(application)
 
         val port = mock(Port::class.java)
@@ -227,7 +227,7 @@ class LegacyPortApplicationCommandsTest {
         firewallFile.cPUCost = 0f
         val content = HashMap<Any?, Any?>()
         content["equip_level"] = "0"
-        firewallFile.content = content
+        firewallFile.setContent(content)
         `when`(fixture.fileSystem.getFile("Public/", "wall")).thenReturn(firewallFile)
         fixture.stats["FireWall"] = 0.0f
         doReturn(0).`when`(fixture.computer).getLevel(anyFloat())

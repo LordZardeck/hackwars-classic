@@ -59,17 +59,15 @@ fun generateHardware(rarity: HardwareRarity): HackerFile {
     return HackerFile(hardwareType).apply {
         name = HARDWARE_FILE_TYPES[hardwareType] + ".license"
         setDescription("$attributeOneDescription ${HARDWARE_FILE_TYPES[hardwareType]} of $attributeTwoDescription")
-        content = HashMap<Any?, Any?>(
-            mapOf(
-                "attribute0" to attribute1.toString(),
-                "attribute1" to attribute2.toString(),
-                "attribute2" to "0",
-                "quality0" to quality1.toString(),
-                "quality1" to quality2.toString(),
-                "quality2" to "0",
-                "maxquality" to durability,
-                "currentquality" to durability,
-            )
+        content = EquipmentLicenseContent(
+            attribute0 = attribute1.toString(),
+            attribute1 = attribute2.toString(),
+            attribute2 = "0",
+            quality0 = quality1.toString(),
+            quality1 = quality2.toString(),
+            quality2 = "0",
+            maxQuality = durability,
+            currentQuality = durability,
         )
         quantity = 1
         maker = (quality1 + quality2).let { combinedQuality ->

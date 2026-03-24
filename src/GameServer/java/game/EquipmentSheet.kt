@@ -133,11 +133,11 @@ class EquipmentSheet {
     }
 
     private fun buildCardBonuses(card: HackerFile): List<BonusData> {
-        val content = card.content as? Map<*, *> ?: return emptyList()
+        val content = card.content as? EquipmentLicenseContent ?: return emptyList()
         return buildList {
-            add(getBonusData(card, content.requireInt("attribute0"), content.requireInt("quality0")))
-            add(getBonusData(card, content.requireInt("attribute1"), content.requireInt("quality1")))
-            content.optionalAttribute("attribute2", "quality2")
+            add(getBonusData(card, content.requireInt(EquipmentField.ATTRIBUTE0), content.requireInt(EquipmentField.QUALITY0)))
+            add(getBonusData(card, content.requireInt(EquipmentField.ATTRIBUTE1), content.requireInt(EquipmentField.QUALITY1)))
+            content.optionalAttribute(EquipmentField.ATTRIBUTE2, EquipmentField.QUALITY2)
                 ?.takeUnless { it.attribute == 0 && it.quality == 0 }
                 ?.let { add(getBonusData(card, it.attribute, it.quality)) }
         }
@@ -191,21 +191,20 @@ class EquipmentSheet {
     fun describeCard(card: HackerFile?) {
         card ?: return
         val bonusCheck = BonusData(card)
-        val content = card.content as? MutableMap<Any?, Any?> ?: return
+        val content = card.content as? EquipmentLicenseContent ?: return
         val descriptions = buildList {
-            add(describeAttribute(content.requireInt("attribute0"), content.requireInt("quality0"), bonusCheck))
-            add(describeAttribute(content.requireInt("attribute1"), content.requireInt("quality1"), bonusCheck))
-            content.optionalAttribute("attribute2", "quality2")
+            add(describeAttribute(content.requireInt(EquipmentField.ATTRIBUTE0), content.requireInt(EquipmentField.QUALITY0), bonusCheck))
+            add(describeAttribute(content.requireInt(EquipmentField.ATTRIBUTE1), content.requireInt(EquipmentField.QUALITY1), bonusCheck))
+            content.optionalAttribute(EquipmentField.ATTRIBUTE2, EquipmentField.QUALITY2)
                 ?.takeUnless { it.attribute == 0 && it.quality == 0 }
                 ?.let { add(describeAttribute(it.attribute, it.quality, bonusCheck)) }
         }
 
-        content["bonusdata"] = descriptions.joinToString("|")
+        card.content = content.copy(bonusData = descriptions.joinToString("|"))
     }
 
     fun describeAttribute(attribute: Int, quality: Int, bonusData: BonusData): String {
         val flatPercentBonusFormat = "%d%% %s"
-        val flatBonusFormat = "%+.1f/%1$+.1f %s"
         val percentBonusFormat = "%.1f%%/%1$.1f%% %s %s"
         return EquipmentDefinition
             .fromId(attribute)
@@ -222,12 +221,12 @@ class EquipmentSheet {
 
                     is EquipmentDefinition.DamageBonusEquipment -> {
                         bonusData.damageBonus = data.bonusForQuality(quality)
-                        flatBonusFormat.format(bonusData.damageBonus, "to Attack Damage")
+                        formatFlatBonus(bonusData.damageBonus, "to Attack Damage")
                     }
 
                     is EquipmentDefinition.MiningBonusEquipment -> {
                         bonusData.miningBonus = data.bonusForQuality(quality)
-                        flatBonusFormat.format(bonusData.miningBonus, "to Redirecting Damage")
+                        formatFlatBonus(bonusData.miningBonus, "to Redirecting Damage")
                     }
 
                     is EquipmentDefinition.BankingBonusEquipment -> {
@@ -250,17 +249,17 @@ class EquipmentSheet {
 
                     is EquipmentDefinition.CpuBonusEquipment -> {
                         bonusData.setCpuBonus(data.bonusForQuality(quality))
-                        flatBonusFormat.format(bonusData.cpuBonus[1], "CPU Points")
+                        formatFlatBonus(bonusData.cpuBonus[1], "CPU Points")
                     }
 
                     is EquipmentDefinition.WatchBonusEquipment -> {
                         bonusData.watchBonus = data.bonusForQuality(quality)
-                        flatBonusFormat.format(bonusData.watchBonus, "Watch")
+                        formatFlatBonus(bonusData.watchBonus, "Watch")
                     }
 
                     is EquipmentDefinition.HdBonusEquipment -> {
                         bonusData.hdBonus = data.bonusForQuality(quality)
-                        flatBonusFormat.format(bonusData.hdBonus, "HD Space")
+                        formatFlatBonus(bonusData.hdBonus, "HD Space")
                     }
 
                     is EquipmentDefinition.FreezeImmuneEquipment -> {
@@ -283,12 +282,15 @@ class EquipmentSheet {
             ?: ""
     }
 
+    private fun formatFlatBonus(value: Number, label: String): String =
+        "%+.1f/%1$+.1f %s".format(value.toDouble(), label)
+
     fun outputXML(): String {
         val equipmentXMLLine = "<equipment>\n%s\n</equipment>\n"
         return """
-            ${equipmentXMLLine.format(equippedAgpFile?.outputXML() ?: "")}
-            ${equipmentXMLLine.format(equippedPci0File?.outputXML() ?: "")}
-            ${equipmentXMLLine.format(equippedPci1File?.outputXML() ?: "")}
+            ${equipmentXMLLine.format(equippedAgpFile?.let(LegacyHackerFileCodec::serializeXml) ?: "")}
+            ${equipmentXMLLine.format(equippedPci0File?.let(LegacyHackerFileCodec::serializeXml) ?: "")}
+            ${equipmentXMLLine.format(equippedPci1File?.let(LegacyHackerFileCodec::serializeXml) ?: "")}
         """.trimIndent()
     }
 
@@ -312,12 +314,29 @@ class EquipmentSheet {
     }
 }
 
-internal fun Map<*, *>.requireInt(key: String): Int =
-    get(key)?.toString()?.toIntOrNull()
-        ?: error("Missing or invalid equipment field: $key")
+internal enum class EquipmentField {
+    ATTRIBUTE0,
+    ATTRIBUTE1,
+    ATTRIBUTE2,
+    QUALITY0,
+    QUALITY1,
+    QUALITY2,
+}
 
-private fun Map<*, *>.optionalAttribute(attributeKey: String, qualityKey: String): EquipmentAttribute? {
-    val attribute = get(attributeKey)?.toString()?.toIntOrNull() ?: return null
-    val quality = get(qualityKey)?.toString()?.toIntOrNull() ?: return null
+internal fun EquipmentLicenseContent.requireInt(field: EquipmentField): Int =
+    value(field)?.toIntOrNull() ?: error("Missing or invalid equipment field: $field")
+
+private fun EquipmentLicenseContent.optionalAttribute(attributeField: EquipmentField, qualityField: EquipmentField): EquipmentAttribute? {
+    val attribute = value(attributeField)?.toIntOrNull() ?: return null
+    val quality = value(qualityField)?.toIntOrNull() ?: return null
     return EquipmentAttribute(attribute, quality)
+}
+
+private fun EquipmentLicenseContent.value(field: EquipmentField): String? = when (field) {
+    EquipmentField.ATTRIBUTE0 -> attribute0
+    EquipmentField.ATTRIBUTE1 -> attribute1
+    EquipmentField.ATTRIBUTE2 -> attribute2
+    EquipmentField.QUALITY0 -> quality0
+    EquipmentField.QUALITY1 -> quality1
+    EquipmentField.QUALITY2 -> quality2
 }

@@ -47,7 +47,7 @@ class LegacyFilesystemInventoryCommands : LegacyApplicationDataHandler {
                 var file = computer.MyFileSystem.getFile(path, name)
                 if (file != null && (file.type == HackerFile.GAME || file.type == HackerFile.GAME_PROJECT)) {
                     file = file.clone()
-                    file.content = null
+                    file.content = EmptyContent
                 }
                 computer.PA.setFile(file)
                 computer.systemChange = true
@@ -61,7 +61,7 @@ class LegacyFilesystemInventoryCommands : LegacyApplicationDataHandler {
                 val loadFile = HashMap<Any?, Any?>()
                 val saveFile = computer.MyFileSystem.getFile("", "$name.save")
                 if (saveFile != null) {
-                    val data = (saveFile.content as? Map<*, *>)?.get("data") as String?
+                    val data = (saveFile.content as? TextContent)?.data ?: (saveFile.content as? LegacyLevelContent)?.data
                     if (data != null) {
                         val entries = data.split("\n")
                         try {
@@ -151,7 +151,7 @@ class LegacyFilesystemInventoryCommands : LegacyApplicationDataHandler {
                     levels["Merchanting"] = Integer.valueOf(100)
                     levels["Watch"] = Integer.valueOf(100)
                     try {
-                        val result = executeCompileApplication(computer, existingFile.type, existingFile.content as? HashMap<*, *> ?: hashMapOf<Any?, Any?>(), levels)
+                        val result = executeCompileApplication(computer, existingFile.type, HashMap(HackerFileInterop.legacyContentMap(existingFile)), levels)
                         if (result != null && (result["error"] as String).length == 0) {
                             compilePrice = ((result["price"] as Double).toFloat())
                         }
@@ -215,8 +215,7 @@ class LegacyFilesystemInventoryCommands : LegacyApplicationDataHandler {
                         if (file.type != HackerFile.NEW_FIREWALL) {
                             totalPay += (Computer.makers[maker] as Float) * quantity.toInt()
                         } else {
-                            val content = file.content as? Map<*, *> ?: emptyMap<Any?, Any?>()
-                            val price = content["store_price"]
+                            val price = (file.content as? NewFirewallContent)?.storePrice
                             if (price != null) {
                                 totalPay += java.lang.Float.parseFloat("" + price)
                             }
@@ -287,7 +286,7 @@ class LegacyFilesystemInventoryCommands : LegacyApplicationDataHandler {
                 playerLevels["Redirecting"] = Integer.valueOf(computer.getLevel(computer.Stats["Redirecting"] as Float))
 
                 try {
-                    val result = executeCompileApplication(computer, file.type, file.content as? HashMap<*, *> ?: hashMapOf<Any?, Any?>(), playerLevels)
+                    val result = executeCompileApplication(computer, file.type, HashMap(HackerFileInterop.legacyContentMap(file)), playerLevels)
                     if (result != null && (result["error"] as String).length == 0) {
                         val cpuCost = (result["cpucost"] as Double).toFloat()
                         price = (result["price"] as Double).toFloat()
@@ -382,7 +381,7 @@ class LegacyFilesystemInventoryCommands : LegacyApplicationDataHandler {
         playerLevels["Redirecting"] = Integer.valueOf(100)
 
         try {
-            val result = executeCompileApplication(computer, file.type, file.content as? HashMap<*, *> ?: hashMapOf<Any?, Any?>(), playerLevels)
+            val result = executeCompileApplication(computer, file.type, HashMap(HackerFileInterop.legacyContentMap(file)), playerLevels)
             if (result != null && (result["error"] as String).length == 0) {
                 compilePrice = (result["price"] as Double).toFloat()
             }

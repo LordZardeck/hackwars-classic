@@ -3,6 +3,7 @@ package com.hackwars.game.functions
 import com.hackwars.rpc.SaveFile
 import game.ApplicationData
 import game.HackerFile
+import game.TextContent
 import hackscript.model.TypeBoolean
 import hackscript.model.TypeFloat
 import hackscript.model.TypeInteger
@@ -36,8 +37,8 @@ class RequestSaveTest {
         val savedFile = payload.name as HackerFile
         assertEquals("slotA.save", savedFile.name)
         assertEquals("slotA", savedFile.maker)
-        val content = savedFile.content as HashMap<*, *>
-        val data = content["data"] as String
+        val content = savedFile.content as TextContent
+        val data = content.data
         assertTrue(data.contains("s\tstring\thello"))
         assertTrue(data.contains("i\tint\t7"))
         assertTrue(data.contains("f\tfloat\t3.5"))

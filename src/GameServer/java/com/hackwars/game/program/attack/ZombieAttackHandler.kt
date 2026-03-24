@@ -1,9 +1,9 @@
 package com.hackwars.game.program.attack
 
 import com.hackwars.game.program.AttackProgram
+import com.hackwars.rpc.GameCommands
 import game.ApplicationData
 import game.MessageHandler
-import game.payload.ATTACK_COMMAND
 import game.payload.RedirectedPortEntryPayload
 import game.payload.StructuredMessagePayload
 import game.payload.ZombieAttackPayload
@@ -40,7 +40,7 @@ class ZombieAttackHandler : AttackFunctionHandler {
                 program.zombie = true
                 val request = ApplicationData(
                     RedirectedPortEntryPayload(
-                        ATTACK_COMMAND,
+                        GameCommands.ATTACK.command,
                         program.parentPort!!.IP,
                         program.computer!!.network
                     ),

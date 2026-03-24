@@ -249,39 +249,7 @@ class LegacyComputerPersistenceSupport(
     }
 
     fun loadFile(node: Node, loadXml: LoadXML): HackerFile {
-        val type = text(loadXml.findNode(node, "type", 0), loadXml)?.toIntOrNull() ?: 0
-        val file = HackerFile(type)
-
-        file.name = text(loadXml.findNode(node, "name", 0), loadXml) ?: "CORRUPT(DELETE)"
-        file.location = text(loadXml.findNode(node, "location", 0), loadXml)
-        text(loadXml.findNode(node, "description", 0), loadXml)?.let(file::setDescription)
-        file.price = text(loadXml.findNode(node, "price", 0), loadXml)?.toFloatOrNull() ?: 0f
-        file.quantity = text(loadXml.findNode(node, "quantity", 0), loadXml)?.toIntOrNull() ?: 0
-        file.cPUCost = text(loadXml.findNode(node, "cpu", 0), loadXml)?.toFloatOrNull() ?: 0f
-        file.maker = text(loadXml.findNode(node, "maker", 0), loadXml)
-
-        val content = HashMap<Any?, Any?>()
-        val contentNode = loadXml.findNode(node, "content", 0)
-        if (contentNode != null) {
-            file.typeKeys.forEach { key ->
-                val keyNode = loadXml.findNode(contentNode, key, 0)
-                if (keyNode == null) {
-                    content[key] = ""
-                } else if (key == "specialAttribute1" || key == "specialAttribute2") {
-                    val nested = HashMap<String, String>()
-                    nested["name"] = text(loadXml.findNode(keyNode, "name", 0), loadXml) ?: ""
-                    nested["value"] = text(loadXml.findNode(keyNode, "value", 0), loadXml) ?: ""
-                    nested["long_desc"] = text(loadXml.findNode(keyNode, "long_desc", 0), loadXml) ?: ""
-                    nested["short_desc"] = text(loadXml.findNode(keyNode, "short_desc", 0), loadXml) ?: ""
-                    content[key] = nested
-                } else {
-                    content[key] = text(keyNode, loadXml) ?: ""
-                }
-            }
-            file.content = content
-        }
-
-        return file
+        return LegacyHackerFileCodec.parseLegacyXml(node, loadXml)
     }
 
     private fun buildPortsXml(computer: Computer): String = buildString {
@@ -353,11 +321,11 @@ class LegacyComputerPersistenceSupport(
         var fileNode = loadXml.findNode(filesNode, "file", index)
         while (fileNode != null) {
             val file = loadFile(fileNode, loadXml)
-            if (file.type != HackerFile.FIREWALL) {
+            if (file.kind != LegacyLevelKind(LegacyLevelFamily.FIREWALL)) {
                 computer.MyFileSystem.addFile(file, false)
             } else {
-                val content = file.content as? Map<*, *> ?: emptyMap<Any?, Any?>()
-                val firewallLevel = (content["data"] as? String)?.toIntOrNull() ?: 0
+                val content = file.content as? LegacyLevelContent ?: LegacyLevelContent()
+                val firewallLevel = content.data.toIntOrNull() ?: 0
                 val quantity = file.quantity
                 var generatedName = ""
                 repeat(quantity) { offset ->

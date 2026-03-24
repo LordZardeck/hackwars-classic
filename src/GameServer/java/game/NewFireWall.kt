@@ -232,7 +232,7 @@ class NewFireWall() {
         price += calculatePrice()
         content["store_price"] = "" + price
         content["name"] = name
-        HF.content = content
+        HF.content = LegacyHackerFileCodec.parseLegacyContent(HF.kind, content)
         return HF
     }
 
@@ -383,7 +383,7 @@ class NewFireWall() {
     fun loadHackerFile(hf: HackerFile?) {
         resetVariables()
         this.name = hf!!.name
-        val content = hf.content as? MutableMap<Any?, Any?> ?: return
+        val content = LegacyHackerFileCodec.toLegacyContentMap(hf.kind, hf.content)
         val special1 = hf.getSpecial(1) as? Map<*, *> ?: emptyMap<Any?, Any?>()
         val special2 = hf.getSpecial(2) as? Map<*, *> ?: emptyMap<Any?, Any?>()
 
@@ -433,7 +433,7 @@ class NewFireWall() {
         this.ftpDamageModifier = ("" + content["ftp_damage_modifier"]).toFloat()
         this.httpDamageModifier = ("" + content["http_damage_modifier"]).toFloat()
 
-        if (content["attack_damage"] == null) {
+        if (content["attack_damage"] == null || content["attack_damage"].toString().isBlank()) {
             content["attack_damage"] = "0"
         }
         this.attackDamage = ("" + content["attack_damage"]).toFloat()
@@ -449,7 +449,7 @@ class NewFireWall() {
 
     fun getHackerFile(): HackerFile = hackerFile!!
 
-    fun getType(): HashMap<Any?, Any?> = (hackerFile!!.content as? HashMap<Any?, Any?>) ?: HashMap()
+    fun getType(): HashMap<Any?, Any?> = HashMap(HackerFileInterop.legacyContentMap(hackerFile!!))
 
     fun updateFirewall(oldFirewall: Int): HackerFile {
         val HF = HackerFile(HackerFile.NEW_FIREWALL)
@@ -520,7 +520,7 @@ class NewFireWall() {
         }
         price += firewall[BASE_PRICE] as Float
         content["store_price"] = price
-        HF.content = content
+        HF.content = LegacyHackerFileCodec.parseLegacyContent(HF.kind, content)
         HF.price = 0.0f
         return HF
     }
@@ -674,7 +674,7 @@ class NewFireWall() {
                 content["specialAttribute" + (i + 1)] = special
             }
 
-            HF.content = content
+            HF.content = LegacyHackerFileCodec.parseLegacyContent(HF.kind, content)
             HF.price = 0.0f
             return HF
         }

@@ -6,6 +6,7 @@ import com.hackwars.game.program.ShippingProgram
 import game.ApplicationCommand
 import game.ApplicationPayload
 import game.Computer
+import game.HackerFileInterop
 import game.Port
 
 data class CombatDamageValues(
@@ -314,8 +315,7 @@ object CombatQuestSupport {
         if (questItems != null) {
             for (index in questItems.indices) {
                 val file = questItems[index] as game.HackerFile
-                val content = file.content as? Map<*, *> ?: continue
-                val itemName = content["itemname"] as? String ?: continue
+                val itemName = HackerFileInterop.visualItemContent(file)?.itemName ?: continue
                 response[itemName] = "true"
                 response["${itemName}_quantity"] = file.quantity.toString()
             }

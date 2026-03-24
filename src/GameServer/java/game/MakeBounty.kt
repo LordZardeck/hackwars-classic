@@ -46,16 +46,16 @@ open class MakeBounty(private val MyFileSystem: FileSystem) {
         target: String?,
         setIP: String
     ): Boolean {
-        val Content = HF?.content as? HashMap<Any?, Any?> ?: return false
+        val content = HF?.content as? BountyContent ?: return false
 
-        if (Content != null) {
-            var count = Integer.valueOf(Content["count"] as String)
-            val CheckBountyType = Integer.valueOf(Content["type"] as String)
-            val reward = java.lang.Float.valueOf(Content["reward"] as String)
-            val checkTarget = Content["target"] as String
-            val scriptName = Content["script"] as String
-            val maker = Content["maker"] as String
-            val bountyip = Content["bountyip"] as String
+        if (content != null) {
+            var count = content.count.toInt()
+            val CheckBountyType = content.targetType.toInt()
+            val reward = java.lang.Float.valueOf(content.reward)
+            val checkTarget = content.target
+            val scriptName = content.script
+            val maker = content.maker
+            val bountyip = content.bountyIp
             var success = true
 
             try {
@@ -103,7 +103,7 @@ open class MakeBounty(private val MyFileSystem: FileSystem) {
                     MyComputer!!.addMessage(MessageHandler.BOUNTY_STEP_COMPLETED)
 
                     count -= 1
-                    Content["count"] = "" + count
+                    HF.content = content.copy(count = count.toString())
                     if (count <= 0) {
                         MyFileSystem.deleteFile(HF.location, HF.name)
                         MyComputer.computerHandler

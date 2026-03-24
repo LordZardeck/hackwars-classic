@@ -12,6 +12,7 @@ import hackscript.model.TypeString
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNotSame
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -70,7 +71,7 @@ class LegacyFilesystemInventoryCommandsTest {
 
         assertTrue(handled)
         assertNotNull(computer.PA.getFile())
-        assertNull(computer.PA.getFile().content)
+        assertNotSame(file, computer.PA.getFile())
         assertNotNull(file.content)
     }
 
@@ -84,7 +85,7 @@ class LegacyFilesystemInventoryCommandsTest {
         val saveContent = HashMap<Any?, Any?>()
         saveContent["data"] = "name\tstring\tplayer\nalive\tbool\ttrue\nscore\tint\t7"
         saveContent["level"] = "1"
-        saveFile.content = saveContent
+        saveFile.setContent(saveContent)
         computer.MyFileSystem.addFile(saveFile, true)
 
         val handled = handler.dispatch(
@@ -219,7 +220,7 @@ class LegacyFilesystemInventoryCommandsTest {
         val content = HashMap<Any?, Any?>()
         content["data"] = "hello"
         content["level"] = "1"
-        file.content = content
+        file.setContent(content)
         return file
     }
 
@@ -232,7 +233,7 @@ class LegacyFilesystemInventoryCommandsTest {
         val content = HashMap<Any?, Any?>()
         content["data"] = "payload"
         content["level"] = "1"
-        file.content = content
+        file.setContent(content)
         return file
     }
 
@@ -251,7 +252,7 @@ class LegacyFilesystemInventoryCommandsTest {
         content["step3"] = "d"
         content["step4"] = "e"
         content["step5"] = "f"
-        file.content = content
+        file.setContent(content)
         return file
     }
 }

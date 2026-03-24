@@ -6,7 +6,14 @@ package gui;
 
 import browser.HtmlHandler;
 import com.hackwars.state.GameState;
+import game.EquipmentSlotType;
 import game.HackerFile;
+import game.HackerFileInterop;
+import game.LegacyLevelContent;
+import game.LegacyLevelFamily;
+import game.NewFirewallContent;
+import game.ProgramFamily;
+import game.ProgramForm;
 import net.miginfocom.swing.MigLayout;
 import org.lobobrowser.html.FormInput;
 import util.GameClock;
@@ -519,86 +526,86 @@ public class WebBrowser extends Application implements ComponentListener {
         //System.out.println("Received "+HF.getName());
         JPanel change = null;
         int x = 0;
-        JPanel add = getPanel(HF.getName(), HF.getPrice(), HF.getMaker(), HF.getCPUCost(), HF.getQuantity(), HF.getPublicDescription(), HF.getType(), HF.getContent());
-        if (HF.getType() == HackerFile.BANKING_COMPILED) {
+        JPanel add = getPanel(HF);
+        if (HackerFileInterop.isProgram(HF, ProgramFamily.BANKING, ProgramForm.COMPILED)) {
             change = banking;
             bcount += 20 + add.getPreferredSize().width;
             x = bcount - add.getPreferredSize().width;
 
         }
-        if (HF.getType() == HackerFile.ATTACKING_COMPILED) {
+        if (HackerFileInterop.isProgram(HF, ProgramFamily.ATTACK, ProgramForm.COMPILED)) {
             change = attack;
             acount += 20 + add.getPreferredSize().width;
             x = acount - add.getPreferredSize().width;
 
         }
-        if (HF.getType() == HackerFile.WATCH_COMPILED) {
+        if (HackerFileInterop.isProgram(HF, ProgramFamily.WATCH, ProgramForm.COMPILED)) {
             change = watch;
             wcount += 20 + add.getPreferredSize().width;
             x = wcount - add.getPreferredSize().width;
 
         }
-        if (HF.getType() == HackerFile.FTP_COMPILED) {
+        if (HackerFileInterop.isProgram(HF, ProgramFamily.FTP, ProgramForm.COMPILED)) {
             change = FTP;
             ftcount += 20 + add.getPreferredSize().width;
             x = ftcount - add.getPreferredSize().width;
 
         }
-        if (HF.getType() == HackerFile.SHIPPING_COMPILED) {
+        if (HackerFileInterop.isProgram(HF, ProgramFamily.SHIPPING, ProgramForm.COMPILED)) {
             change = redirect;
             redirectCount += 20 + add.getPreferredSize().width;
             x = redirectCount - add.getPreferredSize().width;
 
         }
-        if (HF.getType() == HackerFile.NEW_FIREWALL) {
+        if (HackerFileInterop.isNewFirewall(HF)) {
             change = firewall;
             ficount += 20 + add.getPreferredSize().width;
             x = ficount - add.getPreferredSize().width;
 
         }
-        if (HF.getType() == HackerFile.HTTP) {
+        if (HackerFileInterop.isProgram(HF, ProgramFamily.HTTP, ProgramForm.COMPILED)) {
             change = http;
             hcount += 20 + add.getPreferredSize().width;
             x = hcount - add.getPreferredSize().width;
 
         }
-        if (HF.getType() == HackerFile.CPU) {
+        if (HackerFileInterop.isLegacyLevel(HF, LegacyLevelFamily.CPU)) {
             change = cpu;
             ccount += 20 + add.getPreferredSize().width;
             x = ccount - add.getPreferredSize().width;
         }
-        if (HF.getType() == HackerFile.HD) {
+        if (HackerFileInterop.isLegacyLevel(HF, LegacyLevelFamily.HD)) {
             change = hd;
             hdcount += 20 + add.getPreferredSize().width;
             x = hdcount - add.getPreferredSize().width;
         }
-        if (HF.getType() == HackerFile.MEMORY) {
+        if (HackerFileInterop.isLegacyLevel(HF, LegacyLevelFamily.MEMORY)) {
             change = ram;
             mcount += 20 + add.getPreferredSize().width;
             x = mcount - add.getPreferredSize().width;
         }
-        if (HF.getType() == HackerFile.IMAGE) {
+        if (HackerFileInterop.isImage(HF)) {
             change = images;
             x = icount;
             icount += 20 + add.getPreferredSize().width;
         }
-        if (HF.getType() == HackerFile.BOUNTY) {
+        if (HackerFileInterop.isBounty(HF)) {
             change = bounty;
             x = bocount;
             bocount += 20 + add.getPreferredSize().width;
         }
-        if (HF.getType() == HackerFile.GAME) {
+        if (HackerFileInterop.isGame(HF)) {
             change = games;
             x = gcount;
             gcount += 20 + add.getPreferredSize().width;
         }
-        if (HF.getType() == HackerFile.COMMODITY_SLIP) {
+        if (HackerFileInterop.isCommoditySlip(HF)) {
             change = commodities;
             x = commodityCount;
             commodityCount += 20 + add.getPreferredSize().width;
         }
 
-        if (HF.getType() == HackerFile.AGP) {
+        if (HackerFileInterop.isEquipmentLicense(HF, EquipmentSlotType.AGP)) {
             String name = HF.getPublicDescription();
 
             Inventory inv = Equipment.getInventoryObject(HF, 100, MyHacker, EPU);//new Inventory(MyHacker,EPU,name,value1,value2,type,Inventory.AGP,HF.getName(),100,d,new int[]{0,0,0,0,0});
@@ -609,7 +616,7 @@ public class WebBrowser extends Application implements ComponentListener {
             agp.addInventory(inv);
 
         }
-        if (HF.getType() == HackerFile.PCI) {
+        if (HackerFileInterop.isEquipmentLicense(HF, EquipmentSlotType.PCI)) {
             String name = HF.getPublicDescription();
 
             Inventory inv = Equipment.getInventoryObject(HF, 100, MyHacker, EPU);//new Inventory(MyHacker,EPU,name,value1,value2,type,Inventory.PCI,HF.getName(),100,d,new int[]{0,0,0,0,0});
@@ -631,13 +638,19 @@ public class WebBrowser extends Application implements ComponentListener {
 
     }
 
-    public JPanel getPanel(String name, float price, String maker, float cpu, int quantity, String description, int type, HashMap HM) {
+    public JPanel getPanel(HackerFile file) {
         JPanel jp = new JPanel();
         jp.setLayout(null);
         Insets insets = jp.getInsets();
         int largest = 0;
         int height = 0;
-        if (type != HackerFile.NEW_FIREWALL) {
+        String name = file.getName();
+        float price = file.getPrice();
+        String maker = file.getMaker();
+        float cpu = file.getCPUCost();
+        int quantity = file.getQuantity();
+        String description = file.getPublicDescription();
+        if (!HackerFileInterop.isNewFirewall(file)) {
             JLabel namel = new JLabel("Name:     " + name);
             jp.add(namel);
             namel.setBounds(insets.left, insets.top, namel.getPreferredSize().width, namel.getPreferredSize().height);
@@ -646,7 +659,7 @@ public class WebBrowser extends Application implements ComponentListener {
 
         } else {
             FireWallLabel namel = new FireWallLabel(name, MyHacker);
-            namel.setContent(HM);
+            namel.setContent(new HashMap(HackerFileInterop.legacyContentMap(file)));
             jp.add(namel);
             namel.setBounds(insets.left, insets.top, namel.getPreferredSize().width, namel.getPreferredSize().height);
             height = insets.top + namel.getPreferredSize().height + 2;
@@ -665,7 +678,11 @@ public class WebBrowser extends Application implements ComponentListener {
         String level = "0";
         int currentLevel = 0;
         int leveli = 0;
-        if (type != HackerFile.FIREWALL && type != HackerFile.CPU && type != HackerFile.HD && type != HackerFile.MEMORY) {
+        boolean isLevelBased = HackerFileInterop.isLegacyLevel(file, LegacyLevelFamily.FIREWALL)
+                || HackerFileInterop.isLegacyLevel(file, LegacyLevelFamily.CPU)
+                || HackerFileInterop.isLegacyLevel(file, LegacyLevelFamily.HD)
+                || HackerFileInterop.isLegacyLevel(file, LegacyLevelFamily.MEMORY);
+        if (!isLevelBased) {
             JLabel makerl = new JLabel("Maker:    " + maker);
             jp.add(makerl);
             makerl.setBounds(insets.left, height, makerl.getPreferredSize().width, makerl.getPreferredSize().height);
@@ -674,15 +691,16 @@ public class WebBrowser extends Application implements ComponentListener {
                 largest = makerl.getPreferredSize().width;
         } else if (urlField.getText().equals(MyHacker.getStoreIP())) {
             JLabel levell;
+            LegacyLevelContent content = (LegacyLevelContent) file.getTypedContent();
 
             //System.out.println(level);
-            if (type == HackerFile.FIREWALL) {
-                level = (String) HM.get("level");
+            if (HackerFileInterop.isLegacyLevel(file, LegacyLevelFamily.FIREWALL)) {
+                level = content.getLevel();
                 leveli = (int) Integer.valueOf(level);
                 currentLevel = MyHacker.getStatsPanel().getFireWallIcon().getLevel();
                 levell = new JLabel("FireWall Level Required: " + level);
             } else {
-                level = (String) HM.get("level");
+                level = content.getLevel();
                 leveli = (int) Integer.valueOf(level);
                 currentLevel = MyHacker.getStatsPanel().getTotalLevel();
                 levell = new JLabel("Total Level Required: " + level);
@@ -694,7 +712,10 @@ public class WebBrowser extends Application implements ComponentListener {
                 largest = levell.getPreferredSize().width;
 
         }
-        if (type != HackerFile.CPU && type != HackerFile.HD && type != HackerFile.MEMORY && type != HackerFile.COMMODITY_SLIP) {
+        if (!HackerFileInterop.isLegacyLevel(file, LegacyLevelFamily.CPU)
+                && !HackerFileInterop.isLegacyLevel(file, LegacyLevelFamily.HD)
+                && !HackerFileInterop.isLegacyLevel(file, LegacyLevelFamily.MEMORY)
+                && !HackerFileInterop.isCommoditySlip(file)) {
             JLabel cpul = new JLabel("CPU Cost: " + cpu);
             jp.add(cpul);
             cpul.setBounds(insets.left, height, cpul.getPreferredSize().width, cpul.getPreferredSize().height);

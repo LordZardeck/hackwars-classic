@@ -5,7 +5,9 @@ package gui;
  */
 
 import com.hackwars.state.GameState;
+import game.EquipmentLicenseContent;
 import game.HackerFile;
+import game.HackerFileInterop;
 
 import javax.swing.*;
 import javax.swing.event.InternalFrameEvent;
@@ -530,7 +532,7 @@ public class Home extends Application implements ComponentListener, TableModelLi
                             int type = (Integer) dir[1];
                             shownDirectory[j] = dir;
                             rowData[NAME] = (String) dir[0];
-                            rowData[TYPE] = TYPES[type];
+                            rowData[TYPE] = HackerFileInterop.displayNameForLegacyId(type);
                             rowData[QUANTITY] = (Integer) dir[2];
                             rowData[YOUR_STORE_PRICE] = (Float) dir[3];
                             float price = getPrice((String) dir[4]);
@@ -666,7 +668,7 @@ public class Home extends Application implements ComponentListener, TableModelLi
     public void setProperties(HackerFile HF) {
         file = HF;
         name.setText(HF.getName());
-        type.setText(TYPES[HF.getType()]);
+        type.setText(HackerFileInterop.displayName(HF));
         maker.setText(HF.getMaker());
         NumberFormat nf = NumberFormat.getCurrencyInstance();
         price.setText(nf.format(HF.getPrice()));
@@ -674,21 +676,27 @@ public class Home extends Application implements ComponentListener, TableModelLi
         cpu.setText("" + HF.getCPUCost());
         quantity.setText("" + HF.getQuantity());
         cardInfo.setText("");
-        if (HF.getType() == HackerFile.AGP || HF.getType() == HackerFile.PCI) {
-            HashMap content = HF.getContent();
+        if (HackerFileInterop.isEquipmentLicense(HF)) {
+            EquipmentLicenseContent content = HackerFileInterop.equipmentContent(HF);
+            if (content == null) {
+                return;
+            }
             float durability = 50.0f;
             float max = 50.0f;
             try {//In case it's hardware that hasn't had a durability set for some reason, e.g., old hardware.
-                durability = Float.valueOf((String) content.get("currentquality"));
-                max = Float.valueOf((String) content.get("maxquality"));
+                durability = Float.valueOf(content.getCurrentQuality());
+                max = Float.valueOf(content.getMaxQuality());
             } catch (Exception e) {
             }
 
             String d = "Durability: " + durability + "/" + max;
-            String values = (String) content.get("bonusdata");
+            String values = content.getBonusData();
+            if (values == null) {
+                values = "";
+            }
             String[] v = values.split("\\|");
-            String value1 = v[0];
-            String value2 = v[1];
+            String value1 = v.length > 0 ? v[0] : "";
+            String value2 = v.length > 1 ? v[1] : "";
 
             cardInfo.setText(d + "\n" + value1 + "\n" + value2);
 			/*if(quality1+quality2==18)
@@ -792,6 +800,17 @@ public class Home extends Application implements ComponentListener, TableModelLi
             }
         }
         return (0);
+    }
+
+    private Integer getShownLegacyType(int row) {
+        if (shownDirectory == null || row < 0 || row >= shownDirectory.length) {
+            return null;
+        }
+        Object entry = shownDirectory[row];
+        if (!(entry instanceof Object[])) {
+            return null;
+        }
+        return (Integer) ((Object[]) entry)[1];
     }
 
     public void removeRow(int row) {
@@ -1011,12 +1030,12 @@ public class Home extends Application implements ComponentListener, TableModelLi
             //if(file!=null){
             int selRow = table.getSelectedRow();
             String maker = (String) tableModel.getValueAt(selRow, MAKER);
-            int type = getType((String) tableModel.getValueAt(selRow, TYPE));
+            Integer type = getShownLegacyType(selRow);
             String name = (String) tableModel.getValueAt(selRow, NAME);
             float price = 0.0f;
             //if(table.getSelectedRow()!=-1){
             if (maker.toLowerCase().equals(MyHacker.getUsername().toLowerCase())) {
-                if (type == HackerFile.BANKING_COMPILED || type == HackerFile.ATTACKING_COMPILED || type == HackerFile.WATCH_COMPILED || type == HackerFile.HTTP || type == HackerFile.FTP_COMPILED || type == HackerFile.SHIPPING_COMPILED) {
+                if (type != null && HackerFileInterop.isDecompilableLegacyId(type)) {
                     Object[] options = {"Yes", "No"};
                     NumberFormat nf = NumberFormat.getCurrencyInstance();
                     int n = JOptionPane.showOptionDialog(this, "Are You Sure you want to decompile " + name + "?",
@@ -1084,11 +1103,11 @@ public class Home extends Application implements ComponentListener, TableModelLi
             if (selRow != -1) {
                 String type = (String) tableModel.getValueAt(selRow, TYPE);
                 String fileName = (String) tableModel.getValueAt(selRow, NAME);
-                int fileType = getType((String) tableModel.getValueAt(selRow, TYPE));
+                Integer fileType = getShownLegacyType(selRow);
                 if (type.equals("Directory")) {
                     //System.out.println(selected);
                     changeDirectory(fileName);
-                } else if (type.equals(TYPES[HackerFile.IMAGE])) {
+                } else if (fileType != null && HackerFileInterop.isImageLegacyId(fileType)) {
                     Object[] o = new Object[]{fileName, fileType};
                     ImageViewer im = new ImageViewer("Image Viewer", false, false, true, true, mainPanel, MyHacker, o, folder);
                     im.setBounds(100, 100, 450, 450);
@@ -1096,12 +1115,12 @@ public class Home extends Application implements ComponentListener, TableModelLi
                     im.moveToFront();
                     mainPanel.add(im);
                     im.setVisible(true);
-                } else if (type.equals(TYPES[HackerFile.GAME]) || type.equals(TYPES[HackerFile.QUEST_GAME])) {
+                } else if (fileType != null && HackerFileInterop.isGameLegacyId(fileType)) {
                     String encryptedIP = MyHacker.getEncryptedIP();
                     GameState myGameState = MyHacker.getView();
                     MyHacker.setRequestedFile(Hacker.HACKTENDO_PLAYER);
                     myGameState.addFunctionCall(new com.hackwars.rpc.RequestGame(encryptedIP, folder, fileName).toRfc(0));
-                } else if (type.equals(TYPES[HackerFile.BANKING_SCRIPT]) || type.equals(TYPES[HackerFile.ATTACKING_SCRIPT]) || type.equals(TYPES[HackerFile.WATCH_SCRIPT]) || type.equals(TYPES[HackerFile.SHIPPING_SCRIPT]) || type.equals(TYPES[HackerFile.TEXT]) || type.equals(TYPES[HackerFile.FTP_SCRIPT])) {
+                } else if (fileType != null && HackerFileInterop.opensInScriptEditorLegacyId(fileType)) {
                     MyHacker.showScriptEditor(folder, fileName);
                 }
             }

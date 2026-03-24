@@ -1985,11 +1985,13 @@ public class HackerLinker extends Linker {
 
                     if (HF == null) {
                         MyProgram.getComputer().addMessage(MessageHandler.FILE_NOT_FOUND);
-                    } else if (HF.getType() == HF.TEXT) {
-                        HashMap HM = HF.getContent();
-                        HM.put("data", "");
                     } else {
-                        MyProgram.getComputer().addMessage(MessageHandler.FILE_IO_FAIL_INVALID_TYPE);
+                        TextContent content = HackerFileInterop.textContent(HF);
+                        if (content != null) {
+                            HF.setTypedContent(new TextContent("", content.getLevel()));
+                        } else {
+                            MyProgram.getComputer().addMessage(MessageHandler.FILE_IO_FAIL_INVALID_TYPE);
+                        }
                     }
 
 
@@ -2013,11 +2015,13 @@ public class HackerLinker extends Linker {
 
                         if (HF == null) {
                             MyProgram.getComputer().addMessage(MessageHandler.FILE_NOT_FOUND);
-                        } else if (HF.getType() == HF.TEXT) {
-                            HashMap HM = HF.getContent();
-                            return (new TypeString((String) HM.get("data")));
                         } else {
-                            MyProgram.getComputer().addMessage(MessageHandler.FILE_IO_FAIL_INVALID_TYPE);
+                            TextContent content = HackerFileInterop.textContent(HF);
+                            if (content != null) {
+                                return (new TypeString(content.getData()));
+                            } else {
+                                MyProgram.getComputer().addMessage(MessageHandler.FILE_IO_FAIL_INVALID_TYPE);
+                            }
                         }
                     } catch (Exception e) {
                         MyProgram.getComputer().addMessage("An exception occurred in readFile().");
@@ -2039,17 +2043,19 @@ public class HackerLinker extends Linker {
 
                             if (HF == null) {
                                 MyProgram.getComputer().addMessage(MessageHandler.FILE_NOT_FOUND);
-                            } else if (HF.getType() == HF.TEXT) {
-                                HashMap HM = HF.getContent();
-                                int line = ((TypeInteger) parameters.get(1)).getIntValue();
-                                String Lines[] = ((String) HM.get("data")).split("\\n");
-                                if (line >= Lines.length) {
-                                    MyProgram.getComputer().addMessage(MessageHandler.FILE_IO_FAIL_LINE_NUMBER);
-                                } else {
-                                    return (new TypeString(Lines[line]));
-                                }
                             } else {
-                                MyProgram.getComputer().addMessage(MessageHandler.FILE_IO_FAIL_INVALID_TYPE);
+                                TextContent content = HackerFileInterop.textContent(HF);
+                                if (content != null) {
+                                    int line = ((TypeInteger) parameters.get(1)).getIntValue();
+                                    String Lines[] = content.getData().split("\\n");
+                                    if (line >= Lines.length) {
+                                        MyProgram.getComputer().addMessage(MessageHandler.FILE_IO_FAIL_LINE_NUMBER);
+                                    } else {
+                                        return (new TypeString(Lines[line]));
+                                    }
+                                } else {
+                                    MyProgram.getComputer().addMessage(MessageHandler.FILE_IO_FAIL_INVALID_TYPE);
+                                }
                             }
 
                         } catch (Exception e) {
@@ -2073,12 +2079,14 @@ public class HackerLinker extends Linker {
 
                                 if (HF == null) {
                                     MyProgram.getComputer().addMessage(MessageHandler.FILE_NOT_FOUND);
-                                } else if (HF.getType() == HF.TEXT) {
-                                    HashMap HM = HF.getContent();
-                                    String Lines[] = ((String) HM.get("data")).split("\\n");
-                                    return (new TypeInteger(Lines.length));
                                 } else {
-                                    MyProgram.getComputer().addMessage(MessageHandler.FILE_IO_FAIL_INVALID_TYPE);
+                                    TextContent content = HackerFileInterop.textContent(HF);
+                                    if (content != null) {
+                                        String Lines[] = content.getData().split("\\n");
+                                        return (new TypeInteger(Lines.length));
+                                    } else {
+                                        MyProgram.getComputer().addMessage(MessageHandler.FILE_IO_FAIL_INVALID_TYPE);
+                                    }
                                 }
 
                             } catch (Exception e) {
@@ -2104,38 +2112,35 @@ public class HackerLinker extends Linker {
                                     if (HF == null) {
                                         MyProgram.getComputer().getFileSystem().addDirectory(path);
 
-                                        HF = new HackerFile(HF.TEXT);
+                                        HF = new HackerFile(HackerFile.TEXT);
                                         HF.setName(fileName);
                                         HF.setLocation(path);
                                         HF.setDescription("Auto-generated text file.");
                                         HF.setMaker(MyProgram.getComputer().getIP());
-                                        HashMap Content = new HashMap();
-                                        Content.put("data", "");
-                                        Content.put("level", "0");
-                                        HF.setContent(Content);
+                                        HF.setTypedContent(new TextContent("", "0"));
                                         MyProgram.getComputer().getFileSystem().addFile(HF, true);
                                         HF = MyProgram.getComputer().getFileSystem().getFile(path, fileName);
                                     }
 
                                     if (HF == null) {
                                         MyProgram.getComputer().addMessage(MessageHandler.FILE_NOT_FOUND);
-                                    } else if (HF.getType() == HF.TEXT) {
-                                        HashMap HM = HF.getContent();
-                                        String content = (String) HM.get("data");
-                                        String newData = ((TypeString) parameters.get(1)).getStringValue();
-                                        content = content + newData + "\n";
-                                        if (content.length() <= MyProgram.getComputer().FILE_SIZE_LIMIT) {
-                                            HM.put("data", content);
-                                        } else {
-                                            MyProgram.getComputer().addMessage(MessageHandler.FILE_IO_FAIL_FILE_SIZE, new Object[]{fileName});
-                                            if (MyProgram.getComputer().FILE_SIZE_LIMIT == Computer.FREE_FILE_SIZE_LIMIT) {
-                                                MyProgram.getComputer().addMessage(MessageHandler.UPGRADE_FILE_SIZE);
-
-                                            }
-                                        }
-
                                     } else {
-                                        MyProgram.getComputer().addMessage(MessageHandler.FILE_IO_FAIL_INVALID_TYPE);
+                                        TextContent content = HackerFileInterop.textContent(HF);
+                                        if (content != null) {
+                                            String combined = content.getData() + ((TypeString) parameters.get(1)).getStringValue() + "\n";
+                                            if (combined.length() <= MyProgram.getComputer().FILE_SIZE_LIMIT) {
+                                                HF.setTypedContent(new TextContent(combined, content.getLevel()));
+                                            } else {
+                                                MyProgram.getComputer().addMessage(MessageHandler.FILE_IO_FAIL_FILE_SIZE, new Object[]{fileName});
+                                                if (MyProgram.getComputer().FILE_SIZE_LIMIT == Computer.FREE_FILE_SIZE_LIMIT) {
+                                                    MyProgram.getComputer().addMessage(MessageHandler.UPGRADE_FILE_SIZE);
+
+                                                }
+                                            }
+
+                                        } else {
+                                            MyProgram.getComputer().addMessage(MessageHandler.FILE_IO_FAIL_INVALID_TYPE);
+                                        }
                                     }
 
 
@@ -2161,39 +2166,38 @@ public class HackerLinker extends Linker {
                                         if (HF == null) {
                                             MyProgram.getComputer().getFileSystem().addDirectory(path);
 
-                                            HF = new HackerFile(HF.TEXT);
+                                            HF = new HackerFile(HackerFile.TEXT);
                                             HF.setName(fileName);
                                             HF.setLocation(path);
                                             HF.setDescription("Auto-generated text file.");
                                             HF.setMaker(MyProgram.getComputer().getIP());
-                                            HashMap Content = new HashMap();
-                                            Content.put("data", "");
-                                            Content.put("level", "0");
-                                            HF.setContent(Content);
+                                            HF.setTypedContent(new TextContent("", "0"));
                                             MyProgram.getComputer().getFileSystem().addFile(HF, true);
                                             HF = MyProgram.getComputer().getFileSystem().getFile(path, fileName);
                                         }
 
                                         if (HF == null) {
                                             MyProgram.getComputer().addMessage(MessageHandler.FILE_NOT_FOUND);
-                                        } else if (HF.getType() == HF.TEXT) {
-                                            HashMap HM = HF.getContent();
-                                            String newData = ((TypeString) parameters.get(1)).getStringValue();
-                                            System.out.println("File Length: " + newData.length());
-                                            System.out.println("File Size Limit: " + MyProgram.getComputer().FILE_SIZE_LIMIT);
-                                            if (newData.length() <= MyProgram.getComputer().FILE_SIZE_LIMIT) {
-                                                HM.put("data", newData);
-                                            } else {
-                                                System.out.println("Sending file size fail message");
-                                                MyProgram.getComputer().addMessage(MessageHandler.FILE_IO_FAIL_FILE_SIZE, new Object[]{fileName});
-                                                if (MyProgram.getComputer().FILE_SIZE_LIMIT == Computer.FREE_FILE_SIZE_LIMIT) {
-                                                    MyProgram.getComputer().addMessage(MessageHandler.UPGRADE_FILE_SIZE);
-
-                                                }
-                                            }
-
                                         } else {
-                                            MyProgram.getComputer().addMessage(MessageHandler.FILE_IO_FAIL_INVALID_TYPE);
+                                            TextContent content = HackerFileInterop.textContent(HF);
+                                            if (content != null) {
+                                                String newData = ((TypeString) parameters.get(1)).getStringValue();
+                                                System.out.println("File Length: " + newData.length());
+                                                System.out.println("File Size Limit: " + MyProgram.getComputer().FILE_SIZE_LIMIT);
+                                                if (newData.length() <= MyProgram.getComputer().FILE_SIZE_LIMIT) {
+                                                    HF.setTypedContent(new TextContent(newData, content.getLevel()));
+                                                } else {
+                                                    System.out.println("Sending file size fail message");
+                                                    MyProgram.getComputer().addMessage(MessageHandler.FILE_IO_FAIL_FILE_SIZE, new Object[]{fileName});
+                                                    if (MyProgram.getComputer().FILE_SIZE_LIMIT == Computer.FREE_FILE_SIZE_LIMIT) {
+                                                        MyProgram.getComputer().addMessage(MessageHandler.UPGRADE_FILE_SIZE);
+
+                                                    }
+                                                }
+
+                                            } else {
+                                                MyProgram.getComputer().addMessage(MessageHandler.FILE_IO_FAIL_INVALID_TYPE);
+                                            }
                                         }
                                     } catch (Exception e2) {
                                         MyProgram.getComputer().addMessage("An exception occurred in writeFile().");

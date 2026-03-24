@@ -3,6 +3,7 @@ package com.hackwars.game.functions
 import game.ApplicationData
 import game.Computer
 import game.HackerFile
+import game.TextContent
 import game.payload.RequestSavePayload
 import game.payloadAs
 import hackscript.model.TypeBoolean
@@ -58,11 +59,7 @@ class RequestSave(computer: Computer) : Function(computer) {
             }
         }
 
-        val attributes = HashMap<String, String>()
-        attributes["data"] = serializedData
-        attributes["level"] = ""
-
-        newFile.content = attributes
+        newFile.content = TextContent(data = serializedData, level = "")
         newFile.name = "$fileName.save"
 
         computer.computerHandler.addData(

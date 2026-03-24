@@ -250,19 +250,26 @@ open class FileSystem(private val MyComputer: Computer) {
      Add a file to the file system.
      */
     fun addFile(HF: HackerFile, checkSpace: Boolean): Boolean {
-        if (HF.type == HackerFile.BOUNTY || HF.type == HackerFile.PCI || HF.type == HackerFile.AGP) {
-            val content = HF.content as? HashMap<Any?, Any?> ?: hashMapOf()
-            val STimeOut = content["timeout"] as String?
+        if (HF.kind == BountyFileKind || HF.kind == EquipmentLicenseKind(EquipmentSlotType.PCI) || HF.kind == EquipmentLicenseKind(EquipmentSlotType.AGP)) {
+            val content = when (val typedContent = HF.content) {
+                is BountyContent -> typedContent.timeout
+                is EquipmentLicenseContent -> typedContent.timeout
+                else -> ""
+            }
+            val sTimeOut = content
             var timeOut = MyComputer.currentTime
 
-            if (STimeOut == null || STimeOut == "") {
-                content["timeout"] = "" + timeOut
-                HF.content = content
+            if (sTimeOut == "") {
+                HF.content = when (val typedContent = HF.content) {
+                    is BountyContent -> typedContent.copy(timeout = timeOut.toString())
+                    is EquipmentLicenseContent -> typedContent.copy(timeout = timeOut.toString())
+                    else -> HF.content
+                }
             } else {
-                timeOut = java.lang.Long.valueOf(STimeOut)
+                timeOut = java.lang.Long.valueOf(sTimeOut)
             }
 
-            if (MyComputer.currentTime - timeOut > 86400000L && (HF.type == HackerFile.AGP || HF.type == HackerFile.PCI)) {
+            if (MyComputer.currentTime - timeOut > 86400000L && (HF.kind == EquipmentLicenseKind(EquipmentSlotType.AGP) || HF.kind == EquipmentLicenseKind(EquipmentSlotType.PCI))) {
                 if (MyComputer.getIP() == "900.800.7.006") {
                     return true
                 }
@@ -374,15 +381,14 @@ open class FileSystem(private val MyComputer: Computer) {
                 val HF = ME.value as HackerFile
                 val O = arrayOfNulls<Any>(9)
                 O[0] = HF.name
-                O[1] = Integer.valueOf(HF.type)
+                O[1] = Integer.valueOf(HF.kind.legacyId)
                 O[2] = Integer.valueOf(HF.quantity)
                 O[3] = java.lang.Float.valueOf(HF.price)
                 O[4] = HF.maker
                 O[5] = HF.cPUCost
                 O[6] = HF.publicDescription
-                if (HF.type == HackerFile.NEW_FIREWALL) {
-                    val content = HF.content as? HashMap<Any?, Any?> ?: hashMapOf()
-                    var priceObject = content["store_price"]
+                if (HF.kind == NewFirewallFileKind) {
+                    var priceObject = (HF.content as? NewFirewallContent)?.storePrice
                     if (priceObject == null) {
                         O[7] = 0.0f
                     } else {
@@ -392,7 +398,7 @@ open class FileSystem(private val MyComputer: Computer) {
                         val price = java.lang.Float.valueOf("" + priceObject)
                         O[7] = price
                     }
-                    O[8] = HF.content
+                    O[8] = HackerFileInterop.legacyContentMap(HF)
                 } else if (Computer.makers.containsKey(HF.maker)) {
                     val price = Computer.makers[HF.maker] as Float
                     O[7] = price
@@ -433,9 +439,16 @@ open class FileSystem(private val MyComputer: Computer) {
             } else {
                 var HF = ME.value as HackerFile?
                 if (HF != null) {
-                    if (HF.type != HackerFile.BOUNTY && HF.type != HackerFile.AGP && HF.type != HackerFile.PCI && HF.type != HackerFile.HD && HF.type != HackerFile.MEMORY && HF.type != HackerFile.CPU && HF.type != HackerFile.NEW_FIREWALL) {
+                    if (HF.kind != BountyFileKind &&
+                        HF.kind != EquipmentLicenseKind(EquipmentSlotType.AGP) &&
+                        HF.kind != EquipmentLicenseKind(EquipmentSlotType.PCI) &&
+                        HF.kind != LegacyLevelKind(LegacyLevelFamily.HD) &&
+                        HF.kind != LegacyLevelKind(LegacyLevelFamily.MEMORY) &&
+                        HF.kind != LegacyLevelKind(LegacyLevelFamily.CPU) &&
+                        HF.kind != NewFirewallFileKind
+                    ) {
                         HF = HF.clone()
-                        HF.content = null
+                        HF.content = EmptyContent
                     }
                 }
                 HF
@@ -493,7 +506,7 @@ open class FileSystem(private val MyComputer: Computer) {
             val ME = DirectoryIterator.next() as Map.Entry<Any?, Any?>
             val o: Any? = if (ME.value is HashMap<*, *>) ME.key else ME.value as HackerFile
             if (o is HackerFile) {
-                if (o.type == HackerFile.AGP || o.type == HackerFile.PCI) {
+                if (o.kind == EquipmentLicenseKind(EquipmentSlotType.AGP) || o.kind == EquipmentLicenseKind(EquipmentSlotType.PCI)) {
                     ReturnMe[i] = o
                 } else {
                     ReturnMe[i] = null
@@ -531,7 +544,7 @@ open class FileSystem(private val MyComputer: Computer) {
                 if (o is HashMap<*, *>) {
                     TempArrayList.add(o)
                 } else {
-                    returnMe += (o as HackerFile).outputXML()
+                    returnMe += LegacyHackerFileCodec.serializeXml(o as HackerFile)
                 }
             }
         } while (TempArrayList.size > 0)
@@ -544,12 +557,13 @@ open class FileSystem(private val MyComputer: Computer) {
      Returns all the files in the root directory of a given type.
      */
     fun getFilesOfType(FileType: Int): ArrayList<Any?> {
+        val targetKind = LegacyHackerFileCodec.kindForLegacyId(FileType)
         val returnMe = ArrayList<Any?>()
         val rootFiles = this.getScanDirectory("")
         for (i in rootFiles.indices) {
             if (rootFiles[i] is HackerFile) {
                 val HF = rootFiles[i] as HackerFile
-                if (HF.type == FileType) {
+                if (HF.kind == targetKind) {
                     returnMe.add(HF)
                 }
             }

@@ -262,17 +262,18 @@ class LegacyEconomyWebSocialCommands : LegacyApplicationDataHandler {
                 val sellerType = payload.sellerType
                 val quantity = hackerFile.quantity
                 val existingFile = computer.MyFileSystem.getFile("", hackerFile.name)
-                val hackerFileContent = hackerFile.content as? HashMap<Any?, Any?> ?: hashMapOf()
+                val legacyContent = HackerFileInterop.legacyContentMap(hackerFile)
+                val levelContent = hackerFile.content as? LegacyLevelContent
 
                 var level = 0.0f
                 if (hackerFile.type == HackerFile.CPU) {
-                    level = (hackerFileContent["level"] as String).toFloat()
+                    level = levelContent?.level?.toFloat() ?: 0f
                 } else if (hackerFile.type == HackerFile.HD) {
-                    level = (hackerFileContent["level"] as String).toFloat()
+                    level = levelContent?.level?.toFloat() ?: 0f
                 } else if (hackerFile.type == HackerFile.FIREWALL) {
-                    level = (hackerFileContent["level"] as String).toFloat()
+                    level = levelContent?.level?.toFloat() ?: 0f
                 } else if (hackerFile.type == HackerFile.MEMORY) {
-                    level = (hackerFileContent["level"] as String).toFloat()
+                    level = levelContent?.level?.toFloat() ?: 0f
                 }
 
                 var totalLevel = 0.0f
@@ -323,7 +324,7 @@ class LegacyEconomyWebSocialCommands : LegacyApplicationDataHandler {
                 } else {
                     var buyFail = false
                     if (hackerFile.type == HackerFile.CPU) {
-                        val type = (hackerFileContent["data"] as String).toInt()
+                        val type = levelContent?.data?.toInt() ?: 0
                         if (Computer.CPU_CHART[type] > Computer.CPU_CHART[computer.cputype]) {
                             computer.cputype = type
                             computer.addMessage(MessageHandler.PURCHASE_NEW_CPU, arrayOf<Any?>(hackerFile.name))
@@ -332,7 +333,7 @@ class LegacyEconomyWebSocialCommands : LegacyApplicationDataHandler {
                             computer.addMessage(MessageHandler.PURCHASE_FAIL_OLDER_CPU)
                         }
                     } else if (hackerFile.type == HackerFile.HD) {
-                        val type = (hackerFileContent["data"] as String).toInt()
+                        val type = levelContent?.data?.toInt() ?: 0
                         if (computer.MyFileSystem.checkType(type)) {
                             computer.MyFileSystem.setHDType(type)
                             computer.addMessage(MessageHandler.PURCHASE_NEW_HD, arrayOf<Any?>(hackerFile.name))
@@ -341,7 +342,7 @@ class LegacyEconomyWebSocialCommands : LegacyApplicationDataHandler {
                             computer.addMessage(MessageHandler.PURCHASE_FAIL_OLDER_HD)
                         }
                     } else if (hackerFile.type == HackerFile.MEMORY) {
-                        val type = (hackerFileContent["data"] as String).toInt()
+                        val type = levelContent?.data?.toInt() ?: 0
                         if (Computer.MEMORY_CHART[type] > Computer.MEMORY_CHART[computer.memorytype] || Computer.WATCH_CHART[type] > Computer.WATCH_CHART[computer.memorytype]) {
                             computer.memorytype = type
                             computer.addMessage(MessageHandler.PURCHASE_NEW_MEMORY, arrayOf<Any?>(hackerFile.name))
@@ -352,9 +353,7 @@ class LegacyEconomyWebSocialCommands : LegacyApplicationDataHandler {
                     } else {
                         hackerFile.location = ""
                         if (hackerFile.type == HackerFile.FIREWALL) {
-                            val setLevel = hackerFileContent
-                            setLevel["level"] = "0"
-                            hackerFile.content = setLevel
+                            hackerFile.content = (hackerFile.content as? LegacyLevelContent)?.copy(level = "0") ?: hackerFile.content
                         }
                         computer.getComputerHandler().addData(
                             ApplicationData(SaveFile(computer.ip, "", hackerFile), 0, computer.ip),

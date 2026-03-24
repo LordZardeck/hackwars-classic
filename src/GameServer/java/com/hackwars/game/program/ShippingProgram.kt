@@ -12,9 +12,9 @@ package com.hackwars.game.program
 
 import com.hackwars.rpc.RequestAttack
 import com.hackwars.rpc.RequestCancelAttack
+import com.hackwars.rpc.GameCommands
 import game.*
 import game.payload.ATTACK_CONTINUE_COMMAND
-import game.payload.MINE_COMMAND
 import game.payload.AttackInitializePayload
 import game.payload.AttackFinalizePayload
 import game.payload.CancelAttackPayload
@@ -368,7 +368,7 @@ class ShippingProgram(computer: Computer?, computerHandler: NetworkSwitch?, priv
 
                     val currentNetwork = computer!!.getNetwork() ?: return
                     val AD = ApplicationData(
-                        LocalPortEntryPayload(MINE_COMMAND, currentNetwork),
+                        LocalPortEntryPayload(GameCommands.MINE.command, currentNetwork),
                         targetPort,
                         applicationData.getSourceIP()
                     ).withSourcePort(parentPort!!.getNumber())
@@ -446,7 +446,7 @@ class ShippingProgram(computer: Computer?, computerHandler: NetworkSwitch?, priv
                 .deleteFile(MaliciousCode!![targetPortType]!![0], MaliciousCode!![targetPortType]!![1])
         }
 
-        return (HF.content)
+        return HashMap(HackerFileInterop.legacyContentMap(HF))
     }
 
     /**

@@ -33,78 +33,8 @@ open class DropTable @JvmOverloads constructor(
         try {
             val LX = LoadXML()
             LX.loadByteArray(data.toByteArray())
-
-            val N = LX.findNodeRecursive("file", 0)
-
-            var temp = LX.findNodeRecursive(N, "type", 0)
-            temp = LX.findNodeRecursive(temp, "#text", 0)
-            val type = Integer.valueOf(temp.nodeValue)
-
-            HF = HackerFile(type)
-
-            temp = LX.findNodeRecursive(N, "name", 0)
-            temp = LX.findNodeRecursive(temp, "#text", 0)
-            var name = "CURRUPT(DELETE)"
-            if (temp != null) {
-                name = temp.nodeValue
-            }
-            HF.name = name
-
-            temp = LX.findNodeRecursive(N, "location", 0)
-            temp = LX.findNodeRecursive(temp, "#text", 0)
-            if (temp != null) {
-                val location = temp.nodeValue
-                HF.location = location
-            }
-
-            temp = LX.findNodeRecursive(N, "description", 0)
-            temp = LX.findNodeRecursive(temp, "#text", 0)
-            if (temp != null) {
-                HF.setDescription(temp.nodeValue)
-            }
-
-            temp = LX.findNodeRecursive(N, "price", 0)
-            temp = LX.findNodeRecursive(temp, "#text", 0)
-            val price = java.lang.Float.valueOf(temp.nodeValue)
-            HF.price = price
-
-            temp = LX.findNodeRecursive(N, "quantity", 0)
-            temp = LX.findNodeRecursive(temp, "#text", 0)
-            val quantity = Integer.valueOf(temp.nodeValue)
-            HF.quantity = quantity
-
-            temp = LX.findNodeRecursive(N, "cpu", 0)
-            temp = LX.findNodeRecursive(temp, "#text", 0)
-            val cpu = java.lang.Float.valueOf(temp.nodeValue)
-            HF.cPUCost = cpu
-
-            temp = LX.findNodeRecursive(N, "maker", 0)
-            temp = LX.findNodeRecursive(temp, "#text", 0)
-            if (temp != null) {
-                val maker = temp.nodeValue
-                HF.maker = maker
-            }
-
-            val Script = HashMap<Any?, Any?>()
-            val N2 = LX.findNodeRecursive(N, "content", 0)
-            if (N2 != null) {
-                val Keys = HF.typeKeys
-                for (ii in Keys.indices) {
-                    temp = LX.findNodeRecursive(N2, Keys[ii], 0)
-                    if (temp != null) {
-                        temp = LX.findNodeRecursive(temp, "#text", 0)
-                        if (temp != null) {
-                            val script = temp.nodeValue
-                            Script[Keys[ii]] = script
-                        } else {
-                            Script[Keys[ii]] = ""
-                        }
-                    } else {
-                        Script[Keys[ii]] = ""
-                    }
-                }
-                HF.content = Script
-            }
+            val node = LX.findNodeRecursive("file", 0)
+            HF = LegacyHackerFileCodec.parseLegacyXml(node, LX)
         } catch (e: Exception) {
             e.printStackTrace()
         }
@@ -163,7 +93,7 @@ open class DropTable @JvmOverloads constructor(
             }
         }
 
-        if (file?.type == HackerFile.NEW_FIREWALL) {
+        if (file?.kind == NewFirewallFileKind) {
             return MyComputer.newFireWall!!.generateFirewall(file.name)
         }
 

@@ -6,6 +6,9 @@ package gui;
 
 import com.hackwars.state.GameState;
 import game.HackerFile;
+import game.HackerFileInterop;
+import game.ProgramFamily;
+import game.ProgramForm;
 import hackscript.model.RunFactory;
 import jsyntaxpane.SyntaxDocument;
 import util.LegacyRemoteDefaults;
@@ -506,7 +509,7 @@ public class ScriptEditor extends Application {
     }
 
     public void receivedFile(HackerFile HF) {
-        if (HF.getType() == HackerFile.BANKING_SCRIPT) {
+        if (HackerFileInterop.isProgram(HF, ProgramFamily.BANKING, ProgramForm.SOURCE)) {
             int index = 0;
             if (tabbedPane.getTabCount() != 0)
                 index = tabbedPane.getTabCount();
@@ -522,7 +525,7 @@ public class ScriptEditor extends Application {
             if (index == 0)
                 index = 1;
             ScriptEditorPane ep[] = tabs[index - 1].getTabs();
-            HashMap HM = HF.getContent();
+            HashMap HM = new HashMap(HackerFileInterop.legacyContentMap(HF));
             String deposit = openFunctionsDefined((String) HM.get("deposit"));
             String withdraw = openFunctionsDefined((String) HM.get("withdraw"));
             String transfer = openFunctionsDefined((String) HM.get("transfer"));
@@ -533,7 +536,7 @@ public class ScriptEditor extends Application {
             ep[0].repaint();
         }
 
-        if (HF.getType() == HackerFile.ATTACKING_SCRIPT) {
+        if (HackerFileInterop.isProgram(HF, ProgramFamily.ATTACK, ProgramForm.SOURCE)) {
             int index = 0;
             if (tabbedPane.getTabCount() != 0)
                 index = tabbedPane.getTabCount();
@@ -549,7 +552,7 @@ public class ScriptEditor extends Application {
             if (index == 0)
                 index = 1;
             ScriptEditorPane ep[] = tabs[index - 1].getTabs();
-            HashMap HM = HF.getContent();
+            HashMap HM = new HashMap(HackerFileInterop.legacyContentMap(HF));
             String initialize = openFunctionsDefined((String) HM.get("initialize"));
             String finalize = openFunctionsDefined((String) HM.get("finalize"));
             String continues = openFunctionsDefined((String) HM.get("continue"));
@@ -560,7 +563,7 @@ public class ScriptEditor extends Application {
             ep[0].repaint();
         }
 
-        if (HF.getType() == HackerFile.SHIPPING_SCRIPT) {
+        if (HackerFileInterop.isProgram(HF, ProgramFamily.SHIPPING, ProgramForm.SOURCE)) {
             int index = 0;
             if (tabbedPane.getTabCount() != 0)
                 index = tabbedPane.getTabCount();
@@ -576,7 +579,7 @@ public class ScriptEditor extends Application {
             if (index == 0)
                 index = 1;
             ScriptEditorPane ep[] = tabs[index - 1].getTabs();
-            HashMap HM = HF.getContent();
+            HashMap HM = new HashMap(HackerFileInterop.legacyContentMap(HF));
             String initialize = openFunctionsDefined((String) HM.get("initialize"));
             String finalize = openFunctionsDefined((String) HM.get("finalize"));
             String continues = openFunctionsDefined((String) HM.get("continue"));
@@ -588,7 +591,7 @@ public class ScriptEditor extends Application {
         }
 
 
-        if (HF.getType() == HackerFile.FTP_SCRIPT) {
+        if (HackerFileInterop.isProgram(HF, ProgramFamily.FTP, ProgramForm.SOURCE)) {
             int index = 0;
             if (tabbedPane.getTabCount() != 0)
                 index = tabbedPane.getTabCount();
@@ -604,7 +607,7 @@ public class ScriptEditor extends Application {
             if (index == 0)
                 index = 1;
             ScriptEditorPane ep[] = tabs[index - 1].getTabs();
-            HashMap HM = HF.getContent();
+            HashMap HM = new HashMap(HackerFileInterop.legacyContentMap(HF));
             String put = openFunctionsDefined((String) HM.get("put"));
             String get = openFunctionsDefined((String) HM.get("get"));
             ep[0].setText(put);
@@ -612,7 +615,7 @@ public class ScriptEditor extends Application {
             ep[0].requestFocusInWindow();
             ep[0].repaint();
         }
-        if (HF.getType() == HackerFile.WATCH_SCRIPT) {
+        if (HackerFileInterop.isProgram(HF, ProgramFamily.WATCH, ProgramForm.SOURCE)) {
             int index = 0;
             if (tabbedPane.getTabCount() != 0)
                 index = tabbedPane.getTabCount();
@@ -628,13 +631,13 @@ public class ScriptEditor extends Application {
             if (index == 0)
                 index = 1;
             ScriptEditorPane ep[] = tabs[index - 1].getTabs();
-            HashMap HM = HF.getContent();
+            HashMap HM = new HashMap(HackerFileInterop.legacyContentMap(HF));
             String fire = openFunctionsDefined((String) HM.get("fire"));
             ep[0].setText(fire);
             ep[0].requestFocusInWindow();
             ep[0].repaint();
         }
-        if (HF.getType() == HackerFile.TEXT) {
+        if (HackerFileInterop.isText(HF)) {
             int index = 0;
             if (tabbedPane.getTabCount() != 0)
                 index = tabbedPane.getTabCount();
@@ -650,12 +653,12 @@ public class ScriptEditor extends Application {
             if (index == 0)
                 index = 1;
             ScriptEditorPane ep[] = tabs[index - 1].getTabs();
-            HashMap HM = HF.getContent();
+            HashMap HM = new HashMap(HackerFileInterop.legacyContentMap(HF));
             ep[0].setText((String) HM.get("data"));
             ep[0].requestFocusInWindow();
             ep[0].repaint();
         }
-        if (HF.getType() == HackerFile.HTTP_SCRIPT) {
+        if (HackerFileInterop.isProgram(HF, ProgramFamily.HTTP, ProgramForm.SOURCE)) {
             //System.out.println("Opening HTTP Script");
             int index = 0;
             if (tabbedPane.getTabCount() != 0)
@@ -672,7 +675,7 @@ public class ScriptEditor extends Application {
             if (index == 0)
                 index = 1;
             ScriptEditorPane ep[] = tabs[index - 1].getTabs();
-            HashMap HM = HF.getContent();
+            HashMap HM = new HashMap(HackerFileInterop.legacyContentMap(HF));
             String initialize = openFunctionsDefined((String) HM.get("enter"));
             String finalize = openFunctionsDefined((String) HM.get("exit"));
             String continues = openFunctionsDefined((String) HM.get("submit"));

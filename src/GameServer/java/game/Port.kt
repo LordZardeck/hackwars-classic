@@ -6,6 +6,7 @@ import com.hackwars.game.program.AttackProgram
 import com.hackwars.game.program.Banking
 import com.hackwars.game.program.Program
 import com.hackwars.game.program.ShippingProgram
+import com.hackwars.rpc.GameCommands
 import com.hackwars.rpc.SaveFile
 import game.payload.*
 import java.text.NumberFormat
@@ -516,7 +517,7 @@ class Port(
         val now = myComputer.currentTime
         val command = MyApplicationData.command
         if (on) {
-            if (command == HEAL_COMMAND) {
+            if (command == GameCommands.HEAL.command) {
                 if (!myComputer.checkBank()) {
                     myComputerHandler.addData(
                         textMessage(MessageHandler.ACTIVE_BANK_NOT_FOUND),
@@ -557,7 +558,7 @@ class Port(
                 return
             }
 
-            if (command == EMPTY_PETTY_CASH_COMMAND && accessing == MyApplicationData.getSourceIP()) {
+            if (command == GameCommands.EMPTY_PETTY_CASH.command && accessing == MyApplicationData.getSourceIP()) {
                 val nf = NumberFormat.getCurrencyInstance()
                 val windowHandle = MyApplicationData.payloadAs<EmptyPettyCashPayload>().windowHandle
                 if (type != BANKING) {
@@ -624,14 +625,14 @@ class Port(
                 }
                 resetPort(true, true)
                 return
-            } else if (command == FINALIZE_CANCELLED_COMMAND && accessing == MyApplicationData.getSourceIP()) {
+            } else if (command == GameCommands.FINALIZECANCELLED.command && accessing == MyApplicationData.getSourceIP()) {
                 if (finalizeAllowed(MyApplicationData)) {
                     resetPort(true, true)
                     return
                 }
             }
 
-            if (command == MALGET_COMMAND && accessing == MyApplicationData.getSourceIP()) {
+            if (command == GameCommands.MALGET.command && accessing == MyApplicationData.getSourceIP()) {
                 if (type != FTP) {
                     myComputerHandler.addData(
                         structuredMessage(
@@ -650,7 +651,7 @@ class Port(
                 return
             }
 
-            if (command == DELETE_LOG_COMMAND && accessing == MyApplicationData.getSourceIP()) {
+            if (command == GameCommands.DELETELOG.command && accessing == MyApplicationData.getSourceIP()) {
                 if (finalizeAllowed(MyApplicationData)) {
                     val payload = MyApplicationData.payloadAs<DeleteLogPayload>()
                     myComputer.deleteLogs(payload.ipAddress)
@@ -664,7 +665,7 @@ class Port(
                 return
             }
 
-            if (command == PEEK_CODE_COMMAND && accessing == MyApplicationData.getSourceIP()) {
+            if (command == GameCommands.PEEKCODE.command && accessing == MyApplicationData.getSourceIP()) {
                 if (finalizeAllowed(MyApplicationData)) {
                     if (program != null) {
                         if (myComputer.getType() != Computer.NPC) {
@@ -684,7 +685,7 @@ class Port(
                 return
             }
 
-            if (command == PEEK_LOGS_COMMAND && accessing == MyApplicationData.getSourceIP()) {
+            if (command == GameCommands.PEEKLOGS.command && accessing == MyApplicationData.getSourceIP()) {
                 if (finalizeAllowed(MyApplicationData)) {
                     if (program != null) {
                         val Logs = HashMap<Any?, Any?>()
@@ -696,7 +697,7 @@ class Port(
                 return
             }
 
-            if (command == EDIT_LOGS_COMMAND && accessing == MyApplicationData.getSourceIP()) {
+            if (command == GameCommands.EDIT_LOGS.command && accessing == MyApplicationData.getSourceIP()) {
                 if (finalizeAllowed(MyApplicationData)) {
                     if (program != null) {
                         val payload = MyApplicationData.payloadAs<EditLogsPayload>()
@@ -713,7 +714,7 @@ class Port(
                 return
             }
 
-            if (command == CHANGE_DAILY_PAY_COMMAND && accessing == MyApplicationData.getSourceIP()) {
+            if (command == GameCommands.CHANGEDAILYPAY.command && accessing == MyApplicationData.getSourceIP()) {
                 val payload = MyApplicationData.payloadAs<ChangeDailyPayPayload>()
                 val targetIP = payload.targetIp
                 val port = payload.windowHandle
@@ -802,7 +803,7 @@ class Port(
                 return
             }
 
-            if (command == DESTROY_WATCH_COMMAND && accessing == MyApplicationData.getSourceIP()) {
+            if (command == GameCommands.DESTROY_WATCH.command && accessing == MyApplicationData.getSourceIP()) {
                 if (!myComputer.equipmentSheet.getDestroyWatchesImmune()) {
                     if (myComputer.getType() != Computer.NPC && finalizeAllowed(MyApplicationData)) {
                         myComputer.destroyWatches(number)
@@ -816,8 +817,8 @@ class Port(
                 return
             }
 
-            if (command == ATTACK_COMMAND || command == MINE_COMMAND) {
-                if (command == MINE_COMMAND && type != REDIRECT) {
+            if (command == GameCommands.ATTACK.command || command == GameCommands.MINE.command) {
+                if (command == GameCommands.MINE.command && type != REDIRECT) {
                     myComputerHandler.addData(
                         textMessage(MessageHandler.REDIRECT_FAIL_WRONG_TYPE),
                         MyApplicationData.getSourceIP()
@@ -884,13 +885,13 @@ class Port(
                 return
             }
 
-            if (command == CANCEL_ATTACK_COMMAND && accessing == MyApplicationData.getSourceIP()) {
+            if (command == GameCommands.CANCELATTACK.command && accessing == MyApplicationData.getSourceIP()) {
                 val payload = MyApplicationData.payloadAs<CancelAttackPayload>()
                 resetPort(payload.heal ?: true, true)
                 return
             }
 
-            if (command == FREEZE_COMMAND) {
+            if (command == GameCommands.FREEZE.command) {
                 if (!myComputer.equipmentSheet.getFreezeImmune()) {
                     if (accessing == MyApplicationData.getSourceIP()) {
                         freeze = true
@@ -900,7 +901,7 @@ class Port(
                 return
             }
 
-            if (command == DAMAGE_COMMAND && !weakened) {
+            if (command == GameCommands.DAMAGE.command && !weakened) {
                 val initialHealth = _health
                 val payload = MyApplicationData.payloadAs<DamagePayload>()
                 val damage = payload.damage
@@ -1087,14 +1088,14 @@ class Port(
             }
 
             if (!dummy) {
-                if (command == ATTACK_FINALIZE_COMMAND) {
+                if (command == GameCommands.ATTACKFINALIZE.command) {
                     program!!.execute(MyApplicationData)
                 } else if ((!overHeated && !freeze) || (command == REQUEST_SECONDARY_DIRECTORY_COMMAND)) {
-                    if (command != MALGET_COMMAND) {
+                    if (command != GameCommands.MALGET.command) {
                         program!!.execute(MyApplicationData)
                     }
                 } else {
-                    if (command == ZOMBIE_ATTACK_COMMAND) {
+                    if (command == GameCommands.ZOMBIEATTACK.command) {
                         myComputerHandler.addData(
                             structuredMessage(arrayOf(MessageHandler.PORT_IS_OVERHEATED), arrayOf(number, ip)),
                             MyApplicationData.getSourceIP()
@@ -1115,7 +1116,7 @@ class Port(
                     ip
                 )
             }
-        } else if (command != LOG_MESSAGE_COMMAND) {
+        } else if (command != GameCommands.LOGMESSAGE.command) {
             attacking = false
             myComputerHandler.addData(
                 structuredMessage(arrayOf(MessageHandler.COULD_NOT_EXECUTE_APPLICATION), arrayOf(number)),

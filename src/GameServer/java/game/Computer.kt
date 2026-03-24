@@ -1595,11 +1595,12 @@ class Computer : GameServerService {
         //Fetch the HackerFile associated with this ID.
         var ChallengeFile: HackerFile? = null
         val ChallengeFiles = MyFileSystem!!.getFilesOfType(HackerFile.CHALLENGE)
-        var Content: HashMap<*, *>? = null
+        var challengeContent: ChallengeContent? = null
         if (ChallengeFiles != null) for (i in ChallengeFiles.indices) {
             val TempFile = ChallengeFiles.get(i) as HackerFile
-            Content = TempFile.content
-            val identifier = Content!!.get("identifier") as String?
+            val typedContent = TempFile.content as? ChallengeContent ?: continue
+            challengeContent = typedContent
+            val identifier = typedContent.identifier
             if (identifier != null) if (challengeID == identifier) {
                 ChallengeFile = TempFile
                 break
@@ -1611,17 +1612,15 @@ class Computer : GameServerService {
             return
         }
 
-        var input = Content!!.get("input") as String
-        var output = Content.get("output") as String
+        val content = challengeContent ?: return
+        var input = content.input
+        var output = content.output
         val inputMultiple: Array<String>? = input.split("&".toRegex()).dropLastWhile { it.isEmpty() }.toTypedArray()
         val outputMultiple: Array<String>? = output.split("&".toRegex()).dropLastWhile { it.isEmpty() }.toTypedArray()
-        val inputtype = Content.get("inputtype") as String
-        val outputtype = Content.get("outputtype") as String
-        val QuestID: Int =
-            (Content.get("questid") as? String)?.toIntOrNull()
-                ?: (Content.get("questid") as? Number)?.toInt()
-                ?: -1
-        val TaskName = Content.get("task") as String?
+        val inputtype = content.inputType
+        val outputtype = content.outputType
+        val QuestID: Int = content.questId.toIntOrNull() ?: -1
+        val TaskName = content.task
 
         var success = true
         var result: HashMap<*, *>? = null
@@ -1904,16 +1903,16 @@ class Computer : GameServerService {
     fun checkRename(HF: HackerFile, path: String): HackerFile {
         var HFCheck = MyFileSystem!!.getFile(path, HF.name)
         if (HFCheck != null) {
-            if (HFCheck.isStacking) {
-                if (HF.checkSumFailed(HFCheck) || (HF.type == HackerFile.BOUNTY && ip == store)) {
+            if (HFCheck.kind.isStacking()) {
+                if (LegacyHackerFileCodec.checksumFailed(HF, HFCheck) || (HF.kind == BountyFileKind && ip == store)) {
                     val nameCheck = HF.name
                     var i = 0
                     var name = nameCheck + i
                     var TF: HackerFile? = null
                     HF.name = name
                     //  System.out.println("Changing name to "+name);
-                    if (HF.type != HackerFile.BOUNTY) { //Check for identical files, bounties are a special case.
-                        while ((MyFileSystem!!.getFile(path, name).also { TF = it }) != null && HF.checkSumFailed(TF!!)) {
+                    if (HF.kind != BountyFileKind) { //Check for identical files, bounties are a special case.
+                        while ((MyFileSystem!!.getFile(path, name).also { TF = it }) != null && LegacyHackerFileCodec.checksumFailed(HF, TF!!)) {
                             i++
                             //        System.out.println("Changing name to "+(nameCheck+i));
                             name = nameCheck + i
@@ -1928,7 +1927,7 @@ class Computer : GameServerService {
                     }
 
                     HF.name = name
-                    if (TF == null || HF.checkSumFailed(TF!!)) HFCheck = null
+                    if (TF == null || LegacyHackerFileCodec.checksumFailed(HF, TF!!)) HFCheck = null
                     else HFCheck = TF
                 }
             }
@@ -1951,7 +1950,7 @@ class Computer : GameServerService {
         if (HFCheck != null) { //Does the file already exist on disk?
             if (HFCheck.quantity == -1) {
                 quantity = -1
-            } else if (HFCheck.isStacking && HF.name == HFCheck.name) {
+            } else if (HFCheck.kind.isStacking() && HF.name == HFCheck.name) {
                 quantity = HFCheck.quantity + HF.quantity
             }
         }
@@ -1987,7 +1986,7 @@ class Computer : GameServerService {
         if (HFCheck != null) { //Does the file already exist on disk?
             if (HFCheck.quantity == -1) {
                 quantity = -1
-            } else if (HFCheck.isStacking && HF.name == HFCheck.name) {
+            } else if (HFCheck.kind.isStacking() && HF.name == HFCheck.name) {
                 quantity = HFCheck.quantity + HF.quantity
             }
         }

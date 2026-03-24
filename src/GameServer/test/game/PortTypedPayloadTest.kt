@@ -1,11 +1,15 @@
 package game
 
+import com.hackwars.game.program.ShippingProgram
+import com.hackwars.game.program.attack.RequestAttackHandler
+import com.hackwars.game.program.attack.ZombieAttackHandler
 import com.hackwars.rpc.SaveFile
 import game.payload.LocalPortEntryPayload
 import game.payload.FinalizePutPayload
 import game.payload.StructuredMessagePayload
 import game.payload.ZombieAttackPayload
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.mockito.Mockito.mock
@@ -14,6 +18,14 @@ import org.mockito.Mockito.`when`
 import org.mockito.kotlin.argumentCaptor
 
 class PortTypedPayloadTest {
+    @Test
+    fun runtimeEntryBytecode_doesNotDependOnPortPayloadFacadeClasses() {
+        assertNoPortPayloadFacadeDependency(Port::class.java)
+        assertNoPortPayloadFacadeDependency(ShippingProgram::class.java)
+        assertNoPortPayloadFacadeDependency(RequestAttackHandler::class.java)
+        assertNoPortPayloadFacadeDependency(ZombieAttackHandler::class.java)
+    }
+
     @Test
     fun friendlyPut_emitsTypedSaveFilePayload() {
         val computer = mock(Computer::class.java)
@@ -120,5 +132,13 @@ class PortTypedPayloadTest {
         assertEquals("10.0.0.1", targetCaptor.allValues[1])
         assertTrue(dataCaptor.allValues[0].payload is StructuredMessagePayload)
         assertTrue(dataCaptor.allValues[1].payload is StructuredMessagePayload)
+    }
+
+    private fun assertNoPortPayloadFacadeDependency(type: Class<*>) {
+        val classPath = "/${type.name.replace('.', '/')}.class"
+        val classBytes = type.getResourceAsStream(classPath)!!.use { it.readBytes() }
+        val constantPoolText = String(classBytes, Charsets.ISO_8859_1)
+
+        assertFalse("${type.name} should not depend on PortPayload facade classes", constantPoolText.contains("game/payload/PortPayload"))
     }
 }

@@ -44,14 +44,15 @@ public class BonusData {
      * Calculates the current degree of degradation in equipment.
      */
     public float calculateDegradation() {
-        if (EquipmentFile.getContent().get("maxquality") == null || ((String) EquipmentFile.getContent().get("maxquality")).equals(""))
+        EquipmentLicenseContent content = HackerFileInterop.equipmentContent(EquipmentFile);
+        if (content == null || content.getMaxQuality() == null || content.getMaxQuality().equals(""))
             return (1.0f);
 
         float max = 50.0f;
         float current = 50.0f;
         try {
-            max = new Float((String) EquipmentFile.getContent().get("maxquality"));
-            current = new Float((String) EquipmentFile.getContent().get("currentquality"));
+            max = new Float(content.getMaxQuality());
+            current = new Float(content.getCurrentQuality());
         } catch (Exception e) {
         }
         return (current / max);

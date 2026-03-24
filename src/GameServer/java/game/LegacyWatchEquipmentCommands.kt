@@ -57,7 +57,7 @@ class LegacyWatchEquipmentCommands : LegacyApplicationDataHandler {
                         }
 
                         watch.port = applicationData.port
-                        val script = hackerFile.content as HashMap<*, *>
+                        val script = HashMap(HackerFileInterop.legacyContentMap(hackerFile))
                         val program: Program = WatchProgram(computer, computer.MyComputerHandler, watch)
                         program.computerHandler = computer.MyComputerHandler
                         program.installScript(script)

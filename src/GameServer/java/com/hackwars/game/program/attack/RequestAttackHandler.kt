@@ -1,11 +1,11 @@
 package com.hackwars.game.program.attack
 
 import com.hackwars.game.program.AttackProgram
+import com.hackwars.rpc.GameCommands
 import com.hackwars.rpc.RequestAttack
 import game.ApplicationData
 import game.MessageHandler
 import game.messageData
-import game.payload.ATTACK_COMMAND
 import game.payload.LocalPortEntryPayload
 import game.payload.StructuredMessagePayload
 import game.payloadAs
@@ -82,7 +82,7 @@ class RequestAttackHandler : AttackFunctionHandler {
         }
 
         val request = ApplicationData(
-            LocalPortEntryPayload(ATTACK_COMMAND, program.computer!!.network),
+            LocalPortEntryPayload(GameCommands.ATTACK.command, program.computer!!.network),
             program.targetPort,
             applicationData.sourceIP
         )

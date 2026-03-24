@@ -420,7 +420,7 @@ class AttackProgram(
             computer!!.fileSystem.deleteFile(maliciousCode!![0]!![0], maliciousCode!![0]!![1])
         }
 
-        return (HF.content)
+        return HashMap(HackerFileInterop.legacyContentMap(HF))
     }
 
     /**
