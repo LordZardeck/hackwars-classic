@@ -584,11 +584,6 @@ class EquipmentSheet(private val computer: Computer) {
                 intArrayOf(0, 0, 0, 0, 0, 0, 0, 0, 8, 16)
             )
 
-        const val LOW = 0
-        const val MEDIUM = 1
-        const val HIGH = 2
-        const val RARE = 3
-
         const val AGP = 0
         const val PCI0 = 1
         const val PCI1 = 2
