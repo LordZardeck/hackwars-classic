@@ -13,6 +13,8 @@ import com.hackwars.rewrite.gamecore.GameStateId
 import com.hackwars.rewrite.gamecore.InstalledEquipment
 import com.hackwars.rewrite.gamecore.PortState
 import com.hackwars.rewrite.gamecore.PreferenceSetEvent
+import com.hackwars.rewrite.gamecore.ProgramScriptBundle
+import com.hackwars.rewrite.gamecore.ProgramScriptSlot
 import com.hackwars.rewrite.gamecore.ScriptFamily
 import com.hackwars.rewrite.gamecore.SnapshotCoordinator
 import com.hackwars.rewrite.gamecore.StoredFile
@@ -122,6 +124,32 @@ class JdbcComputerStateRepositoryTest {
             name = "bank.bin",
             kind = StoredFileKind.APPLICATION_BINARY,
         )
+        val httpSource = StoredFile(
+            path = buildFilePath("/Public", "site"),
+            name = "site",
+            kind = StoredFileKind.SCRIPT_SOURCE,
+            contents = "http script",
+            compileCost = 40.0,
+            compiledBinary = CompiledBinaryMetadata(
+                scriptFamily = ScriptFamily.HTTP,
+                outputName = "site.bin",
+                applicationKind = ApplicationKind.HTTP,
+                experienceAward = 5,
+            ),
+            scriptBundle = ProgramScriptBundle(
+                family = ScriptFamily.HTTP,
+                scriptsBySlot = linkedMapOf(
+                    ProgramScriptSlot.ENTER to "int main() { return 0; }",
+                    ProgramScriptSlot.EXIT to "int main() { return 0; }",
+                    ProgramScriptSlot.SUBMIT to "int main() { return 0; }",
+                ),
+            ),
+        )
+        val httpBinary = httpSource.copy(
+            path = buildFilePath("/Public", "site.bin"),
+            name = "site.bin",
+            kind = StoredFileKind.APPLICATION_BINARY,
+        )
         val equipmentFile = StoredFile(
             path = buildFilePath("/Public", "cpu-card.bin"),
             name = "cpu-card.bin",
@@ -140,6 +168,7 @@ class JdbcComputerStateRepositoryTest {
             listOf(
                 DirectoryCreatedEvent(DirectoryEntry(path = "/Public", name = "Public")),
                 FileSavedEvent(sourceFile),
+                FileSavedEvent(httpSource),
                 FileSavedEvent(equipmentFile),
                 FileCompiledEvent(
                     sourceFilePath = sourceFile.path,
@@ -148,6 +177,14 @@ class JdbcComputerStateRepositoryTest {
                     pettyCashDelta = -75.0,
                     scriptFamily = ScriptFamily.BANKING,
                     experienceDelta = 4,
+                ),
+                FileCompiledEvent(
+                    sourceFilePath = httpSource.path,
+                    remainingSourceFile = httpSource,
+                    compiledFile = httpBinary,
+                    pettyCashDelta = -40.0,
+                    scriptFamily = ScriptFamily.HTTP,
+                    experienceDelta = 5,
                 ),
                 ApplicationInstalledEvent(
                     sourceFilePath = compiledFile.path,
@@ -163,6 +200,22 @@ class JdbcComputerStateRepositoryTest {
                         ),
                     ),
                     defaultBankPort = 6,
+                ),
+                ApplicationInstalledEvent(
+                    sourceFilePath = httpBinary.path,
+                    remainingSourceFile = null,
+                    portState = PortState(
+                        number = 80,
+                        type = "http",
+                        defaultPort = true,
+                        installedApplication = InstalledApplication(
+                            name = "site.bin",
+                            kind = ApplicationKind.HTTP,
+                            binaryPath = httpBinary.path,
+                            scriptBundle = httpBinary.scriptBundle,
+                        ),
+                    ),
+                    defaultBankPort = null,
                 ),
                 EquipmentInstalledEvent(
                     sourceFilePath = equipmentFile.path,
@@ -181,11 +234,13 @@ class JdbcComputerStateRepositoryTest {
 
         requireNotNull(reloaded)
         assertEquals(6, reloaded.economy.defaultBankPort)
-        assertEquals(425.0, reloaded.economy.pettyCash)
+        assertEquals(385.0, reloaded.economy.pettyCash)
         assertEquals(4, reloaded.stats.experienceByFamily[ScriptFamily.BANKING])
+        assertEquals(5, reloaded.stats.experienceByFamily[ScriptFamily.HTTP])
         assertEquals(1, reloaded.filesystem.directoriesByPath.count { it.key == "/Public" })
         assertEquals("bank.hws", reloaded.filesystem.filesByPath[sourceFile.path]?.name)
         assertEquals("bank.bin", reloaded.ports.single { it.number == 6 }.installedApplication?.name)
+        assertEquals(httpBinary.scriptBundle, reloaded.ports.single { it.number == 80 }.installedApplication?.scriptBundle)
         assertEquals("cpu-card.bin", reloaded.hardware.equipmentSlots[EquipmentSlot.CPU]?.name)
         assertTrue(countRows("rewrite_state_snapshot") >= 1)
     }

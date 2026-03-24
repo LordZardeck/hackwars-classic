@@ -307,7 +307,7 @@ class SaveFileCommand(
         val normalizedFile = file.copy(
             path = buildFilePath(normalizedPath, file.name),
             quantity = file.quantity.coerceAtLeast(1),
-        )
+        ).validateScriptBundle()
         val updated = context.appendEvents(
             id = stateId,
             events = listOf(FileSavedEvent(normalizedFile)),
@@ -337,6 +337,7 @@ class CompileFileCommand(
         require(source.kind == StoredFileKind.SCRIPT_SOURCE) {
             "Only script source files can be compiled."
         }
+        source.validateScriptBundle()
         val binaryMetadata = requireNotNull(source.compiledBinary) {
             "Compile metadata is required for ${source.name}."
         }
@@ -398,6 +399,7 @@ class DecompileFileCommand(
         ) {
             "Only compiled binaries can be decompiled."
         }
+        compiledFile.validateScriptBundle()
         val binaryMetadata = requireNotNull(compiledFile.compiledBinary) {
             "Compiled binary metadata is required for ${compiledFile.name}."
         }
@@ -416,6 +418,7 @@ class DecompileFileCommand(
             compileCost = compiledFile.compileCost,
             cpuCost = compiledFile.cpuCost,
             compiledBinary = binaryMetadata,
+            scriptBundle = compiledFile.scriptBundle,
         )
         val updated = context.appendEvents(
             id = stateId,
@@ -458,6 +461,7 @@ class InstallApplicationCommand(
         require(source.kind == StoredFileKind.APPLICATION_BINARY) {
             "Only compiled application binaries can be installed."
         }
+        source.validateScriptBundle()
         val metadata = requireNotNull(source.compiledBinary) {
             "Compiled application metadata is required for ${source.name}."
         }
@@ -469,6 +473,7 @@ class InstallApplicationCommand(
             binaryPath = source.path,
             cpuCost = source.cpuCost,
             banking = metadata.bankingApplication || metadata.applicationKind == ApplicationKind.BANKING,
+            scriptBundle = source.scriptBundle,
         )
         val existingPort = state.ports.firstOrNull { it.number == portNumber }
         val defaultBankPort = if (installedApplication.banking && state.economy.defaultBankPort == null) {
@@ -1149,6 +1154,26 @@ internal suspend fun CommandContext.requireExistingState(stateId: GameStateId): 
     return requireNotNull(loadState(stateId)) {
         "No game state exists for ${stateId.value}."
     }
+}
+
+private fun StoredFile.validateScriptBundle(): StoredFile {
+    val scriptFamily = compiledBinary?.scriptFamily
+    if (scriptFamily == ScriptFamily.HTTP) {
+        requireNotNull(scriptBundle) {
+            "HTTP script files must include a script bundle."
+        }
+        require(scriptBundle.family == ScriptFamily.HTTP) {
+            "HTTP script bundles must use the HTTP family."
+        }
+        require(
+            ProgramScriptSlot.ENTER in scriptBundle.scriptsBySlot &&
+                ProgramScriptSlot.EXIT in scriptBundle.scriptsBySlot &&
+                ProgramScriptSlot.SUBMIT in scriptBundle.scriptsBySlot,
+        ) {
+            "HTTP script bundles must contain enter, exit, and submit scripts."
+        }
+    }
+    return this
 }
 
 private fun defaultCompiledName(

@@ -130,6 +130,66 @@ class WebsiteBrowserCommandsTest {
     }
 
     @Test
+    fun requestWebpageAndSubmitExecuteHttpHooksAndFallbackToStaticPageOnFailure() = runTest {
+        val sourceId = GameStateId("LOCAL-IP")
+        val hookedId = GameStateId("HOOKED-IP")
+        val brokenId = GameStateId("BROKEN-IP")
+        val repository = InMemoryComputerStateRepository(
+            seededStates = mapOf(
+                sourceId to localWebsiteState(sourceId),
+                hookedId to hookedWebsiteState(hookedId),
+                brokenId to brokenWebsiteState(brokenId),
+            ),
+        )
+        val interests = InMemoryInterestRegistry()
+        interests.register("conn-1", sourceId)
+        val publisher = RecordingGameStatePublisher()
+        val dispatcher = DefaultCommandDispatcher(repository, interests)
+        val runtime = HackScriptHttpHookRuntime()
+
+        val page = dispatcher.request(
+            command = RequestWebpageCommand(
+                sourceStateId = sourceId,
+                targetStateId = hookedId,
+                parameters = mapOf("q" to "alpha"),
+                httpHookRuntime = runtime,
+            ),
+            metadata = CommandMetadata(connectionId = "conn-1"),
+            publisher = publisher,
+        )
+        val submit = dispatcher.request(
+            command = SubmitWebpageCommand(
+                sourceStateId = sourceId,
+                targetStateId = hookedId,
+                parameters = mapOf("mode" to "posted"),
+                httpHookRuntime = runtime,
+            ),
+            metadata = CommandMetadata(connectionId = "conn-1"),
+            publisher = publisher,
+        )
+        val broken = dispatcher.request(
+            command = RequestWebpageCommand(
+                sourceStateId = sourceId,
+                targetStateId = brokenId,
+                parameters = mapOf("q" to "alpha"),
+                httpHookRuntime = runtime,
+            ),
+            metadata = CommandMetadata(connectionId = "conn-1"),
+            publisher = publisher,
+        )
+
+        assertEquals("<html>LOCAL-IP-enter</html>", page.body)
+        assertEquals(listOf("merchant.bin"), page.storeFiles.map { it.name })
+        assertFalse(page.fallback)
+        assertEquals("<html>posted-enter</html>", submit.body)
+        assertTrue(submit.storeFiles.isEmpty())
+        assertFalse(submit.fallback)
+        assertEquals("<html><?first?>-<?second?></html>", broken.body)
+        assertFalse(broken.fallback)
+        assertTrue(publisher.deltas.isEmpty())
+    }
+
+    @Test
     fun exitIsLifecycleOnlyAndProducesNoMutationsOrDeltas() = runTest {
         val sourceId = GameStateId("LOCAL-IP")
         val targetId = GameStateId("TARGET-IP")
@@ -280,6 +340,84 @@ class WebsiteBrowserCommandsTest {
         )
     }
 
+    private fun hookedWebsiteState(stateId: GameStateId): ComputerState {
+        val filesystem = ComputerState.empty(id = stateId, playerIp = stateId.value).filesystem
+            .ensureDirectory("/Store")
+            .saveFile(
+                StoredFile(
+                    path = buildFilePath("/Store", "merchant.bin"),
+                    name = "merchant.bin",
+                    kind = StoredFileKind.APPLICATION_BINARY,
+                    contents = "compiled merchant",
+                    price = 196.0,
+                    quantity = 2,
+                ),
+            )
+        return ComputerState.empty(id = stateId, playFabId = "PF-${stateId.value}").copy(
+            filesystem = filesystem,
+            website = WebsiteState(
+                title = "Hooked Site",
+                body = "<html><?first?>-<?second?></html>",
+                voteCount = 7,
+            ),
+            economy = EconomyState(defaultBankPort = 6),
+            ports = listOf(
+                bankingPort(),
+                ftpPort(),
+                httpPort(
+                    scriptBundle = ProgramScriptBundle(
+                        family = ScriptFamily.HTTP,
+                        scriptsBySlot = linkedMapOf(
+                            ProgramScriptSlot.ENTER to """
+                                int main() {
+                                    replaceContent("first", getVisitorIP());
+                                    replaceContent("second", "enter");
+                                    return 0;
+                                }
+                            """.trimIndent(),
+                            ProgramScriptSlot.EXIT to """
+                                int main() {
+                                    return 0;
+                                }
+                            """.trimIndent(),
+                            ProgramScriptSlot.SUBMIT to """
+                                int main() {
+                                    replaceContent("first", getParameter("mode"));
+                                    hideStore();
+                                    return 0;
+                                }
+                            """.trimIndent(),
+                        ),
+                    ),
+                ),
+            ),
+        )
+    }
+
+    private fun brokenWebsiteState(stateId: GameStateId): ComputerState {
+        return hookedWebsiteState(stateId).copy(
+            ports = listOf(
+                bankingPort(),
+                ftpPort(),
+                httpPort(
+                    scriptBundle = ProgramScriptBundle(
+                        family = ScriptFamily.HTTP,
+                        scriptsBySlot = linkedMapOf(
+                            ProgramScriptSlot.ENTER to """
+                                int main() {
+                                    triggerWatch(1);
+                                    return 0;
+                                }
+                            """.trimIndent(),
+                            ProgramScriptSlot.EXIT to "int main() { return 0; }",
+                            ProgramScriptSlot.SUBMIT to "int main() { return 0; }",
+                        ),
+                    ),
+                ),
+            ),
+        )
+    }
+
     private fun offlineWebsiteState(stateId: GameStateId): ComputerState {
         return ComputerState.empty(id = stateId, playFabId = "PF-${stateId.value}").copy(
             website = WebsiteState(
@@ -324,7 +462,9 @@ class WebsiteBrowserCommandsTest {
         )
     }
 
-    private fun httpPort(): PortState {
+    private fun httpPort(
+        scriptBundle: ProgramScriptBundle? = null,
+    ): PortState {
         return PortState(
             number = 80,
             type = "http",
@@ -334,6 +474,7 @@ class WebsiteBrowserCommandsTest {
                 name = "http.bin",
                 kind = ApplicationKind.HTTP,
                 binaryPath = "/system/http.bin",
+                scriptBundle = scriptBundle,
             ),
         )
     }

@@ -54,6 +54,9 @@ project(':RewritePersistence').projectDir = file('src/RewritePersistence')
 include ':RewriteClientModel'
 project(':RewriteClientModel').projectDir = file('src/RewriteClientModel')
 
+include ':RewriteHackScript'
+project(':RewriteHackScript').projectDir = file('src/RewriteHackScript')
+
 include ':RewriteTestKit'
 project(':RewriteTestKit').projectDir = file('src/RewriteTestKit')
 

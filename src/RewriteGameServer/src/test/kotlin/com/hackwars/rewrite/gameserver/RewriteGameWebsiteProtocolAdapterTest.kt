@@ -12,6 +12,8 @@ import com.hackwars.rewrite.gamecore.InstalledApplication
 import com.hackwars.rewrite.gamecore.PageEditorResponse
 import com.hackwars.rewrite.gamecore.PlayerStatsState
 import com.hackwars.rewrite.gamecore.PortState
+import com.hackwars.rewrite.gamecore.ProgramScriptBundle
+import com.hackwars.rewrite.gamecore.ProgramScriptSlot
 import com.hackwars.rewrite.gamecore.RequestPagePayload
 import com.hackwars.rewrite.gamecore.RequestWebpagePayload
 import com.hackwars.rewrite.gamecore.RewriteGameJson
@@ -21,6 +23,7 @@ import com.hackwars.rewrite.gamecore.StateSectionsDeltaProjection
 import com.hackwars.rewrite.gamecore.StoredFile
 import com.hackwars.rewrite.gamecore.StoredFileKind
 import com.hackwars.rewrite.gamecore.SubmitWebpagePayload
+import com.hackwars.rewrite.gamecore.ScriptFamily
 import com.hackwars.rewrite.gamecore.VotePayload
 import com.hackwars.rewrite.gamecore.VoteResponse
 import com.hackwars.rewrite.gamecore.WebsiteRenderResponse
@@ -180,6 +183,64 @@ class RewriteGameWebsiteProtocolAdapterTest {
     }
 
     @Test
+    fun requestWebpageAndSubmitExecuteHookBundlesWithoutCreatingSubscriptions() = runTest {
+        val fixture = createFixture()
+        val local = fixture.authenticatedConnection("LOCAL-IP")
+
+        local.send(
+            RewriteFrames.command(
+                commandId = "hook-web-1",
+                commandName = "requestwebpage",
+                payload = RewriteGameJson.encode(
+                    serializer = RequestWebpagePayload.serializer(),
+                    value = RequestWebpagePayload(
+                        targetIp = "HOOKED-IP",
+                        sourceIp = "LOCAL-IP",
+                        parameters = mapOf("q" to "shop"),
+                    ),
+                ),
+                expectsResponse = true,
+            ),
+        )
+
+        val requestResponseFrame = local.awaitFrame()
+        val requestResponse = RewriteGameJson.decode(
+            serializer = WebsiteRenderResponse.serializer(),
+            payload = requestResponseFrame.command_response!!.payload.toByteArray(),
+        )
+        assertEquals("<html>LOCAL-IP-enter</html>", requestResponse.body)
+        assertEquals(listOf("merchant.bin"), requestResponse.storeFiles.map { it.name })
+        assertFalse(requestResponse.fallback)
+        assertNull(local.drainFrames().firstOrNull { it.delta != null })
+
+        local.send(
+            RewriteFrames.command(
+                commandId = "hook-submit-1",
+                commandName = "submit",
+                payload = RewriteGameJson.encode(
+                    serializer = SubmitWebpagePayload.serializer(),
+                    value = SubmitWebpagePayload(
+                        targetIp = "HOOKED-IP",
+                        sourceIp = "LOCAL-IP",
+                        parameters = mapOf("mode" to "posted"),
+                    ),
+                ),
+                expectsResponse = true,
+            ),
+        )
+
+        val submitResponseFrame = local.awaitFrame()
+        val submitResponse = RewriteGameJson.decode(
+            serializer = WebsiteRenderResponse.serializer(),
+            payload = submitResponseFrame.command_response!!.payload.toByteArray(),
+        )
+        assertEquals("<html>posted-enter</html>", submitResponse.body)
+        assertTrue(submitResponse.storeFiles.isEmpty())
+        assertFalse(submitResponse.fallback)
+        assertNull(local.drainFrames().firstOrNull { it.delta != null })
+    }
+
+    @Test
     fun requestWebpageFallbackAndExitProduceNoSubscriptionsOrMutations() = runTest {
         val fixture = createFixture()
         val local = fixture.authenticatedConnection("LOCAL-IP")
@@ -272,6 +333,7 @@ class RewriteGameWebsiteProtocolAdapterTest {
             seededStates = mapOf(
                 GameStateId("LOCAL-IP") to localState(),
                 GameStateId("TARGET-IP") to targetState(),
+                GameStateId("HOOKED-IP") to hookedState(),
                 GameStateId("store1") to storeState(),
                 GameStateId("OFFLINE-IP") to offlineState(),
             ),
@@ -293,6 +355,7 @@ class RewriteGameWebsiteProtocolAdapterTest {
                     accounts = listOf(
                         FakePlayerAccount("PF-LOCALUSER", "LOCAL-IP", "SESSION-LOCALUSER"),
                         FakePlayerAccount("PF-TARGETUSER", "TARGET-IP", "SESSION-TARGETUSER"),
+                        FakePlayerAccount("PF-HOOKED", "HOOKED-IP", "SESSION-HOOKED"),
                         FakePlayerAccount("PF-STOREUSER", "store1", "SESSION-STOREUSER"),
                         FakePlayerAccount("PF-OFFLINE", "OFFLINE-IP", "SESSION-OFFLINE"),
                     ),
@@ -395,6 +458,55 @@ class RewriteGameWebsiteProtocolAdapterTest {
         )
     }
 
+    private fun hookedState(): ComputerState {
+        var filesystem = ComputerState.empty(GameStateId("HOOKED-IP"), playerIp = "HOOKED-IP").filesystem
+            .ensureDirectory("/Store")
+        filesystem = filesystem.saveFile(
+            StoredFile(
+                path = buildFilePath("/Store", "merchant.bin"),
+                name = "merchant.bin",
+                kind = StoredFileKind.APPLICATION_BINARY,
+                contents = "compiled merchant",
+                quantity = 2,
+                price = 196.0,
+            ),
+        )
+        return ComputerState.empty(GameStateId("HOOKED-IP"), playFabId = "PF-HOOKED").copy(
+            filesystem = filesystem,
+            website = WebsiteState(
+                title = "Hooked Site",
+                body = "<html><?first?>-<?second?></html>",
+            ),
+            economy = EconomyState(defaultBankPort = 6),
+            ports = listOf(
+                bankingPort(),
+                ftpPort(),
+                httpPort(
+                    scriptBundle = ProgramScriptBundle(
+                        family = ScriptFamily.HTTP,
+                        scriptsBySlot = linkedMapOf(
+                            ProgramScriptSlot.ENTER to """
+                                int main() {
+                                    replaceContent("first", getVisitorIP());
+                                    replaceContent("second", "enter");
+                                    return 0;
+                                }
+                            """.trimIndent(),
+                            ProgramScriptSlot.EXIT to "int main() { return 0; }",
+                            ProgramScriptSlot.SUBMIT to """
+                                int main() {
+                                    replaceContent("first", getParameter("mode"));
+                                    hideStore();
+                                    return 0;
+                                }
+                            """.trimIndent(),
+                        ),
+                    ),
+                ),
+            ),
+        )
+    }
+
     private fun offlineState(): ComputerState {
         return ComputerState.empty(GameStateId("OFFLINE-IP"), playFabId = "PF-OFFLINE").copy(
             website = WebsiteState(
@@ -439,7 +551,9 @@ class RewriteGameWebsiteProtocolAdapterTest {
         )
     }
 
-    private fun httpPort(): PortState {
+    private fun httpPort(
+        scriptBundle: ProgramScriptBundle? = null,
+    ): PortState {
         return PortState(
             number = 80,
             type = "http",
@@ -449,6 +563,7 @@ class RewriteGameWebsiteProtocolAdapterTest {
                 name = "http.bin",
                 kind = ApplicationKind.HTTP,
                 binaryPath = "/system/http.bin",
+                scriptBundle = scriptBundle,
             ),
         )
     }
@@ -503,6 +618,7 @@ private fun InMemoryAuthenticatedSession.toWebsiteGameSession(): AuthenticatedGa
 private fun sessionTicketFor(requestedIp: String): String = when (requestedIp) {
     "LOCAL-IP" -> "SESSION-LOCALUSER"
     "TARGET-IP" -> "SESSION-TARGETUSER"
+    "HOOKED-IP" -> "SESSION-HOOKED"
     "store1" -> "SESSION-STOREUSER"
     "OFFLINE-IP" -> "SESSION-OFFLINE"
     else -> "SESSION-LOCALUSER"
@@ -511,6 +627,7 @@ private fun sessionTicketFor(requestedIp: String): String = when (requestedIp) {
 private fun playFabIdFor(requestedIp: String): String = when (requestedIp) {
     "LOCAL-IP" -> "PF-LOCALUSER"
     "TARGET-IP" -> "PF-TARGETUSER"
+    "HOOKED-IP" -> "PF-HOOKED"
     "store1" -> "PF-STOREUSER"
     "OFFLINE-IP" -> "PF-OFFLINE"
     else -> "PF-LOCALUSER"

@@ -31,6 +31,7 @@ import com.hackwars.rewrite.gamecore.GameSessionBootstrapCommand
 import com.hackwars.rewrite.gamecore.GameSessionBootstrapResult
 import com.hackwars.rewrite.gamecore.GameStateId
 import com.hackwars.rewrite.gamecore.GameStatePublisher
+import com.hackwars.rewrite.gamecore.HackScriptHttpHookRuntime
 import com.hackwars.rewrite.gamecore.ExitWebpageCommand
 import com.hackwars.rewrite.gamecore.ExitWebpagePayload
 import com.hackwars.rewrite.gamecore.FacebookDepositPayload
@@ -47,7 +48,6 @@ import com.hackwars.rewrite.gamecore.InstallFirewallPayload
 import com.hackwars.rewrite.gamecore.InstallFirewallResponse
 import com.hackwars.rewrite.gamecore.InterestRegistry
 import com.hackwars.rewrite.gamecore.MutationAcceptedResponse
-import com.hackwars.rewrite.gamecore.NoOpHttpHookRuntime
 import com.hackwars.rewrite.gamecore.HttpHookRuntime
 import com.hackwars.rewrite.gamecore.PageEditorResponse
 import com.hackwars.rewrite.gamecore.PurchaseResponse
@@ -116,7 +116,7 @@ class RewriteGameProtocolAdapter(
     private val dispatcher: CommandDispatcher,
     private val interestRegistry: InterestRegistry,
     private val serverId: String = "1",
-    private val httpHookRuntime: HttpHookRuntime = NoOpHttpHookRuntime,
+    private val httpHookRuntime: HttpHookRuntime = HackScriptHttpHookRuntime(),
     private val registry: CommandRegistry = defaultRegistry(serverId, httpHookRuntime),
 ) {
     suspend fun onSessionStarted(

@@ -1,5 +1,6 @@
 package com.hackwars.rewrite.gamecore
 
+import com.hackwars.rewrite.hackscript.HttpHookExecutionResult
 import kotlinx.serialization.Serializable
 
 const val LEGACY_SERVER_NOT_FOUND_TITLE: String = "Server Not Found"
@@ -7,9 +8,9 @@ const val LEGACY_SERVER_NOT_FOUND_BODY: String =
     "<html><head><title>Hack Wars - Error report</title><style><!--H1 {font-family:Tahoma,Arial,sans-serif;color:white;background-color:#525D76;font-size:22px;color:white} H2 {font-family:Tahoma,Arial,sans-serif;color:white;background-color:#525D76;font-size:16px;} H3 {font-family:Tahoma,Arial,sans-serif;color:white;background-color:#525D76;font-size:14px;} BODY {background-color:rgb(0,0,0);font-family:Tahoma,Arial,sans-serif;color:black;background-color:white;color:white;} B {font-family:Tahoma,Arial,sans-serif;color:white;background-color:#525D76;color:white;} P {color:white;font-family:Tahoma,Arial,sans-serif;background:white;color:black;font-size:12px;}A {color : black;}A.name {color : black;}HR {color : #525D76;}--></style> </head><body><h1 style=\"width:100%\">HTTP Status 408</h1><HR size=\"1\" noshade=\"noshade\"><p style=\"background-color:black;\"><b>type</b> HTTP Error</p><p style=\"background-color:black;\"><b>message</b> <u>Resource not found.</u></p><p style=\"background-color:black\"><b>description</b> <u>The HTTP server of the player you attempted to connect to does not seem to be on.</u></p><HR size=\"1\" noshade=\"noshade\"><h3>&copy; Hack Wars</h3></body></html>"
 
 interface HttpHookRuntime {
-    suspend fun onEnter(request: HttpHookRequest): WebsiteRenderOverride? = null
+    suspend fun onEnter(request: HttpHookRequest): HttpHookExecutionResult? = null
 
-    suspend fun onSubmit(request: HttpHookRequest): WebsiteRenderOverride? = null
+    suspend fun onSubmit(request: HttpHookRequest): HttpHookExecutionResult? = null
 
     suspend fun onExit(request: HttpHookRequest) = Unit
 }
@@ -17,14 +18,10 @@ interface HttpHookRuntime {
 data class HttpHookRequest(
     val sourceStateId: GameStateId,
     val targetStateId: GameStateId,
-    val parameters: Map<String, String>,
+    val queryParameters: Map<String, String>,
+    val formParameters: Map<String, String>,
     val targetState: ComputerState,
-)
-
-data class WebsiteRenderOverride(
-    val title: String,
-    val body: String,
-    val includeStore: Boolean = true,
+    val installedApplication: InstalledApplication,
 )
 
 object NoOpHttpHookRuntime : HttpHookRuntime
@@ -126,19 +123,23 @@ class RequestWebpageCommand(
 
     override suspend fun execute(context: CommandContext): WebsiteRenderResponse {
         val targetState = context.loadState(targetStateId) ?: return fallbackWebsite(targetStateId)
+        val installedApplication = targetState.activeDefaultApplication(ApplicationKind.HTTP)
+            ?: return fallbackWebsite(targetStateId, targetState.version)
         if (!targetState.hasActiveDefaultApplicationPort(ApplicationKind.HTTP)) {
             return fallbackWebsite(targetStateId, targetState.version)
         }
 
-        val override = httpHookRuntime.onEnter(
+        val executionResult = httpHookRuntime.onEnter(
             HttpHookRequest(
                 sourceStateId = sourceStateId,
                 targetStateId = targetStateId,
-                parameters = parameters,
+                queryParameters = parameters,
+                formParameters = emptyMap(),
                 targetState = targetState,
+                installedApplication = installedApplication,
             ),
         )
-        return renderWebsite(targetState, override)
+        return renderWebsite(targetState, executionResult)
     }
 }
 
@@ -154,19 +155,23 @@ class SubmitWebpageCommand(
 
     override suspend fun execute(context: CommandContext): WebsiteRenderResponse {
         val targetState = context.loadState(targetStateId) ?: return fallbackWebsite(targetStateId)
+        val installedApplication = targetState.activeDefaultApplication(ApplicationKind.HTTP)
+            ?: return fallbackWebsite(targetStateId, targetState.version)
         if (!targetState.hasActiveDefaultApplicationPort(ApplicationKind.HTTP)) {
             return fallbackWebsite(targetStateId, targetState.version)
         }
 
-        val override = httpHookRuntime.onSubmit(
+        val executionResult = httpHookRuntime.onSubmit(
             HttpHookRequest(
                 sourceStateId = sourceStateId,
                 targetStateId = targetStateId,
-                parameters = parameters,
+                queryParameters = emptyMap(),
+                formParameters = parameters,
                 targetState = targetState,
+                installedApplication = installedApplication,
             ),
         )
-        return renderWebsite(targetState, override)
+        return renderWebsite(targetState, executionResult)
     }
 }
 
@@ -181,12 +186,15 @@ class ExitWebpageCommand(
 
     override suspend fun execute(context: CommandContext) {
         val targetState = context.loadState(targetStateId) ?: return
+        val installedApplication = targetState.activeDefaultApplication(ApplicationKind.HTTP) ?: return
         httpHookRuntime.onExit(
             HttpHookRequest(
                 sourceStateId = sourceStateId,
                 targetStateId = targetStateId,
-                parameters = emptyMap(),
+                queryParameters = emptyMap(),
+                formParameters = emptyMap(),
                 targetState = targetState,
+                installedApplication = installedApplication,
             ),
         )
     }
@@ -248,13 +256,13 @@ class VoteForWebsiteCommand(
 
 private fun renderWebsite(
     targetState: ComputerState,
-    override: WebsiteRenderOverride? = null,
+    executionResult: HttpHookExecutionResult? = null,
 ): WebsiteRenderResponse {
-    val includeStore = override?.includeStore ?: true
+    val includeStore = executionResult?.includeStore ?: true
     return WebsiteRenderResponse(
         resolvedTargetStateId = targetState.id,
-        title = override?.title ?: targetState.website.title,
-        body = override?.body ?: targetState.website.body,
+        title = targetState.website.title,
+        body = executionResult?.body ?: targetState.website.body,
         storeFiles = if (includeStore && targetState.canRenderStoreListing()) {
             targetState.filesystem.listDirectory("/Store").files
         } else {
@@ -289,4 +297,12 @@ private fun ComputerState.hasActiveDefaultApplicationPort(kind: ApplicationKind)
             port.enabled &&
             port.installedApplication?.kind == kind
     }
+}
+
+private fun ComputerState.activeDefaultApplication(kind: ApplicationKind): InstalledApplication? {
+    return ports.firstOrNull { port ->
+        port.defaultPort &&
+            port.enabled &&
+            port.installedApplication?.kind == kind
+    }?.installedApplication
 }

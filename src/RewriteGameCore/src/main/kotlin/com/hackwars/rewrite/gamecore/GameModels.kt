@@ -115,6 +115,7 @@ data class InstalledApplication(
     val binaryPath: String = "",
     val cpuCost: Double = 0.0,
     val banking: Boolean = false,
+    val scriptBundle: ProgramScriptBundle? = null,
 )
 
 @Serializable
@@ -197,6 +198,30 @@ enum class ScriptFamily {
 }
 
 @Serializable
+enum class ProgramScriptSlot {
+    DEPOSIT,
+    WITHDRAW,
+    TRANSFER,
+    INITIALIZE,
+    CONTINUE,
+    FINALIZE,
+    FIRE,
+    PUT,
+    GET,
+    ENTER,
+    EXIT,
+    SUBMIT,
+}
+
+@Serializable
+data class ProgramScriptBundle(
+    val family: ScriptFamily = ScriptFamily.GENERAL,
+    val scriptsBySlot: Map<ProgramScriptSlot, String> = emptyMap(),
+) {
+    fun script(slot: ProgramScriptSlot): String = scriptsBySlot[slot].orEmpty()
+}
+
+@Serializable
 data class CompiledBinaryMetadata(
     val scriptFamily: ScriptFamily = ScriptFamily.GENERAL,
     val outputName: String = "",
@@ -221,6 +246,7 @@ data class StoredFile(
     val cpuCost: Double = 0.0,
     val price: Double = 0.0,
     val compiledBinary: CompiledBinaryMetadata? = null,
+    val scriptBundle: ProgramScriptBundle? = null,
 )
 
 @Serializable

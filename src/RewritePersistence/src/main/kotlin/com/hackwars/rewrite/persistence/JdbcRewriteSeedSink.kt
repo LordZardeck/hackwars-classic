@@ -8,6 +8,9 @@ import com.hackwars.rewrite.gamecore.GameStateId
 import com.hackwars.rewrite.gamecore.InstalledApplication
 import com.hackwars.rewrite.gamecore.PlayerStatsState
 import com.hackwars.rewrite.gamecore.PortState
+import com.hackwars.rewrite.gamecore.ProgramScriptBundle
+import com.hackwars.rewrite.gamecore.ProgramScriptSlot
+import com.hackwars.rewrite.gamecore.ScriptFamily
 import com.hackwars.rewrite.gamecore.StoredFile
 import com.hackwars.rewrite.gamecore.StoredFileKind
 import com.hackwars.rewrite.gamecore.WebsiteState
@@ -177,6 +180,53 @@ class JdbcRewriteSeedSink(
                     ),
                 ),
             )
+        if (payload.enableHttp) {
+            val httpBundle = ProgramScriptBundle(
+                family = ScriptFamily.HTTP,
+                scriptsBySlot = linkedMapOf(
+                    ProgramScriptSlot.ENTER to "int main() { replaceContent(\"first\", getVisitorIP()); return 0; }",
+                    ProgramScriptSlot.EXIT to "int main() { return 0; }",
+                    ProgramScriptSlot.SUBMIT to "int main() { hideStore(); return 0; }",
+                ),
+            )
+            filesystem = filesystem
+                .saveFile(
+                    StoredFile(
+                        path = buildFilePath("/Public", "http"),
+                        name = "http",
+                        kind = StoredFileKind.SCRIPT_SOURCE,
+                        contents = "seeded http script",
+                        description = "Seeded editable HTTP source",
+                        maker = "rewrite-import",
+                        compileCost = 80.0,
+                        quantity = 1,
+                        compiledBinary = CompiledBinaryMetadata(
+                            scriptFamily = ScriptFamily.HTTP,
+                            applicationKind = ApplicationKind.HTTP,
+                            outputName = "http.bin",
+                        ),
+                        scriptBundle = httpBundle,
+                    ),
+                )
+                .saveFile(
+                    StoredFile(
+                        path = buildFilePath("/Public", "http.bin"),
+                        name = "http.bin",
+                        kind = StoredFileKind.APPLICATION_BINARY,
+                        contents = "seeded http script",
+                        description = "Seeded installable HTTP application",
+                        maker = "rewrite-import",
+                        compileCost = 80.0,
+                        quantity = 1,
+                        compiledBinary = CompiledBinaryMetadata(
+                            scriptFamily = ScriptFamily.HTTP,
+                            applicationKind = ApplicationKind.HTTP,
+                            outputName = "http.bin",
+                        ),
+                        scriptBundle = httpBundle,
+                    ),
+                )
+        }
         payload.notes.forEachIndexed { index, note ->
             filesystem = filesystem.saveFile(
                 StoredFile(
@@ -231,6 +281,14 @@ class JdbcRewriteSeedSink(
                             name = "http.bin",
                             kind = ApplicationKind.HTTP,
                             binaryPath = "/system/http.bin",
+                            scriptBundle = ProgramScriptBundle(
+                                family = ScriptFamily.HTTP,
+                                scriptsBySlot = linkedMapOf(
+                                    ProgramScriptSlot.ENTER to "int main() { replaceContent(\"first\", getVisitorIP()); return 0; }",
+                                    ProgramScriptSlot.EXIT to "int main() { return 0; }",
+                                    ProgramScriptSlot.SUBMIT to "int main() { hideStore(); return 0; }",
+                                ),
+                            ),
                         ),
                     ),
                 )

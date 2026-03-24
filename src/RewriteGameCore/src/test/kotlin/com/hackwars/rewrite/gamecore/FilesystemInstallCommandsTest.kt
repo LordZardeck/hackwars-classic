@@ -51,7 +51,7 @@ class FilesystemInstallCommandsTest {
         )
 
         assertEquals("/Public", directory.path)
-        assertEquals(listOf("bank", "bank.bin", "cpu-card.bin", "notes.txt", "wall.bin"), directory.files.map { it.name }.sorted())
+        assertEquals(listOf("bank", "bank.bin", "cpu-card.bin", "notes.txt", "site", "site.bin", "wall.bin"), directory.files.map { it.name }.sorted())
         assertEquals("/Secrets", remoteDirectory.path)
         assertEquals(listOf("remote.log"), remoteDirectory.files.map { it.name })
         assertEquals("hello world", file.file?.contents)
@@ -141,6 +141,73 @@ class FilesystemInstallCommandsTest {
         assertEquals(0, decompile.experienceAfter)
         assertEquals(listOf(setOf("filesystem", "economy", "stats"), setOf("filesystem", "economy", "stats")), publisher.deltas.map { it.second.deltaKeys })
         assertNotNull(finalState.filesystem.filesByPath[buildFilePath("/Public", "bank")])
+    }
+
+    @Test
+    fun httpScriptsRoundTripAcrossSaveRequestCompileDecompileAndInstall() = runTest {
+        val stateId = GameStateId("LOCAL-IP")
+        val repository = InMemoryComputerStateRepository(seededStates = mapOf(stateId to localState(stateId)))
+        val interests = InMemoryInterestRegistry()
+        interests.register("conn-1", stateId)
+        val publisher = RecordingGameStatePublisher()
+        val dispatcher = DefaultCommandDispatcher(repository, interests)
+        val bundle = httpScriptBundle()
+
+        dispatcher.request(
+            command = SaveFileCommand(
+                stateId = stateId,
+                path = "/Public",
+                file = StoredFile(
+                    path = buildFilePath("/Public", "portal"),
+                    name = "portal",
+                    kind = StoredFileKind.SCRIPT_SOURCE,
+                    contents = "legacy-http-script",
+                    compileCost = 40.0,
+                    compiledBinary = CompiledBinaryMetadata(
+                        scriptFamily = ScriptFamily.HTTP,
+                        outputName = "portal.bin",
+                        applicationKind = ApplicationKind.HTTP,
+                        experienceAward = 5,
+                    ),
+                    scriptBundle = bundle,
+                ),
+            ),
+            metadata = CommandMetadata(connectionId = "conn-1"),
+            publisher = publisher,
+        )
+        val requested = dispatcher.request(
+            command = RequestFileCommand(stateId = stateId, path = "/Public", fileName = "portal"),
+            metadata = CommandMetadata(connectionId = "conn-1"),
+            publisher = publisher,
+        )
+        val compile = dispatcher.request(
+            command = CompileFileCommand(stateId = stateId, path = "/Public", fileName = "portal"),
+            metadata = CommandMetadata(connectionId = "conn-1"),
+            publisher = publisher,
+        )
+        val decompile = dispatcher.request(
+            command = DecompileFileCommand(stateId = stateId, path = "/Public", fileName = "portal.bin"),
+            metadata = CommandMetadata(connectionId = "conn-1"),
+            publisher = publisher,
+        )
+        val install = dispatcher.request(
+            command = InstallApplicationCommand(
+                stateId = stateId,
+                path = "/Public",
+                fileName = "site.bin",
+                portNumber = 80,
+            ),
+            metadata = CommandMetadata(connectionId = "conn-1"),
+            publisher = publisher,
+        )
+        val state = repository.load(stateId)
+
+        requireNotNull(state)
+        assertEquals(bundle, requested.file?.scriptBundle)
+        assertEquals(bundle, compile.compiledFile.scriptBundle)
+        assertEquals(bundle, decompile.decompiledFile.scriptBundle)
+        assertEquals(bundle, install.installedApplication.scriptBundle)
+        assertEquals(bundle, state.ports.single { it.number == 80 }.installedApplication?.scriptBundle)
     }
 
     @Test
@@ -286,6 +353,38 @@ class FilesystemInstallCommandsTest {
             )
             .saveFile(
                 StoredFile(
+                    path = buildFilePath("/Public", "site"),
+                    name = "site",
+                    kind = StoredFileKind.SCRIPT_SOURCE,
+                    contents = "http source",
+                    compileCost = 40.0,
+                    compiledBinary = CompiledBinaryMetadata(
+                        scriptFamily = ScriptFamily.HTTP,
+                        outputName = "site.bin",
+                        applicationKind = ApplicationKind.HTTP,
+                        experienceAward = 5,
+                    ),
+                    scriptBundle = httpScriptBundle(),
+                ),
+            )
+            .saveFile(
+                StoredFile(
+                    path = buildFilePath("/Public", "site.bin"),
+                    name = "site.bin",
+                    kind = StoredFileKind.APPLICATION_BINARY,
+                    contents = "http source",
+                    quantity = 1,
+                    compiledBinary = CompiledBinaryMetadata(
+                        scriptFamily = ScriptFamily.HTTP,
+                        outputName = "site.bin",
+                        applicationKind = ApplicationKind.HTTP,
+                        experienceAward = 5,
+                    ),
+                    scriptBundle = httpScriptBundle(),
+                ),
+            )
+            .saveFile(
+                StoredFile(
                     path = buildFilePath("/Public", "wall.bin"),
                     name = "wall.bin",
                     kind = StoredFileKind.FIREWALL_BINARY,
@@ -343,6 +442,17 @@ class FilesystemInstallCommandsTest {
                 PortState(number = 22, type = "ssh"),
                 PortState(number = 80, type = "http"),
                 PortState(number = 443, type = "https"),
+            ),
+        )
+    }
+
+    private fun httpScriptBundle(): ProgramScriptBundle {
+        return ProgramScriptBundle(
+            family = ScriptFamily.HTTP,
+            scriptsBySlot = linkedMapOf(
+                ProgramScriptSlot.ENTER to "int main() { replaceContent(\"first\", getVisitorIP()); return 0; }",
+                ProgramScriptSlot.EXIT to "int main() { return 0; }",
+                ProgramScriptSlot.SUBMIT to "int main() { hideStore(); return 0; }",
             ),
         )
     }

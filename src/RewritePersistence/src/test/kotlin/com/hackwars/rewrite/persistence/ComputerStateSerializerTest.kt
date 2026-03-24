@@ -6,6 +6,8 @@ import com.hackwars.rewrite.gamecore.FileCompiledEvent
 import com.hackwars.rewrite.gamecore.GameStateId
 import com.hackwars.rewrite.gamecore.InstalledApplication
 import com.hackwars.rewrite.gamecore.PortState
+import com.hackwars.rewrite.gamecore.ProgramScriptBundle
+import com.hackwars.rewrite.gamecore.ProgramScriptSlot
 import com.hackwars.rewrite.gamecore.ScriptFamily
 import com.hackwars.rewrite.gamecore.StoredFile
 import com.hackwars.rewrite.gamecore.StoredFileKind
@@ -28,7 +30,17 @@ class ComputerStateSerializerTest {
                 PortState(
                     number = 80,
                     type = "banking",
-                    installedApplication = InstalledApplication(name = "bank.bin"),
+                    installedApplication = InstalledApplication(
+                        name = "bank.bin",
+                        scriptBundle = ProgramScriptBundle(
+                            family = ScriptFamily.HTTP,
+                            scriptsBySlot = linkedMapOf(
+                                ProgramScriptSlot.ENTER to "int main() { return 0; }",
+                                ProgramScriptSlot.EXIT to "int main() { return 0; }",
+                                ProgramScriptSlot.SUBMIT to "int main() { return 0; }",
+                            ),
+                        ),
+                    ),
                 ),
             ),
         )
@@ -52,6 +64,14 @@ class ComputerStateSerializerTest {
                     scriptFamily = ScriptFamily.BANKING,
                     outputName = "bank.bin",
                 ),
+                scriptBundle = ProgramScriptBundle(
+                    family = ScriptFamily.HTTP,
+                    scriptsBySlot = linkedMapOf(
+                        ProgramScriptSlot.ENTER to "int main() { return 0; }",
+                        ProgramScriptSlot.EXIT to "int main() { return 0; }",
+                        ProgramScriptSlot.SUBMIT to "int main() { return 0; }",
+                    ),
+                ),
             ),
             compiledFile = StoredFile(
                 path = buildFilePath("/Public", "bank.bin"),
@@ -62,6 +82,14 @@ class ComputerStateSerializerTest {
                 compiledBinary = CompiledBinaryMetadata(
                     scriptFamily = ScriptFamily.BANKING,
                     outputName = "bank.bin",
+                ),
+                scriptBundle = ProgramScriptBundle(
+                    family = ScriptFamily.HTTP,
+                    scriptsBySlot = linkedMapOf(
+                        ProgramScriptSlot.ENTER to "int main() { return 0; }",
+                        ProgramScriptSlot.EXIT to "int main() { return 0; }",
+                        ProgramScriptSlot.SUBMIT to "int main() { return 0; }",
+                    ),
                 ),
             ),
             pettyCashDelta = -75.0,

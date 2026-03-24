@@ -129,17 +129,31 @@
   - Vote handling is normalized into a clean hard-failure path and now updates voter website votes, target website vote count, and target HTTP/Webdesign XP in one typed transaction.
 
 ### RW-GS-S3B2 - Programmable HTTP enter/submit/exit hook runtime
-- Status: `todo`
-- Owner: `unassigned`
+- Status: `done`
+- Owner: `codex`
 - Depends on: `RW-GS-S3B1`
-- Allowed write scope: `:RewriteGameCore`, `:RewriteGameServer`
-- Verification command: `./gradlew :RewriteGameCore:test :RewriteGameServer:test`
+- Allowed write scope: `:RewriteHackScript`, `:RewriteGameCore`, `:RewriteGameServer`, `:RewritePersistence`
+- Verification command: `./gradlew :RewriteHackScript:test :RewriteGameCore:test :RewritePersistence:test :RewritePersistence:migrationTest :RewriteGameServer:test :RewriteTestKit:integrationTest rewriteCheck`
 - Artifacts: `build/reports/tests/test`
 - Commit rule: `single green commit only`
 - Notes:
   - Adds executable HTTP `enter`, `submit`, and `exit` behavior on top of the `HttpHookRuntime` seam introduced in `RW-GS-S3B1`.
   - Static page serving, fallback handling, and vote behavior are already covered and must not regress.
+  - The rewrite now preserves three-slot HTTP script bundles across save/request/compile/decompile/install, persists them through snapshots/events/import seeds, and executes them through the Kotlin-only `:RewriteHackScript` module.
+  - `submit` now runs `submit` then `enter` against a shared mutable body/include-store state, while parse/runtime failures fall back to the static `RW-GS-S3B1` render path.
   - Daily pay, empty-petty-cash, and social/Facebook stubs remain outside this slice.
+
+### RW-GS-S3B3 - Extended HTTP linker side effects and broader HackScript compatibility
+- Status: `todo`
+- Owner: `unassigned`
+- Depends on: `RW-GS-S3B2`
+- Allowed write scope: `:RewriteHackScript`, `:RewriteGameCore`, `:RewriteGameServer`
+- Verification command: `./gradlew :RewriteHackScript:test :RewriteGameCore:test :RewriteGameServer:test`
+- Artifacts: `build/reports/tests/test`
+- Commit rule: `single green commit only`
+- Notes:
+  - Owns deferred HTTP-side helpers such as `triggerWatch`, `triggerWatchRemote`, `logMessage`, `popUp`, and any other side-effectful linker functions.
+  - May broaden HackScript syntax coverage beyond the phased render-focused subset only after preserving `RW-GS-S3B2` behavior and failure fallback rules.
 
 ### RW-GS-S4 - Network switching, scan, quests, tasks, clues, search, bounties
 - Status: `in_progress`

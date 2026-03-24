@@ -26,6 +26,7 @@ ext {
             ':RewriteChatCore',
             ':RewritePersistence',
             ':RewriteClientModel',
+            ':RewriteHackScript',
             ':RewriteTestKit',
             ':RewriteGameServer',
             ':RewriteChatServer',
