@@ -1,4 +1,7 @@
 package game
+import game.computer.runtime.SaveLogoutTickService
+import game.payload.MessageTextPayload
+import game.payload.WebPagePayload
 import kotlinx.coroutines.CoroutineName
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -19,12 +22,14 @@ class ComputerHandler @JvmOverloads constructor(
 ) : GameServerService {
     companion object {
         private val Logger = LoggerFactory.getLogger(ComputerHandler::class.java)
+        private const val FAILED_REMOTE_LOAD_CACHE_MS = 5_000L
     }
 
     private val computerList = ComputerBinaryList()
     private val taskLock = Any()
     private val computerLock = Any()
     private val mailboxTasks = ArrayDeque<ApplicationDataTask>()
+    private val failedRemoteLoads = HashMap<String, FailedRemoteLoad>()
     private var on = true
     private var playerCount = 0
     private var started = false
@@ -37,6 +42,11 @@ class ComputerHandler @JvmOverloads constructor(
     private data class ApplicationDataTask(
         val applicationData: Any?,
         val ip: String?
+    )
+
+    private data class FailedRemoteLoad(
+        val errorMessage: String,
+        val expiresAtMillis: Long
     )
 
     @Synchronized
@@ -139,6 +149,7 @@ class ComputerHandler @JvmOverloads constructor(
         synchronized(computerLock) {
             computerList.add(computer)
         }
+        failedRemoteLoads.remove(computer.ip)
         Logger.info("Registered computer ip={}", computer.ip)
         runtime.takeIf { started }?.let { computer.start(it) }
     }
@@ -192,6 +203,7 @@ class ComputerHandler @JvmOverloads constructor(
                 computerList.remove(routedIp)
                 loaded
             }
+            rememberFailedRemoteLoad(routedIp, computer)
             serverBridge?.removeRandomKey(routedIp)
             computer?.setRun(false)
             return
@@ -205,14 +217,30 @@ class ComputerHandler @JvmOverloads constructor(
                 Logger.debug("Dispatching task directly to loaded computer ip={} routedIp={}", task.ip, routedIp)
                 current.addData(task.applicationData)
             } else {
-                Logger.debug("Computer ip={} routedIp={} still loading; requeueing task", task.ip, routedIp)
-                addData(task.applicationData, routedIp)
+                Logger.debug("Computer ip={} routedIp={} still loading; queueing task on computer", task.ip, routedIp)
+                if (task.applicationData is ApplicationData) {
+                    current.addData(task.applicationData)
+                } else {
+                    Logger.debug(
+                        "Dropping non-application task for loading computer ip={} routedIp={} payloadType={}",
+                        task.ip,
+                        routedIp,
+                        task.applicationData?.javaClass?.simpleName ?: "null"
+                    )
+                }
             }
             return
         }
 
         if (!on || routedIp == null) {
             return
+        }
+
+        findFailedRemoteLoad(routedIp)?.let { failedLoad ->
+            if (dispatchFailedRemoteLoad(task, routedIp, failedLoad)) {
+                Logger.debug("Short-circuited cached failed remote load for ip={}", routedIp)
+                return
+            }
         }
 
         if (isUnresolvedEncryptedToken(task.ip, routedIp)) {
@@ -232,6 +260,60 @@ class ComputerHandler @JvmOverloads constructor(
         Logger.info("Created computer on demand for ip={} routedIp={} via handler task", task.ip, routedIp)
         addComputer(computer)
         computer.loadSave()
+    }
+
+    private fun rememberFailedRemoteLoad(ip: String?, computer: Computer?) {
+        if (ip == null || computer == null || !computer.LOAD_FAILURE || computer.connectionID != -1) {
+            return
+        }
+        failedRemoteLoads[ip] = FailedRemoteLoad(
+            errorMessage = computer.errorMessage,
+            expiresAtMillis = System.currentTimeMillis() + FAILED_REMOTE_LOAD_CACHE_MS
+        )
+    }
+
+    private fun findFailedRemoteLoad(ip: String): FailedRemoteLoad? {
+        val cached = failedRemoteLoads[ip] ?: return null
+        if (cached.expiresAtMillis <= System.currentTimeMillis()) {
+            failedRemoteLoads.remove(ip)
+            return null
+        }
+        return cached
+    }
+
+    private fun dispatchFailedRemoteLoad(task: ApplicationDataTask, routedIp: String, failedLoad: FailedRemoteLoad): Boolean {
+        val applicationData = task.applicationData as? ApplicationData ?: return false
+        val requesterIp = applicationData.sourceIP.takeIf { it.isNotBlank() } ?: return true
+
+        when (applicationData.command) {
+            com.hackwars.rpc.GameCommands.PETTYCASH.command -> {
+                addData(applicationData, requesterIp)
+            }
+
+            com.hackwars.rpc.GameCommands.REQUESTWEBPAGE.command -> {
+                addData(
+                    ApplicationData(
+                        WebPagePayload(
+                            SaveLogoutTickService.LOAD_FAILURE_WEBPAGE_TITLE,
+                            SaveLogoutTickService.LOAD_FAILURE_WEBPAGE_BODY,
+                            null,
+                            0,
+                        ),
+                        0,
+                        routedIp
+                    ),
+                    requesterIp
+                )
+            }
+        }
+
+        if (failedLoad.errorMessage.isNotBlank()) {
+            addData(
+                ApplicationData(MessageTextPayload(failedLoad.errorMessage), 0, routedIp),
+                requesterIp
+            )
+        }
+        return true
     }
 
     private fun resolveTaskIp(ip: String?): String? {

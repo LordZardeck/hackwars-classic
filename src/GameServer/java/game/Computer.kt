@@ -1751,7 +1751,7 @@ class Computer : GameServerService {
     fun loadSave() {
         if (!Loading) {
             Loading = true
-            Logger.info("Queueing loadSave for ip={} connectionId={}", ip, connectionID)
+            Logger.debug("Queueing loadSave for ip={} connectionId={}", ip, connectionID)
             submitPriority(loadSaveTask(this))
         }
     }
@@ -2012,7 +2012,7 @@ class Computer : GameServerService {
     private var cpuLoadCalculated = false
 
     private suspend fun processMailboxLoop() {
-        Logger.info("Computer maintenance loop started for ip={}", ip)
+        Logger.debug("Computer maintenance loop started for ip={}", ip)
         var nextMaintenanceAt = currentTime
         while (active) {
             var processedTask = false
@@ -3606,7 +3606,6 @@ internal class ComputerLoadCoordinator(
             computer.errorMessage = e.message?.takeIf { it.isNotEmpty() }
                 ?: "Unable to load local account data for ip=${computer.ip}."
             Logger.error("Load coordinator failed for ip={}", computer.ip, e)
-            e.printStackTrace()
             computer.LOAD_FAILURE = true
         }
 
@@ -3648,7 +3647,12 @@ internal class ComputerPostLoadBootstrap {
 
     fun apply(computer: Computer) {
         if (computer.connectionID == -1) {
-            Logger.info("Skipping post-load bootstrap for ip={} because connection is closed", computer.ip)
+            if (computer.LOAD_FAILURE) {
+                Logger.debug("Immediately unloading failed remote load for ip={}", computer.ip)
+                computer.runSavingLogic()
+                return
+            }
+            Logger.debug("Skipping post-load bootstrap for ip={} because connection is closed", computer.ip)
             return
         }
 
