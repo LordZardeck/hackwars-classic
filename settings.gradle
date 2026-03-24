@@ -35,3 +35,33 @@ project(':Data').buildFileName = 'data.gradle'
 include ':Integration'
 project(':Integration').projectDir = file('src/Integration')
 project(':Integration').buildFileName = 'integration.gradle'
+
+include ':RewriteBuildLogic'
+project(':RewriteBuildLogic').projectDir = file('src/RewriteBuildLogic')
+
+include ':RewriteProtocol'
+project(':RewriteProtocol').projectDir = file('src/RewriteProtocol')
+
+include ':RewriteGameCore'
+project(':RewriteGameCore').projectDir = file('src/RewriteGameCore')
+
+include ':RewriteChatCore'
+project(':RewriteChatCore').projectDir = file('src/RewriteChatCore')
+
+include ':RewritePersistence'
+project(':RewritePersistence').projectDir = file('src/RewritePersistence')
+
+include ':RewriteClientModel'
+project(':RewriteClientModel').projectDir = file('src/RewriteClientModel')
+
+include ':RewriteTestKit'
+project(':RewriteTestKit').projectDir = file('src/RewriteTestKit')
+
+include ':RewriteGameServer'
+project(':RewriteGameServer').projectDir = file('src/RewriteGameServer')
+
+include ':RewriteChatServer'
+project(':RewriteChatServer').projectDir = file('src/RewriteChatServer')
+
+include ':RewriteClient'
+project(':RewriteClient').projectDir = file('src/RewriteClient')

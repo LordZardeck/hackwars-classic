@@ -1,0 +1,124 @@
+syntax = "proto3";
+
+package hackwars.rewrite.v1;
+
+enum ServiceKind {
+  SERVICE_KIND_UNSPECIFIED = 0;
+  SERVICE_KIND_GAME = 1;
+  SERVICE_KIND_CHAT = 2;
+}
+
+enum CommandResponseStatus {
+  COMMAND_RESPONSE_STATUS_UNSPECIFIED = 0;
+  COMMAND_RESPONSE_STATUS_OK = 1;
+  COMMAND_RESPONSE_STATUS_ERROR = 2;
+  COMMAND_RESPONSE_STATUS_TIMEOUT = 3;
+}
+
+enum ProgramStatus {
+  PROGRAM_STATUS_UNSPECIFIED = 0;
+  PROGRAM_STATUS_RUNNING = 1;
+  PROGRAM_STATUS_COMPLETED = 2;
+  PROGRAM_STATUS_CANCELLED = 3;
+  PROGRAM_STATUS_FAILED = 4;
+}
+
+message FrameEnvelope {
+  string envelope_id = 1;
+  oneof payload {
+    AuthRequest auth_request = 2;
+    AuthResponse auth_response = 3;
+    CommandEnvelope command = 4;
+    CommandResponseEnvelope command_response = 5;
+    GameStateSnapshotEnvelope snapshot = 6;
+    GameStateDeltaEnvelope delta = 7;
+    ProgramUpdateEnvelope program_update = 8;
+    ChatEventEnvelope chat_event = 9;
+    PingEnvelope ping = 10;
+    ErrorEnvelope error = 11;
+  }
+}
+
+message AuthRequest {
+  ServiceKind service = 1;
+  string client_build = 2;
+  string playfab_id_hint = 3;
+  string session_ticket = 4;
+  string requested_ip = 5;
+}
+
+message AuthResponse {
+  oneof result {
+    AuthAccepted accepted = 1;
+    AuthRejected rejected = 2;
+  }
+}
+
+message AuthAccepted {
+  string connection_id = 1;
+  string playfab_id = 2;
+  string player_ip = 3;
+  uint32 heartbeat_interval_ms = 4;
+  uint64 session_started_at = 5;
+}
+
+message AuthRejected {
+  string reason_code = 1;
+  string reason_text = 2;
+}
+
+message CommandEnvelope {
+  string command_id = 1;
+  string command_name = 2;
+  repeated string target_game_state_ids = 3;
+  bytes payload = 4;
+  bool expects_response = 5;
+}
+
+message CommandResponseEnvelope {
+  string command_id = 1;
+  CommandResponseStatus status = 2;
+  bytes payload = 3;
+  ErrorEnvelope error = 4;
+}
+
+message GameStateSnapshotEnvelope {
+  string game_state_id = 1;
+  uint64 sequence = 2;
+  bytes payload = 3;
+}
+
+message GameStateDeltaEnvelope {
+  string game_state_id = 1;
+  uint64 sequence = 2;
+  repeated string changed_paths = 3;
+  repeated string delta_keys = 4;
+  bytes payload = 5;
+}
+
+message ProgramUpdateEnvelope {
+  string program_id = 1;
+  string program_type = 2;
+  ProgramStatus status = 3;
+  repeated string related_game_state_ids = 4;
+  bytes payload = 5;
+}
+
+message ChatEventEnvelope {
+  string event_id = 1;
+  string event_type = 2;
+  string channel_name = 3;
+  bytes payload = 4;
+}
+
+message PingEnvelope {
+  string connection_id = 1;
+  uint64 sent_at_epoch_millis = 2;
+  uint64 acknowledged_at_epoch_millis = 3;
+}
+
+message ErrorEnvelope {
+  string code = 1;
+  string message = 2;
+  bool retryable = 3;
+}

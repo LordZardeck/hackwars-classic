@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="
+      http://www.liquibase.org/xml/ns/dbchangelog
+      http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <changeSet id="rewrite-0001-bootstrap-schema" author="codex">
+        <comment>Bootstrap the rewrite persistence schema with event, snapshot, account, computer, and import batch tables.</comment>
+
+        <createTable tableName="rewrite_import_batch">
+            <column name="batch_id" type="varchar(64)">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="source_kind" type="varchar(32)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="source_location" type="text">
+                <constraints nullable="false"/>
+            </column>
+            <column name="seed_payload" type="jsonb">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="timestamptz">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <createTable tableName="rewrite_player_account">
+            <column name="player_id" type="varchar(64)">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="playfab_id" type="varchar(128)">
+                <constraints nullable="false" unique="true"/>
+            </column>
+            <column name="player_ip" type="varchar(64)">
+                <constraints nullable="false" unique="true"/>
+            </column>
+            <column name="account_payload" type="jsonb">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <createTable tableName="rewrite_computer_state">
+            <column name="computer_id" type="varchar(64)">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="player_id" type="varchar(64)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="ip_address" type="varchar(64)">
+                <constraints nullable="false" unique="true"/>
+            </column>
+            <column name="state_payload" type="jsonb">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <createTable tableName="rewrite_state_event">
+            <column name="stream_id" type="varchar(64)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="sequence_number" type="bigint">
+                <constraints nullable="false"/>
+            </column>
+            <column name="payload" type="bytea">
+                <constraints nullable="false"/>
+            </column>
+            <column name="recorded_at" type="timestamptz">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <addPrimaryKey
+            tableName="rewrite_state_event"
+            columnNames="stream_id, sequence_number"
+            constraintName="pk_rewrite_state_event"/>
+
+        <createTable tableName="rewrite_state_snapshot">
+            <column name="stream_id" type="varchar(64)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="version" type="bigint">
+                <constraints nullable="false"/>
+            </column>
+            <column name="payload" type="bytea">
+                <constraints nullable="false"/>
+            </column>
+            <column name="recorded_at" type="timestamptz">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <addPrimaryKey
+            tableName="rewrite_state_snapshot"
+            columnNames="stream_id, version"
+            constraintName="pk_rewrite_state_snapshot"/>
+
+        <addForeignKeyConstraint
+            baseTableName="rewrite_computer_state"
+            baseColumnNames="player_id"
+            referencedTableName="rewrite_player_account"
+            referencedColumnNames="player_id"
+            constraintName="fk_rewrite_computer_player"/>
+
+        <addForeignKeyConstraint
+            baseTableName="rewrite_state_event"
+            baseColumnNames="stream_id"
+            referencedTableName="rewrite_computer_state"
+            referencedColumnNames="computer_id"
+            constraintName="fk_rewrite_event_computer"/>
+
+        <addForeignKeyConstraint
+            baseTableName="rewrite_state_snapshot"
+            baseColumnNames="stream_id"
+            referencedTableName="rewrite_computer_state"
+            referencedColumnNames="computer_id"
+            constraintName="fk_rewrite_snapshot_computer"/>
+
+        <rollback>
+            <dropTable tableName="rewrite_state_snapshot"/>
+            <dropTable tableName="rewrite_state_event"/>
+            <dropTable tableName="rewrite_computer_state"/>
+            <dropTable tableName="rewrite_player_account"/>
+            <dropTable tableName="rewrite_import_batch"/>
+        </rollback>
+    </changeSet>
+</databaseChangeLog>

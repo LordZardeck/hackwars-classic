@@ -1,0 +1,2 @@
+pluginManager.apply('java-library')
+apply from: "${rootDir}/src/RewriteBuildLogic/gradle/rewrite-common.gradle"

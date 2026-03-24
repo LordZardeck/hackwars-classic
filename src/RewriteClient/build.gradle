@@ -1,0 +1,13 @@
+apply from: "${rootDir}/src/RewriteBuildLogic/gradle/rewrite-application.gradle"
+
+description = 'Rewrite Swing client application.'
+
+application {
+    mainClass = 'com.hackwars.rewrite.client.RewriteClientKt'
+}
+
+dependencies {
+    implementation project(':RewriteProtocol')
+    implementation project(':RewriteClientModel')
+    implementation "org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2"
+}

@@ -18,6 +18,26 @@ ext {
             .map { it.toBoolean() }
             .orElse(true)
     resourcesRootDir = file("${rootDir}/src/main/resources")
+    rewriteBuildLogicProjectPath = ':RewriteBuildLogic'
+    rewriteProjectPaths = [
+            ':RewriteProtocol',
+            ':RewriteGameCore',
+            ':RewriteChatCore',
+            ':RewritePersistence',
+            ':RewriteClientModel',
+            ':RewriteTestKit',
+            ':RewriteGameServer',
+            ':RewriteChatServer',
+            ':RewriteClient',
+    ]
+}
+
+def isRewriteProject = { Project project ->
+    rootProject.ext.rewriteProjectPaths.contains(project.path)
+}
+
+def rewriteProjects = {
+    subprojects.findAll { isRewriteProject(it) }
 }
 
 allprojects {
@@ -26,50 +46,133 @@ allprojects {
     }
 }
 
-subprojects {
-    apply plugin: 'java'
-    apply plugin: 'org.jetbrains.kotlin.jvm'
+subprojects { subproject ->
+    if (subproject.path == rootProject.ext.rewriteBuildLogicProjectPath) {
+        apply plugin: 'base'
+    } else {
+        apply plugin: 'java'
+        apply plugin: 'org.jetbrains.kotlin.jvm'
 
-    dependencies {
-        implementation 'ch.qos.logback:logback-classic:1.5.18'
-    }
-
-    java {
-        toolchain {
-            languageVersion = JavaLanguageVersion.of(rootProject.ext.javaToolchainVersion as Integer)
+        dependencies {
+            implementation 'ch.qos.logback:logback-classic:1.5.18'
         }
-        sourceCompatibility = JavaVersion.toVersion(rootProject.ext.javaToolchainVersion as Integer)
-        targetCompatibility = JavaVersion.toVersion(rootProject.ext.javaToolchainVersion as Integer)
-    }
 
-    sourceSets {
-        main {
-            java.setSrcDirs(['java'])
-            kotlin.setSrcDirs(['java'])
-            resources.setSrcDirs([])
+        java {
+            toolchain {
+                languageVersion = JavaLanguageVersion.of(rootProject.ext.javaToolchainVersion as Integer)
+            }
+            def effectiveJvmVersion = isRewriteProject(subproject)
+                    ? rootProject.ext.kotlinJvmTargetVersion as Integer
+                    : rootProject.ext.javaToolchainVersion as Integer
+            sourceCompatibility = JavaVersion.toVersion(effectiveJvmVersion)
+            targetCompatibility = JavaVersion.toVersion(effectiveJvmVersion)
         }
-    }
 
-    kotlin {
-        jvmToolchain(rootProject.ext.javaToolchainVersion as Integer)
-    }
-
-    tasks.withType(JavaCompile).configureEach {
-        options.encoding = 'UTF-8'
-    }
-
-    tasks.withType(KotlinJvmCompile).configureEach {
-        compilerOptions {
-            jvmTarget.set(
-                    JvmTarget.fromTarget(
-                            (rootProject.ext.kotlinJvmTargetVersion as Integer).toString()
-                    )
-            )
-            if (rootProject.ext.enableKotlinWhenGuards.get()) {
-                freeCompilerArgs.add('-Xwhen-guards')
+        sourceSets {
+            main {
+                if (isRewriteProject(subproject)) {
+                    java.setSrcDirs(['src/main/kotlin'])
+                    kotlin.setSrcDirs(['src/main/kotlin'])
+                    resources.setSrcDirs(['src/main/resources'])
+                } else {
+                    java.setSrcDirs(['java'])
+                    kotlin.setSrcDirs(['java'])
+                    resources.setSrcDirs([])
+                }
+            }
+            test {
+                if (isRewriteProject(subproject)) {
+                    java.setSrcDirs(['src/test/kotlin'])
+                    kotlin.setSrcDirs(['src/test/kotlin'])
+                    resources.setSrcDirs(['src/test/resources'])
+                }
             }
         }
-        jvmTargetValidationMode.set(JvmTargetValidationMode.WARNING)
+
+        kotlin {
+            jvmToolchain(rootProject.ext.javaToolchainVersion as Integer)
+        }
+
+        tasks.withType(JavaCompile).configureEach {
+            options.encoding = 'UTF-8'
+        }
+
+        tasks.withType(KotlinJvmCompile).configureEach {
+            compilerOptions {
+                jvmTarget.set(
+                        JvmTarget.fromTarget(
+                                (rootProject.ext.kotlinJvmTargetVersion as Integer).toString()
+                        )
+                )
+                if (rootProject.ext.enableKotlinWhenGuards.get()) {
+                    freeCompilerArgs.add('-Xwhen-guards')
+                }
+            }
+            jvmTargetValidationMode.set(JvmTargetValidationMode.WARNING)
+        }
+
+        if (isRewriteProject(subproject)) {
+            tasks.register('verifyNoJavaSources') {
+                group = 'verification'
+                description = "Fails if ${project.path} contains Java sources."
+                doLast {
+                    def javaSources = fileTree(project.projectDir) {
+                        include 'src/**/*.java'
+                    }.files.sort()
+                    if (!javaSources.isEmpty()) {
+                        def listing = javaSources.collect {
+                            project.relativePath(it)
+                        }.join('\n - ')
+                        throw new GradleException("Rewrite module ${project.path} contains Java sources:\n - ${listing}")
+                    }
+                }
+            }
+
+            tasks.register('verifyNoLegacyProjectDependencies') {
+                group = 'verification'
+                description = "Fails if ${project.path} depends on legacy runtime modules."
+                doLast {
+                    def offending = []
+                    configurations.each { configuration ->
+                        configuration.allDependencies
+                                .withType(org.gradle.api.artifacts.ProjectDependency)
+                                .each { dependency ->
+                                    def dependencyPath = dependency.path
+                                    if (!rootProject.ext.rewriteProjectPaths.contains(dependencyPath)) {
+                                        offending << "${configuration.name} -> ${dependencyPath}"
+                                    }
+                                }
+                    }
+
+                    if (!offending.isEmpty()) {
+                        throw new GradleException("Rewrite module ${project.path} has forbidden project dependencies:\n - ${offending.join('\n - ')}")
+                    }
+                }
+            }
+
+            tasks.register('verifyNoGeneratedJavaSources') {
+                group = 'verification'
+                description = "Fails if ${project.path} generates Java sources during rewrite builds."
+                dependsOn tasks.matching { it.name in ['compileKotlin', 'compileJava'] }
+                doLast {
+                    def generatedJavaSources = fileTree(project.buildDir) {
+                        include 'generated/**/*.java'
+                        include '**/generated/**/*.java'
+                        include 'wire/**/*.java'
+                    }.files.sort()
+                    if (!generatedJavaSources.isEmpty()) {
+                        def listing = generatedJavaSources.collect {
+                            project.relativePath(it)
+                        }.join('\n - ')
+                        throw new GradleException("Rewrite module ${project.path} generated forbidden Java sources:\n - ${listing}")
+                    }
+                }
+            }
+
+            tasks.named('check').configure {
+                dependsOn 'verifyNoJavaSources', 'verifyNoGeneratedJavaSources', 'verifyNoLegacyProjectDependencies'
+            }
+        }
     }
 }
 
@@ -93,4 +196,58 @@ tasks.register('clientUiTest') {
     group = 'verification'
     description = 'Runs the deterministic client UI workflow suite.'
     dependsOn(':Integration:clientUiTest')
+}
+
+tasks.register('rewriteNoJava') {
+    group = 'verification'
+    description = 'Fails if any rewrite module contains Java source files.'
+    dependsOn(rewriteProjects().collect { "${it.path}:verifyNoJavaSources" })
+}
+
+tasks.register('rewriteNoLegacyDeps') {
+    group = 'verification'
+    description = 'Fails if any rewrite module depends on a legacy project.'
+    dependsOn(rewriteProjects().collect { "${it.path}:verifyNoLegacyProjectDependencies" })
+}
+
+tasks.register('rewriteNoGeneratedJava') {
+    group = 'verification'
+    description = 'Fails if any rewrite module generates Java source files.'
+    dependsOn(rewriteProjects().collect { "${it.path}:verifyNoGeneratedJavaSources" })
+}
+
+tasks.register('rewriteUnitTest') {
+    group = 'verification'
+    description = 'Runs rewrite unit tests.'
+    dependsOn(rewriteProjects().collect { "${it.path}:test" })
+}
+
+tasks.register('rewriteIntegrationTest') {
+    group = 'verification'
+    description = 'Runs rewrite integration-test lifecycle tasks.'
+    dependsOn(rewriteProjects().collect { "${it.path}:integrationTest" })
+}
+
+tasks.register('rewriteUiTest') {
+    group = 'verification'
+    description = 'Runs rewrite UI-test lifecycle tasks.'
+    dependsOn(rewriteProjects().collect { "${it.path}:uiTest" })
+}
+
+tasks.register('rewriteMigrationTest') {
+    group = 'verification'
+    description = 'Runs rewrite migration-test lifecycle tasks.'
+    dependsOn(rewriteProjects().collect { "${it.path}:migrationTest" })
+}
+
+tasks.register('rewriteCheck') {
+    group = 'verification'
+    description = 'Runs the rewrite scaffold verification suite.'
+    dependsOn 'rewriteNoJava', 'rewriteNoGeneratedJava', 'rewriteNoLegacyDeps', 'rewriteUnitTest', 'rewriteIntegrationTest', 'rewriteUiTest', 'rewriteMigrationTest'
+}
+
+tasks.register('rewriteAll') {
+    group = 'verification'
+    description = 'Alias for the full rewrite scaffold verification suite.'
+    dependsOn 'rewriteCheck'
 }

@@ -1,0 +1,15 @@
+apply from: "${rootDir}/src/RewriteBuildLogic/gradle/rewrite-application.gradle"
+
+description = 'Rewrite game server application.'
+
+application {
+    mainClass = 'com.hackwars.rewrite.gameserver.RewriteGameServerKt'
+}
+
+dependencies {
+    implementation project(':RewriteProtocol')
+    implementation project(':RewriteGameCore')
+    implementation project(':RewritePersistence')
+    implementation project(':RewriteTestKit')
+    implementation "org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2"
+}

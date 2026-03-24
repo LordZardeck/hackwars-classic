@@ -1,0 +1,14 @@
+apply from: "${rootDir}/src/RewriteBuildLogic/gradle/rewrite-library.gradle"
+
+description = 'PostgreSQL persistence, migrations, snapshots, events, and import utilities for the rewrite stack.'
+
+dependencies {
+    api project(':RewriteGameCore')
+    api project(':RewriteChatCore')
+    implementation "org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2"
+    implementation 'org.liquibase:liquibase-core:4.29.2'
+    implementation 'org.postgresql:postgresql:42.7.4'
+
+    testImplementation 'org.testcontainers:junit-jupiter:1.20.4'
+    testImplementation 'org.testcontainers:postgresql:1.20.4'
+}

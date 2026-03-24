@@ -1,0 +1,72 @@
+dependencies {
+    testImplementation platform('org.junit:junit-bom:5.10.2')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testImplementation "org.jetbrains.kotlin:kotlin-test-junit5:2.1.21"
+    testImplementation "org.jetbrains.kotlinx:kotlinx-coroutines-test:1.10.2"
+    testImplementation 'io.mockk:mockk:1.13.11'
+}
+
+def integrationTestSourceSet = sourceSets.create('integrationTest')
+integrationTestSourceSet.java.setSrcDirs(['src/integrationTest/kotlin'])
+integrationTestSourceSet.kotlin.setSrcDirs(['src/integrationTest/kotlin'])
+integrationTestSourceSet.resources.setSrcDirs(['src/integrationTest/resources'])
+integrationTestSourceSet.compileClasspath += sourceSets.main.output + configurations.testRuntimeClasspath
+integrationTestSourceSet.runtimeClasspath += integrationTestSourceSet.output + integrationTestSourceSet.compileClasspath
+
+def uiTestSourceSet = sourceSets.create('uiTest')
+uiTestSourceSet.java.setSrcDirs(['src/uiTest/kotlin'])
+uiTestSourceSet.kotlin.setSrcDirs(['src/uiTest/kotlin'])
+uiTestSourceSet.resources.setSrcDirs(['src/uiTest/resources'])
+uiTestSourceSet.compileClasspath += sourceSets.main.output + configurations.testRuntimeClasspath
+uiTestSourceSet.runtimeClasspath += uiTestSourceSet.output + uiTestSourceSet.compileClasspath
+
+def migrationTestSourceSet = sourceSets.create('migrationTest')
+migrationTestSourceSet.java.setSrcDirs(['src/migrationTest/kotlin'])
+migrationTestSourceSet.kotlin.setSrcDirs(['src/migrationTest/kotlin'])
+migrationTestSourceSet.resources.setSrcDirs(['src/migrationTest/resources'])
+migrationTestSourceSet.compileClasspath += sourceSets.main.output + configurations.testRuntimeClasspath
+migrationTestSourceSet.runtimeClasspath += migrationTestSourceSet.output + migrationTestSourceSet.compileClasspath
+
+configurations[integrationTestSourceSet.implementationConfigurationName].extendsFrom(configurations.testImplementation)
+configurations[integrationTestSourceSet.runtimeOnlyConfigurationName].extendsFrom(configurations.testRuntimeOnly)
+configurations[uiTestSourceSet.implementationConfigurationName].extendsFrom(configurations.testImplementation)
+configurations[uiTestSourceSet.runtimeOnlyConfigurationName].extendsFrom(configurations.testRuntimeOnly)
+configurations[migrationTestSourceSet.implementationConfigurationName].extendsFrom(configurations.testImplementation)
+configurations[migrationTestSourceSet.runtimeOnlyConfigurationName].extendsFrom(configurations.testRuntimeOnly)
+
+tasks.withType(Test).configureEach {
+    useJUnitPlatform()
+}
+
+tasks.register('integrationTest', Test) {
+    group = 'verification'
+    description = "Runs rewrite integration tests for ${project.path}."
+    testClassesDirs = integrationTestSourceSet.output.classesDirs
+    classpath = integrationTestSourceSet.runtimeClasspath
+    shouldRunAfter(tasks.named('test'))
+    onlyIf {
+        !integrationTestSourceSet.allSource.files.isEmpty()
+    }
+}
+
+tasks.register('uiTest', Test) {
+    group = 'verification'
+    description = "Runs rewrite UI tests for ${project.path}."
+    testClassesDirs = uiTestSourceSet.output.classesDirs
+    classpath = uiTestSourceSet.runtimeClasspath
+    shouldRunAfter(tasks.named('integrationTest'))
+    onlyIf {
+        !uiTestSourceSet.allSource.files.isEmpty()
+    }
+}
+
+tasks.register('migrationTest', Test) {
+    group = 'verification'
+    description = "Runs rewrite migration tests for ${project.path}."
+    testClassesDirs = migrationTestSourceSet.output.classesDirs
+    classpath = migrationTestSourceSet.runtimeClasspath
+    shouldRunAfter(tasks.named('integrationTest'))
+    onlyIf {
+        !migrationTestSourceSet.allSource.files.isEmpty()
+    }
+}

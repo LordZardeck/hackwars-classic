@@ -1,0 +1,16 @@
+plugins {
+    id 'com.squareup.wire' version '5.3.2'
+}
+
+apply from: "${rootDir}/src/RewriteBuildLogic/gradle/rewrite-library.gradle"
+
+description = 'Kotlin-only framed protobuf contracts for the rewrite stack.'
+
+dependencies {
+    api 'com.squareup.wire:wire-runtime:5.3.2'
+}
+
+wire {
+    protoLibrary = true
+    kotlin {}
+}

@@ -1,0 +1,20 @@
+services:
+  rewrite-postgres:
+    image: postgres:17
+    container_name: hackwars-rewrite-postgres
+    environment:
+      POSTGRES_DB: hackwars_rewrite
+      POSTGRES_USER: hackwars
+      POSTGRES_PASSWORD: hackwars
+    ports:
+      - "55432:5432"
+    volumes:
+      - rewrite-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hackwars -d hackwars_rewrite"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  rewrite-postgres-data:
