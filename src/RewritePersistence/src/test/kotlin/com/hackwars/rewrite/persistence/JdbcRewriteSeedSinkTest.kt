@@ -60,6 +60,12 @@ class JdbcRewriteSeedSinkTest {
                 seedPayload = SeedInventorySnapshot(
                     computerId = "LOCAL-IP",
                     notes = listOf("migration note"),
+                    websiteTitle = "Seeded Local Page",
+                    websiteBody = "<html>Seeded Local Body</html>",
+                    votesAvailable = 2,
+                    voteCount = 4,
+                    totalLevel = 5,
+                    noobProtectionLevel = 3,
                 ),
                 createdAt = Instant.EPOCH,
             ),
@@ -95,26 +101,77 @@ class JdbcRewriteSeedSinkTest {
                 seedPayload = SeedInventorySnapshot(
                     computerId = "store1",
                     notes = listOf("shard store note"),
+                    websiteTitle = "Canonical Store",
+                    websiteBody = "<html>Store Body</html>",
+                    voteCount = 9,
+                ),
+                createdAt = Instant.EPOCH,
+            ),
+        )
+        writeBatch(
+            RewriteSeedBatch(
+                batchId = "player-offline",
+                source = LegacyMySqlDumpDescriptor("/legacy/offline.sql", "hackwars"),
+                seedPayload = SeedPlayerAccount(
+                    playerId = "offline-user",
+                    playFabId = "PF-OFFLINE",
+                    playerIp = "offline1",
+                ),
+                createdAt = Instant.EPOCH,
+            ),
+        )
+        writeBatch(
+            RewriteSeedBatch(
+                batchId = "computer-offline",
+                source = LegacyXmlDescriptor("/legacy/offline.xml", "computer"),
+                seedPayload = SeedComputerState(
+                    computerId = "offline1",
+                    playerId = "offline-user",
+                    ipAddress = "offline1",
+                ),
+                createdAt = Instant.EPOCH,
+            ),
+        )
+        writeBatch(
+            RewriteSeedBatch(
+                batchId = "inventory-offline",
+                source = LegacyJsonDescriptor("/legacy/offline-inventory.json", "inventory"),
+                seedPayload = SeedInventorySnapshot(
+                    computerId = "offline1",
+                    notes = listOf("offline note"),
+                    websiteTitle = "Offline Page",
+                    websiteBody = "<html>Offline Body</html>",
+                    enableHttp = false,
                 ),
                 createdAt = Instant.EPOCH,
             ),
         )
 
-        assertEquals(6, countRows("rewrite_import_batch"))
-        assertEquals(2, countRows("rewrite_player_account"))
-        assertEquals(2, countRows("rewrite_computer_state"))
+        assertEquals(9, countRows("rewrite_import_batch"))
+        assertEquals(3, countRows("rewrite_player_account"))
+        assertEquals(3, countRows("rewrite_computer_state"))
 
         val state = loadStatePayload("LOCAL-IP")
         val storeState = loadStatePayload("store1")
+        val offlineState = loadStatePayload("offline1")
         assertTrue(state.filesystem.directoriesByPath.containsKey("/Public"))
         assertTrue(state.filesystem.directoriesByPath.containsKey("/Store"))
         assertTrue(state.filesystem.filesByPath.values.any { it.name == "note-1.txt" && it.contents == "migration note" })
         assertTrue(state.filesystem.filesByPath.containsKey("/readme.txt"))
         assertTrue(state.filesystem.filesByPath.containsKey("/Store/catalog.txt"))
         assertTrue(state.filesystem.filesByPath["/Public/bank.bin"]?.compiledBinary?.bankingApplication == true)
+        assertEquals("Seeded Local Page", state.website.title)
+        assertEquals(2, state.website.votesAvailable)
+        assertEquals(4, state.website.voteCount)
+        assertEquals(6, state.economy.defaultBankPort)
+        assertTrue(state.ports.any { it.number == 80 && it.defaultPort })
         assertTrue(storeState.filesystem.directoriesByPath.containsKey("/Store"))
         assertTrue(storeState.filesystem.filesByPath.containsKey("/Store/catalog.txt"))
         assertTrue(storeState.filesystem.filesByPath.values.any { it.name == "note-1.txt" && it.contents == "shard store note" })
+        assertEquals("Canonical Store", storeState.website.title)
+        assertEquals(9, storeState.website.voteCount)
+        assertTrue(offlineState.ports.none { it.installedApplication?.kind?.name == "HTTP" })
+        assertEquals("Offline Page", offlineState.website.title)
     }
 
     private fun resetDatabase() {

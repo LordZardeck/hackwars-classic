@@ -114,17 +114,32 @@
   - Store inventory remains inside typed filesystem state, with canonical shard-store routing through `store$serverId`.
   - Rewrite tests now prove canonical and Facebook banking wires, shard-store delta fanout, explicit revenue-target credits, and typed JDBC replay for economy/store events.
 
-### RW-GS-S3B - Websites, browser requests, submit, vote, and page save/load
+### RW-GS-S3B1 - Static website editor, browser core, fallback pages, and vote
+- Status: `done`
+- Owner: `codex`
+- Depends on: `RW-GS-S3A`
+- Allowed write scope: `:RewriteGameCore`, `:RewriteGameServer`, `:RewritePersistence`
+- Verification command: `./gradlew :RewriteGameCore:test :RewritePersistence:test :RewritePersistence:migrationTest :RewriteGameServer:test :RewriteTestKit:integrationTest`
+- Artifacts: `build/reports/tests/test`
+- Commit rule: `single green commit only`
+- Notes:
+  - Covers `requestpage`, `savepage`, `requestwebpage`, `submit`, `exit`, and `vote`.
+  - Browser/editor page loads remain correlated request responses; no rewrite `webpage` push command was introduced.
+  - Static page rendering now returns the canonical legacy fallback page when the target lacks an active default HTTP site.
+  - Vote handling is normalized into a clean hard-failure path and now updates voter website votes, target website vote count, and target HTTP/Webdesign XP in one typed transaction.
+
+### RW-GS-S3B2 - Programmable HTTP enter/submit/exit hook runtime
 - Status: `todo`
 - Owner: `unassigned`
-- Depends on: `RW-GS-S3A`
+- Depends on: `RW-GS-S3B1`
 - Allowed write scope: `:RewriteGameCore`, `:RewriteGameServer`
 - Verification command: `./gradlew :RewriteGameCore:test :RewriteGameServer:test`
 - Artifacts: `build/reports/tests/test`
 - Commit rule: `single green commit only`
 - Notes:
-  - Covers `requestwebpage`, `requestpage`, `savepage`, `submit`, `vote`, and related HTTP/browser flows.
-  - Daily pay and empty-petty-cash remain deferred to the later combat/economy crossover slice.
+  - Adds executable HTTP `enter`, `submit`, and `exit` behavior on top of the `HttpHookRuntime` seam introduced in `RW-GS-S3B1`.
+  - Static page serving, fallback handling, and vote behavior are already covered and must not regress.
+  - Daily pay, empty-petty-cash, and social/Facebook stubs remain outside this slice.
 
 ### RW-GS-S4 - Network switching, scan, quests, tasks, clues, search, bounties
 - Status: `in_progress`

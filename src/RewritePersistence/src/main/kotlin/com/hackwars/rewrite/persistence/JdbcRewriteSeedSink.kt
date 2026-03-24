@@ -3,9 +3,14 @@ package com.hackwars.rewrite.persistence
 import com.hackwars.rewrite.gamecore.ApplicationKind
 import com.hackwars.rewrite.gamecore.CompiledBinaryMetadata
 import com.hackwars.rewrite.gamecore.ComputerState
+import com.hackwars.rewrite.gamecore.EconomyState
 import com.hackwars.rewrite.gamecore.GameStateId
+import com.hackwars.rewrite.gamecore.InstalledApplication
+import com.hackwars.rewrite.gamecore.PlayerStatsState
+import com.hackwars.rewrite.gamecore.PortState
 import com.hackwars.rewrite.gamecore.StoredFile
 import com.hackwars.rewrite.gamecore.StoredFileKind
+import com.hackwars.rewrite.gamecore.WebsiteState
 import com.hackwars.rewrite.gamecore.buildFilePath
 import com.hackwars.rewrite.gamecore.ensureDirectory
 import com.hackwars.rewrite.gamecore.saveFile
@@ -183,8 +188,73 @@ class JdbcRewriteSeedSink(
                 ),
             )
         }
+        val ports = buildList {
+            if (payload.enableBanking) {
+                add(
+                    PortState(
+                        number = 6,
+                        type = "banking",
+                        enabled = true,
+                        defaultPort = true,
+                        installedApplication = InstalledApplication(
+                            name = "bank.bin",
+                            kind = ApplicationKind.BANKING,
+                            binaryPath = "/Public/bank.bin",
+                            banking = true,
+                        ),
+                    ),
+                )
+            }
+            if (payload.enableFtp) {
+                add(
+                    PortState(
+                        number = 21,
+                        type = "ftp",
+                        enabled = true,
+                        defaultPort = true,
+                        installedApplication = InstalledApplication(
+                            name = "ftp.bin",
+                            kind = ApplicationKind.FTP,
+                            binaryPath = "/system/ftp.bin",
+                        ),
+                    ),
+                )
+            }
+            if (payload.enableHttp) {
+                add(
+                    PortState(
+                        number = 80,
+                        type = "http",
+                        enabled = true,
+                        defaultPort = true,
+                        installedApplication = InstalledApplication(
+                            name = "http.bin",
+                            kind = ApplicationKind.HTTP,
+                            binaryPath = "/system/http.bin",
+                        ),
+                    ),
+                )
+            }
+        }
         val updated = current.copy(
+            economy = current.economy.copy(
+                pettyCash = if (payload.enableBanking) current.economy.pettyCash else current.economy.pettyCash,
+                defaultBankPort = if (payload.enableBanking) 6 else null,
+            ),
             filesystem = filesystem,
+            ports = ports,
+            website = WebsiteState(
+                title = payload.websiteTitle,
+                body = payload.websiteBody,
+                votesAvailable = payload.votesAvailable,
+                voteCount = payload.voteCount,
+                storeRevenueTargetStateId = current.website.storeRevenueTargetStateId,
+            ),
+            stats = PlayerStatsState(
+                experienceByFamily = current.stats.experienceByFamily,
+                totalLevel = payload.totalLevel,
+                noobProtectionLevel = payload.noobProtectionLevel,
+            ),
         )
         connection.prepareStatement(
             """
@@ -205,7 +275,7 @@ class JdbcRewriteSeedSink(
             is SeedComputerState -> """{"type":"computer","computerId":"${payload.computerId}","playerId":"${payload.playerId}","ipAddress":"${payload.ipAddress}"}"""
             is SeedInventorySnapshot -> {
                 val notesJson = payload.notes.joinToString(prefix = "[", postfix = "]") { "\"$it\"" }
-                """{"type":"inventory","computerId":"${payload.computerId}","notes":$notesJson}"""
+                """{"type":"inventory","computerId":"${payload.computerId}","notes":$notesJson,"websiteTitle":"${payload.websiteTitle}","websiteBody":"${payload.websiteBody}","votesAvailable":${payload.votesAvailable},"voteCount":${payload.voteCount},"totalLevel":${payload.totalLevel},"noobProtectionLevel":${payload.noobProtectionLevel},"enableBanking":${payload.enableBanking},"enableFtp":${payload.enableFtp},"enableHttp":${payload.enableHttp}}"""
             }
         }
     }

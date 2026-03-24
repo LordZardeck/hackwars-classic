@@ -27,6 +27,10 @@ import com.hackwars.rewrite.gamecore.StoreFilesLiquidatedEvent
 import com.hackwars.rewrite.gamecore.StoreInventoryReceivedEvent
 import com.hackwars.rewrite.gamecore.StoreLiquidationLineItem
 import com.hackwars.rewrite.gamecore.StoreListingPurchasedEvent
+import com.hackwars.rewrite.gamecore.HttpExperienceAdjustedEvent
+import com.hackwars.rewrite.gamecore.WebsiteSavedEvent
+import com.hackwars.rewrite.gamecore.WebsiteVoteCountAdjustedEvent
+import com.hackwars.rewrite.gamecore.WebsiteVotesAvailableAdjustedEvent
 import com.hackwars.rewrite.gamecore.buildFilePath
 import java.sql.Connection
 import java.sql.DriverManager
@@ -211,6 +215,45 @@ class JdbcComputerStateRepositoryTest {
         now = now.plusSeconds(6)
         runBlockingAppend(repository, stateId, listOf(PreferenceSetEvent("show_logs", "false")))
         assertEquals(1, countRows("rewrite_state_snapshot"))
+    }
+
+    @Test
+    fun replaysWebsiteEditorAndVoteEventsIntoDeterministicTypedState() {
+        resetDatabase()
+        val stateId = GameStateId("LOCAL-IP")
+        seedPlayerAndComputer(
+            stateId = stateId,
+            state = ComputerState.empty(id = stateId, playFabId = "PF-LOCALUSER"),
+        )
+        val repository = JdbcComputerStateRepository(
+            connectionFactory = ::newConnection,
+            serializer = serializer,
+            snapshotCoordinator = SnapshotCoordinator(eventThreshold = 1, timeThreshold = 5.seconds),
+        )
+
+        runBlockingAppend(
+            repository,
+            stateId,
+            listOf(
+                WebsiteSavedEvent(
+                    title = "Seeded Title",
+                    body = "<html>Seeded Body</html>",
+                ),
+                WebsiteVotesAvailableAdjustedEvent(delta = 3),
+                WebsiteVoteCountAdjustedEvent(delta = 5),
+                HttpExperienceAdjustedEvent(delta = 500),
+            ),
+        )
+
+        val reloaded = runBlockingLoad(repository, stateId)
+
+        requireNotNull(reloaded)
+        assertEquals("Seeded Title", reloaded.website.title)
+        assertEquals("<html>Seeded Body</html>", reloaded.website.body)
+        assertEquals(3, reloaded.website.votesAvailable)
+        assertEquals(5, reloaded.website.voteCount)
+        assertEquals(500, reloaded.stats.experienceByFamily[ScriptFamily.HTTP])
+        assertTrue(countRows("rewrite_state_snapshot") >= 1)
     }
 
     @Test

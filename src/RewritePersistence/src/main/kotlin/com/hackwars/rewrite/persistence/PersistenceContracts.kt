@@ -77,6 +77,15 @@ data class SeedComputerState(
 data class SeedInventorySnapshot(
     val computerId: String,
     val notes: List<String>,
+    val websiteTitle: String = "",
+    val websiteBody: String = "",
+    val votesAvailable: Int = 0,
+    val voteCount: Int = 0,
+    val totalLevel: Int = 0,
+    val noobProtectionLevel: Int = 0,
+    val enableBanking: Boolean = true,
+    val enableFtp: Boolean = true,
+    val enableHttp: Boolean = true,
 ) : SeedPayload
 
 interface RewriteSeedPlanner {

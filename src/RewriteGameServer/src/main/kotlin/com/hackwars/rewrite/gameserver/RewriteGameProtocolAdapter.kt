@@ -31,6 +31,8 @@ import com.hackwars.rewrite.gamecore.GameSessionBootstrapCommand
 import com.hackwars.rewrite.gamecore.GameSessionBootstrapResult
 import com.hackwars.rewrite.gamecore.GameStateId
 import com.hackwars.rewrite.gamecore.GameStatePublisher
+import com.hackwars.rewrite.gamecore.ExitWebpageCommand
+import com.hackwars.rewrite.gamecore.ExitWebpagePayload
 import com.hackwars.rewrite.gamecore.FacebookDepositPayload
 import com.hackwars.rewrite.gamecore.FacebookTransferPayload
 import com.hackwars.rewrite.gamecore.FacebookWithdrawPayload
@@ -45,10 +47,17 @@ import com.hackwars.rewrite.gamecore.InstallFirewallPayload
 import com.hackwars.rewrite.gamecore.InstallFirewallResponse
 import com.hackwars.rewrite.gamecore.InterestRegistry
 import com.hackwars.rewrite.gamecore.MutationAcceptedResponse
+import com.hackwars.rewrite.gamecore.NoOpHttpHookRuntime
+import com.hackwars.rewrite.gamecore.HttpHookRuntime
+import com.hackwars.rewrite.gamecore.PageEditorResponse
 import com.hackwars.rewrite.gamecore.PurchaseResponse
 import com.hackwars.rewrite.gamecore.ProgramLifecycleStatus
 import com.hackwars.rewrite.gamecore.ProgramUpdate
 import com.hackwars.rewrite.gamecore.RequestCommand
+import com.hackwars.rewrite.gamecore.RequestPageCommand
+import com.hackwars.rewrite.gamecore.RequestPagePayload
+import com.hackwars.rewrite.gamecore.RequestWebpageCommand
+import com.hackwars.rewrite.gamecore.RequestWebpagePayload
 import com.hackwars.rewrite.gamecore.RequestDirectoryCommand
 import com.hackwars.rewrite.gamecore.RequestDirectoryPayload
 import com.hackwars.rewrite.gamecore.RequestFileCommand
@@ -72,9 +81,18 @@ import com.hackwars.rewrite.gamecore.SellFileResponse
 import com.hackwars.rewrite.gamecore.SetPreferenceCommand
 import com.hackwars.rewrite.gamecore.SetPreferenceCommandResponse
 import com.hackwars.rewrite.gamecore.SetPreferencePayload
+import com.hackwars.rewrite.gamecore.SavePageCommand
+import com.hackwars.rewrite.gamecore.SavePagePayload
+import com.hackwars.rewrite.gamecore.SavePageResponse
+import com.hackwars.rewrite.gamecore.SubmitWebpageCommand
+import com.hackwars.rewrite.gamecore.SubmitWebpagePayload
 import com.hackwars.rewrite.gamecore.TransferCommand
 import com.hackwars.rewrite.gamecore.TransferPayload
 import com.hackwars.rewrite.gamecore.TransferResponse
+import com.hackwars.rewrite.gamecore.VoteForWebsiteCommand
+import com.hackwars.rewrite.gamecore.VotePayload
+import com.hackwars.rewrite.gamecore.VoteResponse
+import com.hackwars.rewrite.gamecore.WebsiteRenderResponse
 import com.hackwars.rewrite.gamecore.WithdrawCommand
 import com.hackwars.rewrite.gamecore.WithdrawPayload
 import com.hackwars.rewrite.protocol.RewriteFrames
@@ -98,7 +116,8 @@ class RewriteGameProtocolAdapter(
     private val dispatcher: CommandDispatcher,
     private val interestRegistry: InterestRegistry,
     private val serverId: String = "1",
-    private val registry: CommandRegistry = defaultRegistry(serverId),
+    private val httpHookRuntime: HttpHookRuntime = NoOpHttpHookRuntime,
+    private val registry: CommandRegistry = defaultRegistry(serverId, httpHookRuntime),
 ) {
     suspend fun onSessionStarted(
         session: AuthenticatedGameSession,
@@ -281,14 +300,87 @@ class RewriteGameProtocolAdapter(
             is PurchaseResponse -> RewriteGameJson.encode(PurchaseResponse.serializer(), result)
             is ScanResponse -> RewriteGameJson.encode(ScanResponse.serializer(), result)
             is SetPreferenceCommandResponse -> RewriteGameJson.encode(SetPreferenceCommandResponse.serializer(), result)
+            is PageEditorResponse -> RewriteGameJson.encode(PageEditorResponse.serializer(), result)
+            is SavePageResponse -> RewriteGameJson.encode(SavePageResponse.serializer(), result)
+            is WebsiteRenderResponse -> RewriteGameJson.encode(WebsiteRenderResponse.serializer(), result)
+            is VoteResponse -> RewriteGameJson.encode(VoteResponse.serializer(), result)
             is GameSessionBootstrapResult -> RewriteGameJson.encode(GameSessionBootstrapResult.serializer(), result)
             else -> error("Unsupported rewrite command response type: ${result::class.qualifiedName}")
         }
     }
 
     private companion object {
-        fun defaultRegistry(serverId: String): CommandRegistry {
+        fun defaultRegistry(
+            serverId: String,
+            httpHookRuntime: HttpHookRuntime,
+        ): CommandRegistry {
             return CommandRegistry()
+                .register("requestpage") { input ->
+                    val payload = decodePayload(input, RequestPagePayload.serializer())
+                    val authenticatedStateId = requireAuthenticatedStateId(input)
+                    requirePayloadIpMatches(authenticatedStateId, payload.ip, input.commandName)
+                    RequestPageCommand(stateId = authenticatedStateId)
+                }
+                .register("savepage") { input ->
+                    val payload = decodePayload(input, SavePagePayload.serializer())
+                    val authenticatedStateId = requireAuthenticatedStateId(input)
+                    requirePayloadIpMatches(authenticatedStateId, payload.ip, input.commandName)
+                    SavePageCommand(
+                        stateId = authenticatedStateId,
+                        title = payload.title.orEmpty(),
+                        body = payload.body.orEmpty(),
+                    )
+                }
+                .register("requestwebpage") { input ->
+                    val payload = decodePayload(input, RequestWebpagePayload.serializer())
+                    val authenticatedStateId = requireAuthenticatedStateId(input)
+                    requirePayloadIpMatches(authenticatedStateId, payload.sourceIp, input.commandName)
+                    RequestWebpageCommand(
+                        sourceStateId = authenticatedStateId,
+                        targetStateId = resolveWebsiteTarget(payload.targetIp, serverId),
+                        parameters = payload.parameters,
+                        httpHookRuntime = httpHookRuntime,
+                    )
+                }
+                .register("submit") { input ->
+                    val payload = decodePayload(input, SubmitWebpagePayload.serializer())
+                    val authenticatedStateId = requireAuthenticatedStateId(input)
+                    requirePayloadIpMatches(authenticatedStateId, payload.sourceIp, input.commandName)
+                    SubmitWebpageCommand(
+                        sourceStateId = authenticatedStateId,
+                        targetStateId = payload.targetIp
+                            ?.takeUnless { it.isBlank() }
+                            ?.let { resolveWebsiteTarget(it, serverId) }
+                            ?: authenticatedStateId,
+                        parameters = payload.parameters,
+                        httpHookRuntime = httpHookRuntime,
+                    )
+                }
+                .register("exit") { input ->
+                    val payload = decodePayload(input, ExitWebpagePayload.serializer())
+                    val authenticatedStateId = requireAuthenticatedStateId(input)
+                    requirePayloadIpMatches(authenticatedStateId, payload.sourceIp, input.commandName)
+                    ExitWebpageCommand(
+                        sourceStateId = authenticatedStateId,
+                        targetStateId = payload.targetIp
+                            ?.takeUnless { it.isBlank() }
+                            ?.let { resolveWebsiteTarget(it, serverId) }
+                            ?: authenticatedStateId,
+                        httpHookRuntime = httpHookRuntime,
+                    )
+                }
+                .register("vote") { input ->
+                    val payload = decodePayload(input, VotePayload.serializer())
+                    val authenticatedStateId = requireAuthenticatedStateId(input)
+                    requirePayloadIpMatches(authenticatedStateId, payload.sourceIp, input.commandName)
+                    VoteForWebsiteCommand(
+                        voterStateId = authenticatedStateId,
+                        targetStateId = GameStateId(
+                            payload.targetIp?.takeUnless { it.isBlank() }
+                                ?: error("Vote target is required."),
+                        ),
+                    )
+                }
                 .register("deposit") { input ->
                     val payload = decodePayload(input, DepositPayload.serializer())
                     val authenticatedStateId = requireAuthenticatedStateId(input)
@@ -540,6 +632,17 @@ class RewriteGameProtocolAdapter(
         }
 
         fun resolvePurchaseTarget(
+            targetIp: String,
+            serverId: String,
+        ): GameStateId {
+            return if (targetIp.startsWith("store")) {
+                canonicalStoreStateId(serverId)
+            } else {
+                GameStateId(targetIp)
+            }
+        }
+
+        fun resolveWebsiteTarget(
             targetIp: String,
             serverId: String,
         ): GameStateId {

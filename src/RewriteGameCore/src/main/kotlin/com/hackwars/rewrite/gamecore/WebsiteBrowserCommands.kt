@@ -1,0 +1,292 @@
+package com.hackwars.rewrite.gamecore
+
+import kotlinx.serialization.Serializable
+
+const val LEGACY_SERVER_NOT_FOUND_TITLE: String = "Server Not Found"
+const val LEGACY_SERVER_NOT_FOUND_BODY: String =
+    "<html><head><title>Hack Wars - Error report</title><style><!--H1 {font-family:Tahoma,Arial,sans-serif;color:white;background-color:#525D76;font-size:22px;color:white} H2 {font-family:Tahoma,Arial,sans-serif;color:white;background-color:#525D76;font-size:16px;} H3 {font-family:Tahoma,Arial,sans-serif;color:white;background-color:#525D76;font-size:14px;} BODY {background-color:rgb(0,0,0);font-family:Tahoma,Arial,sans-serif;color:black;background-color:white;color:white;} B {font-family:Tahoma,Arial,sans-serif;color:white;background-color:#525D76;color:white;} P {color:white;font-family:Tahoma,Arial,sans-serif;background:white;color:black;font-size:12px;}A {color : black;}A.name {color : black;}HR {color : #525D76;}--></style> </head><body><h1 style=\"width:100%\">HTTP Status 408</h1><HR size=\"1\" noshade=\"noshade\"><p style=\"background-color:black;\"><b>type</b> HTTP Error</p><p style=\"background-color:black;\"><b>message</b> <u>Resource not found.</u></p><p style=\"background-color:black\"><b>description</b> <u>The HTTP server of the player you attempted to connect to does not seem to be on.</u></p><HR size=\"1\" noshade=\"noshade\"><h3>&copy; Hack Wars</h3></body></html>"
+
+interface HttpHookRuntime {
+    suspend fun onEnter(request: HttpHookRequest): WebsiteRenderOverride? = null
+
+    suspend fun onSubmit(request: HttpHookRequest): WebsiteRenderOverride? = null
+
+    suspend fun onExit(request: HttpHookRequest) = Unit
+}
+
+data class HttpHookRequest(
+    val sourceStateId: GameStateId,
+    val targetStateId: GameStateId,
+    val parameters: Map<String, String>,
+    val targetState: ComputerState,
+)
+
+data class WebsiteRenderOverride(
+    val title: String,
+    val body: String,
+    val includeStore: Boolean = true,
+)
+
+object NoOpHttpHookRuntime : HttpHookRuntime
+
+@Serializable
+data class RequestPagePayload(
+    val ip: String,
+)
+
+@Serializable
+data class SavePagePayload(
+    val ip: String,
+    val title: String? = null,
+    val body: String? = null,
+)
+
+@Serializable
+data class RequestWebpagePayload(
+    val targetIp: String,
+    val sourceIp: String,
+    val parameters: Map<String, String> = emptyMap(),
+)
+
+@Serializable
+data class SubmitWebpagePayload(
+    val targetIp: String? = null,
+    val sourceIp: String,
+    val parameters: Map<String, String> = emptyMap(),
+)
+
+@Serializable
+data class ExitWebpagePayload(
+    val targetIp: String? = null,
+    val sourceIp: String,
+)
+
+@Serializable
+data class VotePayload(
+    val targetIp: String? = null,
+    val sourceIp: String,
+)
+
+class RequestPageCommand(
+    private val stateId: GameStateId,
+) : RequestCommand<PageEditorResponse> {
+    override val name: String = "requestpage"
+    override val lifetime: CommandLifetime = CommandLifetime.defaultRequest
+    override val targetStateIds: Set<GameStateId> = setOf(stateId)
+
+    override suspend fun execute(context: CommandContext): PageEditorResponse {
+        val state = context.loadState(stateId) ?: ComputerState.empty(stateId, playerIp = stateId.value)
+        return PageEditorResponse(
+            stateId = stateId,
+            title = state.website.title,
+            body = state.website.body,
+            version = state.version,
+        )
+    }
+}
+
+class SavePageCommand(
+    private val stateId: GameStateId,
+    private val title: String,
+    private val body: String,
+) : RequestCommand<SavePageResponse> {
+    override val name: String = "savepage"
+    override val lifetime: CommandLifetime = CommandLifetime.defaultRequest
+    override val targetStateIds: Set<GameStateId> = setOf(stateId)
+
+    override suspend fun execute(context: CommandContext): SavePageResponse {
+        require(body.length <= 30_000) { "Website body exceeds the 30000 character limit." }
+        val updated = context.appendEvents(
+            id = stateId,
+            events = listOf(
+                WebsiteSavedEvent(
+                    title = title,
+                    body = body,
+                ),
+            ),
+        )
+        return SavePageResponse(
+            stateId = stateId,
+            title = updated.website.title,
+            body = updated.website.body,
+            version = updated.version,
+        )
+    }
+}
+
+class RequestWebpageCommand(
+    private val sourceStateId: GameStateId,
+    private val targetStateId: GameStateId,
+    private val parameters: Map<String, String>,
+    private val httpHookRuntime: HttpHookRuntime = NoOpHttpHookRuntime,
+) : RequestCommand<WebsiteRenderResponse> {
+    override val name: String = "requestwebpage"
+    override val lifetime: CommandLifetime = CommandLifetime.defaultRequest
+    override val targetStateIds: Set<GameStateId> = setOf(sourceStateId, targetStateId)
+
+    override suspend fun execute(context: CommandContext): WebsiteRenderResponse {
+        val targetState = context.loadState(targetStateId) ?: return fallbackWebsite(targetStateId)
+        if (!targetState.hasActiveDefaultApplicationPort(ApplicationKind.HTTP)) {
+            return fallbackWebsite(targetStateId, targetState.version)
+        }
+
+        val override = httpHookRuntime.onEnter(
+            HttpHookRequest(
+                sourceStateId = sourceStateId,
+                targetStateId = targetStateId,
+                parameters = parameters,
+                targetState = targetState,
+            ),
+        )
+        return renderWebsite(targetState, override)
+    }
+}
+
+class SubmitWebpageCommand(
+    private val sourceStateId: GameStateId,
+    private val targetStateId: GameStateId,
+    private val parameters: Map<String, String>,
+    private val httpHookRuntime: HttpHookRuntime = NoOpHttpHookRuntime,
+) : RequestCommand<WebsiteRenderResponse> {
+    override val name: String = "submit"
+    override val lifetime: CommandLifetime = CommandLifetime.defaultRequest
+    override val targetStateIds: Set<GameStateId> = setOf(sourceStateId, targetStateId)
+
+    override suspend fun execute(context: CommandContext): WebsiteRenderResponse {
+        val targetState = context.loadState(targetStateId) ?: return fallbackWebsite(targetStateId)
+        if (!targetState.hasActiveDefaultApplicationPort(ApplicationKind.HTTP)) {
+            return fallbackWebsite(targetStateId, targetState.version)
+        }
+
+        val override = httpHookRuntime.onSubmit(
+            HttpHookRequest(
+                sourceStateId = sourceStateId,
+                targetStateId = targetStateId,
+                parameters = parameters,
+                targetState = targetState,
+            ),
+        )
+        return renderWebsite(targetState, override)
+    }
+}
+
+class ExitWebpageCommand(
+    private val sourceStateId: GameStateId,
+    private val targetStateId: GameStateId,
+    private val httpHookRuntime: HttpHookRuntime = NoOpHttpHookRuntime,
+) : FireAndForgetCommand {
+    override val name: String = "exit"
+    override val lifetime: CommandLifetime = CommandLifetime.defaultFireAndForget
+    override val targetStateIds: Set<GameStateId> = setOf(sourceStateId, targetStateId)
+
+    override suspend fun execute(context: CommandContext) {
+        val targetState = context.loadState(targetStateId) ?: return
+        httpHookRuntime.onExit(
+            HttpHookRequest(
+                sourceStateId = sourceStateId,
+                targetStateId = targetStateId,
+                parameters = emptyMap(),
+                targetState = targetState,
+            ),
+        )
+    }
+}
+
+class VoteForWebsiteCommand(
+    private val voterStateId: GameStateId,
+    private val targetStateId: GameStateId,
+) : RequestCommand<VoteResponse> {
+    override val name: String = "vote"
+    override val lifetime: CommandLifetime = CommandLifetime.defaultRequest
+    override val targetStateIds: Set<GameStateId> = setOf(voterStateId, targetStateId)
+
+    override suspend fun execute(context: CommandContext): VoteResponse {
+        val states = context.loadStates(targetStateIds)
+        val voterState = requireNotNull(states[voterStateId]) {
+            "No voter state exists for ${voterStateId.value}."
+        }
+        val targetState = requireNotNull(states[targetStateId]) {
+            "No website target state exists for ${targetStateId.value}."
+        }
+
+        require(voterState.stats.totalLevel >= voterState.stats.noobProtectionLevel) {
+            "Voter ${voterStateId.value} is below the noob-protection voting threshold."
+        }
+        require(voterStateId != targetStateId) {
+            "Players cannot vote for their own website."
+        }
+        require(voterState.website.votesAvailable > 0) {
+            "No website votes are currently available."
+        }
+        require(targetState.hasActiveDefaultApplicationPort(ApplicationKind.HTTP)) {
+            "Target ${targetStateId.value} does not have an active default HTTP site."
+        }
+
+        val updatedVoter = context.appendEvents(
+            id = voterStateId,
+            events = listOf(WebsiteVotesAvailableAdjustedEvent(delta = -1)),
+        )
+        val updatedTarget = context.appendEvents(
+            id = targetStateId,
+            events = listOf(
+                WebsiteVoteCountAdjustedEvent(delta = 1),
+                HttpExperienceAdjustedEvent(delta = 500),
+            ),
+        )
+
+        return VoteResponse(
+            voterStateId = voterStateId,
+            targetStateId = targetStateId,
+            votesAvailableAfter = updatedVoter.website.votesAvailable,
+            targetVoteCountAfter = updatedTarget.website.voteCount,
+            targetHttpExperienceAfter = updatedTarget.stats.experienceByFamily[ScriptFamily.HTTP] ?: 0,
+            voterVersion = updatedVoter.version,
+            targetVersion = updatedTarget.version,
+        )
+    }
+}
+
+private fun renderWebsite(
+    targetState: ComputerState,
+    override: WebsiteRenderOverride? = null,
+): WebsiteRenderResponse {
+    val includeStore = override?.includeStore ?: true
+    return WebsiteRenderResponse(
+        resolvedTargetStateId = targetState.id,
+        title = override?.title ?: targetState.website.title,
+        body = override?.body ?: targetState.website.body,
+        storeFiles = if (includeStore && targetState.canRenderStoreListing()) {
+            targetState.filesystem.listDirectory("/Store").files
+        } else {
+            emptyList()
+        },
+        fallback = false,
+        version = targetState.version,
+    )
+}
+
+private fun fallbackWebsite(
+    targetStateId: GameStateId,
+    version: Long = 0,
+): WebsiteRenderResponse {
+    return WebsiteRenderResponse(
+        resolvedTargetStateId = targetStateId,
+        title = LEGACY_SERVER_NOT_FOUND_TITLE,
+        body = LEGACY_SERVER_NOT_FOUND_BODY,
+        storeFiles = emptyList(),
+        fallback = true,
+        version = version,
+    )
+}
+
+private fun ComputerState.canRenderStoreListing(): Boolean {
+    return hasActiveDefaultBankPort() && hasActiveDefaultApplicationPort(ApplicationKind.FTP)
+}
+
+private fun ComputerState.hasActiveDefaultApplicationPort(kind: ApplicationKind): Boolean {
+    return ports.any { port ->
+        port.defaultPort &&
+            port.enabled &&
+            port.installedApplication?.kind == kind
+    }
+}

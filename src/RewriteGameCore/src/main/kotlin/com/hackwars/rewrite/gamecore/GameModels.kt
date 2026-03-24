@@ -227,6 +227,8 @@ data class StoredFile(
 data class WebsiteState(
     val title: String = "",
     val body: String = "",
+    val voteCount: Int = 0,
+    val votesAvailable: Int = 0,
     val storeRevenueTargetStateId: GameStateId? = null,
 )
 
@@ -250,6 +252,8 @@ data class PreferenceState(
 @Serializable
 data class PlayerStatsState(
     val experienceByFamily: Map<ScriptFamily, Int> = emptyMap(),
+    val totalLevel: Int = 0,
+    val noobProtectionLevel: Int = 0,
 )
 
 @Serializable
@@ -289,6 +293,98 @@ data class PreferenceSetEvent(
 
     override fun toProjection(state: ComputerState): DeltaProjection {
         return StateSectionsDeltaProjection(preferences = state.preferences)
+    }
+}
+
+@Serializable
+@SerialName("website_saved")
+data class WebsiteSavedEvent(
+    val title: String,
+    val body: String,
+) : ComputerEvent {
+    override val changedPaths: Set<String> = setOf("website.title", "website.body")
+    override val deltaKeys: Set<String> = setOf("website")
+
+    override fun applyTo(state: ComputerState, nextVersion: Long): ComputerState {
+        return state.copy(
+            version = nextVersion,
+            website = state.website.copy(
+                title = title,
+                body = body,
+            ),
+            runtime = state.runtime.withMutationVersion(nextVersion),
+        )
+    }
+
+    override fun toProjection(state: ComputerState): DeltaProjection {
+        return StateSectionsDeltaProjection(website = state.website)
+    }
+}
+
+@Serializable
+@SerialName("website_votes_available_adjusted")
+data class WebsiteVotesAvailableAdjustedEvent(
+    val delta: Int,
+) : ComputerEvent {
+    override val changedPaths: Set<String> = setOf("website.votesAvailable")
+    override val deltaKeys: Set<String> = setOf("website")
+
+    override fun applyTo(state: ComputerState, nextVersion: Long): ComputerState {
+        return state.copy(
+            version = nextVersion,
+            website = state.website.copy(
+                votesAvailable = max(0, state.website.votesAvailable + delta),
+            ),
+            runtime = state.runtime.withMutationVersion(nextVersion),
+        )
+    }
+
+    override fun toProjection(state: ComputerState): DeltaProjection {
+        return StateSectionsDeltaProjection(website = state.website)
+    }
+}
+
+@Serializable
+@SerialName("website_vote_count_adjusted")
+data class WebsiteVoteCountAdjustedEvent(
+    val delta: Int,
+) : ComputerEvent {
+    override val changedPaths: Set<String> = setOf("website.voteCount")
+    override val deltaKeys: Set<String> = setOf("website")
+
+    override fun applyTo(state: ComputerState, nextVersion: Long): ComputerState {
+        return state.copy(
+            version = nextVersion,
+            website = state.website.copy(
+                voteCount = max(0, state.website.voteCount + delta),
+            ),
+            runtime = state.runtime.withMutationVersion(nextVersion),
+        )
+    }
+
+    override fun toProjection(state: ComputerState): DeltaProjection {
+        return StateSectionsDeltaProjection(website = state.website)
+    }
+}
+
+@Serializable
+@SerialName("http_experience_adjusted")
+data class HttpExperienceAdjustedEvent(
+    val delta: Int,
+) : ComputerEvent {
+    override val changedPaths: Set<String> = setOf("stats.experienceByFamily.${ScriptFamily.HTTP}")
+    override val deltaKeys: Set<String> = setOf("stats")
+
+    override fun applyTo(state: ComputerState, nextVersion: Long): ComputerState {
+        return state.copy(
+            version = nextVersion,
+            stats = state.stats.adjustSkillExperience(ScriptFamily.HTTP, delta),
+            runtime = state.runtime.withMutationVersion(nextVersion),
+        )
+    }
+
+    override fun toProjection(state: ComputerState): DeltaProjection {
+        return StateSectionsDeltaProjection(stats = state.stats)
     }
 }
 
@@ -853,6 +949,7 @@ data class StateSectionsDeltaProjection(
     val economy: EconomyState? = null,
     val hardware: HardwareState? = null,
     val ports: List<PortState>? = null,
+    val website: WebsiteState? = null,
     val preferences: PreferenceState? = null,
     val stats: PlayerStatsState? = null,
 ) : DeltaProjection
@@ -1047,6 +1144,43 @@ data class PurchaseResponse(
 )
 
 @Serializable
+data class PageEditorResponse(
+    val stateId: GameStateId,
+    val title: String,
+    val body: String,
+    val version: Long,
+)
+
+@Serializable
+data class SavePageResponse(
+    val stateId: GameStateId,
+    val title: String,
+    val body: String,
+    val version: Long,
+)
+
+@Serializable
+data class WebsiteRenderResponse(
+    val resolvedTargetStateId: GameStateId,
+    val title: String,
+    val body: String,
+    val storeFiles: List<StoredFile>,
+    val fallback: Boolean,
+    val version: Long,
+)
+
+@Serializable
+data class VoteResponse(
+    val voterStateId: GameStateId,
+    val targetStateId: GameStateId,
+    val votesAvailableAfter: Int,
+    val targetVoteCountAfter: Int,
+    val targetHttpExperienceAfter: Int,
+    val voterVersion: Long,
+    val targetVersion: Long,
+)
+
+@Serializable
 data class SetPreferencePayload(
     val key: String,
     val value: String,
@@ -1082,13 +1216,16 @@ fun buildComputerDelta(
 ): ComputerDelta {
     val changedPaths = events.flatMapTo(linkedSetOf()) { it.changedPaths }
     val deltaKeys = events.flatMapTo(linkedSetOf()) { it.deltaKeys }
+    val projections = events.map { it.toProjection(updatedState) }
     val projection = when {
         events.isEmpty() -> StateSummaryDeltaProjection(
             version = updatedState.version,
             playerIp = updatedState.identity.playerIp,
         )
 
-        events.distinctBy { it::class }.size == 1 -> events.last().toProjection(updatedState)
+        projections.all { it is StateSectionsDeltaProjection } -> {
+            mergeStateSectionsProjection(projections.filterIsInstance<StateSectionsDeltaProjection>())
+        }
 
         else -> StateSummaryDeltaProjection(
             version = updatedState.version,
@@ -1101,6 +1238,23 @@ fun buildComputerDelta(
         changedPaths = changedPaths,
         deltaKeys = deltaKeys,
         projection = projection,
+    )
+}
+
+private fun mergeStateSectionsProjection(
+    projections: List<StateSectionsDeltaProjection>,
+): StateSectionsDeltaProjection {
+    fun <T> latest(selector: (StateSectionsDeltaProjection) -> T?): T? {
+        return projections.mapNotNull(selector).lastOrNull()
+    }
+    return StateSectionsDeltaProjection(
+        filesystem = latest { it.filesystem },
+        economy = latest { it.economy },
+        hardware = latest { it.hardware },
+        ports = latest { it.ports },
+        website = latest { it.website },
+        preferences = latest { it.preferences },
+        stats = latest { it.stats },
     )
 }
 
@@ -1231,7 +1385,13 @@ fun List<PortState>.upsertPort(
     updated[port.number] = port
     return updated.values
         .map { existing ->
-            existing.copy(defaultPort = defaultBankPort == existing.number)
+            val kind = existing.installedApplication?.kind
+            existing.copy(
+                defaultPort = when (kind) {
+                    ApplicationKind.BANKING -> defaultBankPort != null && defaultBankPort == existing.number
+                    else -> existing.defaultPort
+                },
+            )
         }
         .sortedBy { it.number }
 }

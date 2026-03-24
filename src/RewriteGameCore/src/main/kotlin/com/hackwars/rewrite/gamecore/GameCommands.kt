@@ -476,11 +476,19 @@ class InstallApplicationCommand(
         } else {
             null
         }
+        val defaultPort = when {
+            installedApplication.kind == ApplicationKind.HTTP || installedApplication.kind == ApplicationKind.FTP -> {
+                existingPort?.defaultPort == true ||
+                    state.ports.none { it.defaultPort && it.installedApplication?.kind == installedApplication.kind }
+            }
+            installedApplication.banking -> defaultBankPort == portNumber || state.economy.defaultBankPort == portNumber
+            else -> existingPort?.defaultPort ?: false
+        }
         val updatedPort = (existingPort ?: PortState(number = portNumber)).copy(
             type = installedApplication.kind.name.lowercase(),
             enabled = true,
             installedApplication = installedApplication,
-            defaultPort = defaultBankPort == portNumber || state.economy.defaultBankPort == portNumber,
+            defaultPort = defaultPort,
         )
         val updated = context.appendEvents(
             id = stateId,
@@ -1137,7 +1145,7 @@ data class InstallFirewallPayload(
     val portNumber: Int,
 )
 
-private suspend fun CommandContext.requireExistingState(stateId: GameStateId): ComputerState {
+internal suspend fun CommandContext.requireExistingState(stateId: GameStateId): ComputerState {
     return requireNotNull(loadState(stateId)) {
         "No game state exists for ${stateId.value}."
     }
@@ -1218,7 +1226,7 @@ private suspend fun resolveRevenueTargetStateId(
     return if (context.loadState(preferred) != null) preferred else sellerState.id
 }
 
-private fun ComputerState.hasBankPort(portNumber: Int): Boolean {
+internal fun ComputerState.hasBankPort(portNumber: Int): Boolean {
     return ports.any { port ->
         port.number == portNumber &&
             port.enabled &&
@@ -1226,7 +1234,7 @@ private fun ComputerState.hasBankPort(portNumber: Int): Boolean {
     }
 }
 
-private fun ComputerState.hasActiveDefaultBankPort(): Boolean {
+internal fun ComputerState.hasActiveDefaultBankPort(): Boolean {
     val defaultPort = economy.defaultBankPort ?: return false
     return hasBankPort(defaultPort)
 }
