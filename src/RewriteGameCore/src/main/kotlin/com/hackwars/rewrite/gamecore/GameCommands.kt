@@ -28,23 +28,6 @@ class GameSessionBootstrapCommand(
     }
 }
 
-class ScanCommand(
-    private val targetStateId: GameStateId,
-) : RequestCommand<ScanResponse> {
-    override val name: String = "requestscan"
-    override val lifetime: CommandLifetime = CommandLifetime.defaultRequest
-    override val targetStateIds: Set<GameStateId> = setOf(targetStateId)
-
-    override suspend fun execute(context: CommandContext): ScanResponse {
-        val state = context.loadState(targetStateId)
-            ?: ComputerState.empty(targetStateId, playerIp = targetStateId.value)
-        return ScanResponse(
-            targetIp = targetStateId.value,
-            openPorts = state.ports.filter { it.enabled }.map { it.number }.sorted(),
-        )
-    }
-}
-
 class SetPreferenceCommand(
     private val stateId: GameStateId,
     private val key: String,

@@ -1,6 +1,10 @@
 package com.hackwars.rewrite.persistence
 
+import com.hackwars.rewrite.gamecore.GameStateId
+import com.hackwars.rewrite.gamecore.JAIL_NETWORK_NAME
 import com.hackwars.rewrite.gamecore.ProgramScriptSlot
+import com.hackwars.rewrite.gamecore.ROOT_NETWORK_NAME
+import com.hackwars.rewrite.gamecore.ScriptFamily
 import com.hackwars.rewrite.gamecore.StoredFileKind
 import java.sql.Connection
 import java.sql.DriverManager
@@ -70,6 +74,12 @@ class JdbcRewriteSeedSinkTest {
                     noobProtectionLevel = 3,
                     pettyCash = 450.0,
                     bankMoney = 125.0,
+                    currentNetworkName = "ProgNet",
+                    allowedNetworks = listOf("ProgNet"),
+                    lastNetworkSwitchAtEpochMillis = 123_456L,
+                    scanningExperience = 240,
+                    firewallExperience = 80,
+                    currentCpuLoad = 15.0,
                     activeQuestLabelsById = mapOf("quest-1" to "Starter Quest"),
                     seedSaveFileName = "migration",
                 ),
@@ -147,6 +157,8 @@ class JdbcRewriteSeedSinkTest {
                     notes = listOf("offline note"),
                     websiteTitle = "Offline Page",
                     websiteBody = "<html>Offline Body</html>",
+                    currentNetworkName = JAIL_NETWORK_NAME,
+                    lastNetworkSwitchAtEpochMillis = 999L,
                     enableHttp = false,
                 ),
                 createdAt = Instant.EPOCH,
@@ -214,19 +226,37 @@ class JdbcRewriteSeedSinkTest {
         assertEquals(450.0, state.economy.pettyCash)
         assertEquals(125.0, state.economy.bankMoney)
         assertEquals(6, state.economy.defaultBankPort)
+        assertEquals("ProgNet", state.network.currentNetworkName)
+        assertEquals(GameStateId("store1"), state.network.storeStateId)
+        assertEquals(setOf("ProgNet"), state.network.allowedNetworks)
+        assertEquals(123_456L, state.network.lastNetworkSwitchAtEpochMillis)
+        assertEquals("Prog Runner", state.network.regularNpcs.single().displayName)
+        assertEquals("Prog Mentor", state.network.questNpcs.single().displayName)
+        assertEquals("Prog Miner", state.network.miningNpcs.single().displayName)
+        assertEquals("Shard Store", state.network.storeNpcs.single().displayName)
+        assertEquals(240, state.stats.experienceByFamily[ScriptFamily.SCANNING])
+        assertEquals(80, state.stats.experienceByFamily[ScriptFamily.FIREWALL])
+        assertEquals(15.0, state.runtime.currentCpuLoad)
         assertEquals("Starter Quest", state.quests.activeQuestsById["quest-1"]?.label)
         assertEquals(StoredFileKind.SAVE_DATA, state.filesystem.filesByPath["/migration.save"]?.kind)
         assertTrue(state.filesystem.filesByPath["/migration.save"]?.saveMetadata?.valuesByKey?.isNotEmpty() == true)
         assertTrue(state.ports.any { it.number == 80 && it.installedApplication?.scriptBundle?.scriptsBySlot?.isNotEmpty() == true })
         assertTrue(state.ports.any { it.number == 80 && it.defaultPort })
+        assertTrue(state.ports.any { it.number == 80 && it.installedFirewall != null })
         assertTrue(storeState.filesystem.directoriesByPath.containsKey("/Store"))
         assertTrue(storeState.filesystem.filesByPath.containsKey("/Store/catalog.txt"))
         assertTrue(storeState.filesystem.filesByPath.values.any { it.name == "note-1.txt" && it.contents == "shard store note" })
         assertEquals("Canonical Store", storeState.website.title)
         assertEquals(9, storeState.website.voteCount)
+        assertEquals(ROOT_NETWORK_NAME, storeState.network.currentNetworkName)
+        assertEquals(GameStateId("store1"), storeState.network.storeStateId)
         assertTrue(offlineState.ports.none { it.installedApplication?.kind?.name == "HTTP" })
         assertEquals("Offline Page", offlineState.website.title)
+        assertEquals(JAIL_NETWORK_NAME, offlineState.network.currentNetworkName)
+        assertEquals(999L, offlineState.network.lastNetworkSwitchAtEpochMillis)
+        assertEquals(6, offlineState.economy.defaultBankPort)
         assertTrue(npcState.identity.isNpc)
+        assertEquals(ROOT_NETWORK_NAME, npcState.network.currentNetworkName)
         assertTrue(npcState.filesystem.filesByPath["/Public/http"]?.scriptBundle?.script(ProgramScriptSlot.ENTER)?.contains("triggerWatchRemote") == true)
     }
 

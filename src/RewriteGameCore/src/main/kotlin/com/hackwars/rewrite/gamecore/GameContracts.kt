@@ -94,6 +94,30 @@ interface InterestRegistry {
     suspend fun subscriptionsFor(connectionId: String): Set<GameStateId>
 }
 
+data class NetworkDirectoryDefinition(
+    val name: String,
+    val storeStateId: GameStateId? = null,
+    val regularNpcs: List<NpcDirectoryEntry> = emptyList(),
+    val questNpcs: List<NpcDirectoryEntry> = emptyList(),
+    val miningNpcs: List<NpcDirectoryEntry> = emptyList(),
+    val storeNpcs: List<NpcDirectoryEntry> = emptyList(),
+    val switchMessagesByTarget: Map<String, String> = emptyMap(),
+)
+
+data class NetworkSwitchValidation(
+    val allowed: Boolean,
+    val failureMessage: String,
+)
+
+interface NetworkDirectoryRepository {
+    suspend fun loadNetwork(name: String): NetworkDirectoryDefinition?
+    suspend fun validateSwitch(
+        fromNetwork: String,
+        toNetwork: String,
+        allowedNetworks: Set<String>,
+    ): NetworkSwitchValidation
+}
+
 interface GameStatePublisher {
     suspend fun publishSnapshot(connectionIds: Set<String>, snapshot: ComputerState)
     suspend fun publishDelta(connectionIds: Set<String>, delta: ComputerDelta)

@@ -19,6 +19,7 @@ data class ComputerState(
     val economy: EconomyState = EconomyState(),
     val hardware: HardwareState = HardwareState(),
     val ports: List<PortState> = emptyList(),
+    val network: NetworkState = NetworkState(),
     val filesystem: FilesystemState = FilesystemState(),
     val website: WebsiteState = WebsiteState(),
     val combat: CombatState = CombatState(),
@@ -140,8 +141,41 @@ data class PortState(
     val enabled: Boolean = true,
     val defaultPort: Boolean = false,
     val dummy: Boolean = false,
+    val attacking: Boolean = false,
+    val health: Double = 100.0,
+    val note: String = "",
+    val maxCpuCost: Double = 0.0,
     val installedApplication: InstalledApplication? = null,
     val installedFirewall: InstalledFirewall? = null,
+)
+
+@Serializable
+enum class NpcCategory {
+    REGULAR,
+    QUEST,
+    MINING,
+    STORE,
+}
+
+@Serializable
+data class NpcDirectoryEntry(
+    val stateId: GameStateId,
+    val displayName: String,
+    val title: String = "",
+    val category: NpcCategory,
+    val commodity: String? = null,
+)
+
+@Serializable
+data class NetworkState(
+    val currentNetworkName: String = ROOT_NETWORK_NAME,
+    val storeStateId: GameStateId? = null,
+    val allowedNetworks: Set<String> = emptySet(),
+    val lastNetworkSwitchAtEpochMillis: Long = 0L,
+    val regularNpcs: List<NpcDirectoryEntry> = emptyList(),
+    val questNpcs: List<NpcDirectoryEntry> = emptyList(),
+    val miningNpcs: List<NpcDirectoryEntry> = emptyList(),
+    val storeNpcs: List<NpcDirectoryEntry> = emptyList(),
 )
 
 @Serializable
@@ -199,6 +233,8 @@ enum class ScriptFamily {
     GENERAL,
     ATTACK,
     BANKING,
+    SCANNING,
+    FIREWALL,
     REDIRECT,
     HTTP,
     WATCH,
@@ -383,6 +419,7 @@ data class PlayerStatsState(
 data class RuntimeState(
     val countdownSeconds: Int = 0,
     val lastMutationVersion: Long = 0,
+    val currentCpuLoad: Double = 0.0,
 )
 
 @Serializable
@@ -573,6 +610,49 @@ data class ClueDataStoredEvent(
 
     override fun toProjection(state: ComputerState): DeltaProjection {
         return StateSectionsDeltaProjection(quests = state.quests)
+    }
+}
+
+@Serializable
+@SerialName("network_state_changed")
+data class NetworkStateChangedEvent(
+    val network: NetworkState,
+) : ComputerEvent {
+    override val changedPaths: Set<String> = setOf("network")
+    override val deltaKeys: Set<String> = setOf("network")
+
+    override fun applyTo(state: ComputerState, nextVersion: Long): ComputerState {
+        return state.copy(
+            version = nextVersion,
+            network = network,
+            runtime = state.runtime.withMutationVersion(nextVersion),
+        )
+    }
+
+    override fun toProjection(state: ComputerState): DeltaProjection {
+        return StateSectionsDeltaProjection(network = state.network)
+    }
+}
+
+@Serializable
+@SerialName("skill_experience_adjusted")
+data class SkillExperienceAdjustedEvent(
+    val family: ScriptFamily,
+    val delta: Int,
+) : ComputerEvent {
+    override val changedPaths: Set<String> = setOf("stats.experienceByFamily.$family")
+    override val deltaKeys: Set<String> = setOf("stats")
+
+    override fun applyTo(state: ComputerState, nextVersion: Long): ComputerState {
+        return state.copy(
+            version = nextVersion,
+            stats = state.stats.adjustSkillExperience(family, delta),
+            runtime = state.runtime.withMutationVersion(nextVersion),
+        )
+    }
+
+    override fun toProjection(state: ComputerState): DeltaProjection {
+        return StateSectionsDeltaProjection(stats = state.stats)
     }
 }
 
@@ -1133,6 +1213,7 @@ sealed interface DeltaProjection
 @Serializable
 @SerialName("state_sections")
 data class StateSectionsDeltaProjection(
+    val network: NetworkState? = null,
     val filesystem: FilesystemState? = null,
     val economy: EconomyState? = null,
     val hardware: HardwareState? = null,
@@ -1219,9 +1300,81 @@ data class GameSessionBootstrapResult(
 )
 
 @Serializable
+enum class NetworkSwitchFailureCode {
+    INVALID_TARGET,
+    ALREADY_ON_NETWORK,
+    JAILED,
+    COOLDOWN,
+    DISALLOWED,
+    UNKNOWN_NETWORK,
+}
+
+@Serializable
+data class NetworkSwitchResponse(
+    val stateId: GameStateId,
+    val requestedNetworkName: String,
+    val currentNetworkName: String,
+    val storeStateId: GameStateId?,
+    val accepted: Boolean,
+    val failureCode: NetworkSwitchFailureCode? = null,
+    val message: String,
+    val version: Long,
+)
+
+@Serializable
+enum class DefaultPortVisibility {
+    UNKNOWN,
+    NO,
+    YES,
+}
+
+@Serializable
+data class FirewallView(
+    val name: String,
+    val kind: FirewallKind,
+    val maker: String = "",
+    val strength: Int = 0,
+    val cpuCost: Double = 0.0,
+)
+
+@Serializable
+data class ScannedPortView(
+    val number: Int,
+    val type: String,
+    val enabled: Boolean,
+    val dummy: Boolean,
+    val attacking: Boolean,
+    val cpuCost: Double,
+    val maxCpuCost: Double,
+    val health: Double,
+    val note: String,
+    val defaultVisibility: DefaultPortVisibility,
+    val firewall: FirewallView? = null,
+)
+
+@Serializable
+enum class ScanFailureCode {
+    INVALID_TARGET,
+    TARGET_NOT_FOUND,
+    SELF_TARGET,
+    ACTIVE_BANK_REQUIRED,
+    OVERHEATED,
+    INSUFFICIENT_PETTY_CASH,
+}
+
+@Serializable
 data class ScanResponse(
-    val targetIp: String,
-    val openPorts: List<Int>,
+    val requesterStateId: GameStateId,
+    val targetStateId: GameStateId,
+    val accepted: Boolean,
+    val failureCode: ScanFailureCode? = null,
+    val failureMessage: String? = null,
+    val chargedAmount: Double = 0.0,
+    val experienceAwarded: Int = 0,
+    val pettyCashAfter: Double? = null,
+    val scanningExperienceAfter: Int? = null,
+    val ports: List<ScannedPortView> = emptyList(),
+    val requesterVersion: Long,
 )
 
 @Serializable
@@ -1512,6 +1665,7 @@ private fun mergeStateSectionsProjection(
         return projections.mapNotNull(selector).lastOrNull()
     }
     return StateSectionsDeltaProjection(
+        network = latest { it.network },
         filesystem = latest { it.filesystem },
         economy = latest { it.economy },
         hardware = latest { it.hardware },
@@ -1670,6 +1824,30 @@ fun PlayerStatsState.adjustSkillExperience(
     val next = max(0, current + delta)
     return copy(experienceByFamily = experienceByFamily + (family to next))
 }
+
+fun PlayerStatsState.skillExperience(family: ScriptFamily): Int = experienceByFamily[family] ?: 0
+
+fun legacyLevelForXp(experience: Int): Int {
+    var level = 0
+    while (level < LEGACY_XP_TABLE.lastIndex && experience > LEGACY_XP_TABLE[level]) {
+        level++
+    }
+    return level + 1
+}
+
+private val LEGACY_XP_TABLE: IntArray = IntArray(100).also { table ->
+    var xp = 83
+    var xpDiff = 83
+    for (index in table.indices) {
+        table[index] = xp
+        xpDiff = (xpDiff + xpDiff / 9.525).toInt()
+        xp += xpDiff
+    }
+}
+
+const val ROOT_NETWORK_NAME: String = "UGOPNet"
+const val JAIL_NETWORK_NAME: String = "JuniperPenetentiary"
+const val NETWORK_SWITCH_COOLDOWN_MS: Long = 180000L
 
 private fun RuntimeState.withMutationVersion(version: Long): RuntimeState {
     return copy(lastMutationVersion = version)

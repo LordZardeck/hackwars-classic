@@ -196,23 +196,36 @@
   - Save files now persist typed scalar metadata plus locked legacy text serialization, and bounty creation now writes typed bounty files into canonical shard-store inventory while debiting creator petty cash.
   - Explicit trigger requests now route into the shared typed `WatchTriggerIntentSink` seam without executing the watch system yet.
 
-### RW-GS-S4B - Network switching, scan, and NPC discovery
-- Status: `in_progress`
+### RW-GS-S4B1 - Current-network state, switching, and typed scan parity
+- Status: `done`
 - Owner: `codex`
 - Depends on: `RW-GS-S1`
+- Allowed write scope: `:RewriteGameCore`, `:RewriteGameServer`, `:RewritePersistence`
+- Verification command: `./gradlew :RewriteGameCore:test :RewritePersistence:test :RewritePersistence:migrationTest :RewriteGameServer:test :RewriteTestKit:integrationTest rewriteCheck`
+- Artifacts: `build/reports/tests/test`
+- Commit rule: `single green commit only`
+- Notes:
+  - Adds authoritative typed `NetworkState` on the player state, including the resolved shard-store state id, cooldown timestamp, allowed-network set, and current-network NPC directory lists.
+  - Covers public `changenetwork`, internal-only `changenetwork2` compatibility via `ChangeNetworkDirectCommand`, and typed `requestscan` parity with requester petty-cash and scanning-XP side effects.
+  - `requestscan` remains a single correlated response, now uses typed masked port/firewall views, and publishes requester `economy` plus `stats` deltas before the response.
+  - `requestgame` is intentionally excluded from this slice; the rewrite network view is derived from session snapshot plus targeted `network` deltas instead of a one-shot fetch command.
+
+### RW-GS-S4B2 - Broader NPC and world discovery
+- Status: `todo`
+- Owner: `unassigned`
+- Depends on: `RW-GS-S4B1`
 - Allowed write scope: `:RewriteGameCore`, `:RewriteGameServer`
 - Verification command: `./gradlew :RewriteGameCore:test :RewriteGameServer:test`
 - Artifacts: `build/reports/tests/test`
 - Commit rule: `single green commit only`
 - Notes:
-  - Owns network switching, NPC visibility/discovery, and scan parity work that remains after the proof `requestscan` slice.
-  - Scan must remain a single correlated response rather than an ongoing subscription.
-  - Network/world-state browsing still needs follow-on rewrite slices.
+  - Extends current-network directory data into broader world discovery, additional NPC visibility rules, and any remaining non-search network-map behavior.
+  - Must preserve the authoritative per-player `NetworkState` model introduced in `RW-GS-S4B1` rather than reintroducing one-shot network-map fetch commands.
 
 ### RW-GS-S4C - Search and world/browser lookup flows
 - Status: `todo`
 - Owner: `unassigned`
-- Depends on: `RW-GS-S4B`
+- Depends on: `RW-GS-S4B2`
 - Allowed write scope: `:RewriteGameCore`, `:RewriteGameServer`
 - Verification command: `./gradlew :RewriteGameCore:test :RewriteGameServer:test`
 - Artifacts: `build/reports/tests/test`

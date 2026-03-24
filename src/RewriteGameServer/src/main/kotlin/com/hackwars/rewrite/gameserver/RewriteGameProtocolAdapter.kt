@@ -6,6 +6,8 @@ import com.hackwars.rewrite.gamecore.CommandMetadata
 import com.hackwars.rewrite.gamecore.CommandRegistry
 import com.hackwars.rewrite.gamecore.BankTransactionResponse
 import com.hackwars.rewrite.gamecore.BountyCreatedResponse
+import com.hackwars.rewrite.gamecore.ChangeNetworkCommand
+import com.hackwars.rewrite.gamecore.ChangeNetworkPayload
 import com.hackwars.rewrite.gamecore.ClueDataAcceptedResponse
 import com.hackwars.rewrite.gamecore.ClueDataCommand
 import com.hackwars.rewrite.gamecore.ClueDataPayload
@@ -51,12 +53,15 @@ import com.hackwars.rewrite.gamecore.InstallEquipmentResponse
 import com.hackwars.rewrite.gamecore.InstallFirewallCommand
 import com.hackwars.rewrite.gamecore.InstallFirewallPayload
 import com.hackwars.rewrite.gamecore.InstallFirewallResponse
+import com.hackwars.rewrite.gamecore.InMemoryNetworkDirectoryRepository
 import com.hackwars.rewrite.gamecore.InterestRegistry
 import com.hackwars.rewrite.gamecore.MakeBountyCommand
 import com.hackwars.rewrite.gamecore.MakeBountyPayload
 import com.hackwars.rewrite.gamecore.MutationAcceptedResponse
 import com.hackwars.rewrite.gamecore.HookSideEffectSink
 import com.hackwars.rewrite.gamecore.HttpHookRuntime
+import com.hackwars.rewrite.gamecore.NetworkDirectoryRepository
+import com.hackwars.rewrite.gamecore.NetworkSwitchResponse
 import com.hackwars.rewrite.gamecore.NoOpHookSideEffectSink
 import com.hackwars.rewrite.gamecore.PageEditorResponse
 import com.hackwars.rewrite.gamecore.PurchaseResponse
@@ -81,11 +86,12 @@ import com.hackwars.rewrite.gamecore.RequestSecondaryDirectoryCommand
 import com.hackwars.rewrite.gamecore.RequestSecondaryDirectoryPayload
 import com.hackwars.rewrite.gamecore.RequestPurchaseCommand
 import com.hackwars.rewrite.gamecore.RequestPurchasePayload
+import com.hackwars.rewrite.gamecore.RequestScanCommand
+import com.hackwars.rewrite.gamecore.RequestScanPayload
 import com.hackwars.rewrite.gamecore.RewriteGameJson
 import com.hackwars.rewrite.gamecore.SaveFileCommand
 import com.hackwars.rewrite.gamecore.SaveFilePayload
 import com.hackwars.rewrite.gamecore.SaveFileRequestResponse
-import com.hackwars.rewrite.gamecore.ScanCommand
 import com.hackwars.rewrite.gamecore.ScanResponse
 import com.hackwars.rewrite.gamecore.SecondaryDirectoryListingResponse
 import com.hackwars.rewrite.gamecore.SellFileCommand
@@ -137,7 +143,8 @@ class RewriteGameProtocolAdapter(
     private val serverId: String = "1",
     private val httpHookRuntime: HttpHookRuntime = HackScriptHttpHookRuntime(),
     private val hookSideEffectSink: HookSideEffectSink = NoOpHookSideEffectSink,
-    private val registry: CommandRegistry = defaultRegistry(serverId, httpHookRuntime, hookSideEffectSink),
+    private val networkDirectoryRepository: NetworkDirectoryRepository = InMemoryNetworkDirectoryRepository.defaultWorld(serverId),
+    private val registry: CommandRegistry = defaultRegistry(serverId, httpHookRuntime, hookSideEffectSink, networkDirectoryRepository),
 ) {
     suspend fun onSessionStarted(
         session: AuthenticatedGameSession,
@@ -334,6 +341,7 @@ class RewriteGameProtocolAdapter(
             is SellFileResponse -> RewriteGameJson.encode(SellFileResponse.serializer(), result)
             is SellFileMultiResponse -> RewriteGameJson.encode(SellFileMultiResponse.serializer(), result)
             is PurchaseResponse -> RewriteGameJson.encode(PurchaseResponse.serializer(), result)
+            is NetworkSwitchResponse -> RewriteGameJson.encode(NetworkSwitchResponse.serializer(), result)
             is ScanResponse -> RewriteGameJson.encode(ScanResponse.serializer(), result)
             is SetPreferenceCommandResponse -> RewriteGameJson.encode(SetPreferenceCommandResponse.serializer(), result)
             is PageEditorResponse -> RewriteGameJson.encode(PageEditorResponse.serializer(), result)
@@ -350,6 +358,7 @@ class RewriteGameProtocolAdapter(
             serverId: String,
             httpHookRuntime: HttpHookRuntime,
             hookSideEffectSink: HookSideEffectSink,
+            networkDirectoryRepository: NetworkDirectoryRepository,
         ): CommandRegistry {
             return CommandRegistry()
                 .register("requestpage") { input ->
@@ -483,11 +492,25 @@ class RewriteGameProtocolAdapter(
                         portNumber = payload.defaultPort,
                     )
                 }
+                .register("changenetwork") { input ->
+                    val payload = decodePayload(input, ChangeNetworkPayload.serializer())
+                    val authenticatedStateId = requireAuthenticatedStateId(input)
+                    requirePayloadIpMatches(authenticatedStateId, payload.ip, input.commandName)
+                    ChangeNetworkCommand(
+                        stateId = authenticatedStateId,
+                        targetNetworkName = payload.network,
+                        networkDirectoryRepository = networkDirectoryRepository,
+                    )
+                }
                 .register("requestscan") { input ->
-                    ScanCommand(
-                        targetStateId = requireSingleStateId(
-                            input = input,
-                            fallback = input.metadata.authenticatedStateId,
+                    val payload = decodePayload(input, RequestScanPayload.serializer())
+                    val authenticatedStateId = requireAuthenticatedStateId(input)
+                    requirePayloadIpMatches(authenticatedStateId, payload.ip, input.commandName)
+                    RequestScanCommand(
+                        requesterStateId = authenticatedStateId,
+                        targetStateId = GameStateId(
+                            payload.targetIp?.takeUnless { it.isBlank() }
+                                ?: error("Target ip is required for ${input.commandName}."),
                         ),
                     )
                 }

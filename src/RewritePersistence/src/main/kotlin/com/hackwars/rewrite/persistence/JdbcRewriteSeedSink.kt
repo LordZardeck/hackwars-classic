@@ -6,17 +6,22 @@ import com.hackwars.rewrite.gamecore.CompiledBinaryMetadata
 import com.hackwars.rewrite.gamecore.ComputerState
 import com.hackwars.rewrite.gamecore.EconomyState
 import com.hackwars.rewrite.gamecore.GameStateId
+import com.hackwars.rewrite.gamecore.InMemoryNetworkDirectoryRepository
 import com.hackwars.rewrite.gamecore.InstalledApplication
+import com.hackwars.rewrite.gamecore.InstalledFirewall
+import com.hackwars.rewrite.gamecore.NetworkState
 import com.hackwars.rewrite.gamecore.PlayerStatsState
 import com.hackwars.rewrite.gamecore.PortState
 import com.hackwars.rewrite.gamecore.ProgramScriptBundle
 import com.hackwars.rewrite.gamecore.ProgramScriptSlot
 import com.hackwars.rewrite.gamecore.QuestState
+import com.hackwars.rewrite.gamecore.ROOT_NETWORK_NAME
 import com.hackwars.rewrite.gamecore.SaveFileMetadata
 import com.hackwars.rewrite.gamecore.ScriptFamily
 import com.hackwars.rewrite.gamecore.StoredFile
 import com.hackwars.rewrite.gamecore.StoredFileKind
 import com.hackwars.rewrite.gamecore.WebsiteState
+import com.hackwars.rewrite.gamecore.FirewallKind
 import com.hackwars.rewrite.gamecore.buildFilePath
 import com.hackwars.rewrite.gamecore.ensureDirectory
 import com.hackwars.rewrite.gamecore.saveFile
@@ -27,6 +32,7 @@ import com.hackwars.rewrite.hackscript.IntHookValue
 import com.hackwars.rewrite.hackscript.StringHookValue
 import java.sql.Connection
 import java.sql.Timestamp
+import kotlinx.coroutines.runBlocking
 
 class JdbcRewriteSeedSink(
     private val connectionFactory: () -> Connection,
@@ -322,6 +328,7 @@ class JdbcRewriteSeedSink(
                         type = "http",
                         enabled = true,
                         defaultPort = true,
+                        maxCpuCost = 8.0,
                         installedApplication = InstalledApplication(
                             name = "http.bin",
                             kind = ApplicationKind.HTTP,
@@ -335,9 +342,21 @@ class JdbcRewriteSeedSink(
                                 ),
                             ),
                         ),
+                        installedFirewall = InstalledFirewall(
+                            name = "seed-http-wall.bin",
+                            kind = FirewallKind.BASIC,
+                            maker = "rewrite-import",
+                            binaryPath = "/system/seed-http-wall.bin",
+                            strength = 12,
+                            cpuCost = 2.0,
+                        ),
                     ),
                 )
             }
+        }
+        val networkRepository = InMemoryNetworkDirectoryRepository.defaultWorld()
+        val networkDefinition = runBlocking {
+            networkRepository.loadNetwork(payload.currentNetworkName) ?: networkRepository.loadNetwork(ROOT_NETWORK_NAME)
         }
         val updated = current.copy(
             economy = current.economy.copy(
@@ -347,6 +366,16 @@ class JdbcRewriteSeedSink(
             ),
             filesystem = filesystem,
             ports = ports,
+            network = NetworkState(
+                currentNetworkName = payload.currentNetworkName,
+                storeStateId = networkDefinition?.storeStateId,
+                allowedNetworks = payload.allowedNetworks.toSet(),
+                lastNetworkSwitchAtEpochMillis = payload.lastNetworkSwitchAtEpochMillis,
+                regularNpcs = networkDefinition?.regularNpcs.orEmpty(),
+                questNpcs = networkDefinition?.questNpcs.orEmpty(),
+                miningNpcs = networkDefinition?.miningNpcs.orEmpty(),
+                storeNpcs = networkDefinition?.storeNpcs.orEmpty(),
+            ),
             quests = QuestState(
                 activeQuestsById = payload.activeQuestLabelsById.mapValues { (questId, label) ->
                     ActiveQuestProgress(
@@ -365,10 +394,15 @@ class JdbcRewriteSeedSink(
                 storeRevenueTargetStateId = current.website.storeRevenueTargetStateId,
             ),
             stats = PlayerStatsState(
-                experienceByFamily = current.stats.experienceByFamily,
+                experienceByFamily = buildMap {
+                    putAll(current.stats.experienceByFamily)
+                    put(ScriptFamily.SCANNING, payload.scanningExperience)
+                    put(ScriptFamily.FIREWALL, payload.firewallExperience)
+                },
                 totalLevel = payload.totalLevel,
                 noobProtectionLevel = payload.noobProtectionLevel,
             ),
+            runtime = current.runtime.copy(currentCpuLoad = payload.currentCpuLoad),
         )
         connection.prepareStatement(
             """
@@ -389,10 +423,11 @@ class JdbcRewriteSeedSink(
             is SeedComputerState -> """{"type":"computer","computerId":"${payload.computerId}","playerId":"${payload.playerId}","ipAddress":"${payload.ipAddress}"}"""
             is SeedInventorySnapshot -> {
                 val notesJson = payload.notes.joinToString(prefix = "[", postfix = "]") { "\"$it\"" }
+                val allowedNetworksJson = payload.allowedNetworks.joinToString(prefix = "[", postfix = "]") { "\"$it\"" }
                 val activeQuestsJson = payload.activeQuestLabelsById.entries.joinToString(prefix = "{", postfix = "}") {
                     "\"${it.key}\":\"${it.value}\""
                 }
-                """{"type":"inventory","computerId":"${payload.computerId}","notes":$notesJson,"websiteTitle":"${payload.websiteTitle}","websiteBody":"${payload.websiteBody}","votesAvailable":${payload.votesAvailable},"voteCount":${payload.voteCount},"totalLevel":${payload.totalLevel},"noobProtectionLevel":${payload.noobProtectionLevel},"pettyCash":${payload.pettyCash},"bankMoney":${payload.bankMoney},"activeQuestLabelsById":$activeQuestsJson,"seedSaveFileName":"${payload.seedSaveFileName.orEmpty()}","enableBanking":${payload.enableBanking},"enableFtp":${payload.enableFtp},"enableHttp":${payload.enableHttp}}"""
+                """{"type":"inventory","computerId":"${payload.computerId}","notes":$notesJson,"websiteTitle":"${payload.websiteTitle}","websiteBody":"${payload.websiteBody}","votesAvailable":${payload.votesAvailable},"voteCount":${payload.voteCount},"totalLevel":${payload.totalLevel},"noobProtectionLevel":${payload.noobProtectionLevel},"pettyCash":${payload.pettyCash},"bankMoney":${payload.bankMoney},"currentNetworkName":"${payload.currentNetworkName}","allowedNetworks":$allowedNetworksJson,"lastNetworkSwitchAtEpochMillis":${payload.lastNetworkSwitchAtEpochMillis},"scanningExperience":${payload.scanningExperience},"firewallExperience":${payload.firewallExperience},"currentCpuLoad":${payload.currentCpuLoad},"activeQuestLabelsById":$activeQuestsJson,"seedSaveFileName":"${payload.seedSaveFileName.orEmpty()}","enableBanking":${payload.enableBanking},"enableFtp":${payload.enableFtp},"enableHttp":${payload.enableHttp}}"""
             }
         }
     }

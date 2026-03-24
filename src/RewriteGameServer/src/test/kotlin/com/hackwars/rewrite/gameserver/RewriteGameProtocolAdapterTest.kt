@@ -18,7 +18,6 @@ import com.hackwars.rewrite.gamecore.RequestFilePayload
 import com.hackwars.rewrite.gamecore.RequestSecondaryDirectoryPayload
 import com.hackwars.rewrite.gamecore.RewriteGameJson
 import com.hackwars.rewrite.gamecore.SaveFilePayload
-import com.hackwars.rewrite.gamecore.ScanResponse
 import com.hackwars.rewrite.gamecore.SecondaryDirectoryListingResponse
 import com.hackwars.rewrite.gamecore.StateSectionsDeltaProjection
 import com.hackwars.rewrite.gamecore.StoredFile
@@ -392,32 +391,6 @@ class RewriteGameProtocolAdapterTest {
         assertEquals("wall.bin", response.installedFirewall.name)
         assertEquals("OldWall.bin", response.returnedFirewall?.name)
         assertEquals("/firewalls/OldWall.bin", response.returnedFirewall?.path)
-    }
-
-    @Test
-    fun scanRequestReturnsExactlyOneCorrelatedResponseWithoutDeltaStream() = runTest {
-        val fixture = createFixture()
-        val connection = fixture.authenticatedConnection()
-
-        connection.send(
-            RewriteFrames.command(
-                commandId = "scan-1",
-                commandName = "requestscan",
-                targetGameStateIds = listOf("TARGET-IP"),
-                expectsResponse = true,
-            ),
-        )
-
-        val response = connection.awaitFrame()
-
-        assertEquals("scan-1", response.command_response?.command_id)
-        val scan = RewriteGameJson.decode(
-            serializer = ScanResponse.serializer(),
-            payload = response.command_response!!.payload.toByteArray(),
-        )
-        assertEquals("TARGET-IP", scan.targetIp)
-        assertEquals(listOf(22, 80, 443), scan.openPorts)
-        assertFalse(connection.drainFrames().any { it.delta != null })
     }
 
     private fun TestScope.createFixture(): Fixture {

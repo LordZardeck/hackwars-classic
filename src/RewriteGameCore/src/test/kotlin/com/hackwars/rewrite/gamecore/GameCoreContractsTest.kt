@@ -27,9 +27,28 @@ class GameCoreContractsTest {
 
     @Test
     fun commandRegistryRoutesByWireNameAndCreatesTypedCommands() {
+        val networkRepository = InMemoryNetworkDirectoryRepository.defaultWorld()
         val registry = CommandRegistry()
             .register("requestscan") { input ->
-                ScanCommand(targetStateId = input.targetStateIds.single())
+                val payload = RewriteGameJson.codec.decodeFromString(
+                    deserializer = RequestScanPayload.serializer(),
+                    string = input.payloadJson ?: error("Expected request scan payload json."),
+                )
+                RequestScanCommand(
+                    requesterStateId = input.metadata.authenticatedStateId ?: GameStateId(payload.ip),
+                    targetStateId = GameStateId(payload.targetIp ?: error("Expected target ip.")),
+                )
+            }
+            .register("changenetwork") { input ->
+                val payload = RewriteGameJson.codec.decodeFromString(
+                    deserializer = ChangeNetworkPayload.serializer(),
+                    string = input.payloadJson ?: error("Expected change network payload json."),
+                )
+                ChangeNetworkCommand(
+                    stateId = input.metadata.authenticatedStateId ?: GameStateId(payload.ip),
+                    targetNetworkName = payload.network,
+                    networkDirectoryRepository = networkRepository,
+                )
             }
             .register("setpreferences") { input ->
                 val payload = RewriteGameJson.codec.decodeFromString(
@@ -47,10 +66,32 @@ class GameCoreContractsTest {
             CommandEnvelopeInput(
                 commandId = "scan-1",
                 commandName = "requestscan",
-                targetStateIds = setOf(GameStateId("TARGET-IP")),
-                payloadJson = null,
+                targetStateIds = setOf(GameStateId("LOCAL-IP"), GameStateId("TARGET-IP")),
+                payloadJson = RewriteGameJson.codec.encodeToString(
+                    serializer = RequestScanPayload.serializer(),
+                    value = RequestScanPayload(
+                        ip = "LOCAL-IP",
+                        targetIp = "TARGET-IP",
+                    ),
+                ),
                 expectsResponse = true,
-                metadata = CommandMetadata(),
+                metadata = CommandMetadata(authenticatedStateId = GameStateId("LOCAL-IP")),
+            ),
+        )
+        val changeNetwork = registry.requireCreate(
+            CommandEnvelopeInput(
+                commandId = "network-1",
+                commandName = "changenetwork",
+                targetStateIds = setOf(GameStateId("LOCAL-IP")),
+                payloadJson = RewriteGameJson.codec.encodeToString(
+                    serializer = ChangeNetworkPayload.serializer(),
+                    value = ChangeNetworkPayload(
+                        ip = "LOCAL-IP",
+                        network = "ProgNet",
+                    ),
+                ),
+                expectsResponse = true,
+                metadata = CommandMetadata(authenticatedStateId = GameStateId("LOCAL-IP")),
             ),
         )
         val setPreference = registry.requireCreate(
@@ -70,8 +111,9 @@ class GameCoreContractsTest {
             ),
         )
 
-        assertEquals(setOf("requestscan", "setpreferences"), registry.registeredNames())
-        assertIs<ScanCommand>(scan)
+        assertEquals(setOf("requestscan", "changenetwork", "setpreferences"), registry.registeredNames())
+        assertIs<RequestScanCommand>(scan)
+        assertIs<ChangeNetworkCommand>(changeNetwork)
         assertIs<SetPreferenceCommand>(setPreference)
     }
 }

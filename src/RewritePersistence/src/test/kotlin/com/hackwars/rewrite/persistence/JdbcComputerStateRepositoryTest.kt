@@ -37,6 +37,12 @@ import com.hackwars.rewrite.gamecore.StoreLiquidationLineItem
 import com.hackwars.rewrite.gamecore.StoreListingPurchasedEvent
 import com.hackwars.rewrite.gamecore.HttpExperienceAdjustedEvent
 import com.hackwars.rewrite.gamecore.HostLogAppendedEvent
+import com.hackwars.rewrite.gamecore.NetworkState
+import com.hackwars.rewrite.gamecore.NetworkStateChangedEvent
+import com.hackwars.rewrite.gamecore.NpcCategory
+import com.hackwars.rewrite.gamecore.NpcDirectoryEntry
+import com.hackwars.rewrite.gamecore.ROOT_NETWORK_NAME
+import com.hackwars.rewrite.gamecore.SkillExperienceAdjustedEvent
 import com.hackwars.rewrite.gamecore.WebsiteSavedEvent
 import com.hackwars.rewrite.gamecore.WebsiteVoteCountAdjustedEvent
 import com.hackwars.rewrite.gamecore.WebsiteVotesAvailableAdjustedEvent
@@ -291,6 +297,59 @@ class JdbcComputerStateRepositoryTest {
         now = now.plusSeconds(6)
         runBlockingAppend(repository, stateId, listOf(PreferenceSetEvent("show_logs", "false")))
         assertEquals(1, countRows("rewrite_state_snapshot"))
+    }
+
+    @Test
+    fun replaysNetworkStateAndScanSideEffectsDeterministically() {
+        resetDatabase()
+        val stateId = GameStateId("LOCAL-IP")
+        seedPlayerAndComputer(
+            stateId = stateId,
+            state = ComputerState.empty(id = stateId, playFabId = "PF-LOCALUSER").copy(
+                economy = ComputerState.empty(id = stateId).economy.copy(pettyCash = 100.0, defaultBankPort = 6),
+            ),
+        )
+        val repository = JdbcComputerStateRepository(
+            connectionFactory = ::newConnection,
+            serializer = serializer,
+            snapshotCoordinator = SnapshotCoordinator(eventThreshold = 1, timeThreshold = 5.seconds),
+        )
+
+        runBlockingAppend(
+            repository,
+            stateId,
+            listOf(
+                NetworkStateChangedEvent(
+                    network = NetworkState(
+                        currentNetworkName = ROOT_NETWORK_NAME,
+                        storeStateId = GameStateId("store1"),
+                        allowedNetworks = setOf("ProgNet"),
+                        lastNetworkSwitchAtEpochMillis = 180001L,
+                        regularNpcs = listOf(
+                            NpcDirectoryEntry(
+                                stateId = GameStateId("PROG-ATTACK-1"),
+                                displayName = "Prog Attack",
+                                title = "Attack NPC",
+                                category = NpcCategory.REGULAR,
+                            ),
+                        ),
+                    ),
+                ),
+                EconomyBalanceAdjustedEvent(pettyCashDelta = -10.0),
+                SkillExperienceAdjustedEvent(family = ScriptFamily.SCANNING, delta = 60),
+            ),
+        )
+
+        val reloaded = runBlockingLoad(repository, stateId)
+
+        requireNotNull(reloaded)
+        assertEquals(ROOT_NETWORK_NAME, reloaded.network.currentNetworkName)
+        assertEquals(GameStateId("store1"), reloaded.network.storeStateId)
+        assertEquals(setOf("ProgNet"), reloaded.network.allowedNetworks)
+        assertEquals(180001L, reloaded.network.lastNetworkSwitchAtEpochMillis)
+        assertEquals("Prog Attack", reloaded.network.regularNpcs.single().displayName)
+        assertEquals(90.0, reloaded.economy.pettyCash)
+        assertEquals(60, reloaded.stats.experienceByFamily[ScriptFamily.SCANNING])
     }
 
     @Test
