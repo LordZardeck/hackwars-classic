@@ -182,7 +182,21 @@
   - Owns any remaining side-effectful linker helpers beyond the `RW-GS-S3B3A` seam, including richer system-message and popup parity work once the rewrite client utility/message slices exist.
   - May broaden HackScript compatibility only after preserving the render-path and side-effect ordering guarantees already covered by `RW-GS-S3B2` and `RW-GS-S3B3A`.
 
-### RW-GS-S4 - Network switching, scan, quests, tasks, clues, search, bounties
+### RW-GS-S4A - Quest progress, save files, clue compatibility, bounty creation, and trigger seams
+- Status: `done`
+- Owner: `codex`
+- Depends on: `RW-GS-S1`, `RW-GS-S2`, `RW-GS-S3A`, `RW-GS-S3B3A`
+- Allowed write scope: `:RewriteGameCore`, `:RewriteGameServer`, `:RewritePersistence`
+- Verification command: `./gradlew :RewriteGameCore:test :RewritePersistence:test :RewritePersistence:migrationTest :RewriteGameServer:test :RewriteTestKit:integrationTest rewriteCheck`
+- Artifacts: `build/reports/tests/test`
+- Commit rule: `single green commit only`
+- Notes:
+  - Covers `requesttask`, `requestsave`, `cluedata`, `makebounty`, `requesttrigger`, and internal `requesttriggernote` compatibility.
+  - Quest state now tracks active quest progress, completed quest ids, and passive clue payload compatibility state.
+  - Save files now persist typed scalar metadata plus locked legacy text serialization, and bounty creation now writes typed bounty files into canonical shard-store inventory while debiting creator petty cash.
+  - Explicit trigger requests now route into the shared typed `WatchTriggerIntentSink` seam without executing the watch system yet.
+
+### RW-GS-S4B - Network switching, scan, and NPC discovery
 - Status: `in_progress`
 - Owner: `codex`
 - Depends on: `RW-GS-S1`
@@ -191,8 +205,21 @@
 - Artifacts: `build/reports/tests/test`
 - Commit rule: `single green commit only`
 - Notes:
-  - Scan must be a single correlated response, not an ongoing subscription.
-  - Proof slice landed for `requestscan`; the rest of the feature family is still pending.
+  - Owns network switching, NPC visibility/discovery, and scan parity work that remains after the proof `requestscan` slice.
+  - Scan must remain a single correlated response rather than an ongoing subscription.
+  - Network/world-state browsing still needs follow-on rewrite slices.
+
+### RW-GS-S4C - Search and world/browser lookup flows
+- Status: `todo`
+- Owner: `unassigned`
+- Depends on: `RW-GS-S4B`
+- Allowed write scope: `:RewriteGameCore`, `:RewriteGameServer`
+- Verification command: `./gradlew :RewriteGameCore:test :RewriteGameServer:test`
+- Artifacts: `build/reports/tests/test`
+- Commit rule: `single green commit only`
+- Notes:
+  - Owns rewrite search/discovery flows and any world/browser lookup behavior that should not be bundled into website rendering or network switching.
+  - Must preserve request/response-only semantics and keep results scoped to the requesting client surfaces.
 
 ### RW-GS-S5 - Combat, redirect, zombie attack, watches, long-running programs
 - Status: `todo`

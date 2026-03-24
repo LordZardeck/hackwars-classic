@@ -410,10 +410,10 @@ class WebsiteBrowserCommandsTest {
 
         assertEquals(2, sink.intents.size)
         assertEquals(localTargetId, sink.intents[0].targetStateId)
-        assertEquals(1, sink.intents[0].watchIndex)
+        assertEquals(TriggerSelector.ByIndex(1), sink.intents[0].selector)
         assertEquals(StringHookValue("alpha"), sink.intents[0].parameters["mode"])
         assertEquals(GameStateId("REMOTE-IP"), sink.intents[1].targetStateId)
-        assertEquals(3, sink.intents[1].watchIndex)
+        assertEquals(TriggerSelector.ByIndex(3), sink.intents[1].selector)
         assertEquals(StringHookValue("npc"), sink.intents[1].parameters["scope"])
         assertTrue(publisher.deltas.isEmpty())
         assertTrue(publisher.uiEvents.isEmpty())

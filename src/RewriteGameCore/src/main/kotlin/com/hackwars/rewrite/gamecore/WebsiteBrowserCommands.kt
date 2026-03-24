@@ -351,7 +351,7 @@ private suspend fun processHookEffects(
                 hookSideEffectSink.emitWatchTrigger(
                     WatchTriggerIntent(
                         targetStateId = targetState.id,
-                        watchIndex = effect.index,
+                        selector = TriggerSelector.ByIndex(effect.index),
                         sourceIp = sourceStateId.value,
                         parameters = effect.parameters,
                         external = true,
@@ -365,7 +365,7 @@ private suspend fun processHookEffects(
                 hookSideEffectSink.emitWatchTrigger(
                     WatchTriggerIntent(
                         targetStateId = GameStateId(effect.targetIp),
-                        watchIndex = effect.index,
+                        selector = TriggerSelector.ByIndex(effect.index),
                         sourceIp = sourceStateId.value,
                         parameters = effect.parameters,
                         external = true,

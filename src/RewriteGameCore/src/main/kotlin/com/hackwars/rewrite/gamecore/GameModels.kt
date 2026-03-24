@@ -186,6 +186,8 @@ data class DirectoryEntry(
 enum class StoredFileKind {
     TEXT,
     NOTE,
+    SAVE_DATA,
+    BOUNTY,
     SCRIPT_SOURCE,
     APPLICATION_BINARY,
     FIREWALL_BINARY,
@@ -252,6 +254,8 @@ data class StoredFile(
     val price: Double = 0.0,
     val compiledBinary: CompiledBinaryMetadata? = null,
     val scriptBundle: ProgramScriptBundle? = null,
+    val saveMetadata: SaveFileMetadata? = null,
+    val bountyMetadata: BountyMetadata? = null,
 )
 
 @Serializable
@@ -271,9 +275,80 @@ data class CombatState(
 
 @Serializable
 data class QuestState(
-    val activeQuestIds: List<String> = emptyList(),
+    val activeQuestsById: Map<String, ActiveQuestProgress> = emptyMap(),
     val completedQuestIds: List<String> = emptyList(),
+    val lastClueDataByIp: Map<String, String> = emptyMap(),
 )
+
+fun QuestState.hasCompletedQuest(questId: String): Boolean = completedQuestIds.contains(questId)
+
+fun QuestState.recordTask(questId: String, taskName: String): QuestState {
+    if (hasCompletedQuest(questId)) {
+        return this
+    }
+    val quest = activeQuestsById[questId] ?: return this
+    val updatedQuest = quest.copy(
+        tasksByName = quest.tasksByName + (taskName to QuestTaskProgress(completed = true, note = "")),
+    )
+    return copy(activeQuestsById = activeQuestsById + (questId to updatedQuest))
+}
+
+fun QuestState.storeClueData(targetIp: String, data: String): QuestState {
+    return copy(lastClueDataByIp = lastClueDataByIp + (targetIp to data))
+}
+
+@Serializable
+data class ActiveQuestProgress(
+    val questId: String,
+    val label: String = "",
+    val tasksByName: Map<String, QuestTaskProgress> = emptyMap(),
+)
+
+@Serializable
+data class QuestTaskProgress(
+    val completed: Boolean = false,
+    val note: String = "",
+)
+
+@Serializable
+data class SaveFileMetadata(
+    val valuesByKey: Map<String, HookValue> = emptyMap(),
+)
+
+@Serializable
+data class BountyMetadata(
+    val type: Int,
+    val target: String,
+    val iterationsRemaining: Int,
+    val reward: Double,
+    val bountySourceStateId: GameStateId,
+    val requiredMaker: String = "",
+    val requiredScriptName: String = "",
+    val anonymous: Boolean = false,
+)
+
+object BountyTypes {
+    const val SCAN: Int = 0
+    const val KILL: Int = 1
+    const val INSTALL: Int = 2
+    const val VOTE: Int = 3
+    const val CHANGE: Int = 4
+    const val DESTROY_WATCH: Int = 5
+
+    fun isSupported(type: Int): Boolean {
+        return type in SCAN..DESTROY_WATCH
+    }
+
+    fun displayName(type: Int): String = when (type) {
+        SCAN -> "Scan"
+        KILL -> "Kill"
+        INSTALL -> "Install"
+        VOTE -> "Vote"
+        CHANGE -> "Change HTTP"
+        DESTROY_WATCH -> "Destroy Watch"
+        else -> "Unknown"
+    }
+}
 
 @Serializable
 data class PreferenceState(
@@ -454,6 +529,50 @@ data class HostLogAppendedEvent(
 
     override fun toProjection(state: ComputerState): DeltaProjection {
         return StateSectionsDeltaProjection(logs = state.logs)
+    }
+}
+
+@Serializable
+@SerialName("quest_task_progress_recorded")
+data class QuestTaskProgressRecordedEvent(
+    val questId: String,
+    val taskName: String,
+) : ComputerEvent {
+    override val changedPaths: Set<String> = setOf("quests.activeQuestsById.$questId.tasksByName.$taskName")
+    override val deltaKeys: Set<String> = setOf("quests")
+
+    override fun applyTo(state: ComputerState, nextVersion: Long): ComputerState {
+        return state.copy(
+            version = nextVersion,
+            quests = state.quests.recordTask(questId, taskName),
+            runtime = state.runtime.withMutationVersion(nextVersion),
+        )
+    }
+
+    override fun toProjection(state: ComputerState): DeltaProjection {
+        return StateSectionsDeltaProjection(quests = state.quests)
+    }
+}
+
+@Serializable
+@SerialName("clue_data_stored")
+data class ClueDataStoredEvent(
+    val targetIp: String,
+    val data: String,
+) : ComputerEvent {
+    override val changedPaths: Set<String> = setOf("quests.lastClueDataByIp.$targetIp")
+    override val deltaKeys: Set<String> = setOf("quests")
+
+    override fun applyTo(state: ComputerState, nextVersion: Long): ComputerState {
+        return state.copy(
+            version = nextVersion,
+            quests = state.quests.storeClueData(targetIp, data),
+            runtime = state.runtime.withMutationVersion(nextVersion),
+        )
+    }
+
+    override fun toProjection(state: ComputerState): DeltaProjection {
+        return StateSectionsDeltaProjection(quests = state.quests)
     }
 }
 
@@ -1019,6 +1138,7 @@ data class StateSectionsDeltaProjection(
     val hardware: HardwareState? = null,
     val ports: List<PortState>? = null,
     val website: WebsiteState? = null,
+    val quests: QuestState? = null,
     val preferences: PreferenceState? = null,
     val stats: PlayerStatsState? = null,
     val logs: LogState? = null,
@@ -1072,9 +1192,20 @@ data class PopupUiEvent(
     val message: String,
 ) : GameUiEvent
 
+@Serializable
+sealed interface TriggerSelector {
+    @Serializable
+    @SerialName("by_index")
+    data class ByIndex(val index: Int) : TriggerSelector
+
+    @Serializable
+    @SerialName("by_note")
+    data class ByNote(val note: String) : TriggerSelector
+}
+
 data class WatchTriggerIntent(
     val targetStateId: GameStateId,
-    val watchIndex: Int,
+    val selector: TriggerSelector,
     val sourceIp: String,
     val parameters: Map<String, HookValue>,
     val external: Boolean,
@@ -1125,6 +1256,50 @@ data class FileContentsResponse(
     val stateId: GameStateId,
     val file: StoredFile?,
     val version: Long,
+)
+
+@Serializable
+data class TaskProgressResponse(
+    val stateId: GameStateId,
+    val questId: String,
+    val taskName: String,
+    val progress: QuestTaskProgress?,
+    val changed: Boolean,
+    val version: Long,
+)
+
+@Serializable
+data class SaveFileRequestResponse(
+    val stateId: GameStateId,
+    val file: StoredFile,
+    val version: Long,
+)
+
+@Serializable
+data class ClueDataAcceptedResponse(
+    val stateId: GameStateId,
+    val targetIp: String,
+    val changed: Boolean,
+    val version: Long,
+)
+
+@Serializable
+data class BountyCreatedResponse(
+    val creatorStateId: GameStateId,
+    val storeStateId: GameStateId,
+    val bountyFile: StoredFile,
+    val reward: Double,
+    val creatorVersion: Long,
+    val storeVersion: Long,
+)
+
+@Serializable
+data class TriggerRequestResponse(
+    val stateId: GameStateId,
+    val targetStateId: GameStateId,
+    val selector: TriggerSelector,
+    val sourceIp: String,
+    val accepted: Boolean,
 )
 
 @Serializable
@@ -1342,6 +1517,7 @@ private fun mergeStateSectionsProjection(
         hardware = latest { it.hardware },
         ports = latest { it.ports },
         website = latest { it.website },
+        quests = latest { it.quests },
         preferences = latest { it.preferences },
         stats = latest { it.stats },
         logs = latest { it.logs },

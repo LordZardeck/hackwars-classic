@@ -1,6 +1,7 @@
 package com.hackwars.rewrite.persistence
 
 import com.hackwars.rewrite.gamecore.ProgramScriptSlot
+import com.hackwars.rewrite.gamecore.StoredFileKind
 import java.sql.Connection
 import java.sql.DriverManager
 import java.time.Instant
@@ -67,6 +68,10 @@ class JdbcRewriteSeedSinkTest {
                     voteCount = 4,
                     totalLevel = 5,
                     noobProtectionLevel = 3,
+                    pettyCash = 450.0,
+                    bankMoney = 125.0,
+                    activeQuestLabelsById = mapOf("quest-1" to "Starter Quest"),
+                    seedSaveFileName = "migration",
                 ),
                 createdAt = Instant.EPOCH,
             ),
@@ -206,7 +211,12 @@ class JdbcRewriteSeedSinkTest {
         assertEquals("Seeded Local Page", state.website.title)
         assertEquals(2, state.website.votesAvailable)
         assertEquals(4, state.website.voteCount)
+        assertEquals(450.0, state.economy.pettyCash)
+        assertEquals(125.0, state.economy.bankMoney)
         assertEquals(6, state.economy.defaultBankPort)
+        assertEquals("Starter Quest", state.quests.activeQuestsById["quest-1"]?.label)
+        assertEquals(StoredFileKind.SAVE_DATA, state.filesystem.filesByPath["/migration.save"]?.kind)
+        assertTrue(state.filesystem.filesByPath["/migration.save"]?.saveMetadata?.valuesByKey?.isNotEmpty() == true)
         assertTrue(state.ports.any { it.number == 80 && it.installedApplication?.scriptBundle?.scriptsBySlot?.isNotEmpty() == true })
         assertTrue(state.ports.any { it.number == 80 && it.defaultPort })
         assertTrue(storeState.filesystem.directoriesByPath.containsKey("/Store"))

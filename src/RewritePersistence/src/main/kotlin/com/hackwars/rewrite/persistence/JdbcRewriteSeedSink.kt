@@ -1,6 +1,7 @@
 package com.hackwars.rewrite.persistence
 
 import com.hackwars.rewrite.gamecore.ApplicationKind
+import com.hackwars.rewrite.gamecore.ActiveQuestProgress
 import com.hackwars.rewrite.gamecore.CompiledBinaryMetadata
 import com.hackwars.rewrite.gamecore.ComputerState
 import com.hackwars.rewrite.gamecore.EconomyState
@@ -10,6 +11,8 @@ import com.hackwars.rewrite.gamecore.PlayerStatsState
 import com.hackwars.rewrite.gamecore.PortState
 import com.hackwars.rewrite.gamecore.ProgramScriptBundle
 import com.hackwars.rewrite.gamecore.ProgramScriptSlot
+import com.hackwars.rewrite.gamecore.QuestState
+import com.hackwars.rewrite.gamecore.SaveFileMetadata
 import com.hackwars.rewrite.gamecore.ScriptFamily
 import com.hackwars.rewrite.gamecore.StoredFile
 import com.hackwars.rewrite.gamecore.StoredFileKind
@@ -17,6 +20,11 @@ import com.hackwars.rewrite.gamecore.WebsiteState
 import com.hackwars.rewrite.gamecore.buildFilePath
 import com.hackwars.rewrite.gamecore.ensureDirectory
 import com.hackwars.rewrite.gamecore.saveFile
+import com.hackwars.rewrite.hackscript.BooleanHookValue
+import com.hackwars.rewrite.hackscript.FloatHookValue
+import com.hackwars.rewrite.hackscript.HookValue
+import com.hackwars.rewrite.hackscript.IntHookValue
+import com.hackwars.rewrite.hackscript.StringHookValue
 import java.sql.Connection
 import java.sql.Timestamp
 
@@ -256,6 +264,25 @@ class JdbcRewriteSeedSink(
                 ),
             )
         }
+        payload.seedSaveFileName?.takeUnless { it.isBlank() }?.let { baseName ->
+            val saveValues = linkedMapOf<String, HookValue>(
+                "quest" to StringHookValue("migration"),
+                "attempt" to IntHookValue(1),
+                "verified" to BooleanHookValue(true),
+                "score" to FloatHookValue(3.5),
+            )
+            filesystem = filesystem.saveFile(
+                StoredFile(
+                    path = buildFilePath("/", "$baseName.save"),
+                    name = "$baseName.save",
+                    kind = StoredFileKind.SAVE_DATA,
+                    contents = serializeSeedSaveRows(saveValues),
+                    description = "A save file for $baseName.",
+                    maker = baseName,
+                    saveMetadata = SaveFileMetadata(valuesByKey = saveValues),
+                ),
+            )
+        }
         val ports = buildList {
             if (payload.enableBanking) {
                 add(
@@ -314,11 +341,22 @@ class JdbcRewriteSeedSink(
         }
         val updated = current.copy(
             economy = current.economy.copy(
-                pettyCash = if (payload.enableBanking) current.economy.pettyCash else current.economy.pettyCash,
+                pettyCash = payload.pettyCash,
+                bankMoney = payload.bankMoney,
                 defaultBankPort = if (payload.enableBanking) 6 else null,
             ),
             filesystem = filesystem,
             ports = ports,
+            quests = QuestState(
+                activeQuestsById = payload.activeQuestLabelsById.mapValues { (questId, label) ->
+                    ActiveQuestProgress(
+                        questId = questId,
+                        label = label,
+                    )
+                },
+                completedQuestIds = current.quests.completedQuestIds,
+                lastClueDataByIp = current.quests.lastClueDataByIp,
+            ),
             website = WebsiteState(
                 title = payload.websiteTitle,
                 body = payload.websiteBody,
@@ -351,8 +389,40 @@ class JdbcRewriteSeedSink(
             is SeedComputerState -> """{"type":"computer","computerId":"${payload.computerId}","playerId":"${payload.playerId}","ipAddress":"${payload.ipAddress}"}"""
             is SeedInventorySnapshot -> {
                 val notesJson = payload.notes.joinToString(prefix = "[", postfix = "]") { "\"$it\"" }
-                """{"type":"inventory","computerId":"${payload.computerId}","notes":$notesJson,"websiteTitle":"${payload.websiteTitle}","websiteBody":"${payload.websiteBody}","votesAvailable":${payload.votesAvailable},"voteCount":${payload.voteCount},"totalLevel":${payload.totalLevel},"noobProtectionLevel":${payload.noobProtectionLevel},"enableBanking":${payload.enableBanking},"enableFtp":${payload.enableFtp},"enableHttp":${payload.enableHttp}}"""
+                val activeQuestsJson = payload.activeQuestLabelsById.entries.joinToString(prefix = "{", postfix = "}") {
+                    "\"${it.key}\":\"${it.value}\""
+                }
+                """{"type":"inventory","computerId":"${payload.computerId}","notes":$notesJson,"websiteTitle":"${payload.websiteTitle}","websiteBody":"${payload.websiteBody}","votesAvailable":${payload.votesAvailable},"voteCount":${payload.voteCount},"totalLevel":${payload.totalLevel},"noobProtectionLevel":${payload.noobProtectionLevel},"pettyCash":${payload.pettyCash},"bankMoney":${payload.bankMoney},"activeQuestLabelsById":$activeQuestsJson,"seedSaveFileName":"${payload.seedSaveFileName.orEmpty()}","enableBanking":${payload.enableBanking},"enableFtp":${payload.enableFtp},"enableHttp":${payload.enableHttp}}"""
             }
         }
+    }
+
+    private fun serializeSeedSaveRows(valuesByKey: Map<String, HookValue>): String {
+        return buildString {
+            valuesByKey.forEach { (key, value) ->
+                append(key)
+                append('\t')
+                append(value.seedSaveType())
+                append('\t')
+                append(value.seedSaveValue())
+                append('\n')
+            }
+        }
+    }
+
+    private fun HookValue.seedSaveType(): String = when (this) {
+        is StringHookValue -> "string"
+        is IntHookValue -> "int"
+        is FloatHookValue -> "float"
+        is BooleanHookValue -> "bool"
+        else -> error("Seed save files only support scalar values.")
+    }
+
+    private fun HookValue.seedSaveValue(): String = when (this) {
+        is StringHookValue -> value
+        is IntHookValue -> value.toString()
+        is FloatHookValue -> value.toString()
+        is BooleanHookValue -> value.toString()
+        else -> error("Seed save files only support scalar values.")
     }
 }

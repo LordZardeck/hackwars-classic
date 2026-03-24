@@ -21,10 +21,15 @@ import com.hackwars.rewrite.gamecore.SnapshotCoordinator
 import com.hackwars.rewrite.gamecore.StoredFile
 import com.hackwars.rewrite.gamecore.StoredFileKind
 import com.hackwars.rewrite.gamecore.ApplicationInstalledEvent
+import com.hackwars.rewrite.gamecore.BountyMetadata
+import com.hackwars.rewrite.gamecore.BountyTypes
+import com.hackwars.rewrite.gamecore.ClueDataStoredEvent
 import com.hackwars.rewrite.gamecore.ApplicationKind
 import com.hackwars.rewrite.gamecore.EconomyBalanceAdjustedEvent
 import com.hackwars.rewrite.gamecore.InstalledApplication
 import com.hackwars.rewrite.gamecore.PurchasedFileReceivedEvent
+import com.hackwars.rewrite.gamecore.QuestTaskProgressRecordedEvent
+import com.hackwars.rewrite.gamecore.SaveFileMetadata
 import com.hackwars.rewrite.gamecore.StoreFilePricedEvent
 import com.hackwars.rewrite.gamecore.StoreFilesLiquidatedEvent
 import com.hackwars.rewrite.gamecore.StoreInventoryReceivedEvent
@@ -36,6 +41,10 @@ import com.hackwars.rewrite.gamecore.WebsiteSavedEvent
 import com.hackwars.rewrite.gamecore.WebsiteVoteCountAdjustedEvent
 import com.hackwars.rewrite.gamecore.WebsiteVotesAvailableAdjustedEvent
 import com.hackwars.rewrite.gamecore.buildFilePath
+import com.hackwars.rewrite.gamecore.ensureDirectory
+import com.hackwars.rewrite.hackscript.BooleanHookValue
+import com.hackwars.rewrite.hackscript.IntHookValue
+import com.hackwars.rewrite.hackscript.StringHookValue
 import java.sql.Connection
 import java.sql.DriverManager
 import java.time.Instant
@@ -472,6 +481,109 @@ class JdbcComputerStateRepositoryTest {
         assertEquals(402.0, revenue.economy.pettyCash)
         assertEquals(1, store.filesystem.filesByPath["/Store/rare.bin"]?.quantity)
         assertTrue(countRows("rewrite_state_snapshot") >= 4)
+    }
+
+    @Test
+    fun replaysQuestSaveAndBountyStateDeterministically() {
+        resetDatabase()
+        val playerId = GameStateId("LOCAL-IP")
+        val storeId = GameStateId("store1")
+        seedPlayerAndComputer(
+            stateId = playerId,
+            state = ComputerState.empty(id = playerId, playFabId = "PF-LOCALUSER").copy(
+                economy = ComputerState.empty(id = playerId).economy.copy(
+                    pettyCash = 500.0,
+                    defaultBankPort = 6,
+                ),
+                quests = com.hackwars.rewrite.gamecore.QuestState(
+                    activeQuestsById = mapOf(
+                        "quest-1" to com.hackwars.rewrite.gamecore.ActiveQuestProgress(
+                            questId = "quest-1",
+                            label = "Starter Quest",
+                        ),
+                    ),
+                ),
+            ),
+        )
+        seedPlayerAndComputer(
+            stateId = storeId,
+            state = ComputerState.empty(id = storeId, playFabId = "PF-STORE").copy(
+                filesystem = ComputerState.empty(id = storeId, playerIp = storeId.value).filesystem.ensureDirectory("/Store"),
+            ),
+            playerId = "store-user",
+        )
+        val repository = JdbcComputerStateRepository(
+            connectionFactory = ::newConnection,
+            serializer = serializer,
+            snapshotCoordinator = SnapshotCoordinator(eventThreshold = 1, timeThreshold = 5.seconds),
+        )
+        val saveFile = StoredFile(
+            path = buildFilePath("/", "quest-progress.save"),
+            name = "quest-progress.save",
+            kind = StoredFileKind.SAVE_DATA,
+            contents = "stage\tstring\tstarter\ncount\tint\t3\nenabled\tbool\ttrue\n",
+            description = "A save file for quest-progress.",
+            maker = "quest-progress",
+            saveMetadata = SaveFileMetadata(
+                valuesByKey = linkedMapOf(
+                    "stage" to StringHookValue("starter"),
+                    "count" to IntHookValue(3),
+                    "enabled" to BooleanHookValue(true),
+                ),
+            ),
+        )
+        val bountyFile = StoredFile(
+            path = buildFilePath("/Store", "Install By (LOCAL-IP)"),
+            name = "Install By (LOCAL-IP)",
+            kind = StoredFileKind.BOUNTY,
+            contents = "count=2\ntype=2\nreward=125.0\ntarget=ENEMY-IP\nbountyip=LOCAL-IP\nmaker=Rewrite\nscript=installer.bin\n",
+            description = "Bounty Type: Install\nTarget: ENEMY-IP\nReward: \$125.00\nMust Install: installer.bin Maker: Rewrite\n",
+            maker = "LOCAL-IP",
+            bountyMetadata = BountyMetadata(
+                type = BountyTypes.INSTALL,
+                target = "ENEMY-IP",
+                iterationsRemaining = 2,
+                reward = 125.0,
+                bountySourceStateId = playerId,
+                requiredMaker = "Rewrite",
+                requiredScriptName = "installer.bin",
+                anonymous = false,
+            ),
+        )
+
+        runBlockingAppend(
+            repository,
+            playerId,
+            listOf(
+                QuestTaskProgressRecordedEvent(
+                    questId = "quest-1",
+                    taskName = "download",
+                ),
+                ClueDataStoredEvent(
+                    targetIp = "TARGET-IP",
+                    data = "alpha clue",
+                ),
+                FileSavedEvent(saveFile),
+                EconomyBalanceAdjustedEvent(pettyCashDelta = -125.0),
+            ),
+        )
+        runBlockingAppend(
+            repository,
+            storeId,
+            listOf(FileSavedEvent(bountyFile)),
+        )
+
+        val player = runBlockingLoad(repository, playerId)
+        val store = runBlockingLoad(repository, storeId)
+
+        requireNotNull(player)
+        requireNotNull(store)
+        assertTrue(player.quests.activeQuestsById["quest-1"]?.tasksByName?.get("download")?.completed == true)
+        assertEquals("alpha clue", player.quests.lastClueDataByIp["TARGET-IP"])
+        assertEquals("starter", (player.filesystem.filesByPath["/quest-progress.save"]?.saveMetadata?.valuesByKey?.get("stage") as? StringHookValue)?.value)
+        assertEquals(375.0, player.economy.pettyCash)
+        assertEquals(BountyTypes.INSTALL, store.filesystem.filesByPath["/Store/Install By (LOCAL-IP)"]?.bountyMetadata?.type)
+        assertEquals("installer.bin", store.filesystem.filesByPath["/Store/Install By (LOCAL-IP)"]?.bountyMetadata?.requiredScriptName)
     }
 
     private fun resetDatabase() {

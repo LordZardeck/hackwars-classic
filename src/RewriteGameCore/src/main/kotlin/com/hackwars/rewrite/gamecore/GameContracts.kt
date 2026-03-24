@@ -137,9 +137,15 @@ interface ProgramScheduler {
     ): ProgramHandle
 }
 
-interface HookSideEffectSink {
+interface WatchTriggerIntentSink {
     suspend fun emitWatchTrigger(intent: WatchTriggerIntent)
 }
+
+object NoOpWatchTriggerIntentSink : WatchTriggerIntentSink {
+    override suspend fun emitWatchTrigger(intent: WatchTriggerIntent) = Unit
+}
+
+interface HookSideEffectSink : WatchTriggerIntentSink
 
 object NoOpHookSideEffectSink : HookSideEffectSink {
     override suspend fun emitWatchTrigger(intent: WatchTriggerIntent) = Unit

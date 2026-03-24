@@ -5,6 +5,10 @@ import com.hackwars.rewrite.gamecore.CommandEnvelopeInput
 import com.hackwars.rewrite.gamecore.CommandMetadata
 import com.hackwars.rewrite.gamecore.CommandRegistry
 import com.hackwars.rewrite.gamecore.BankTransactionResponse
+import com.hackwars.rewrite.gamecore.BountyCreatedResponse
+import com.hackwars.rewrite.gamecore.ClueDataAcceptedResponse
+import com.hackwars.rewrite.gamecore.ClueDataCommand
+import com.hackwars.rewrite.gamecore.ClueDataPayload
 import com.hackwars.rewrite.gamecore.CompileFileCommand
 import com.hackwars.rewrite.gamecore.CompileFilePayload
 import com.hackwars.rewrite.gamecore.CompileFileResponse
@@ -48,6 +52,8 @@ import com.hackwars.rewrite.gamecore.InstallFirewallCommand
 import com.hackwars.rewrite.gamecore.InstallFirewallPayload
 import com.hackwars.rewrite.gamecore.InstallFirewallResponse
 import com.hackwars.rewrite.gamecore.InterestRegistry
+import com.hackwars.rewrite.gamecore.MakeBountyCommand
+import com.hackwars.rewrite.gamecore.MakeBountyPayload
 import com.hackwars.rewrite.gamecore.MutationAcceptedResponse
 import com.hackwars.rewrite.gamecore.HookSideEffectSink
 import com.hackwars.rewrite.gamecore.HttpHookRuntime
@@ -59,6 +65,12 @@ import com.hackwars.rewrite.gamecore.ProgramUpdate
 import com.hackwars.rewrite.gamecore.RequestCommand
 import com.hackwars.rewrite.gamecore.RequestPageCommand
 import com.hackwars.rewrite.gamecore.RequestPagePayload
+import com.hackwars.rewrite.gamecore.RequestSaveCommand
+import com.hackwars.rewrite.gamecore.RequestSavePayload
+import com.hackwars.rewrite.gamecore.RequestTaskCommand
+import com.hackwars.rewrite.gamecore.RequestTaskPayload
+import com.hackwars.rewrite.gamecore.RequestTriggerCommand
+import com.hackwars.rewrite.gamecore.RequestTriggerPayload
 import com.hackwars.rewrite.gamecore.RequestWebpageCommand
 import com.hackwars.rewrite.gamecore.RequestWebpagePayload
 import com.hackwars.rewrite.gamecore.RequestDirectoryCommand
@@ -72,6 +84,7 @@ import com.hackwars.rewrite.gamecore.RequestPurchasePayload
 import com.hackwars.rewrite.gamecore.RewriteGameJson
 import com.hackwars.rewrite.gamecore.SaveFileCommand
 import com.hackwars.rewrite.gamecore.SaveFilePayload
+import com.hackwars.rewrite.gamecore.SaveFileRequestResponse
 import com.hackwars.rewrite.gamecore.ScanCommand
 import com.hackwars.rewrite.gamecore.ScanResponse
 import com.hackwars.rewrite.gamecore.SecondaryDirectoryListingResponse
@@ -92,6 +105,8 @@ import com.hackwars.rewrite.gamecore.SubmitWebpagePayload
 import com.hackwars.rewrite.gamecore.TransferCommand
 import com.hackwars.rewrite.gamecore.TransferPayload
 import com.hackwars.rewrite.gamecore.TransferResponse
+import com.hackwars.rewrite.gamecore.TaskProgressResponse
+import com.hackwars.rewrite.gamecore.TriggerRequestResponse
 import com.hackwars.rewrite.gamecore.VoteForWebsiteCommand
 import com.hackwars.rewrite.gamecore.VotePayload
 import com.hackwars.rewrite.gamecore.VoteResponse
@@ -303,6 +318,11 @@ class RewriteGameProtocolAdapter(
             is DirectoryListingResponse -> RewriteGameJson.encode(DirectoryListingResponse.serializer(), result)
             is SecondaryDirectoryListingResponse -> RewriteGameJson.encode(SecondaryDirectoryListingResponse.serializer(), result)
             is FileContentsResponse -> RewriteGameJson.encode(FileContentsResponse.serializer(), result)
+            is TaskProgressResponse -> RewriteGameJson.encode(TaskProgressResponse.serializer(), result)
+            is SaveFileRequestResponse -> RewriteGameJson.encode(SaveFileRequestResponse.serializer(), result)
+            is ClueDataAcceptedResponse -> RewriteGameJson.encode(ClueDataAcceptedResponse.serializer(), result)
+            is BountyCreatedResponse -> RewriteGameJson.encode(BountyCreatedResponse.serializer(), result)
+            is TriggerRequestResponse -> RewriteGameJson.encode(TriggerRequestResponse.serializer(), result)
             is MutationAcceptedResponse -> RewriteGameJson.encode(MutationAcceptedResponse.serializer(), result)
             is CompileFileResponse -> RewriteGameJson.encode(CompileFileResponse.serializer(), result)
             is DecompileFileResponse -> RewriteGameJson.encode(DecompileFileResponse.serializer(), result)
@@ -483,6 +503,72 @@ class RewriteGameProtocolAdapter(
                         ),
                         key = payload.key,
                         value = payload.value,
+                    )
+                }
+                .register("requesttask") { input ->
+                    val payload = decodePayload(input, RequestTaskPayload.serializer())
+                    RequestTaskCommand(
+                        stateId = payload.targetIp
+                            ?.takeUnless { it.isBlank() }
+                            ?.let(::GameStateId)
+                            ?: requireAuthenticatedStateId(input),
+                        fileName = payload.fileName,
+                        questId = payload.questId,
+                        taskName = payload.taskName,
+                    )
+                }
+                .register("requestsave") { input ->
+                    val payload = decodePayload(input, RequestSavePayload.serializer())
+                    RequestSaveCommand(
+                        stateId = payload.targetIp
+                            ?.takeUnless { it.isBlank() }
+                            ?.let(::GameStateId)
+                            ?: requireAuthenticatedStateId(input),
+                        fileName = payload.fileName,
+                        triggerParameters = payload.triggerParameters,
+                    )
+                }
+                .register("cluedata") { input ->
+                    val payload = decodePayload(input, ClueDataPayload.serializer())
+                    ClueDataCommand(
+                        stateId = GameStateId(payload.ip),
+                        targetIp = payload.ip,
+                        data = payload.data,
+                    )
+                }
+                .register("makebounty") { input ->
+                    val payload = decodePayload(input, MakeBountyPayload.serializer())
+                    val authenticatedStateId = requireAuthenticatedStateId(input)
+                    requirePayloadIpMatches(authenticatedStateId, payload.sourceIp, input.commandName)
+                    MakeBountyCommand(
+                        creatorStateId = authenticatedStateId,
+                        storeStateId = canonicalStoreStateId(serverId),
+                        anonymous = payload.anonymous ?: false,
+                        target = payload.target,
+                        type = payload.type ?: 0,
+                        fileName = payload.fname,
+                        folder = payload.folder,
+                        iterations = payload.iterations ?: 0,
+                        reward = payload.reward ?: 0.0,
+                    )
+                }
+                .register("requesttrigger") { input ->
+                    val payload = decodePayload(input, RequestTriggerPayload.serializer())
+                    val authenticatedStateId = requireAuthenticatedStateId(input)
+                    val sourceIp = payload.sourceIp?.takeUnless { it.isBlank() } ?: authenticatedStateId.value
+                    require(sourceIp == authenticatedStateId.value) {
+                        "Payload source ip $sourceIp does not match authenticated state ${authenticatedStateId.value} for ${input.commandName}."
+                    }
+                    require(payload.targetIp.isNotBlank()) {
+                        "Target ip is required for ${input.commandName}."
+                    }
+                    RequestTriggerCommand(
+                        stateId = authenticatedStateId,
+                        targetStateId = GameStateId(payload.targetIp),
+                        selector = payload.selector,
+                        sourceIp = sourceIp,
+                        triggerParameters = payload.triggerParameters,
+                        watchTriggerIntentSink = hookSideEffectSink,
                     )
                 }
                 .register("requestdirectory") { input ->
