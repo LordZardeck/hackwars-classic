@@ -6,9 +6,9 @@ import com.hackwars.rewrite.gamecore.CompiledBinaryMetadata
 import com.hackwars.rewrite.gamecore.ComputerState
 import com.hackwars.rewrite.gamecore.EconomyState
 import com.hackwars.rewrite.gamecore.GameStateId
-import com.hackwars.rewrite.gamecore.InMemoryNetworkDirectoryRepository
 import com.hackwars.rewrite.gamecore.InstalledApplication
 import com.hackwars.rewrite.gamecore.InstalledFirewall
+import com.hackwars.rewrite.gamecore.NetworkDirectoryDefinition
 import com.hackwars.rewrite.gamecore.NetworkState
 import com.hackwars.rewrite.gamecore.PlayerStatsState
 import com.hackwars.rewrite.gamecore.PortState
@@ -32,7 +32,6 @@ import com.hackwars.rewrite.hackscript.IntHookValue
 import com.hackwars.rewrite.hackscript.StringHookValue
 import java.sql.Connection
 import java.sql.Timestamp
-import kotlinx.coroutines.runBlocking
 
 class JdbcRewriteSeedSink(
     private val connectionFactory: () -> Connection,
@@ -46,6 +45,7 @@ class JdbcRewriteSeedSink(
                 when (val payload = batch.seedPayload) {
                     is SeedPlayerAccount -> upsertPlayerAccount(connection, payload)
                     is SeedComputerState -> upsertComputerState(connection, payload)
+                    is SeedWorldDirectory -> upsertWorldDirectory(connection, payload)
                     is SeedInventorySnapshot -> applyInventorySnapshot(connection, payload)
                 }
                 connection.commit()
@@ -133,6 +133,90 @@ class JdbcRewriteSeedSink(
             statement.setString(3, payload.ipAddress)
             statement.setString(4, serializer.encodeStateJson(state))
             statement.executeUpdate()
+        }
+    }
+
+    private fun upsertWorldDirectory(
+        connection: Connection,
+        payload: SeedWorldDirectory,
+    ) {
+        payload.networks.forEach { network ->
+            connection.prepareStatement(
+                """
+                insert into rewrite_network_directory(network_name, store_state_id)
+                values (?, ?)
+                on conflict (network_name) do update
+                set store_state_id = excluded.store_state_id
+                """.trimIndent(),
+            ).use { statement ->
+                statement.setString(1, network.name)
+                statement.setString(2, network.storeStateId)
+                statement.executeUpdate()
+            }
+        }
+
+        payload.networks.forEach { network ->
+            connection.prepareStatement(
+                "delete from rewrite_network_link where from_network_name = ?",
+            ).use { statement ->
+                statement.setString(1, network.name)
+                statement.executeUpdate()
+            }
+            network.attachedNetworks.forEach { link ->
+                connection.prepareStatement(
+                    """
+                    insert into rewrite_network_link(from_network_name, to_network_name, entrance_message, failure_message)
+                    values (?, ?, ?, ?)
+                    on conflict (from_network_name, to_network_name) do update
+                    set entrance_message = excluded.entrance_message,
+                        failure_message = excluded.failure_message
+                    """.trimIndent(),
+                ).use { statement ->
+                    statement.setString(1, network.name)
+                    statement.setString(2, link.targetNetworkName)
+                    statement.setString(3, link.entranceMessage)
+                    statement.setString(4, link.failureMessage)
+                    statement.executeUpdate()
+                }
+            }
+
+            connection.prepareStatement(
+                "delete from rewrite_network_npc where network_name = ?",
+            ).use { statement ->
+                statement.setString(1, network.name)
+                statement.executeUpdate()
+            }
+            network.npcs.forEachIndexed { index, npc ->
+                connection.prepareStatement(
+                    """
+                    insert into rewrite_network_npc(
+                        network_name,
+                        state_id,
+                        display_name,
+                        title,
+                        category,
+                        commodity,
+                        sort_order
+                    )
+                    values (?, ?, ?, ?, ?, ?, ?)
+                    on conflict (network_name, state_id) do update
+                    set display_name = excluded.display_name,
+                        title = excluded.title,
+                        category = excluded.category,
+                        commodity = excluded.commodity,
+                        sort_order = excluded.sort_order
+                    """.trimIndent(),
+                ).use { statement ->
+                    statement.setString(1, network.name)
+                    statement.setString(2, npc.stateId)
+                    statement.setString(3, npc.displayName)
+                    statement.setString(4, npc.title)
+                    statement.setString(5, npc.category.name)
+                    statement.setString(6, npc.commodity)
+                    statement.setInt(7, index)
+                    statement.executeUpdate()
+                }
+            }
         }
     }
 
@@ -354,10 +438,9 @@ class JdbcRewriteSeedSink(
                 )
             }
         }
-        val networkRepository = InMemoryNetworkDirectoryRepository.defaultWorld()
-        val networkDefinition = runBlocking {
-            networkRepository.loadNetwork(payload.currentNetworkName) ?: networkRepository.loadNetwork(ROOT_NETWORK_NAME)
-        }
+        val networkDefinition = JdbcNetworkDirectoryRepository.loadNetwork(connection, payload.currentNetworkName)
+            ?: JdbcNetworkDirectoryRepository.loadNetwork(connection, ROOT_NETWORK_NAME)
+            ?: NetworkDirectoryDefinition(name = ROOT_NETWORK_NAME)
         val updated = current.copy(
             economy = current.economy.copy(
                 pettyCash = payload.pettyCash,
@@ -367,14 +450,14 @@ class JdbcRewriteSeedSink(
             filesystem = filesystem,
             ports = ports,
             network = NetworkState(
-                currentNetworkName = payload.currentNetworkName,
-                storeStateId = networkDefinition?.storeStateId,
+                currentNetworkName = networkDefinition.name,
+                storeStateId = networkDefinition.storeStateId,
                 allowedNetworks = payload.allowedNetworks.toSet(),
                 lastNetworkSwitchAtEpochMillis = payload.lastNetworkSwitchAtEpochMillis,
-                regularNpcs = networkDefinition?.regularNpcs.orEmpty(),
-                questNpcs = networkDefinition?.questNpcs.orEmpty(),
-                miningNpcs = networkDefinition?.miningNpcs.orEmpty(),
-                storeNpcs = networkDefinition?.storeNpcs.orEmpty(),
+                regularNpcs = networkDefinition.regularNpcs,
+                questNpcs = networkDefinition.questNpcs,
+                miningNpcs = networkDefinition.miningNpcs,
+                storeNpcs = networkDefinition.storeNpcs,
             ),
             quests = QuestState(
                 activeQuestsById = payload.activeQuestLabelsById.mapValues { (questId, label) ->
@@ -421,6 +504,18 @@ class JdbcRewriteSeedSink(
         return when (payload) {
             is SeedPlayerAccount -> """{"type":"player","playerId":"${payload.playerId}","playFabId":"${payload.playFabId}","playerIp":"${payload.playerIp}"}"""
             is SeedComputerState -> """{"type":"computer","computerId":"${payload.computerId}","playerId":"${payload.playerId}","ipAddress":"${payload.ipAddress}"}"""
+            is SeedWorldDirectory -> {
+                val networksJson = payload.networks.joinToString(prefix = "[", postfix = "]") { network ->
+                    val attachedJson = network.attachedNetworks.joinToString(prefix = "[", postfix = "]") { link ->
+                        """{"targetNetworkName":"${link.targetNetworkName}","entranceMessage":"${link.entranceMessage}","failureMessage":"${link.failureMessage}"}"""
+                    }
+                    val npcsJson = network.npcs.joinToString(prefix = "[", postfix = "]") { npc ->
+                        """{"stateId":"${npc.stateId}","displayName":"${npc.displayName}","title":"${npc.title}","category":"${npc.category.name}","commodity":"${npc.commodity.orEmpty()}"}"""
+                    }
+                    """{"name":"${network.name}","storeStateId":"${network.storeStateId.orEmpty()}","attachedNetworks":$attachedJson,"npcs":$npcsJson}"""
+                }
+                """{"type":"world","networks":$networksJson}"""
+            }
             is SeedInventorySnapshot -> {
                 val notesJson = payload.notes.joinToString(prefix = "[", postfix = "]") { "\"$it\"" }
                 val allowedNetworksJson = payload.allowedNetworks.joinToString(prefix = "[", postfix = "]") { "\"$it\"" }

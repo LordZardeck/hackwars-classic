@@ -1300,6 +1300,14 @@ data class GameSessionBootstrapResult(
 )
 
 @Serializable
+data class NetworkDirectoryRefreshResult(
+    val stateId: GameStateId,
+    val changed: Boolean,
+    val network: NetworkState,
+    val version: Long,
+)
+
+@Serializable
 enum class NetworkSwitchFailureCode {
     INVALID_TARGET,
     ALREADY_ON_NETWORK,
@@ -1849,6 +1857,6 @@ const val ROOT_NETWORK_NAME: String = "UGOPNet"
 const val JAIL_NETWORK_NAME: String = "JuniperPenetentiary"
 const val NETWORK_SWITCH_COOLDOWN_MS: Long = 180000L
 
-private fun RuntimeState.withMutationVersion(version: Long): RuntimeState {
+internal fun RuntimeState.withMutationVersion(version: Long): RuntimeState {
     return copy(lastMutationVersion = version)
 }

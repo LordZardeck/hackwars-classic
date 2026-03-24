@@ -8,6 +8,7 @@ class GameSessionBootstrapCommand(
     private val stateId: GameStateId,
     private val playFabId: String,
     private val interestRegistry: InterestRegistry,
+    private val networkDirectoryRepository: NetworkDirectoryRepository? = null,
 ) : RequestCommand<GameSessionBootstrapResult> {
     override val name: String = "game-session-bootstrap"
     override val lifetime: CommandLifetime = CommandLifetime.defaultRequest
@@ -18,13 +19,36 @@ class GameSessionBootstrapCommand(
             "GameSessionBootstrapCommand requires a connection id."
         }
         interestRegistry.register(connectionId, stateId)
-        val state = context.loadState(stateId)
+        val existingState = context.loadState(stateId)
+        val state = existingState
             ?: ComputerState.empty(
                 id = stateId,
                 playFabId = playFabId,
                 playerIp = stateId.value,
             )
-        return GameSessionBootstrapResult(state = state)
+        val refreshedState = when {
+            networkDirectoryRepository == null -> state
+            existingState == null -> state.copy(
+                network = resolveNetworkDirectoryState(
+                    state = state,
+                    networkDirectoryRepository = networkDirectoryRepository,
+                ),
+            )
+
+            else -> context.request(
+                RefreshCurrentNetworkDirectoryCommand(
+                    stateId = stateId,
+                    networkDirectoryRepository = networkDirectoryRepository,
+                ),
+            ).let { refreshed ->
+                state.copy(
+                    version = refreshed.version,
+                    network = refreshed.network,
+                    runtime = state.runtime.withMutationVersion(refreshed.version),
+                )
+            }
+        }
+        return GameSessionBootstrapResult(state = refreshedState)
     }
 }
 

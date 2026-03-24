@@ -55,6 +55,76 @@ import kotlin.time.Duration.Companion.seconds
 @OptIn(ExperimentalCoroutinesApi::class)
 class RewriteGameNetworkProtocolAdapterTest {
     @Test
+    fun authBootstrapReturnsSingleRefreshedSnapshotWithoutPreBootstrapDelta() = runTest {
+        val repository = InMemoryComputerStateRepository(
+            seededStates = mapOf(
+                GameStateId("LOCAL-IP") to localState().copy(
+                    network = localState().network.copy(
+                        currentNetworkName = "GhostNet",
+                        storeStateId = null,
+                        regularNpcs = emptyList(),
+                        questNpcs = emptyList(),
+                        miningNpcs = emptyList(),
+                        storeNpcs = emptyList(),
+                    ),
+                ),
+                GameStateId("store1") to ComputerState.empty(GameStateId("store1"), playerIp = "store1"),
+            ),
+        )
+        val interests = InMemoryInterestRegistry()
+        val adapter = RewriteGameProtocolAdapter(
+            dispatcher = DefaultCommandDispatcher(
+                repository = repository,
+                interestRegistry = interests,
+            ),
+            interestRegistry = interests,
+            networkDirectoryRepository = testNetworkRepository(),
+        )
+        val harnessAdapter = HarnessBackedGameAdapter(adapter)
+        val harness = InMemoryRewriteServiceHarness(
+            adapter = harnessAdapter,
+            verifier = FakeSessionTicketVerifier(
+                catalog = FakeSessionCatalog(
+                    accounts = listOf(FakePlayerAccount("PF-LOCALUSER", "LOCAL-IP", "SESSION-LOCALUSER")),
+                ),
+                clock = { Instant.ofEpochMilli(testScheduler.currentTime) },
+            ),
+            scope = backgroundScope,
+            timeoutPolicy = ProtocolTimeoutPolicy(
+                authTimeout = 5.seconds,
+                idleTimeout = 45.seconds,
+            ),
+            clock = { Instant.ofEpochMilli(testScheduler.currentTime) },
+        )
+        harnessAdapter.attachHarness(harness)
+
+        val connection = harness.connect()
+        connection.send(
+            RewriteFrames.authRequest(
+                service = RewriteService.GAME,
+                sessionTicket = "SESSION-LOCALUSER",
+                clientBuild = "rewrite-it",
+                playFabIdHint = "PF-LOCALUSER",
+                requestedIp = "LOCAL-IP",
+            ),
+        )
+
+        val authAccepted = connection.awaitFrame()
+        val snapshot = connection.awaitFrame()
+        val snapshotState = RewriteGameJson.decode(
+            serializer = ComputerState.serializer(),
+            payload = snapshot.snapshot!!.payload.toByteArray(),
+        )
+
+        assertTrue(authAccepted.auth_response?.accepted != null)
+        assertTrue(snapshot.snapshot != null)
+        assertEquals(ROOT_NETWORK_NAME, snapshotState.network.currentNetworkName)
+        assertEquals("Root Hunter", snapshotState.network.regularNpcs.single().displayName)
+        assertNull(connection.drainFrames().firstOrNull())
+        assertEquals(ROOT_NETWORK_NAME, repository.load(GameStateId("LOCAL-IP"))?.network?.currentNetworkName)
+    }
+
+    @Test
     fun changenetworkPublishesNetworkDeltaBeforeCorrelatedResponse() = runTest {
         val fixture = createFixture()
         val local = fixture.authenticatedConnection("LOCAL-IP")
@@ -317,6 +387,39 @@ class RewriteGameNetworkProtocolAdapterTest {
                 ROOT_NETWORK_NAME to NetworkDirectoryDefinition(
                     name = ROOT_NETWORK_NAME,
                     storeStateId = GameStateId("store1"),
+                    regularNpcs = listOf(
+                        NpcDirectoryEntry(
+                            stateId = GameStateId("UGOP-ATTACK-1"),
+                            displayName = "Root Hunter",
+                            title = "Attack NPC",
+                            category = NpcCategory.REGULAR,
+                        ),
+                    ),
+                    questNpcs = listOf(
+                        NpcDirectoryEntry(
+                            stateId = GameStateId("UGOP-QUEST-1"),
+                            displayName = "Quest Guide",
+                            title = "Quest NPC",
+                            category = NpcCategory.QUEST,
+                        ),
+                    ),
+                    miningNpcs = listOf(
+                        NpcDirectoryEntry(
+                            stateId = GameStateId("UGOP-MINE-1"),
+                            displayName = "Root Miner",
+                            title = "Mining NPC",
+                            category = NpcCategory.MINING,
+                            commodity = "Silicon",
+                        ),
+                    ),
+                    storeNpcs = listOf(
+                        NpcDirectoryEntry(
+                            stateId = GameStateId("store1"),
+                            displayName = "Shard Store",
+                            title = "Store NPC",
+                            category = NpcCategory.STORE,
+                        ),
+                    ),
                 ),
                 "ProgNet" to NetworkDirectoryDefinition(
                     name = "ProgNet",

@@ -12,6 +12,7 @@ import com.hackwars.rewrite.gamecore.FacebookWithdrawPayload
 import com.hackwars.rewrite.gamecore.GameStateId
 import com.hackwars.rewrite.gamecore.InMemoryComputerStateRepository
 import com.hackwars.rewrite.gamecore.InMemoryInterestRegistry
+import com.hackwars.rewrite.gamecore.InMemoryNetworkDirectoryRepository
 import com.hackwars.rewrite.gamecore.InstalledApplication
 import com.hackwars.rewrite.gamecore.PortState
 import com.hackwars.rewrite.gamecore.PurchaseResponse
@@ -318,6 +319,7 @@ class RewriteGameEconomyStoreProtocolAdapterTest {
             ),
             interestRegistry = interests,
             serverId = "1",
+            networkDirectoryRepository = InMemoryNetworkDirectoryRepository.defaultWorld("1"),
         )
         val harnessAdapter = HarnessBackedGameAdapter(adapter)
         val harness = InMemoryRewriteServiceHarness(

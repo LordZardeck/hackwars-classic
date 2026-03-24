@@ -53,7 +53,6 @@ import com.hackwars.rewrite.gamecore.InstallEquipmentResponse
 import com.hackwars.rewrite.gamecore.InstallFirewallCommand
 import com.hackwars.rewrite.gamecore.InstallFirewallPayload
 import com.hackwars.rewrite.gamecore.InstallFirewallResponse
-import com.hackwars.rewrite.gamecore.InMemoryNetworkDirectoryRepository
 import com.hackwars.rewrite.gamecore.InterestRegistry
 import com.hackwars.rewrite.gamecore.MakeBountyCommand
 import com.hackwars.rewrite.gamecore.MakeBountyPayload
@@ -62,6 +61,7 @@ import com.hackwars.rewrite.gamecore.HookSideEffectSink
 import com.hackwars.rewrite.gamecore.HttpHookRuntime
 import com.hackwars.rewrite.gamecore.NetworkDirectoryRepository
 import com.hackwars.rewrite.gamecore.NetworkSwitchResponse
+import com.hackwars.rewrite.gamecore.NoOpGameStatePublisher
 import com.hackwars.rewrite.gamecore.NoOpHookSideEffectSink
 import com.hackwars.rewrite.gamecore.PageEditorResponse
 import com.hackwars.rewrite.gamecore.PurchaseResponse
@@ -119,6 +119,8 @@ import com.hackwars.rewrite.gamecore.VoteResponse
 import com.hackwars.rewrite.gamecore.WebsiteRenderResponse
 import com.hackwars.rewrite.gamecore.WithdrawCommand
 import com.hackwars.rewrite.gamecore.WithdrawPayload
+import com.hackwars.rewrite.persistence.JdbcNetworkDirectoryRepository
+import com.hackwars.rewrite.persistence.RewritePostgresConnectionFactory
 import com.hackwars.rewrite.protocol.RewriteFrames
 import hackwars.rewrite.v1.CommandEnvelope
 import hackwars.rewrite.v1.CommandResponseStatus
@@ -143,7 +145,9 @@ class RewriteGameProtocolAdapter(
     private val serverId: String = "1",
     private val httpHookRuntime: HttpHookRuntime = HackScriptHttpHookRuntime(),
     private val hookSideEffectSink: HookSideEffectSink = NoOpHookSideEffectSink,
-    private val networkDirectoryRepository: NetworkDirectoryRepository = InMemoryNetworkDirectoryRepository.defaultWorld(serverId),
+    private val networkDirectoryRepository: NetworkDirectoryRepository = JdbcNetworkDirectoryRepository(
+        connectionFactory = RewritePostgresConnectionFactory.fromEnvironment(),
+    ),
     private val registry: CommandRegistry = defaultRegistry(serverId, httpHookRuntime, hookSideEffectSink, networkDirectoryRepository),
 ) {
     suspend fun onSessionStarted(
@@ -155,9 +159,10 @@ class RewriteGameProtocolAdapter(
                 stateId = GameStateId(session.playerIp),
                 playFabId = session.playFabId,
                 interestRegistry = interestRegistry,
+                networkDirectoryRepository = networkDirectoryRepository,
             ),
             metadata = metadataFor(session),
-            publisher = protocolPublisher(transport),
+            publisher = NoOpGameStatePublisher,
         )
 
         return listOf(

@@ -12,6 +12,7 @@ import com.hackwars.rewrite.gamecore.GameStateId
 import com.hackwars.rewrite.gamecore.HookSideEffectSink
 import com.hackwars.rewrite.gamecore.InMemoryComputerStateRepository
 import com.hackwars.rewrite.gamecore.InMemoryInterestRegistry
+import com.hackwars.rewrite.gamecore.InMemoryNetworkDirectoryRepository
 import com.hackwars.rewrite.gamecore.InstalledApplication
 import com.hackwars.rewrite.gamecore.MakeBountyPayload
 import com.hackwars.rewrite.gamecore.PortState
@@ -266,6 +267,7 @@ class RewriteGameQuestProtocolAdapterTest {
             interestRegistry = interests,
             serverId = "1",
             hookSideEffectSink = sink,
+            networkDirectoryRepository = InMemoryNetworkDirectoryRepository.defaultWorld("1"),
         )
         val harnessAdapter = HarnessBackedGameAdapter(adapter)
         val harness = InMemoryRewriteServiceHarness(

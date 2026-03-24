@@ -229,6 +229,7 @@ flowchart LR
 - Notes:
   - Docker Compose runtime, Liquibase bootstrap schema, and rollback smoke coverage are in place.
   - Event and snapshot tables now exist in the rewrite-owned schema.
+  - Rewrite-owned world-directory tables now cover network definitions, attached links, and current-network NPC directory rows.
 
 ### RW-M4-002 - Add importer planning skeleton and migration smoke coverage
 - Status: `done`
@@ -240,7 +241,7 @@ flowchart LR
 - Commit rule: `single green commit only`
 - Notes:
   - Legacy MySQL/XML/JSON descriptors now map to rewrite seed batches without touching legacy runtime code.
-  - JDBC-backed seed sink smoke coverage now writes minimal player, computer, and inventory slices into the rewrite schema.
+  - JDBC-backed seed sink smoke coverage now writes minimal player, computer, inventory, and rewrite-owned world-directory slices into the rewrite schema.
   - Canonical schema breadth and end-to-end migrated-login validation are still pending.
 
 ### RW-M5-001 - Land typed Kotlin game-core contracts and scheduler

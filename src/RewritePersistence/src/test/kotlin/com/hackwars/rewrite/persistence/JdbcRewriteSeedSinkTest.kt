@@ -2,6 +2,7 @@ package com.hackwars.rewrite.persistence
 
 import com.hackwars.rewrite.gamecore.GameStateId
 import com.hackwars.rewrite.gamecore.JAIL_NETWORK_NAME
+import com.hackwars.rewrite.gamecore.NpcCategory
 import com.hackwars.rewrite.gamecore.ProgramScriptSlot
 import com.hackwars.rewrite.gamecore.ROOT_NETWORK_NAME
 import com.hackwars.rewrite.gamecore.ScriptFamily
@@ -35,6 +36,7 @@ class JdbcRewriteSeedSinkTest {
     fun importerSmokeLoadsSeededAccountComputerAndInventorySlice() {
         resetDatabase()
 
+        writeBatch(worldDirectoryBatch())
         writeBatch(
             RewriteSeedBatch(
                 batchId = "player-1",
@@ -203,9 +205,12 @@ class JdbcRewriteSeedSinkTest {
             ),
         )
 
-        assertEquals(12, countRows("rewrite_import_batch"))
+        assertEquals(13, countRows("rewrite_import_batch"))
         assertEquals(4, countRows("rewrite_player_account"))
         assertEquals(4, countRows("rewrite_computer_state"))
+        assertEquals(3, countRows("rewrite_network_directory"))
+        assertEquals(2, countRows("rewrite_network_link"))
+        assertEquals(8, countRows("rewrite_network_npc"))
 
         val state = loadStatePayload("LOCAL-IP")
         val storeState = loadStatePayload("store1")
@@ -230,9 +235,9 @@ class JdbcRewriteSeedSinkTest {
         assertEquals(GameStateId("store1"), state.network.storeStateId)
         assertEquals(setOf("ProgNet"), state.network.allowedNetworks)
         assertEquals(123_456L, state.network.lastNetworkSwitchAtEpochMillis)
-        assertEquals("Prog Runner", state.network.regularNpcs.single().displayName)
+        assertEquals("Prog Courier", state.network.regularNpcs.single().displayName)
         assertEquals("Prog Mentor", state.network.questNpcs.single().displayName)
-        assertEquals("Prog Miner", state.network.miningNpcs.single().displayName)
+        assertEquals("Prog Quarry", state.network.miningNpcs.single().displayName)
         assertEquals("Shard Store", state.network.storeNpcs.single().displayName)
         assertEquals(240, state.stats.experienceByFamily[ScriptFamily.SCANNING])
         assertEquals(80, state.stats.experienceByFamily[ScriptFamily.FIREWALL])
@@ -258,6 +263,56 @@ class JdbcRewriteSeedSinkTest {
         assertTrue(npcState.identity.isNpc)
         assertEquals(ROOT_NETWORK_NAME, npcState.network.currentNetworkName)
         assertTrue(npcState.filesystem.filesByPath["/Public/http"]?.scriptBundle?.script(ProgramScriptSlot.ENTER)?.contains("triggerWatchRemote") == true)
+    }
+
+    private fun worldDirectoryBatch(): RewriteSeedBatch {
+        return RewriteSeedBatch(
+            batchId = "world-1",
+            source = LegacyJsonDescriptor("/legacy/world.json", "world"),
+            seedPayload = SeedWorldDirectory(
+                networks = listOf(
+                    SeedWorldNetworkDefinition(
+                        name = ROOT_NETWORK_NAME,
+                        storeStateId = "store1",
+                        attachedNetworks = listOf(
+                            SeedAttachedNetworkLink(
+                                targetNetworkName = "ProgNet",
+                                entranceMessage = "UGOPNet uplink engaged.",
+                                failureMessage = "A gateway to ProgNet is currently locked.",
+                            ),
+                        ),
+                        npcs = listOf(
+                            SeedWorldNpcEntry("UGOP-ATTACK-1", "Root Hunter", "Attack NPC", NpcCategory.REGULAR),
+                            SeedWorldNpcEntry("UGOP-QUEST-1", "Quest Guide", "Quest NPC", NpcCategory.QUEST),
+                            SeedWorldNpcEntry("UGOP-MINE-1", "Root Miner", "Mining NPC", NpcCategory.MINING, "Silicon"),
+                            SeedWorldNpcEntry("store1", "Shard Store", "Store NPC", NpcCategory.STORE),
+                        ),
+                    ),
+                    SeedWorldNetworkDefinition(
+                        name = "ProgNet",
+                        storeStateId = "store1",
+                        attachedNetworks = listOf(
+                            SeedAttachedNetworkLink(
+                                targetNetworkName = ROOT_NETWORK_NAME,
+                                entranceMessage = "ProgNet relay engaged.",
+                                failureMessage = "The uplink back to UGOPNet is unstable.",
+                            ),
+                        ),
+                        npcs = listOf(
+                            SeedWorldNpcEntry("PROG-ATTACK-1", "Prog Courier", "Attack NPC", NpcCategory.REGULAR),
+                            SeedWorldNpcEntry("PROG-QUEST-1", "Prog Mentor", "Quest NPC", NpcCategory.QUEST),
+                            SeedWorldNpcEntry("PROG-MINE-1", "Prog Quarry", "Mining NPC", NpcCategory.MINING, "Germanium"),
+                            SeedWorldNpcEntry("store1", "Shard Store", "Store NPC", NpcCategory.STORE),
+                        ),
+                    ),
+                    SeedWorldNetworkDefinition(
+                        name = JAIL_NETWORK_NAME,
+                        storeStateId = null,
+                    ),
+                ),
+            ),
+            createdAt = Instant.EPOCH,
+        )
     }
 
     private fun resetDatabase() {

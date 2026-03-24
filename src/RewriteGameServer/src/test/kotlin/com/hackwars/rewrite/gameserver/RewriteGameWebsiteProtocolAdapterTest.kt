@@ -8,6 +8,7 @@ import com.hackwars.rewrite.gamecore.ExitWebpagePayload
 import com.hackwars.rewrite.gamecore.GameStateId
 import com.hackwars.rewrite.gamecore.InMemoryComputerStateRepository
 import com.hackwars.rewrite.gamecore.InMemoryInterestRegistry
+import com.hackwars.rewrite.gamecore.InMemoryNetworkDirectoryRepository
 import com.hackwars.rewrite.gamecore.InstalledApplication
 import com.hackwars.rewrite.gamecore.PageEditorResponse
 import com.hackwars.rewrite.gamecore.PlayerStatsState
@@ -464,6 +465,7 @@ class RewriteGameWebsiteProtocolAdapterTest {
             interestRegistry = interests,
             serverId = "1",
             hookSideEffectSink = sink,
+            networkDirectoryRepository = InMemoryNetworkDirectoryRepository.defaultWorld("1"),
         )
         val harnessAdapter = HarnessBackedGameAdapter(adapter)
         val harness = InMemoryRewriteServiceHarness(

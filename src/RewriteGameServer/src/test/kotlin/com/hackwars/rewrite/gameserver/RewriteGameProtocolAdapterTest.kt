@@ -11,6 +11,7 @@ import com.hackwars.rewrite.gamecore.DecompileFileResponse
 import com.hackwars.rewrite.gamecore.GameStateId
 import com.hackwars.rewrite.gamecore.InMemoryComputerStateRepository
 import com.hackwars.rewrite.gamecore.InMemoryInterestRegistry
+import com.hackwars.rewrite.gamecore.InMemoryNetworkDirectoryRepository
 import com.hackwars.rewrite.gamecore.InstalledFirewall
 import com.hackwars.rewrite.gamecore.PortState
 import com.hackwars.rewrite.gamecore.RequestDirectoryPayload
@@ -407,6 +408,7 @@ class RewriteGameProtocolAdapterTest {
                 interestRegistry = interests,
             ),
             interestRegistry = interests,
+            networkDirectoryRepository = InMemoryNetworkDirectoryRepository.defaultWorld("1"),
         )
         val harnessAdapter = HarnessBackedGameAdapter(adapter)
         val harness = InMemoryRewriteServiceHarness(

@@ -210,17 +210,19 @@
   - `requestscan` remains a single correlated response, now uses typed masked port/firewall views, and publishes requester `economy` plus `stats` deltas before the response.
   - `requestgame` is intentionally excluded from this slice; the rewrite network view is derived from session snapshot plus targeted `network` deltas instead of a one-shot fetch command.
 
-### RW-GS-S4B2 - Broader NPC and world discovery
-- Status: `todo`
-- Owner: `unassigned`
-- Depends on: `RW-GS-S4B1`
-- Allowed write scope: `:RewriteGameCore`, `:RewriteGameServer`
-- Verification command: `./gradlew :RewriteGameCore:test :RewriteGameServer:test`
+### RW-GS-S4B2 - Rewrite-owned world directory and network access refresh
+- Status: `done`
+- Owner: `codex`
+- Depends on: `RW-GS-S4B1`, `RW-M4-001`
+- Allowed write scope: `:RewriteGameCore`, `:RewriteGameServer`, `:RewritePersistence`
+- Verification command: `./gradlew :RewriteGameCore:test :RewritePersistence:test :RewritePersistence:migrationTest :RewriteGameServer:test :RewriteTestKit:integrationTest rewriteCheck`
 - Artifacts: `build/reports/tests/test`
 - Commit rule: `single green commit only`
 - Notes:
-  - Extends current-network directory data into broader world discovery, additional NPC visibility rules, and any remaining non-search network-map behavior.
-  - Must preserve the authoritative per-player `NetworkState` model introduced in `RW-GS-S4B1` rather than reintroducing one-shot network-map fetch commands.
+  - Replaces the default in-memory world stub with rewrite-owned world-directory tables, JDBC repository coverage, and importer/seed payloads.
+  - Adds internal-only `GrantNetworkAccessCommand` and `RefreshCurrentNetworkDirectoryCommand` so future quest/combat flows can unlock networks and refresh current-network directory state without adding new public transport commands.
+  - Game bootstrap now refreshes current-network store routing and NPC lists before returning the one required snapshot, while still emitting no pre-bootstrap delta frames.
+  - `changenetwork` continues to behave the same on the wire, but it now resolves switch validation text and destination directory data from rewrite-owned persistence rather than hardcoded defaults.
 
 ### RW-GS-S4C - Search and world/browser lookup flows
 - Status: `todo`

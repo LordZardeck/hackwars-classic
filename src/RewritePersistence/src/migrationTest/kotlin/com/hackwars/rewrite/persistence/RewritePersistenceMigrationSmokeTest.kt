@@ -26,6 +26,16 @@ class RewritePersistenceMigrationSmokeTest {
             RewriteLiquibase.update(connection)
             assertTrue(tableExists(connection, "rewrite_state_event"))
             assertTrue(tableExists(connection, "rewrite_state_snapshot"))
+            assertTrue(tableExists(connection, "rewrite_network_directory"))
+            assertTrue(tableExists(connection, "rewrite_network_link"))
+            assertTrue(tableExists(connection, "rewrite_network_npc"))
+
+            RewriteLiquibase.rollback(connection, 1)
+            assertTrue(tableExists(connection, "rewrite_state_event"))
+            assertTrue(tableExists(connection, "rewrite_state_snapshot"))
+            assertEquals(false, tableExists(connection, "rewrite_network_directory"))
+            assertEquals(false, tableExists(connection, "rewrite_network_link"))
+            assertEquals(false, tableExists(connection, "rewrite_network_npc"))
 
             RewriteLiquibase.rollback(connection, 1)
             assertEquals(false, tableExists(connection, "rewrite_state_event"))

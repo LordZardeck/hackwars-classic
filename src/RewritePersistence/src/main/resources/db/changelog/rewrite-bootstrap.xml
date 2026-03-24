@@ -126,4 +126,93 @@
             <dropTable tableName="rewrite_import_batch"/>
         </rollback>
     </changeSet>
+
+    <changeSet id="rewrite-0002-world-directory" author="codex">
+        <comment>Persist rewrite-owned network definitions, attached links, and NPC directory rows.</comment>
+
+        <createTable tableName="rewrite_network_directory">
+            <column name="network_name" type="varchar(64)">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="store_state_id" type="varchar(64)"/>
+        </createTable>
+
+        <createTable tableName="rewrite_network_link">
+            <column name="from_network_name" type="varchar(64)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="to_network_name" type="varchar(64)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="entrance_message" type="text">
+                <constraints nullable="false"/>
+            </column>
+            <column name="failure_message" type="text">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <addPrimaryKey
+            tableName="rewrite_network_link"
+            columnNames="from_network_name, to_network_name"
+            constraintName="pk_rewrite_network_link"/>
+
+        <createTable tableName="rewrite_network_npc">
+            <column name="network_name" type="varchar(64)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="state_id" type="varchar(64)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="display_name" type="varchar(128)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="title" type="varchar(128)"/>
+            <column name="category" type="varchar(16)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="commodity" type="varchar(128)"/>
+            <column name="sort_order" type="integer">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <addPrimaryKey
+            tableName="rewrite_network_npc"
+            columnNames="network_name, state_id"
+            constraintName="pk_rewrite_network_npc"/>
+
+        <addForeignKeyConstraint
+            baseTableName="rewrite_network_link"
+            baseColumnNames="from_network_name"
+            referencedTableName="rewrite_network_directory"
+            referencedColumnNames="network_name"
+            constraintName="fk_rewrite_network_link_from"/>
+
+        <addForeignKeyConstraint
+            baseTableName="rewrite_network_link"
+            baseColumnNames="to_network_name"
+            referencedTableName="rewrite_network_directory"
+            referencedColumnNames="network_name"
+            constraintName="fk_rewrite_network_link_to"/>
+
+        <addForeignKeyConstraint
+            baseTableName="rewrite_network_npc"
+            baseColumnNames="network_name"
+            referencedTableName="rewrite_network_directory"
+            referencedColumnNames="network_name"
+            constraintName="fk_rewrite_network_npc_network"/>
+
+        <createIndex tableName="rewrite_network_npc" indexName="idx_rewrite_network_npc_sort">
+            <column name="network_name"/>
+            <column name="category"/>
+            <column name="sort_order"/>
+        </createIndex>
+
+        <rollback>
+            <dropTable tableName="rewrite_network_npc"/>
+            <dropTable tableName="rewrite_network_link"/>
+            <dropTable tableName="rewrite_network_directory"/>
+        </rollback>
+    </changeSet>
 </databaseChangeLog>

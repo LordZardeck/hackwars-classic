@@ -134,6 +134,124 @@ class NetworkCommandsTest {
     }
 
     @Test
+    fun grantNetworkAccessAddsOnceAndPublishesNetworkDeltaOnlyOnChange() = runTest {
+        val stateId = GameStateId("LOCAL-IP")
+        val repository = InMemoryComputerStateRepository(
+            seededStates = mapOf(
+                stateId to localPlayerState(stateId).copy(
+                    network = localPlayerState(stateId).network.copy(allowedNetworks = emptySet()),
+                ),
+            ),
+        )
+        val interests = InMemoryInterestRegistry()
+        interests.register("conn-1", stateId)
+        val publisher = RecordingGameStatePublisher()
+        val dispatcher = DefaultCommandDispatcher(repository, interests)
+
+        val first = dispatcher.request(
+            command = GrantNetworkAccessCommand(stateId, "ProgNet"),
+            metadata = CommandMetadata(connectionId = "conn-1"),
+            publisher = publisher,
+        )
+        val second = dispatcher.request(
+            command = GrantNetworkAccessCommand(stateId, "ProgNet"),
+            metadata = CommandMetadata(connectionId = "conn-1"),
+            publisher = publisher,
+        )
+
+        assertEquals("network-access-granted", first.message)
+        assertEquals("network-access-unchanged", second.message)
+        assertEquals(setOf("ProgNet"), repository.load(stateId)?.network?.allowedNetworks)
+        assertEquals(1, publisher.deltas.size)
+        assertEquals(setOf("network"), publisher.deltas.single().second.deltaKeys)
+    }
+
+    @Test
+    fun refreshCurrentNetworkDirectoryUpdatesOnlyWhenRepositoryDiffers() = runTest {
+        val stateId = GameStateId("LOCAL-IP")
+        val repository = InMemoryComputerStateRepository(
+            seededStates = mapOf(
+                stateId to localPlayerState(stateId).copy(
+                    network = localPlayerState(stateId).network.copy(
+                        currentNetworkName = "ProgNet",
+                        storeStateId = GameStateId("old-store"),
+                        regularNpcs = emptyList(),
+                        questNpcs = emptyList(),
+                        miningNpcs = emptyList(),
+                        storeNpcs = emptyList(),
+                    ),
+                ),
+            ),
+        )
+        val interests = InMemoryInterestRegistry()
+        interests.register("conn-1", stateId)
+        val publisher = RecordingGameStatePublisher()
+        val dispatcher = DefaultCommandDispatcher(repository, interests)
+
+        val changed = dispatcher.request(
+            command = RefreshCurrentNetworkDirectoryCommand(
+                stateId = stateId,
+                networkDirectoryRepository = testNetworkRepository(),
+            ),
+            metadata = CommandMetadata(connectionId = "conn-1"),
+            publisher = publisher,
+        )
+        val unchanged = dispatcher.request(
+            command = RefreshCurrentNetworkDirectoryCommand(
+                stateId = stateId,
+                networkDirectoryRepository = testNetworkRepository(),
+            ),
+            metadata = CommandMetadata(connectionId = "conn-1"),
+            publisher = publisher,
+        )
+
+        assertTrue(changed.changed)
+        assertFalse(unchanged.changed)
+        assertEquals(GameStateId("store1"), repository.load(stateId)?.network?.storeStateId)
+        assertEquals("Prog Attack", repository.load(stateId)?.network?.regularNpcs?.single()?.displayName)
+        assertEquals(1, publisher.deltas.size)
+        assertEquals(setOf("network"), publisher.deltas.single().second.deltaKeys)
+    }
+
+    @Test
+    fun gameSessionBootstrapRefreshesCurrentNetworkDirectoryAndFallsBackToRootNetwork() = runTest {
+        val stateId = GameStateId("LOCAL-IP")
+        val repository = InMemoryComputerStateRepository(
+            seededStates = mapOf(
+                stateId to localPlayerState(stateId).copy(
+                    network = localPlayerState(stateId).network.copy(
+                        currentNetworkName = "GhostNet",
+                        storeStateId = null,
+                        regularNpcs = emptyList(),
+                        questNpcs = emptyList(),
+                        miningNpcs = emptyList(),
+                        storeNpcs = emptyList(),
+                    ),
+                ),
+            ),
+        )
+        val interests = InMemoryInterestRegistry()
+        val dispatcher = DefaultCommandDispatcher(repository, interests)
+
+        val bootstrap = dispatcher.request(
+            command = GameSessionBootstrapCommand(
+                stateId = stateId,
+                playFabId = "PF-LOCAL-IP",
+                interestRegistry = interests,
+                networkDirectoryRepository = testNetworkRepository(),
+            ),
+            metadata = CommandMetadata(connectionId = "conn-1"),
+            publisher = NoOpGameStatePublisher,
+        )
+
+        assertEquals(setOf(stateId), interests.subscriptionsFor("conn-1"))
+        assertEquals(ROOT_NETWORK_NAME, bootstrap.state.network.currentNetworkName)
+        assertEquals(GameStateId("store1"), bootstrap.state.network.storeStateId)
+        assertEquals("Quest Guide", bootstrap.state.network.questNpcs.single().displayName)
+        assertEquals(ROOT_NETWORK_NAME, repository.load(stateId)?.network?.currentNetworkName)
+    }
+
+    @Test
     fun requestScanRejectsMissingBankLowMoneyAndOverheatWithoutMutation() = runTest {
         val requesterId = GameStateId("LOCAL-IP")
         val targetId = GameStateId("TARGET-IP")
@@ -331,6 +449,39 @@ class NetworkCommandsTest {
                 ROOT_NETWORK_NAME to NetworkDirectoryDefinition(
                     name = ROOT_NETWORK_NAME,
                     storeStateId = GameStateId("store1"),
+                    regularNpcs = listOf(
+                        NpcDirectoryEntry(
+                            stateId = GameStateId("UGOP-ATTACK-1"),
+                            displayName = "Root Hunter",
+                            title = "Attack NPC",
+                            category = NpcCategory.REGULAR,
+                        ),
+                    ),
+                    questNpcs = listOf(
+                        NpcDirectoryEntry(
+                            stateId = GameStateId("UGOP-QUEST-1"),
+                            displayName = "Quest Guide",
+                            title = "Quest NPC",
+                            category = NpcCategory.QUEST,
+                        ),
+                    ),
+                    miningNpcs = listOf(
+                        NpcDirectoryEntry(
+                            stateId = GameStateId("UGOP-MINE-1"),
+                            displayName = "Root Miner",
+                            title = "Mining NPC",
+                            category = NpcCategory.MINING,
+                            commodity = "Silicon",
+                        ),
+                    ),
+                    storeNpcs = listOf(
+                        NpcDirectoryEntry(
+                            stateId = GameStateId("store1"),
+                            displayName = "Shard Store",
+                            title = "Store NPC",
+                            category = NpcCategory.STORE,
+                        ),
+                    ),
                     switchMessagesByTarget = mapOf(
                         "ForbiddenNet" to "There is no connection between UGOPNet and ForbiddenNet.",
                     ),

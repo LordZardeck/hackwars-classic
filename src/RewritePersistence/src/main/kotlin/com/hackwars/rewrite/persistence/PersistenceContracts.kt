@@ -1,5 +1,6 @@
 package com.hackwars.rewrite.persistence
 
+import com.hackwars.rewrite.gamecore.NpcCategory
 import java.time.Instant
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
@@ -98,6 +99,31 @@ data class SeedInventorySnapshot(
     val enableFtp: Boolean = true,
     val enableHttp: Boolean = true,
 ) : SeedPayload
+
+data class SeedWorldDirectory(
+    val networks: List<SeedWorldNetworkDefinition>,
+) : SeedPayload
+
+data class SeedWorldNetworkDefinition(
+    val name: String,
+    val storeStateId: String? = null,
+    val attachedNetworks: List<SeedAttachedNetworkLink> = emptyList(),
+    val npcs: List<SeedWorldNpcEntry> = emptyList(),
+)
+
+data class SeedAttachedNetworkLink(
+    val targetNetworkName: String,
+    val entranceMessage: String,
+    val failureMessage: String = entranceMessage,
+)
+
+data class SeedWorldNpcEntry(
+    val stateId: String,
+    val displayName: String,
+    val title: String = "",
+    val category: NpcCategory,
+    val commodity: String? = null,
+)
 
 interface RewriteSeedPlanner {
     fun plan(source: LegacySourceDescriptor): RewriteSeedBatch

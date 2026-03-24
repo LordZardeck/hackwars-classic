@@ -16,6 +16,81 @@ data class RequestScanPayload(
     val targetIp: String? = null,
 )
 
+class GrantNetworkAccessCommand(
+    private val stateId: GameStateId,
+    private val networkName: String,
+) : RequestCommand<MutationAcceptedResponse> {
+    override val name: String = "giveaccess"
+    override val lifetime: CommandLifetime = CommandLifetime.defaultRequest
+    override val targetStateIds: Set<GameStateId> = setOf(stateId)
+
+    override suspend fun execute(context: CommandContext): MutationAcceptedResponse {
+        val trimmedNetworkName = networkName.trim()
+        require(trimmedNetworkName.isNotEmpty()) { "A network name is required." }
+
+        val state = context.requireExistingState(stateId)
+        if (state.network.allowedNetworks.contains(trimmedNetworkName)) {
+            return MutationAcceptedResponse(
+                stateId = stateId,
+                version = state.version,
+                message = "network-access-unchanged",
+            )
+        }
+
+        val updated = context.appendEvents(
+            id = stateId,
+            events = listOf(
+                NetworkStateChangedEvent(
+                    network = state.network.copy(
+                        allowedNetworks = state.network.allowedNetworks + trimmedNetworkName,
+                    ),
+                ),
+            ),
+        )
+        return MutationAcceptedResponse(
+            stateId = stateId,
+            version = updated.version,
+            message = "network-access-granted",
+        )
+    }
+}
+
+class RefreshCurrentNetworkDirectoryCommand(
+    private val stateId: GameStateId,
+    private val networkDirectoryRepository: NetworkDirectoryRepository,
+) : RequestCommand<NetworkDirectoryRefreshResult> {
+    override val name: String = "refreshcurrentnetworkdirectory"
+    override val lifetime: CommandLifetime = CommandLifetime.defaultRequest
+    override val targetStateIds: Set<GameStateId> = setOf(stateId)
+
+    override suspend fun execute(context: CommandContext): NetworkDirectoryRefreshResult {
+        val state = context.requireExistingState(stateId)
+        val refreshedNetwork = resolveNetworkDirectoryState(
+            state = state,
+            networkDirectoryRepository = networkDirectoryRepository,
+        )
+        if (refreshedNetwork == state.network) {
+            return NetworkDirectoryRefreshResult(
+                stateId = stateId,
+                changed = false,
+                network = state.network,
+                version = state.version,
+            )
+        }
+
+        val updated = context.appendEvents(
+            id = stateId,
+            events = listOf(NetworkStateChangedEvent(refreshedNetwork)),
+        )
+        return NetworkDirectoryRefreshResult(
+            stateId = stateId,
+            changed = true,
+            network = updated.network,
+            version = updated.version,
+        )
+    }
+}
+
 class ChangeNetworkCommand(
     private val stateId: GameStateId,
     private val targetNetworkName: String?,
@@ -422,6 +497,24 @@ private fun PortState.toScannedPortView(
             else -> DefaultPortVisibility.NO
         },
         firewall = installedFirewall?.takeIf { revealFirewalls }?.toFirewallView(),
+    )
+}
+
+internal suspend fun resolveNetworkDirectoryState(
+    state: ComputerState,
+    networkDirectoryRepository: NetworkDirectoryRepository,
+): NetworkState {
+    val resolvedDefinition = networkDirectoryRepository.loadNetwork(state.network.currentNetworkName)
+        ?: networkDirectoryRepository.loadNetwork(ROOT_NETWORK_NAME)
+        ?: NetworkDirectoryDefinition(name = ROOT_NETWORK_NAME)
+
+    return state.network.copy(
+        currentNetworkName = resolvedDefinition.name,
+        storeStateId = resolvedDefinition.storeStateId,
+        regularNpcs = resolvedDefinition.regularNpcs,
+        questNpcs = resolvedDefinition.questNpcs,
+        miningNpcs = resolvedDefinition.miningNpcs,
+        storeNpcs = resolvedDefinition.storeNpcs,
     )
 }
 
