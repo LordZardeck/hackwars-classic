@@ -1,112 +1,53 @@
 package game;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 /**
- * Computer.java
- * <p>
- * A computer in the Hacker game essentially represents bot a user and their computer, connections between
- * the server and front-end are handled through this class.
+ * Legacy bridge for transaction/event logging.
+ *
+ * Callers still use the historical singleton API, but output now flows through
+ * the shared SLF4J logging system instead of writing ad hoc files relative to
+ * the current working directory.
  */
+public final class CentralLogging {
+    private static final CentralLogging Instance = new CentralLogging();
+    private static final Logger Logger = LoggerFactory.getLogger(CentralLogging.class);
 
-import java.util.*;
-
-import util.*;
-import org.w3c.dom.Node;
-import org.w3c.dom.NamedNodeMap;
-
-import java.util.concurrent.Semaphore;
-
-import assignments.*;
-
-import java.io.*;
-import java.net.URL;
-import java.text.*;
-import java.awt.*;
-import javax.imageio.*;
-import java.awt.image.*;
-
-public class CentralLogging implements Runnable {
-    private BufferedWriter Out = null;
-    private static CentralLogging Instance = null;
-    boolean run = true;
-    private final Semaphore available = new Semaphore(1, true);//Make it thread safe.
-    private ArrayList Tasks = new ArrayList();//The array of tasks.
-    private static final long SLEEP_TIME = 50;//How often can we process a remote call?
-    private Thread MyThread = null;
-
-    //Constructor.
     private CentralLogging() {
-        try {
-            MyThread = new Thread(this, "CentralLogging");
-            MyThread.start();
-        } catch (Exception e) {
-
-        }
     }
 
     /**
-     Get an instance of this writer.
+     * Get an instance of this logger bridge.
      */
     public static CentralLogging getInstance() {
-        if (Instance == null)
-            Instance = new CentralLogging();
-        return (Instance);
+        return Instance;
     }
 
     /**
-     Add a string to be outputted to the log file.
+     * Add a string to be output through the shared logging pipeline.
      */
     public void addOutput(String data) {
-        try {
-            available.acquire();
-            Tasks.add(data);
-            available.release();
-        } catch (Exception e) {
-            available.release();
+        String message = normalize(data);
+        if (message == null || message.isEmpty()) {
+            return;
         }
+        Logger.info(message);
     }
 
-    /**
-     Fetch execution tasks from the stack.
-     */
-    public synchronized void run() {
-        while (run) {
-            long startTime = GameClock.nowNanos();
-
-            try {
-                //LOCK OUR LIST AND POP ONE ENTRY.
-                available.acquire();
-                Iterator MyIterator = Tasks.iterator();
-                Object o = null;
-                if (MyIterator.hasNext()) {
-                    o = MyIterator.next();
-                    MyIterator.remove();
-                }
-                available.release();
-                if (o != null) {
-                    Out = new BufferedWriter(new FileWriter("transactionlog.txt", true));
-                    Out.write((String) o);
-                    Out.close();
-                }
-
-            } catch (Exception e) {
-                available.release();
-            }
-
-            //Sleep to cut down on processor load.
-            if (Tasks.size() == 0) {
-                try {
-                    long elapsedNanos = GameClock.nowNanos() - startTime;
-                    long sleepNanos = java.util.concurrent.TimeUnit.MILLISECONDS.toNanos(SLEEP_TIME) - elapsedNanos;
-                    if (sleepNanos > 0) {
-                        Thread.sleep(
-                                java.util.concurrent.TimeUnit.NANOSECONDS.toMillis(sleepNanos),
-                                (int) (sleepNanos % 1_000_000L)
-                        );
-                    }
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-            }
+    private static String normalize(String data) {
+        if (data == null) {
+            return null;
         }
+
+        int endIndex = data.length();
+        while (endIndex > 0) {
+            char current = data.charAt(endIndex - 1);
+            if (current != '\n' && current != '\r') {
+                break;
+            }
+            endIndex--;
+        }
+        return data.substring(0, endIndex);
     }
 }
