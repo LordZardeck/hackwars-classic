@@ -59,6 +59,7 @@
 - Notes:
   - Structural planner/sink abstractions exist for legacy MySQL/XML/JSON sources.
   - JDBC seed sink now writes import batches plus minimal account/computer/inventory records into the rewrite schema.
+  - Importer smoke fixtures now seed root, `/Public`, `/Store`, migration-note files, and an installable banking binary so filesystem/install slices have realistic migrated bootstrap data.
   - Write only new PostgreSQL entities and snapshots.
 
 ### RW-DATA-005 - Add importer validation suite

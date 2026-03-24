@@ -46,6 +46,7 @@
 - Notes:
   - Rewrite persistence now has Testcontainers-backed test and migration smoke coverage.
   - Typed game-core and rewrite game-server proof-slice tests now run green against the in-memory harness and JDBC repository.
+  - M6-S2 adds direct command coverage plus harness-backed integration coverage for filesystem browsing/mutation, compile/decompile side effects, banking-app install, and firewall replacement flows.
   - Full-stack multi-service rewrite integration still needs isolated JVM-process coverage beyond the in-memory harness.
 
 ### RW-TEST-004 - Add UI screenshot baseline system

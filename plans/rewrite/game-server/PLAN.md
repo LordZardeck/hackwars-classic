@@ -87,16 +87,19 @@
   - Reconnect and full persistence-backed profile loading still need follow-on slice work.
 
 ### RW-GS-S2 - Filesystem, files, scripts, FTP, equipment install, firewall install
-- Status: `todo`
-- Owner: `unassigned`
+- Status: `done`
+- Owner: `codex`
 - Depends on: `RW-GS-S1`
-- Allowed write scope: `:RewriteGameCore`, `:RewriteGameServer`
-- Verification command: `./gradlew :RewriteGameCore:test :RewriteGameServer:test`
+- Allowed write scope: `:RewriteGameCore`, `:RewriteGameServer`, `:RewritePersistence`
+- Verification command: `./gradlew :RewriteGameCore:test :RewritePersistence:test :RewritePersistence:migrationTest :RewriteGameServer:test :RewriteTestKit:integrationTest`
 - Artifacts: `build/reports/tests/test`
 - Commit rule: `single green commit only`
 - Notes:
   - Cover directory requests, file load/save, compile/decompile, and install flows.
   - Separate one-shot responses from state deltas.
+  - Typed filesystem state now uses `currentPath`, `directoriesByPath`, and `filesByPath` with canonical slash-prefixed paths.
+  - Rewrite game-core tests now cover request-directory/request-file/request-secondary-directory, path normalization, save/create/delete/delete-multi, compile/decompile petty-cash and XP side effects, banking-app install, equipment install, and firewall replacement semantics.
+  - Rewrite game-server harness tests now prove one-shot read responses, targeted filesystem/economy/port deltas, banking default-port selection, and replaced-firewall return-to-disk behavior.
 
 ### RW-GS-S3 - Economy, websites, store, banking, purchases, resale, votes
 - Status: `todo`

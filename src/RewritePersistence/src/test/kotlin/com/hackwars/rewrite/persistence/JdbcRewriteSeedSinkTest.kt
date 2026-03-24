@@ -70,7 +70,12 @@ class JdbcRewriteSeedSinkTest {
         assertEquals(1, countRows("rewrite_computer_state"))
 
         val state = loadStatePayload("LOCAL-IP")
-        assertTrue(state.filesystem.files.any { it.name == "note-1.txt" && it.contents == "migration note" })
+        assertTrue(state.filesystem.directoriesByPath.containsKey("/Public"))
+        assertTrue(state.filesystem.directoriesByPath.containsKey("/Store"))
+        assertTrue(state.filesystem.filesByPath.values.any { it.name == "note-1.txt" && it.contents == "migration note" })
+        assertTrue(state.filesystem.filesByPath.containsKey("/readme.txt"))
+        assertTrue(state.filesystem.filesByPath.containsKey("/Store/catalog.txt"))
+        assertTrue(state.filesystem.filesByPath["/Public/bank.bin"]?.compiledBinary?.bankingApplication == true)
     }
 
     private fun resetDatabase() {

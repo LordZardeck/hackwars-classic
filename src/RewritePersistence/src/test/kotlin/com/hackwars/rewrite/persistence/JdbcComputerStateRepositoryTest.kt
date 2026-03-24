@@ -1,9 +1,26 @@
 package com.hackwars.rewrite.persistence
 
 import com.hackwars.rewrite.gamecore.ComputerState
+import com.hackwars.rewrite.gamecore.ComputerEvent
+import com.hackwars.rewrite.gamecore.CompiledBinaryMetadata
+import com.hackwars.rewrite.gamecore.DirectoryCreatedEvent
+import com.hackwars.rewrite.gamecore.DirectoryEntry
+import com.hackwars.rewrite.gamecore.EquipmentInstalledEvent
+import com.hackwars.rewrite.gamecore.EquipmentSlot
+import com.hackwars.rewrite.gamecore.FileCompiledEvent
+import com.hackwars.rewrite.gamecore.FileSavedEvent
 import com.hackwars.rewrite.gamecore.GameStateId
+import com.hackwars.rewrite.gamecore.InstalledEquipment
+import com.hackwars.rewrite.gamecore.PortState
 import com.hackwars.rewrite.gamecore.PreferenceSetEvent
+import com.hackwars.rewrite.gamecore.ScriptFamily
 import com.hackwars.rewrite.gamecore.SnapshotCoordinator
+import com.hackwars.rewrite.gamecore.StoredFile
+import com.hackwars.rewrite.gamecore.StoredFileKind
+import com.hackwars.rewrite.gamecore.ApplicationInstalledEvent
+import com.hackwars.rewrite.gamecore.ApplicationKind
+import com.hackwars.rewrite.gamecore.InstalledApplication
+import com.hackwars.rewrite.gamecore.buildFilePath
 import java.sql.Connection
 import java.sql.DriverManager
 import java.time.Instant
@@ -54,6 +71,112 @@ class JdbcComputerStateRepositoryTest {
         assertEquals("true", updated.preferences.values["show_clock"])
         assertEquals("false", updated.preferences.values["show_logs"])
         assertEquals(2, countRows("rewrite_state_event"))
+    }
+
+    @Test
+    fun replaysFilesystemAndInstallEventsIntoDeterministicTypedState() {
+        resetDatabase()
+        val stateId = GameStateId("LOCAL-IP")
+        seedPlayerAndComputer(
+            stateId = stateId,
+            state = ComputerState.empty(
+                id = stateId,
+                playFabId = "PF-LOCALUSER",
+            ).copy(
+                economy = ComputerState.empty(id = stateId).economy.copy(pettyCash = 500.0),
+            ),
+        )
+        val repository = JdbcComputerStateRepository(
+            connectionFactory = ::newConnection,
+            serializer = serializer,
+            snapshotCoordinator = SnapshotCoordinator(eventThreshold = 1, timeThreshold = 5.seconds),
+        )
+
+        val sourceFile = StoredFile(
+            path = buildFilePath("/Public", "bank.hws"),
+            name = "bank.hws",
+            kind = StoredFileKind.SCRIPT_SOURCE,
+            contents = "bank script",
+            compileCost = 75.0,
+            compiledBinary = CompiledBinaryMetadata(
+                scriptFamily = ScriptFamily.BANKING,
+                outputName = "bank.bin",
+                applicationKind = ApplicationKind.BANKING,
+                bankingApplication = true,
+                experienceAward = 4,
+            ),
+        )
+        val compiledFile = sourceFile.copy(
+            path = buildFilePath("/Public", "bank.bin"),
+            name = "bank.bin",
+            kind = StoredFileKind.APPLICATION_BINARY,
+        )
+        val equipmentFile = StoredFile(
+            path = buildFilePath("/Public", "cpu-card.bin"),
+            name = "cpu-card.bin",
+            kind = StoredFileKind.EQUIPMENT_BINARY,
+            contents = "cpu boost",
+            compiledBinary = CompiledBinaryMetadata(
+                scriptFamily = ScriptFamily.GENERAL,
+                equipmentSlot = EquipmentSlot.CPU,
+                outputName = "cpu-card.bin",
+            ),
+        )
+
+        runBlockingAppend(
+            repository,
+            stateId,
+            listOf(
+                DirectoryCreatedEvent(DirectoryEntry(path = "/Public", name = "Public")),
+                FileSavedEvent(sourceFile),
+                FileSavedEvent(equipmentFile),
+                FileCompiledEvent(
+                    sourceFilePath = sourceFile.path,
+                    remainingSourceFile = sourceFile,
+                    compiledFile = compiledFile,
+                    pettyCashDelta = -75.0,
+                    scriptFamily = ScriptFamily.BANKING,
+                    experienceDelta = 4,
+                ),
+                ApplicationInstalledEvent(
+                    sourceFilePath = compiledFile.path,
+                    remainingSourceFile = null,
+                    portState = PortState(
+                        number = 6,
+                        type = "banking",
+                        installedApplication = InstalledApplication(
+                            name = "bank.bin",
+                            kind = ApplicationKind.BANKING,
+                            binaryPath = compiledFile.path,
+                            banking = true,
+                        ),
+                    ),
+                    defaultBankPort = 6,
+                ),
+                EquipmentInstalledEvent(
+                    sourceFilePath = equipmentFile.path,
+                    remainingSourceFile = null,
+                    slot = EquipmentSlot.CPU,
+                    equipment = InstalledEquipment(
+                        slot = EquipmentSlot.CPU,
+                        name = "cpu-card.bin",
+                        binaryPath = equipmentFile.path,
+                    ),
+                ),
+            ),
+        )
+
+        val reloaded = runBlockingLoad(repository, stateId)
+
+        requireNotNull(reloaded)
+        assertEquals(6, reloaded.economy.defaultBankPort)
+        assertEquals(425.0, reloaded.economy.pettyCash)
+        assertEquals(4, reloaded.stats.experienceByFamily[ScriptFamily.BANKING])
+        assertEquals(1, reloaded.filesystem.directoriesByPath.count { it.key == "/Public" })
+        assertEquals("bank.hws", reloaded.filesystem.filesByPath[sourceFile.path]?.name)
+        assertEquals("bank.bin", reloaded.ports.single { it.number == 6 }.installedApplication?.name)
+        assertEquals("cpu-card.bin", reloaded.hardware.equipmentSlots[EquipmentSlot.CPU]?.name)
+        assertTrue(countRows("rewrite_state_snapshot") >= 1)
     }
 
     @Test
@@ -143,7 +266,7 @@ class JdbcComputerStateRepositoryTest {
     private fun runBlockingAppend(
         repository: JdbcComputerStateRepository,
         stateId: GameStateId,
-        events: List<PreferenceSetEvent>,
+        events: List<ComputerEvent>,
     ): ComputerState {
         return kotlinx.coroutines.runBlocking {
             repository.appendEvents(stateId, events)

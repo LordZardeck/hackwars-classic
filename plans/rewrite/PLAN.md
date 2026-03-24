@@ -2,7 +2,7 @@
 
 ## Status Dashboard
 - Program status: `in_progress`
-- Current milestone: `Milestone 2 with Milestone 6 prep`
+- Current milestone: `Milestone 6 game feature slices`
 - Last completed milestone: `Milestone 5 typed game-core tranche`
 - Locked architecture decisions: `accepted`
 - Living documents status: `active`
@@ -75,7 +75,7 @@ flowchart LR
 | M3 | Transport and auth foundation | `in_progress` | Framed TCP + protobuf + auth handshake + offline fake services are green. |
 | M4 | PostgreSQL + migrations + importer skeleton | `in_progress` | Dockerized Postgres, Liquibase, rollback validation, and importer skeleton are green. |
 | M5 | Game core | `done` | State store, interest registry, command dispatcher, request callbacks, snapshots, and program scheduler are green. |
-| M6 | Game feature slices | `todo` | Session, filesystem, economy, network, combat, and Hacktendo server slices are green. |
+| M6 | Game feature slices | `in_progress` | Session, filesystem, economy, network, combat, and Hacktendo server slices are green. |
 | M7 | Chat server parity | `todo` | Chat sessions, channels, relations, moderation, and fanout are green. |
 | M8 | Client shell | `todo` | Copied login UI, root controller, stores, selectors, and base MVC are green. |
 | M9 | Client window families | `todo` | All window families are ported with parity tests. |

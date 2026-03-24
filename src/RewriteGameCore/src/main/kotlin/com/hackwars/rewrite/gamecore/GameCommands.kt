@@ -1,5 +1,7 @@
 package com.hackwars.rewrite.gamecore
 
+import kotlinx.serialization.Serializable
+
 class GameSessionBootstrapCommand(
     private val stateId: GameStateId,
     private val playFabId: String,
@@ -66,4 +68,692 @@ class SetPreferenceCommand(
             version = updatedState.version,
         )
     }
+}
+
+class RequestDirectoryCommand(
+    private val stateId: GameStateId,
+    private val path: String?,
+) : RequestCommand<DirectoryListingResponse> {
+    override val name: String = "requestdirectory"
+    override val lifetime: CommandLifetime = CommandLifetime.defaultRequest
+    override val targetStateIds: Set<GameStateId> = setOf(stateId)
+
+    override suspend fun execute(context: CommandContext): DirectoryListingResponse {
+        val state = context.loadState(stateId) ?: ComputerState.empty(stateId, playerIp = stateId.value)
+        val listing = state.filesystem.listDirectory(path)
+        return DirectoryListingResponse(
+            stateId = stateId,
+            path = listing.path,
+            directories = listing.directories,
+            files = listing.files,
+            version = state.version,
+        )
+    }
+}
+
+class RequestSecondaryDirectoryCommand(
+    private val stateId: GameStateId,
+    private val targetStateId: GameStateId,
+    private val path: String?,
+    private val portNumber: Int,
+) : RequestCommand<SecondaryDirectoryListingResponse> {
+    override val name: String = "requestsecondarydirectory"
+    override val lifetime: CommandLifetime = CommandLifetime.defaultRequest
+    override val targetStateIds: Set<GameStateId> = setOf(stateId, targetStateId)
+
+    override suspend fun execute(context: CommandContext): SecondaryDirectoryListingResponse {
+        val states = context.loadStates(targetStateIds)
+        val requesterState = states[stateId] ?: ComputerState.empty(stateId, playerIp = stateId.value)
+        val targetState = states[targetStateId] ?: ComputerState.empty(targetStateId, playerIp = targetStateId.value)
+        val normalizedPath = normalizeDirectoryPath(path, requesterState.filesystem.currentPath)
+        val listing = targetState.filesystem.listDirectory(normalizedPath)
+        return SecondaryDirectoryListingResponse(
+            requesterStateId = stateId,
+            targetStateId = targetStateId,
+            portNumber = portNumber,
+            path = listing.path,
+            directories = listing.directories,
+            files = listing.files,
+            version = targetState.version,
+        )
+    }
+}
+
+class RequestFileCommand(
+    private val stateId: GameStateId,
+    private val path: String?,
+    private val fileName: String,
+) : RequestCommand<FileContentsResponse> {
+    override val name: String = "requestfile"
+    override val lifetime: CommandLifetime = CommandLifetime.defaultRequest
+    override val targetStateIds: Set<GameStateId> = setOf(stateId)
+
+    override suspend fun execute(context: CommandContext): FileContentsResponse {
+        val state = context.loadState(stateId) ?: ComputerState.empty(stateId, playerIp = stateId.value)
+        return FileContentsResponse(
+            stateId = stateId,
+            file = state.filesystem.resolveFile(path, fileName)?.copy(),
+            version = state.version,
+        )
+    }
+}
+
+class CreateFolderCommand(
+    private val stateId: GameStateId,
+    private val path: String?,
+    private val folderName: String,
+) : RequestCommand<MutationAcceptedResponse> {
+    override val name: String = "createfolder"
+    override val lifetime: CommandLifetime = CommandLifetime.defaultRequest
+    override val targetStateIds: Set<GameStateId> = setOf(stateId)
+
+    override suspend fun execute(context: CommandContext): MutationAcceptedResponse {
+        val state = context.loadState(stateId) ?: ComputerState.empty(stateId, playerIp = stateId.value)
+        val parentPath = normalizeDirectoryPath(path, state.filesystem.currentPath)
+        val directoryPath = normalizeDirectoryPath("$parentPath/$folderName", parentPath)
+        val updated = context.appendEvents(
+            id = stateId,
+            events = listOf(
+                DirectoryCreatedEvent(
+                    directory = DirectoryEntry(
+                        path = directoryPath,
+                        name = directoryPath.substringAfterLast('/').ifBlank { "/" },
+                    ),
+                ),
+            ),
+        )
+        return MutationAcceptedResponse(
+            stateId = stateId,
+            version = updated.version,
+            message = "folder-created",
+        )
+    }
+}
+
+class DeleteFolderCommand(
+    private val stateId: GameStateId,
+    private val path: String?,
+    private val folderName: String,
+) : RequestCommand<MutationAcceptedResponse> {
+    override val name: String = "deletefolder"
+    override val lifetime: CommandLifetime = CommandLifetime.defaultRequest
+    override val targetStateIds: Set<GameStateId> = setOf(stateId)
+
+    override suspend fun execute(context: CommandContext): MutationAcceptedResponse {
+        val state = context.loadState(stateId) ?: ComputerState.empty(stateId, playerIp = stateId.value)
+        val parentPath = normalizeDirectoryPath(path, state.filesystem.currentPath)
+        val directoryPath = normalizeDirectoryPath("$parentPath/$folderName", parentPath)
+        if (!state.filesystem.directoriesByPath.containsKey(directoryPath)) {
+            return MutationAcceptedResponse(
+                stateId = stateId,
+                version = state.version,
+                message = "folder-missing",
+            )
+        }
+        val removedDirectories = state.filesystem.directoriesByPath.keys
+            .filter { it == directoryPath || it.startsWith("$directoryPath/") }
+            .toSet()
+        val removedFiles = state.filesystem.filesByPath.keys
+            .filter { it.startsWith("$directoryPath/") }
+            .toSet()
+        val updated = context.appendEvents(
+            id = stateId,
+            events = listOf(
+                DirectoryDeletedEvent(
+                    directoryPath = directoryPath,
+                    removedDirectoryPaths = removedDirectories,
+                    removedFilePaths = removedFiles,
+                ),
+            ),
+        )
+        return MutationAcceptedResponse(
+            stateId = stateId,
+            version = updated.version,
+            message = "folder-deleted",
+        )
+    }
+}
+
+class DeleteFileCommand(
+    private val stateId: GameStateId,
+    private val path: String?,
+    private val fileName: String,
+) : RequestCommand<MutationAcceptedResponse> {
+    override val name: String = "deletefile"
+    override val lifetime: CommandLifetime = CommandLifetime.defaultRequest
+    override val targetStateIds: Set<GameStateId> = setOf(stateId)
+
+    override suspend fun execute(context: CommandContext): MutationAcceptedResponse {
+        val state = context.loadState(stateId) ?: ComputerState.empty(stateId, playerIp = stateId.value)
+        val filePath = buildFilePath(normalizeDirectoryPath(path, state.filesystem.currentPath), fileName)
+        if (!state.filesystem.filesByPath.containsKey(filePath)) {
+            return MutationAcceptedResponse(
+                stateId = stateId,
+                version = state.version,
+                message = "file-missing",
+            )
+        }
+        val updated = context.appendEvents(
+            id = stateId,
+            events = listOf(FileDeletedEvent(filePath = filePath)),
+        )
+        return MutationAcceptedResponse(
+            stateId = stateId,
+            version = updated.version,
+            message = "file-deleted",
+        )
+    }
+}
+
+class DeleteMultiCommand(
+    private val stateId: GameStateId,
+    private val path: String?,
+    private val fileNames: List<String>,
+    private val directoryNames: List<String>,
+) : RequestCommand<MutationAcceptedResponse> {
+    override val name: String = "deletemulti"
+    override val lifetime: CommandLifetime = CommandLifetime.defaultRequest
+    override val targetStateIds: Set<GameStateId> = setOf(stateId)
+
+    override suspend fun execute(context: CommandContext): MutationAcceptedResponse {
+        val state = context.loadState(stateId) ?: ComputerState.empty(stateId, playerIp = stateId.value)
+        val normalizedPath = normalizeDirectoryPath(path, state.filesystem.currentPath)
+        val filePaths = fileNames
+            .map { buildFilePath(normalizedPath, it) }
+            .filter { state.filesystem.filesByPath.containsKey(it) }
+            .toSet()
+        val directoryPaths = directoryNames
+            .map { normalizeDirectoryPath("$normalizedPath/$it", normalizedPath) }
+            .filter { state.filesystem.directoriesByPath.containsKey(it) }
+            .toSet()
+        if (filePaths.isEmpty() && directoryPaths.isEmpty()) {
+            return MutationAcceptedResponse(
+                stateId = stateId,
+                version = state.version,
+                message = "delete-empty",
+            )
+        }
+        val updated = context.appendEvents(
+            id = stateId,
+            events = listOf(
+                FilesDeletedEvent(
+                    filePaths = filePaths,
+                    directoryPaths = directoryPaths,
+                ),
+            ),
+        )
+        return MutationAcceptedResponse(
+            stateId = stateId,
+            version = updated.version,
+            message = "files-deleted",
+        )
+    }
+}
+
+class SaveFileCommand(
+    private val stateId: GameStateId,
+    private val path: String?,
+    private val file: StoredFile,
+) : RequestCommand<MutationAcceptedResponse> {
+    override val name: String = "savefile"
+    override val lifetime: CommandLifetime = CommandLifetime.defaultRequest
+    override val targetStateIds: Set<GameStateId> = setOf(stateId)
+
+    override suspend fun execute(context: CommandContext): MutationAcceptedResponse {
+        val state = context.loadState(stateId) ?: ComputerState.empty(stateId, playerIp = stateId.value)
+        val normalizedPath = normalizeDirectoryPath(path, state.filesystem.currentPath)
+        val normalizedFile = file.copy(
+            path = buildFilePath(normalizedPath, file.name),
+            quantity = file.quantity.coerceAtLeast(1),
+        )
+        val updated = context.appendEvents(
+            id = stateId,
+            events = listOf(FileSavedEvent(normalizedFile)),
+        )
+        return MutationAcceptedResponse(
+            stateId = stateId,
+            version = updated.version,
+            message = "file-saved",
+        )
+    }
+}
+
+class CompileFileCommand(
+    private val stateId: GameStateId,
+    private val path: String?,
+    private val fileName: String,
+) : RequestCommand<CompileFileResponse> {
+    override val name: String = "compilefile"
+    override val lifetime: CommandLifetime = CommandLifetime.defaultRequest
+    override val targetStateIds: Set<GameStateId> = setOf(stateId)
+
+    override suspend fun execute(context: CommandContext): CompileFileResponse {
+        val state = context.requireExistingState(stateId)
+        val source = requireNotNull(state.filesystem.resolveFile(path, fileName)) {
+            "No source file found at ${normalizeDirectoryPath(path, state.filesystem.currentPath)}/$fileName"
+        }
+        require(source.kind == StoredFileKind.SCRIPT_SOURCE) {
+            "Only script source files can be compiled."
+        }
+        val binaryMetadata = requireNotNull(source.compiledBinary) {
+            "Compile metadata is required for ${source.name}."
+        }
+        require(state.economy.pettyCash >= source.compileCost) {
+            "Not enough petty cash to compile ${source.name}."
+        }
+        val targetDirectory = parentDirectoryOf(source.path)
+        val compiledName = binaryMetadata.outputName.ifBlank {
+            defaultCompiledName(source.name, binaryMetadata)
+        }
+        val compiledPath = buildFilePath(targetDirectory, compiledName)
+        val existingCompiled = state.filesystem.filesByPath[compiledPath]
+        val compiledFile = source.toCompiledBinary(
+            path = compiledPath,
+            name = compiledName,
+            quantity = (existingCompiled?.quantity ?: 0) + 1,
+        )
+        val updated = context.appendEvents(
+            id = stateId,
+            events = listOf(
+                FileCompiledEvent(
+                    sourceFilePath = source.path,
+                    remainingSourceFile = source,
+                    compiledFile = compiledFile,
+                    pettyCashDelta = -source.compileCost,
+                    scriptFamily = binaryMetadata.scriptFamily,
+                    experienceDelta = binaryMetadata.experienceAward,
+                ),
+            ),
+        )
+        return CompileFileResponse(
+            stateId = stateId,
+            compiledFile = compiledFile,
+            pettyCashAfter = updated.economy.pettyCash,
+            experienceAfter = updated.stats.experienceByFamily[binaryMetadata.scriptFamily] ?: 0,
+            version = updated.version,
+        )
+    }
+}
+
+class DecompileFileCommand(
+    private val stateId: GameStateId,
+    private val path: String?,
+    private val fileName: String,
+) : RequestCommand<DecompileFileResponse> {
+    override val name: String = "decompilefile"
+    override val lifetime: CommandLifetime = CommandLifetime.defaultRequest
+    override val targetStateIds: Set<GameStateId> = setOf(stateId)
+
+    override suspend fun execute(context: CommandContext): DecompileFileResponse {
+        val state = context.requireExistingState(stateId)
+        val compiledFile = requireNotNull(state.filesystem.resolveFile(path, fileName)) {
+            "No compiled file found at ${normalizeDirectoryPath(path, state.filesystem.currentPath)}/$fileName"
+        }
+        require(
+            compiledFile.kind == StoredFileKind.APPLICATION_BINARY ||
+                compiledFile.kind == StoredFileKind.FIREWALL_BINARY ||
+                compiledFile.kind == StoredFileKind.EQUIPMENT_BINARY,
+        ) {
+            "Only compiled binaries can be decompiled."
+        }
+        val binaryMetadata = requireNotNull(compiledFile.compiledBinary) {
+            "Compiled binary metadata is required for ${compiledFile.name}."
+        }
+        val remainingSourceFile = compiledFile.decrementQuantity()
+        val decompiledName = compiledFile.name.removeSuffix(".bin")
+        val decompiledPath = buildFilePath(parentDirectoryOf(compiledFile.path), decompiledName)
+        val existingSource = state.filesystem.filesByPath[decompiledPath]
+        val decompiledFile = StoredFile(
+            path = decompiledPath,
+            name = decompiledName,
+            kind = StoredFileKind.SCRIPT_SOURCE,
+            contents = compiledFile.contents,
+            description = compiledFile.description,
+            quantity = (existingSource?.quantity ?: 0) + 1,
+            maker = compiledFile.maker,
+            compileCost = compiledFile.compileCost,
+            cpuCost = compiledFile.cpuCost,
+            compiledBinary = binaryMetadata,
+        )
+        val updated = context.appendEvents(
+            id = stateId,
+            events = listOf(
+                FileDecompiledEvent(
+                    sourceFilePath = compiledFile.path,
+                    remainingSourceFile = remainingSourceFile,
+                    decompiledFile = decompiledFile,
+                    pettyCashDelta = compiledFile.compileCost,
+                    scriptFamily = binaryMetadata.scriptFamily,
+                    experienceDelta = -binaryMetadata.experienceAward,
+                ),
+            ),
+        )
+        return DecompileFileResponse(
+            stateId = stateId,
+            decompiledFile = decompiledFile,
+            pettyCashAfter = updated.economy.pettyCash,
+            experienceAfter = updated.stats.experienceByFamily[binaryMetadata.scriptFamily] ?: 0,
+            version = updated.version,
+        )
+    }
+}
+
+class InstallApplicationCommand(
+    private val stateId: GameStateId,
+    private val path: String?,
+    private val fileName: String,
+    private val portNumber: Int,
+) : RequestCommand<InstallApplicationResponse> {
+    override val name: String = "installapplication"
+    override val lifetime: CommandLifetime = CommandLifetime.defaultRequest
+    override val targetStateIds: Set<GameStateId> = setOf(stateId)
+
+    override suspend fun execute(context: CommandContext): InstallApplicationResponse {
+        val state = context.requireExistingState(stateId)
+        val source = requireNotNull(state.filesystem.resolveFile(path, fileName)) {
+            "No application binary found at ${normalizeDirectoryPath(path, state.filesystem.currentPath)}/$fileName"
+        }
+        require(source.kind == StoredFileKind.APPLICATION_BINARY) {
+            "Only compiled application binaries can be installed."
+        }
+        val metadata = requireNotNull(source.compiledBinary) {
+            "Compiled application metadata is required for ${source.name}."
+        }
+        val remainingSource = source.decrementQuantity()
+        val installedApplication = InstalledApplication(
+            name = source.name,
+            kind = metadata.applicationKind ?: ApplicationKind.GENERIC,
+            maker = source.maker,
+            binaryPath = source.path,
+            cpuCost = source.cpuCost,
+            banking = metadata.bankingApplication || metadata.applicationKind == ApplicationKind.BANKING,
+        )
+        val existingPort = state.ports.firstOrNull { it.number == portNumber }
+        val defaultBankPort = if (installedApplication.banking && state.economy.defaultBankPort == null) {
+            portNumber
+        } else {
+            null
+        }
+        val updatedPort = (existingPort ?: PortState(number = portNumber)).copy(
+            type = installedApplication.kind.name.lowercase(),
+            enabled = true,
+            installedApplication = installedApplication,
+            defaultPort = defaultBankPort == portNumber || state.economy.defaultBankPort == portNumber,
+        )
+        val updated = context.appendEvents(
+            id = stateId,
+            events = listOf(
+                ApplicationInstalledEvent(
+                    sourceFilePath = source.path,
+                    remainingSourceFile = remainingSource,
+                    portState = updatedPort,
+                    defaultBankPort = defaultBankPort,
+                ),
+            ),
+        )
+        return InstallApplicationResponse(
+            stateId = stateId,
+            portNumber = portNumber,
+            installedApplication = installedApplication,
+            defaultBankPort = updated.economy.defaultBankPort,
+            version = updated.version,
+        )
+    }
+}
+
+class InstallEquipmentCommand(
+    private val stateId: GameStateId,
+    private val path: String?,
+    private val fileName: String,
+    private val slot: EquipmentSlot,
+) : RequestCommand<InstallEquipmentResponse> {
+    override val name: String = "installequipment"
+    override val lifetime: CommandLifetime = CommandLifetime.defaultRequest
+    override val targetStateIds: Set<GameStateId> = setOf(stateId)
+
+    override suspend fun execute(context: CommandContext): InstallEquipmentResponse {
+        val state = context.requireExistingState(stateId)
+        val source = requireNotNull(state.filesystem.resolveFile(path, fileName)) {
+            "No equipment binary found at ${normalizeDirectoryPath(path, state.filesystem.currentPath)}/$fileName"
+        }
+        require(source.kind == StoredFileKind.EQUIPMENT_BINARY) {
+            "Only compiled equipment binaries can be installed into slots."
+        }
+        val metadata = requireNotNull(source.compiledBinary) {
+            "Equipment metadata is required for ${source.name}."
+        }
+        require(metadata.equipmentSlot == slot) {
+            "Equipment file ${source.name} cannot be installed into slot $slot."
+        }
+        val remainingSource = source.decrementQuantity()
+        val equipment = InstalledEquipment(
+            slot = slot,
+            name = source.name,
+            maker = source.maker,
+            binaryPath = source.path,
+            cpuBoost = source.cpuCost,
+            memoryBoost = metadata.equipmentSlot.takeIf { it == EquipmentSlot.MEMORY }?.ordinal ?: 0,
+            storageBoost = metadata.equipmentSlot.takeIf { it == EquipmentSlot.STORAGE }?.ordinal ?: 0,
+        )
+        val updated = context.appendEvents(
+            id = stateId,
+            events = listOf(
+                EquipmentInstalledEvent(
+                    sourceFilePath = source.path,
+                    remainingSourceFile = remainingSource,
+                    slot = slot,
+                    equipment = equipment,
+                ),
+            ),
+        )
+        return InstallEquipmentResponse(
+            stateId = stateId,
+            slot = slot,
+            equipment = equipment,
+            version = updated.version,
+        )
+    }
+}
+
+class InstallFirewallCommand(
+    private val stateId: GameStateId,
+    private val path: String?,
+    private val fileName: String,
+    private val portNumber: Int,
+) : RequestCommand<InstallFirewallResponse> {
+    override val name: String = "installfirewall"
+    override val lifetime: CommandLifetime = CommandLifetime.defaultRequest
+    override val targetStateIds: Set<GameStateId> = setOf(stateId)
+
+    override suspend fun execute(context: CommandContext): InstallFirewallResponse {
+        val state = context.requireExistingState(stateId)
+        val source = requireNotNull(state.filesystem.resolveFile(path, fileName)) {
+            "No firewall binary found at ${normalizeDirectoryPath(path, state.filesystem.currentPath)}/$fileName"
+        }
+        require(source.kind == StoredFileKind.FIREWALL_BINARY) {
+            "Only compiled firewall binaries can be installed."
+        }
+        val metadata = requireNotNull(source.compiledBinary) {
+            "Firewall metadata is required for ${source.name}."
+        }
+        val remainingSource = source.decrementQuantity()
+        val existingPort = state.ports.firstOrNull { it.number == portNumber }
+        val existingFirewall = existingPort?.installedFirewall
+        val returnedFirewall = existingFirewall?.toStoredFile()
+        val installedFirewall = InstalledFirewall(
+            name = source.name,
+            kind = metadata.firewallKind ?: FirewallKind.CUSTOM,
+            maker = source.maker,
+            binaryPath = source.path,
+            strength = metadata.strength,
+            cpuCost = source.cpuCost,
+        )
+        val updatedPort = (existingPort ?: PortState(number = portNumber)).copy(
+            installedFirewall = installedFirewall,
+        )
+        val updated = context.appendEvents(
+            id = stateId,
+            events = listOf(
+                FirewallInstalledEvent(
+                    sourceFilePath = source.path,
+                    remainingSourceFile = remainingSource,
+                    portState = updatedPort,
+                    returnedFirewall = returnedFirewall,
+                ),
+            ),
+        )
+        return InstallFirewallResponse(
+            stateId = stateId,
+            portNumber = portNumber,
+            installedFirewall = installedFirewall,
+            returnedFirewall = returnedFirewall,
+            version = updated.version,
+        )
+    }
+}
+
+@Serializable
+data class RequestDirectoryPayload(
+    val path: String? = null,
+)
+
+@Serializable
+data class RequestSecondaryDirectoryPayload(
+    val path: String? = null,
+    val targetIp: String,
+    val port: Int,
+)
+
+@Serializable
+data class RequestFilePayload(
+    val path: String? = null,
+    val name: String,
+)
+
+@Serializable
+data class CreateFolderPayload(
+    val path: String? = null,
+    val name: String,
+)
+
+@Serializable
+data class DeleteFolderPayload(
+    val path: String? = null,
+    val name: String,
+)
+
+@Serializable
+data class DeleteFilePayload(
+    val path: String? = null,
+    val name: String,
+)
+
+@Serializable
+data class DeleteMultiPayload(
+    val path: String? = null,
+    val fileNames: List<String> = emptyList(),
+    val directoryNames: List<String> = emptyList(),
+)
+
+@Serializable
+data class SaveFilePayload(
+    val path: String? = null,
+    val file: StoredFile,
+)
+
+@Serializable
+data class CompileFilePayload(
+    val path: String? = null,
+    val name: String,
+)
+
+@Serializable
+data class DecompileFilePayload(
+    val path: String? = null,
+    val name: String,
+)
+
+@Serializable
+data class InstallApplicationPayload(
+    val path: String? = null,
+    val name: String,
+    val portNumber: Int,
+)
+
+@Serializable
+data class InstallEquipmentPayload(
+    val path: String? = null,
+    val name: String,
+    val slot: EquipmentSlot,
+)
+
+@Serializable
+data class InstallFirewallPayload(
+    val path: String? = null,
+    val name: String,
+    val portNumber: Int,
+)
+
+private suspend fun CommandContext.requireExistingState(stateId: GameStateId): ComputerState {
+    return requireNotNull(loadState(stateId)) {
+        "No game state exists for ${stateId.value}."
+    }
+}
+
+private fun defaultCompiledName(
+    sourceName: String,
+    metadata: CompiledBinaryMetadata,
+): String {
+    return metadata.outputName.ifBlank {
+        val base = sourceName.substringBeforeLast('.')
+        "$base.bin"
+    }
+}
+
+private fun StoredFile.toCompiledBinary(
+    path: String,
+    name: String,
+    quantity: Int,
+): StoredFile {
+    val metadata = requireNotNull(compiledBinary) {
+        "Compiled binary metadata is required for $name."
+    }
+    val targetKind = when {
+        metadata.applicationKind != null || metadata.bankingApplication -> StoredFileKind.APPLICATION_BINARY
+        metadata.firewallKind != null -> StoredFileKind.FIREWALL_BINARY
+        metadata.equipmentSlot != null -> StoredFileKind.EQUIPMENT_BINARY
+        else -> StoredFileKind.APPLICATION_BINARY
+    }
+    return copy(
+        path = path,
+        name = name,
+        kind = targetKind,
+        quantity = quantity,
+    )
+}
+
+private fun StoredFile.decrementQuantity(): StoredFile? {
+    return if (quantity <= 1) {
+        null
+    } else {
+        copy(quantity = quantity - 1)
+    }
+}
+
+private fun InstalledFirewall.toStoredFile(): StoredFile {
+    val fileName = if (name.endsWith(".bin")) name else "$name.bin"
+    return StoredFile(
+        path = buildFilePath("/firewalls", fileName),
+        name = fileName,
+        kind = StoredFileKind.FIREWALL_BINARY,
+        description = "Returned replaced firewall",
+        quantity = 1,
+        maker = maker,
+        compileCost = 0.0,
+        cpuCost = cpuCost,
+        compiledBinary = CompiledBinaryMetadata(
+            firewallKind = kind,
+            strength = strength,
+        ),
+    )
 }

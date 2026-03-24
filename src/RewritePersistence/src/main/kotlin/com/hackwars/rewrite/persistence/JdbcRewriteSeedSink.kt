@@ -1,8 +1,14 @@
 package com.hackwars.rewrite.persistence
 
+import com.hackwars.rewrite.gamecore.ApplicationKind
+import com.hackwars.rewrite.gamecore.CompiledBinaryMetadata
 import com.hackwars.rewrite.gamecore.ComputerState
-import com.hackwars.rewrite.gamecore.FileEntry
 import com.hackwars.rewrite.gamecore.GameStateId
+import com.hackwars.rewrite.gamecore.StoredFile
+import com.hackwars.rewrite.gamecore.StoredFileKind
+import com.hackwars.rewrite.gamecore.buildFilePath
+import com.hackwars.rewrite.gamecore.ensureDirectory
+import com.hackwars.rewrite.gamecore.saveFile
 import java.sql.Connection
 import java.sql.Timestamp
 
@@ -127,18 +133,58 @@ class JdbcRewriteSeedSink(
                 }
             }
         }
+        var filesystem = current.filesystem
+            .ensureDirectory("/migration")
+            .ensureDirectory("/Public")
+            .ensureDirectory("/Store")
+            .saveFile(
+                StoredFile(
+                    path = buildFilePath("/", "readme.txt"),
+                    name = "readme.txt",
+                    kind = StoredFileKind.TEXT,
+                    contents = "Rewrite importer seeded root file",
+                    description = "Seeded root note",
+                ),
+            )
+            .saveFile(
+                StoredFile(
+                    path = buildFilePath("/Store", "catalog.txt"),
+                    name = "catalog.txt",
+                    kind = StoredFileKind.TEXT,
+                    contents = "Seeded store catalog",
+                    description = "Seeded store file",
+                ),
+            )
+            .saveFile(
+                StoredFile(
+                    path = buildFilePath("/Public", "bank.bin"),
+                    name = "bank.bin",
+                    kind = StoredFileKind.APPLICATION_BINARY,
+                    contents = "compiled banking payload",
+                    description = "Seeded installable banking application",
+                    maker = "rewrite-import",
+                    compileCost = 100.0,
+                    quantity = 1,
+                    compiledBinary = CompiledBinaryMetadata(
+                        applicationKind = ApplicationKind.BANKING,
+                        bankingApplication = true,
+                        outputName = "bank.bin",
+                    ),
+                ),
+            )
+        payload.notes.forEachIndexed { index, note ->
+            filesystem = filesystem.saveFile(
+                StoredFile(
+                    path = buildFilePath("/migration", "note-${index + 1}.txt"),
+                    name = "note-${index + 1}.txt",
+                    kind = StoredFileKind.NOTE,
+                    contents = note,
+                    description = "Migrated importer note",
+                ),
+            )
+        }
         val updated = current.copy(
-            filesystem = current.filesystem.copy(
-                files = current.filesystem.files + payload.notes.mapIndexed { index, note ->
-                    FileEntry(
-                        path = "/migration/note-${index + 1}.txt",
-                        name = "note-${index + 1}.txt",
-                        contents = note,
-                        description = "Migrated importer note",
-                    )
-                },
-                directories = (current.filesystem.directories + "/migration").distinct(),
-            ),
+            filesystem = filesystem,
         )
         connection.prepareStatement(
             """
