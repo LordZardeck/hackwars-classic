@@ -109,6 +109,8 @@ object FunctionTestSupport {
         whenever(computer.getDefaultFTP()).thenReturn(13)
         whenever(computer.getDefaultHTTP()).thenReturn(14)
         whenever(computer.getDefaultShipping()).thenReturn(15)
+        whenever(computer.maximumCPUNoBonus).thenReturn(0f)
+        whenever(computer.maximumCPULoad).thenReturn(0f)
 
         whenever(computer.stats).thenReturn(HashMap<Any?, Any?>())
         whenever(computer.showChoicesArray).thenReturn(ArrayList<Any?>())
@@ -116,7 +118,6 @@ object FunctionTestSupport {
         whenever(computer.ports).thenReturn(HashMap<Any?, Any?>())
 
         val equipmentSheet = mock<EquipmentSheet>()
-        whenever(equipmentSheet.cpuBonus).thenReturn(0f)
         computer.equipmentSheet = equipmentSheet
 
         whenever(computer.packetAssignment).thenReturn(mock<PacketAssignment>())

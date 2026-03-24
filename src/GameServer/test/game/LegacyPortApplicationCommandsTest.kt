@@ -292,7 +292,8 @@ class LegacyPortApplicationCommandsTest {
         setField(computer, "memorytype", 0)
         setField(computer, "connectionID", -1)
 
-        `when`(equipmentSheet.cpuBonus).thenReturn(0f)
+        `when`(computer.maximumCPUNoBonus).thenReturn(0f)
+        `when`(computer.maximumCPULoad).thenReturn(0f)
 
         return ComputerFixture(computer, packetAssignment, ports, stats, networkSwitch, fileSystem, equipmentSheet)
     }
