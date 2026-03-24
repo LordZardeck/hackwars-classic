@@ -24,7 +24,7 @@ import com.hackwars.rpc.FetchPorts
  */
 class UninstallPort(computer: Computer) : Function(computer) {
     override fun execute(applicationData: ApplicationData) {
-        val maxCpu = Computer.CPU_CHART[computer.cpuType] + computer.equipmentSheet.cpuBonus
+        val maxCpu = computer.maximumCPULoad
         if (computer.cpuLoad > maxCpu) return
 
         val deletePort = applicationData.payloadAs<IntCommandPayload>().value

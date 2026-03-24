@@ -57,7 +57,8 @@ class Computer : GameServerService {
 
     //Keeps track of equipment currently installed and other such things.
     @JvmField
-    var equipmentSheet = EquipmentSheet(this)
+    var equipmentSheet = EquipmentSheet()
+    val equipmentController = ComputerEquipmentController(this)
     var MyNewFireWall: NewFireWall? = null
 
     var xpTable: IntArray = IntArray(100) //Table of XP per level.
@@ -502,7 +503,7 @@ class Computer : GameServerService {
         /**
          * Get the maximum watches.
          */
-        get() = (WATCH_CHART!![memorytype] + equipmentSheet.getWatchBonus())
+        get() = WATCH_CHART!![memorytype] + equipmentSheet.getWatchBonus(maximumWatchesNoBonus, watchHandler.watchCount)
 
     val maximumWatchesNoBonus: Int
         get() = (WATCH_CHART!![memorytype])
@@ -1095,7 +1096,7 @@ class Computer : GameServerService {
         /**
          * Return the maximum CPU load based on the current CPU installed.
          */
-        get() = (CPU_CHART!![cputype] + equipmentSheet.cpuBonus)
+        get() = CPU_CHART!![cputype] + equipmentSheet.getCPUBonus(maximumCPUNoBonus, baseCPULoad, attacking)
 
     val maximumCPUNoBonus: Float
         get() = (CPU_CHART!![cputype])
@@ -2342,7 +2343,7 @@ class Computer : GameServerService {
         state.overheatStart = overheatStart
         state.overHeatTimeMs = OVER_HEAT_TIME
         state.sentOverHeatedMessage = sentOverHeatedMessage
-        state.cpuMaximum = CPU_CHART!![cputype] + equipmentSheet.cpuBonus
+        state.cpuMaximum = maximumCPULoad
         state.lockCount = lockCount
         state.locked = locked
         state.resendCaptcha = RESEND_CAPTCHA
@@ -2457,7 +2458,7 @@ class Computer : GameServerService {
         return object : RuntimeTickEventSink {
             override fun persistRequested(autoSave: Boolean) {
                 if (autoSave) {
-                    equipmentSheet.degradeEquipment()
+                    equipmentController.degradeEquipped()
                 }
                 try {
                     MysqlHandler.addWork(
@@ -2693,7 +2694,7 @@ class Computer : GameServerService {
         } else if (!LOAD_FAILURE) { //Perform an auto-save every 10 minutes or so.
             if (lastSave == 0L) lastSave = currentTime
             if (currentTime - lastSave > AUTO_SAVE) {
-                equipmentSheet.degradeEquipment() //This is a good time to check whether or not equipment has degraded.
+                equipmentController.degradeEquipped() //This is a good time to check whether or not equipment has degraded.
 
                 lastSave = currentTime
                 try {
@@ -2825,7 +2826,7 @@ class Computer : GameServerService {
             var heal = false
             var overHeated = false
             if (healCounter % equipmentSheet.getHealModifier() == 0L) heal = true
-            if (currentCPU > CPU_CHART!![cputype] + equipmentSheet.cpuBonus) {
+            if (currentCPU > maximumCPULoad) {
                 overHeated = true
                 if (overheatStart == -1L) overheatStart = currentTime
             } else if (currentTime - overheatStart > OVER_HEAT_TIME && overheatStart != -1L) {
@@ -2919,8 +2920,8 @@ class Computer : GameServerService {
             healCounter++
 
             reportCPU = currentCPU
-            if (overHeated && currentCPU <= CPU_CHART[cputype] + equipmentSheet.cpuBonus) {
-                reportCPU = CPU_CHART[cputype] + equipmentSheet.cpuBonus + 1
+            if (overHeated && currentCPU <= maximumCPULoad) {
+                reportCPU = maximumCPULoad + 1
             } else if (!overHeated) { //Make sure the ports do not think they're overheated.
                 PortIterator = Ports.entries.iterator()
                 while (PortIterator.hasNext()) {
@@ -2947,8 +2948,8 @@ class Computer : GameServerService {
             }
             currentCPU += currentWatchCost
 
-            if (overHeated && currentCPU <= CPU_CHART!![cputype] + equipmentSheet.cpuBonus) reportCPU =
-                CPU_CHART[cputype] + equipmentSheet.cpuBonus + 1
+            if (overHeated && currentCPU <= maximumCPULoad) reportCPU =
+                maximumCPULoad + 1
             else reportCPU = currentCPU
         }
     }
@@ -3143,7 +3144,7 @@ class Computer : GameServerService {
         return ComputerStandardPacketSnapshot(
             pettyCash,
             bankMoney,
-            CPU_CHART!![cputype] + equipmentSheet.cpuBonus,
+            maximumCPULoad,
             cputype,
             memorytype,
             defaultBank,

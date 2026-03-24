@@ -173,10 +173,9 @@ class HTTPProgram(computer: Computer?, computerHandler: NetworkSwitch?) : Progra
         //Receive Payment.
         var Files = activeComputer.fileSystem.getWebDirectory("Store/")
         for (i in Files!!.indices) { //Make sure we describe hardware.
-            val MyEquipmentSheet = EquipmentSheet(activeComputer)
             if (Files[i] != null && Files[i] is HackerFile && ((Files[i] as HackerFile).type == HackerFile.PCI || (Files[i] as HackerFile).type == HackerFile.AGP)) {
-                MyEquipmentSheet.degradeEquipment(Files[i] as HackerFile?)
-                MyEquipmentSheet.describeCard(Files[i] as HackerFile?) //Testing outputting a description of the bonus.
+                activeComputer.equipmentController.degrade(Files[i] as HackerFile?)
+                activeComputer.equipmentSheet.describeCard(Files[i] as HackerFile?) //Testing outputting a description of the bonus.
             }
         }
 

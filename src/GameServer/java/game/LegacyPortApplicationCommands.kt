@@ -42,7 +42,7 @@ class LegacyPortApplicationCommands : LegacyApplicationDataHandler {
     }
 
     private fun handleDeleteFirewall(computer: Computer, applicationData: ApplicationData) {
-        val maxCPU = Computer.CPU_CHART[computer.cputype] + computer.equipmentSheet.cpuBonus
+        val maxCPU = computer.maximumCPULoad
         if (computer.cPULoad <= maxCPU) {
             val targetPort = applicationData.payloadAs<DeleteFirewall>().portID ?: return
 
@@ -81,7 +81,7 @@ class LegacyPortApplicationCommands : LegacyApplicationDataHandler {
             val equipLevel = Integer.parseInt(hackerFile.content["equip_level"] as String)
             if (computer.getLevel(computer.Stats["FireWall"] as Float) >= equipLevel) {
                 val cpuCheck = computer.cPULoad + hackerFile.cpuCost
-                val maxCPU = Computer.CPU_CHART[computer.cputype] + computer.equipmentSheet.cpuBonus
+                val maxCPU = computer.maximumCPULoad
                 if (cpuCheck <= maxCPU) {
                     val port = findPort(computer, resolvedPort)
                     if (port != null) {
@@ -125,7 +125,7 @@ class LegacyPortApplicationCommands : LegacyApplicationDataHandler {
             val currentPort = port ?: return
 
             val cpuCheck = computer.cPULoad + hackerFile.cpuCost - currentPort.getBaseCPUCost()
-            val maxCPU = Computer.CPU_CHART[computer.cputype] + computer.equipmentSheet.cpuBonus
+            val maxCPU = computer.maximumCPULoad
             if (cpuCheck <= maxCPU) {
                 var allow = true
                 var message: Array<Any?>? = null
@@ -204,7 +204,7 @@ class LegacyPortApplicationCommands : LegacyApplicationDataHandler {
 
             if (hackerFile != null) {
                 val cpuCheck = computer.cPULoad + hackerFile.cpuCost
-                val maxCPU = Computer.CPU_CHART[computer.cputype] + computer.equipmentSheet.cpuBonus
+                val maxCPU = computer.maximumCPULoad
 
                 if (cpuCheck <= maxCPU) {
                     hackerFile.quantity = hackerFile.quantity - 1

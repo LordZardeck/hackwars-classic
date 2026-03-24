@@ -27,7 +27,7 @@ class SetDummyPort(computer: Computer) : Function(computer) {
             if (!port.overHeated) {
                 if (!shouldBeDummy && port.dummy && port.on) {
                     val cpuCheck = computer.cpuLoad + port.getActualCPUCost()
-                    val maxCpu = Computer.CPU_CHART[computer.cpuType] + computer.equipmentSheet.cpuBonus
+                    val maxCpu = computer.maximumCPULoad
                     if (cpuCheck <= maxCpu) {
                         port.setDummy(shouldBeDummy)
                     }

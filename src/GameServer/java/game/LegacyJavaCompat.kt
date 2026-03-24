@@ -107,6 +107,3 @@ val Port.actualCPUCost: Float
 
 val Port.ip: String
     get() = getIP()
-
-val EquipmentSheet.cpuBonus: Float
-    get() = cpuBonus

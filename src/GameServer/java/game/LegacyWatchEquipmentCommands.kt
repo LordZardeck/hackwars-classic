@@ -107,7 +107,7 @@ class LegacyWatchEquipmentCommands : LegacyApplicationDataHandler {
         } else if (function == com.hackwars.rpc.GameCommandWires.INSTALLEQUIPMENT) {
             val payload = applicationData.payloadAs<InstallEquipmentPayload>()
 
-            computer.equipmentSheet.equip(payload.position, payload.name)
+            computer.equipmentController.equip(payload.position, payload.name)
 
             var equipment = computer.MyFileSystem.getEquipment("")
             var temp = arrayOfNulls<Any?>(equipment.size + 1)
@@ -133,11 +133,11 @@ class LegacyWatchEquipmentCommands : LegacyApplicationDataHandler {
             val payload = applicationData.payloadAs<RepairEquipmentPayload>()
 
             if (payload.position != -1) {
-                computer.equipmentSheet.repair(payload.position)
+                computer.equipmentController.repair(payload.position)
             } else {
                 val equipment = computer.MyFileSystem.getFile("", payload.name)
                 if (equipment != null) {
-                    computer.equipmentSheet.repair(equipment)
+                    computer.equipmentController.repair(equipment)
                 }
             }
 
