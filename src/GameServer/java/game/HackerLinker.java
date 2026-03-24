@@ -118,7 +118,7 @@ public class HackerLinker extends Linker {
                     depositCut = 0.89f;
                 }
 
-                depositCut += B.getComputer().getEquipmentSheet().getBankingBonus();
+                depositCut += B.getComputer().equipmentSheet.getBankingBonus();
 
                 //The scripter is using a function that deposits into a user's bank account.
                 if (isDeposit && B.isDeposit()) {
@@ -234,7 +234,7 @@ public class HackerLinker extends Linker {
                     transferCut = 0.89f;
                 }
 
-                transferCut += B.getComputer().getEquipmentSheet().getBankingBonus();
+                transferCut += B.getComputer().equipmentSheet.getBankingBonus();
 
                 //User is using a function that transfers money to another user.
                 if (isTransfer && B.isTransfer()) {

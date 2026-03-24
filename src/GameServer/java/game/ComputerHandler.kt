@@ -226,7 +226,7 @@ class ComputerHandler @JvmOverloads constructor(
 
         val computer = Computer(routedIp, this, -1, serverBridge)
         if (task.applicationData is ApplicationData) {
-            computer.setLoadRequester(task.applicationData.sourceIP)
+            computer.loadRequester = task.applicationData.sourceIP
             computer.addData(task.applicationData)
         }
         Logger.info("Created computer on demand for ip={} routedIp={} via handler task", task.ip, routedIp)

@@ -286,13 +286,13 @@ class LegacyPortApplicationCommandsTest {
         setField(computer, "Stats", stats)
         setField(computer, "MyComputerHandler", networkSwitch)
         setField(computer, "MyFileSystem", fileSystem)
-        setField(computer, "MyEquipmentSheet", equipmentSheet)
+        setField(computer, "equipmentSheet", equipmentSheet)
         setField(computer, "Choices", java.util.ArrayList<Any?>())
         setField(computer, "cputype", 0)
         setField(computer, "memorytype", 0)
         setField(computer, "connectionID", -1)
 
-        `when`(equipmentSheet.getCPUBonus()).thenReturn(0f)
+        `when`(equipmentSheet.cpuBonus).thenReturn(0f)
 
         return ComputerFixture(computer, packetAssignment, ports, stats, networkSwitch, fileSystem, equipmentSheet)
     }

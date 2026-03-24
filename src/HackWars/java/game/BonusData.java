@@ -7,12 +7,6 @@ Description: This file keeps track of the bonus offered to a specific skill by a
 
 package game;
 
-import java.util.ArrayList;
-
-import hackscript.model.*;
-
-import java.util.HashMap;
-
 public class BonusData {
     private HackerFile EquipmentFile = null;//The underlying equipment file that provides this bonus.
 
@@ -188,7 +182,7 @@ public class BonusData {
         }
     }
 
-    public void setCPUBonus(float cpuBonus) {
+    public void setCpuBonus(float cpuBonus) {
         this.cpuBonus = cpuBonus;
     }
 

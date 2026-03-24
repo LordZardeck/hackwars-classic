@@ -42,7 +42,7 @@ import kotlin.math.max
  * This class is a beast, know it well lest ye be bitten.
  */
 
-open class Computer : GameServerService {
+class Computer : GameServerService {
     var MAX_OPS: Int = 4096
 
     @JvmField
@@ -55,20 +55,10 @@ open class Computer : GameServerService {
     //NOOB Safety.
     private val noobLevel = 30
 
-    //SQL CONNECTION INFO.
-    private val Connection = "127.0.0.1"
-    private val DB = "hackerforum"
-    private val Username = "root"
-    private val Connection2 = "127.0.0.1"
-    private val DB2 = "hackwars_drupal"
-    private val Username2 = "root"
-    private val Password2 = ""
-
+    //Keeps track of equipment currently installed and other such things.
     @JvmField
-    var MyEquipmentSheet: EquipmentSheet =
-        EquipmentSheet(this) //Keeps track of equipment currently installed and other such things.
-    var MyNewFireWall: NewFireWall? =
-        null //new NewFireWall(); // because I hate static variables, cause they hate me.  Used to generate firewalls.
+    var equipmentSheet = EquipmentSheet(this)
+    var MyNewFireWall: NewFireWall? = null
 
     var xpTable: IntArray = IntArray(100) //Table of XP per level.
 
@@ -82,12 +72,12 @@ open class Computer : GameServerService {
     var lastPingTime: Long = 0
     var logInTime: Long = 0
     var lastClientPacketTime: Long = 0
-    val COMPUTER_TIMEOUT: Long =
-        (1400000 - (700000 * Math.random()).toInt() //How long before we re-write the computer to disk.
-                ).toLong()
 
-    val AUTO_SAVE: Long = (1200000 - (600000 * Math.random()).toInt() //How often should we save the profile?	
-            ).toLong()
+    //How long before we re-write the computer to disk.
+    val COMPUTER_TIMEOUT: Long = (1400000 - (700000 * Math.random()).toInt()).toLong()
+
+    //How often should we save the profile?
+    val AUTO_SAVE: Long = (1200000 - (600000 * Math.random()).toInt()).toLong()
 
     @JvmField
     var type: Int = 0 //Is this an NPC or player?
@@ -125,9 +115,8 @@ open class Computer : GameServerService {
     var LOGOUT: Boolean = false //Has a player requested that they be logged out.
     var errorMessage: String = "" //An error message to report back to the player.
 
-    @get:JvmName("getLoadRequesterValue")
-    @set:JvmName("setLoadRequesterValue")
-    var loadRequester: String = "" //The IP of the individual who requested that this computer be loaded.
+    //The IP of the individual who requested that this computer be loaded.
+    var loadRequester: String = ""
 
     var lastAccessed: Long = 0 //When was the computer last accessed?
     var lastPaid: Long = 0 //When was the last time this player recieved their daily money.
@@ -190,7 +179,6 @@ open class Computer : GameServerService {
 
     @JvmField
     var pageChanged: Boolean = false //Has the page changed since last output to file system?
-    var votes: Int = 0 //How many votes does the player currently have.
     var operationCount: Int = 0 //How many operations has a player performed since they last logged in?
 
     //Improved Network and Quest Functionality.
@@ -198,17 +186,17 @@ open class Computer : GameServerService {
     var CurrentQuests: HashMap<Any?, Any?> = HashMap()
 
     @JvmField
-    var CompletedQuests: java.util.ArrayList<Any?> = java.util.ArrayList()
+    var CompletedQuests: ArrayList<Any?> = ArrayList()
 
     @JvmField
-    var InvolvedQuests: java.util.ArrayList<Any?> = java.util.ArrayList()
+    var InvolvedQuests: ArrayList<Any?> = ArrayList()
 
     @JvmField
     var network: String = Network.ROOT_NETWORK //Keeps track of the network that this NPC is currently on.
 
+    //The networks a player is allowed access to.
     @JvmField
-    var AllowedNetworks: java.util.ArrayList<Any?> =
-        java.util.ArrayList() //The networks a player is allowed access to.
+    var AllowedNetworks: ArrayList<Any?> = ArrayList()
     lateinit var MyFileSystem: FileSystem //The file system used for hack wars.
     var MyMakeClue: MakeClue? = null //The class for generating and checking clues.
 
@@ -222,7 +210,6 @@ open class Computer : GameServerService {
     private var ownsRuntime = false
     private var serviceScope: CoroutineScope? = null
     private var processorJob: Job? = null
-    private var maintenanceJob: Job? = null
     private var mailboxSignal: Channel<Unit> = Channel(Channel.CONFLATED)
     private var actorDispatcher: CoroutineDispatcher? = null
     private var started = false
@@ -231,16 +218,16 @@ open class Computer : GameServerService {
 
     //Array of messages since last packet.
     @JvmField
-    var Messages: java.util.ArrayList<Any?> = java.util.ArrayList()
+    var Messages: ArrayList<Any?> = ArrayList()
 
     //Array list of damage updates.
     @JvmField
-    var Damage: java.util.ArrayList<Any?> = java.util.ArrayList()
+    var Damage: ArrayList<Any?> = ArrayList()
     private var currentPacketNetwork: PacketNetwork? = null
 
     //Array list of show choices requests from finalized attacks.
     @JvmField
-    var Choices: java.util.ArrayList<Any?> = java.util.ArrayList()
+    var Choices: ArrayList<Any?> = ArrayList()
 
     //An instance of the central server used for communicating with client.
     var MyHackerServer: HackerServerBridge? = null
@@ -261,8 +248,8 @@ open class Computer : GameServerService {
 
     @JvmField
     var Stats: HashMap<Any?, Any?> = HashMap() //Player statistics are stored in a hash map.
-    var LogMessages: java.util.ArrayList<Any?> = java.util.ArrayList() //Allow players to save messages to their 'DB'.
-    var Globals: java.util.ArrayList<Any?> = java.util.ArrayList() //Allow players to maintain global variables.
+    var LogMessages: ArrayList<Any?> = ArrayList() //Allow players to save messages to their 'DB'.
+    var Globals: ArrayList<Any?> = ArrayList() //Allow players to maintain global variables.
 
     @JvmField
     var cputype: Int = 0 //What type of CPU is installed on this computer.
@@ -387,42 +374,35 @@ open class Computer : GameServerService {
     fun buildFunctionHash() {
         val self = this
         functions = HashMap<Any?, Any?>()
-        functions!!.put(com.hackwars.rpc.GameCommandWires.DELETELOGS, DeleteLogs(self))
-        functions!!.put(com.hackwars.rpc.GameCommandWires.REQUESTFTPUPDATE, RequestFTPUpdate(self))
-        functions!!.put(com.hackwars.rpc.GameCommandWires.REQUESTZOMBIEATTACK, RequestZombieAttack(self))
-        functions!!.put(com.hackwars.rpc.GameCommandWires.REQUESTATTACKDEFAULT, RequestAttackDefault(self))
-        functions!!.put(com.hackwars.rpc.GameCommandWires.ADDSHOWCHOICES, AddShowChoices(self))
-        functions!!.put(com.hackwars.rpc.GameCommandWires.BANKXP, BankXP(self))
-        functions!!.put(com.hackwars.rpc.GameCommandWires.DELETEFOLDER, DeleteFolder(self))
-        functions!!.put(com.hackwars.rpc.GameCommandWires.CREATEFOLDER, CreateFolder(self))
-        functions!!.put(com.hackwars.rpc.GameCommandWires.CODE, SetCode(self))
-        functions!!.put(com.hackwars.rpc.GameCommandWires.DOCHALLENGE, DoChallenge(self))
-        functions!!.put("redirectxp", RedirectXP(self))
-        functions!!.put(com.hackwars.rpc.GameCommandWires.REPAIRXP, RepairXP(self))
-        functions!!.put(com.hackwars.rpc.GameCommandWires.WATCHXP, WatchXP(self))
-        functions!!.put(com.hackwars.rpc.GameCommandWires.HTTPXP, HttpXP(self))
-        functions!!.put(com.hackwars.rpc.GameCommandWires.SCANXP, ScanXP(self))
-        functions!!.put(com.hackwars.rpc.GameCommandWires.SETFTPPASSWORD, SetFTPPassword(self))
-        functions!!.put(com.hackwars.rpc.GameCommandWires.SETDEFAULTPORT, SetDefaultPort(self))
-        functions!!.put(com.hackwars.rpc.GameCommandWires.REQUESTTRIGGER, RequestTrigger(self))
-        functions!!.put(com.hackwars.rpc.GameCommandWires.REQUESTTRIGGERNOTE, RequestTriggerNote(self))
-        functions!!.put(com.hackwars.rpc.GameCommandWires.REQUESTSAVE, RequestSave(self))
-        functions!!.put(com.hackwars.rpc.GameCommandWires.REQUESTTASK, RequestTask(self))
-        functions!!.put(com.hackwars.rpc.GameCommandWires.SETDUMMYPORT, SetDummyPort(self))
-        functions!!.put(com.hackwars.rpc.GameCommandWires.PORTONOFF, PortOnOff(self))
-        functions!!.put(com.hackwars.rpc.GameCommandWires.SAVEPORTNOTE, SavePortNote(self))
-        functions!!.put(com.hackwars.rpc.GameCommandWires.UNINSTALLPORT, UninstallPort(self))
-        functions!!.put(com.hackwars.rpc.GameCommandWires.CHANGEWATCHPORT, ChangeWatchPort(self))
-        functions!!.put(com.hackwars.rpc.GameCommandWires.LAUNCH_NETWORK_ATTACK, LaunchNetworkAttack(self))
+        functions.put(com.hackwars.rpc.GameCommandWires.DELETELOGS, DeleteLogs(self))
+        functions.put(com.hackwars.rpc.GameCommandWires.REQUESTFTPUPDATE, RequestFTPUpdate(self))
+        functions.put(com.hackwars.rpc.GameCommandWires.REQUESTZOMBIEATTACK, RequestZombieAttack(self))
+        functions.put(com.hackwars.rpc.GameCommandWires.REQUESTATTACKDEFAULT, RequestAttackDefault(self))
+        functions.put(com.hackwars.rpc.GameCommandWires.ADDSHOWCHOICES, AddShowChoices(self))
+        functions.put(com.hackwars.rpc.GameCommandWires.BANKXP, BankXP(self))
+        functions.put(com.hackwars.rpc.GameCommandWires.DELETEFOLDER, DeleteFolder(self))
+        functions.put(com.hackwars.rpc.GameCommandWires.CREATEFOLDER, CreateFolder(self))
+        functions.put(com.hackwars.rpc.GameCommandWires.CODE, SetCode(self))
+        functions.put(com.hackwars.rpc.GameCommandWires.DOCHALLENGE, DoChallenge(self))
+        functions.put("redirectxp", RedirectXP(self))
+        functions.put(com.hackwars.rpc.GameCommandWires.REPAIRXP, RepairXP(self))
+        functions.put(com.hackwars.rpc.GameCommandWires.WATCHXP, WatchXP(self))
+        functions.put(com.hackwars.rpc.GameCommandWires.HTTPXP, HttpXP(self))
+        functions.put(com.hackwars.rpc.GameCommandWires.SCANXP, ScanXP(self))
+        functions.put(com.hackwars.rpc.GameCommandWires.SETFTPPASSWORD, SetFTPPassword(self))
+        functions.put(com.hackwars.rpc.GameCommandWires.SETDEFAULTPORT, SetDefaultPort(self))
+        functions.put(com.hackwars.rpc.GameCommandWires.REQUESTTRIGGER, RequestTrigger(self))
+        functions.put(com.hackwars.rpc.GameCommandWires.REQUESTTRIGGERNOTE, RequestTriggerNote(self))
+        functions.put(com.hackwars.rpc.GameCommandWires.REQUESTSAVE, RequestSave(self))
+        functions.put(com.hackwars.rpc.GameCommandWires.REQUESTTASK, RequestTask(self))
+        functions.put(com.hackwars.rpc.GameCommandWires.SETDUMMYPORT, SetDummyPort(self))
+        functions.put(com.hackwars.rpc.GameCommandWires.PORTONOFF, PortOnOff(self))
+        functions.put(com.hackwars.rpc.GameCommandWires.SAVEPORTNOTE, SavePortNote(self))
+        functions.put(com.hackwars.rpc.GameCommandWires.UNINSTALLPORT, UninstallPort(self))
+        functions.put(com.hackwars.rpc.GameCommandWires.CHANGEWATCHPORT, ChangeWatchPort(self))
+        functions.put(com.hackwars.rpc.GameCommandWires.LAUNCH_NETWORK_ATTACK, LaunchNetworkAttack(self))
         @Suppress("UNCHECKED_CAST")
-        commandDispatcher = CommandRegistry.Companion.fromFunctions(functions as Map<String, Function>)
-    }
-
-    /**
-     * Return the current daily pay reduction value.
-     */
-    fun getDailyPayReduction(): Float {
-        return (dailyPayReduction)
+        commandDispatcher = CommandRegistry.fromFunctions(functions as Map<String, Function>)
     }
 
     fun setDailyPayReduction(dailyPayReduction: Float) {
@@ -432,12 +412,7 @@ open class Computer : GameServerService {
     /**
      * Returns whether or not this account is an NPC.
      */
-    fun isNPC(): Boolean {
-        if (type == NPC) {
-            return true
-        }
-        return false
-    }
+    fun isNPC() = type == NPC
 
     /**
      * Add recent quest finishes.
@@ -450,8 +425,7 @@ open class Computer : GameServerService {
      * Check whether a player has recently finished a quest.
      */
     fun checkRecentQuestFinisher(ip: String?): Boolean {
-        if (RecentQuestFinishers.get(ip) == null) return (false)
-        return (true)
+        return RecentQuestFinishers.get(ip) != null
     }
 
     val cPUType: Int
@@ -528,7 +502,7 @@ open class Computer : GameServerService {
         /**
          * Get the maximum watches.
          */
-        get() = (WATCH_CHART!![memorytype] + MyEquipmentSheet.getWatchBonus())
+        get() = (WATCH_CHART!![memorytype] + equipmentSheet.getWatchBonus())
 
     val maximumWatchesNoBonus: Int
         get() = (WATCH_CHART!![memorytype])
@@ -563,7 +537,7 @@ open class Computer : GameServerService {
      * Reset the player's logs.
      */
     fun resetLogs() {
-        LogMessages = java.util.ArrayList<Any?>()
+        LogMessages = ArrayList<Any?>()
         LogMessages!!.add(arrayOf<String>("", ""))
         LOG_UPDATE = true
     }
@@ -676,18 +650,12 @@ open class Computer : GameServerService {
         sendPacket()
     }
 
-    val lastBountyHTTPIP: String?
-        /**
-         * Returns the IP of the last player ot take over this computer's HTTP as
-         * part of a bounty.
-         */
+    /**
+     * Returns the IP of the last player ot take over this computer's HTTP as
+     * part of a bounty.
+     */
+    val lastBountyHTTPIP: String
         get() = (lastBountyHTTP)
-
-    open val equipmentSheet: EquipmentSheet
-        /**
-         * Return the equipment sheet for use by other aspects of the computer.
-         */
-        get() = MyEquipmentSheet
 
     val newFireWall: NewFireWall?
         get() = (MyNewFireWall)
@@ -874,13 +842,6 @@ open class Computer : GameServerService {
         this.storeRevenueTarget = storeRevenueTarget ?: ""
     }
 
-    /**
-     * Set the IP address of the individual requesting that this profile be loaded.
-     */
-    fun setLoadRequester(loadRequester: String) {
-        this.loadRequester = loadRequester
-    }
-
     open val watchHandler: WatchHandler
         /**
          * Get the watch handler attached to this computer.
@@ -1065,7 +1026,7 @@ open class Computer : GameServerService {
         }
     }
 
-    fun getMessages(): java.util.ArrayList<*>? {
+    fun getMessages(): ArrayList<*>? {
         return (Messages)
     }
 
@@ -1134,7 +1095,7 @@ open class Computer : GameServerService {
         /**
          * Return the maximum CPU load based on the current CPU installed.
          */
-        get() = (CPU_CHART!![cputype] + MyEquipmentSheet.getCPUBonus())
+        get() = (CPU_CHART!![cputype] + equipmentSheet.cpuBonus)
 
     val maximumCPUNoBonus: Float
         get() = (CPU_CHART!![cputype])
@@ -1292,7 +1253,7 @@ open class Computer : GameServerService {
          */
         get() = (MyMakeClue)
 
-    fun getDamage(): java.util.ArrayList<Any?> {
+    fun getDamage(): ArrayList<Any?> {
         return (Damage)
     }
 
@@ -2377,11 +2338,11 @@ open class Computer : GameServerService {
         state.lastAttack = lastAttack
         state.attackRateMs = ATTACK_RATE
         state.healCounter = healCounter
-        state.healMod = MyEquipmentSheet.getHealMod()
+        state.healMod = equipmentSheet.getHealModifier()
         state.overheatStart = overheatStart
         state.overHeatTimeMs = OVER_HEAT_TIME
         state.sentOverHeatedMessage = sentOverHeatedMessage
-        state.cpuMaximum = CPU_CHART!![cputype] + MyEquipmentSheet.getCPUBonus()
+        state.cpuMaximum = CPU_CHART!![cputype] + equipmentSheet.cpuBonus
         state.lockCount = lockCount
         state.locked = locked
         state.resendCaptcha = RESEND_CAPTCHA
@@ -2393,7 +2354,7 @@ open class Computer : GameServerService {
         state.captchaGenerator = {
             val generated: Array<Any?> = generateImage()
             val pixels = if (generated[0] is IntArray) generated[0] as IntArray else IntArray(0)
-            RuntimeCaptchaPayload((generated[1] as kotlin.String?)!!, pixels)
+            RuntimeCaptchaPayload((generated[1] as String?)!!, pixels)
         }
         state.watchCostSupplier =
             {
@@ -2408,8 +2369,8 @@ open class Computer : GameServerService {
     }
 
     private fun buildRuntimeQueuedTasks(): MutableList<RuntimeQueuedTask> {
-        val runtimeTasks = java.util.ArrayList<RuntimeQueuedTask>()
-        val queuedItems = java.util.ArrayList<Any?>(snapshotPendingTasks())
+        val runtimeTasks = ArrayList<RuntimeQueuedTask>()
+        val queuedItems = ArrayList<Any?>(snapshotPendingTasks())
         val iterator: MutableIterator<Any?> = queuedItems.iterator()
         while (iterator.hasNext()) {
             val queued = iterator.next()
@@ -2430,7 +2391,7 @@ open class Computer : GameServerService {
     }
 
     private fun buildRuntimePortSnapshots(): MutableList<RuntimePortSnapshot> {
-        val snapshots = java.util.ArrayList<RuntimePortSnapshot>()
+        val snapshots = ArrayList<RuntimePortSnapshot>()
         val portIterator = Ports.entries.iterator()
         while (portIterator.hasNext()) {
             val tempPort = ((portIterator.next() as MutableMap.MutableEntry<*, *>).value) as Port
@@ -2496,7 +2457,7 @@ open class Computer : GameServerService {
         return object : RuntimeTickEventSink {
             override fun persistRequested(autoSave: Boolean) {
                 if (autoSave) {
-                    MyEquipmentSheet.degradeEquipment()
+                    equipmentSheet.degradeEquipment()
                 }
                 try {
                     MysqlHandler.addWork(
@@ -2732,7 +2693,7 @@ open class Computer : GameServerService {
         } else if (!LOAD_FAILURE) { //Perform an auto-save every 10 minutes or so.
             if (lastSave == 0L) lastSave = currentTime
             if (currentTime - lastSave > AUTO_SAVE) {
-                MyEquipmentSheet.degradeEquipment() //This is a good time to check whether or not equipment has degraded.
+                equipmentSheet.degradeEquipment() //This is a good time to check whether or not equipment has degraded.
 
                 lastSave = currentTime
                 try {
@@ -2863,8 +2824,8 @@ open class Computer : GameServerService {
             //Heal the port at a given rate -- at this time once every 6 seconds.
             var heal = false
             var overHeated = false
-            if (healCounter % MyEquipmentSheet.getHealMod() == 0L) heal = true
-            if (currentCPU > CPU_CHART!![cputype] + MyEquipmentSheet.getCPUBonus()) {
+            if (healCounter % equipmentSheet.getHealModifier() == 0L) heal = true
+            if (currentCPU > CPU_CHART!![cputype] + equipmentSheet.cpuBonus) {
                 overHeated = true
                 if (overheatStart == -1L) overheatStart = currentTime
             } else if (currentTime - overheatStart > OVER_HEAT_TIME && overheatStart != -1L) {
@@ -2958,8 +2919,8 @@ open class Computer : GameServerService {
             healCounter++
 
             reportCPU = currentCPU
-            if (overHeated && currentCPU <= CPU_CHART[cputype] + MyEquipmentSheet.getCPUBonus()) {
-                reportCPU = CPU_CHART[cputype] + MyEquipmentSheet.getCPUBonus() + 1
+            if (overHeated && currentCPU <= CPU_CHART[cputype] + equipmentSheet.cpuBonus) {
+                reportCPU = CPU_CHART[cputype] + equipmentSheet.cpuBonus + 1
             } else if (!overHeated) { //Make sure the ports do not think they're overheated.
                 PortIterator = Ports.entries.iterator()
                 while (PortIterator.hasNext()) {
@@ -2986,8 +2947,8 @@ open class Computer : GameServerService {
             }
             currentCPU += currentWatchCost
 
-            if (overHeated && currentCPU <= CPU_CHART!![cputype] + MyEquipmentSheet.getCPUBonus()) reportCPU =
-                CPU_CHART[cputype] + MyEquipmentSheet.getCPUBonus() + 1
+            if (overHeated && currentCPU <= CPU_CHART!![cputype] + equipmentSheet.cpuBonus) reportCPU =
+                CPU_CHART[cputype] + equipmentSheet.cpuBonus + 1
             else reportCPU = currentCPU
         }
     }
@@ -3149,15 +3110,15 @@ open class Computer : GameServerService {
 
     private fun buildStandardPacketSnapshot(): ComputerStandardPacketSnapshot {
         val messageArray = Messages.toTypedArray()
-        val choices = java.util.ArrayList<Array<Any?>?>()
+        val choices = ArrayList<Array<Any?>?>()
         val choiceIterator = Choices.iterator()
         while (choiceIterator.hasNext()) {
             choices.add(choiceIterator.next() as Array<Any?>?)
         }
 
-        var logMessages: java.util.ArrayList<Array<String?>?>? = null
+        var logMessages: ArrayList<Array<String?>?>? = null
         if (LOG_UPDATE) {
-            logMessages = java.util.ArrayList<Array<String?>?>()
+            logMessages = ArrayList<Array<String?>?>()
             val logIterator = LogMessages!!.iterator()
             while (logIterator.hasNext()) {
                 logMessages.add(logIterator.next() as Array<String?>?)
@@ -3182,7 +3143,7 @@ open class Computer : GameServerService {
         return ComputerStandardPacketSnapshot(
             pettyCash,
             bankMoney,
-            CPU_CHART!![cputype] + MyEquipmentSheet.getCPUBonus(),
+            CPU_CHART!![cputype] + equipmentSheet.cpuBonus,
             cputype,
             memorytype,
             defaultBank,
@@ -3198,7 +3159,7 @@ open class Computer : GameServerService {
             MyFileSystem!!.getMaximumSpace(),
             RawComputerHandler!!.getPlayers(),
             commodityAmount!!,
-            MyEquipmentSheet.getHealBonus(),
+            equipmentSheet.getHealBonus(),
             myVotes,
             messageArray,
             choices.filterNotNull(),
@@ -3209,7 +3170,7 @@ open class Computer : GameServerService {
     }
 
     private fun buildDamagePacketSnapshot(): ComputerDamagePacketSnapshot {
-        val healthUpdates = java.util.ArrayList<PortHealthSnapshot>()
+        val healthUpdates = ArrayList<PortHealthSnapshot>()
         val portIterator = Ports.entries.iterator()
         while (portIterator.hasNext()) {
             val tempPort = ((portIterator.next() as MutableMap.MutableEntry<*, *>).value) as Port
@@ -3226,7 +3187,7 @@ open class Computer : GameServerService {
             )
         }
 
-        val damageEntries = java.util.ArrayList<Array<Any?>>()
+        val damageEntries = ArrayList<Array<Any?>>()
         val damageIterator = Damage.iterator()
         while (damageIterator.hasNext()) {
             val damageEntry = damageIterator.next() as Array<Any?>?
@@ -3278,7 +3239,7 @@ open class Computer : GameServerService {
         override fun execute() {
             if (!run) {
                 run = true
-                loadCoordinator.execute((MyComputer as game.Computer?)!!)
+                loadCoordinator.execute((MyComputer as Computer?)!!)
             }
         }
     }

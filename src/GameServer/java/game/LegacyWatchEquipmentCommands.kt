@@ -83,19 +83,19 @@ class LegacyWatchEquipmentCommands : LegacyApplicationDataHandler {
             temp[0] = payload.windowHandle
             for (i in equipment.indices) {
                 if (equipment[i] != null) {
-                    computer.MyEquipmentSheet.describeCard(equipment[i] as HackerFile)
+                    computer.equipmentSheet.describeCard(equipment[i] as HackerFile)
                 }
                 temp[i + 1] = equipment[i]
             }
             equipment = temp
             computer.PA.directory = equipment
 
-            equipment = computer.MyEquipmentSheet.getEquipment()
+            equipment = computer.equipmentSheet.getEquipment() as Array<Any?>
             temp = arrayOfNulls(equipment.size + 1)
             temp[0] = payload.windowHandle
             for (i in equipment.indices) {
                 if (equipment[i] != null) {
-                    computer.MyEquipmentSheet.describeCard(equipment[i] as HackerFile)
+                    computer.equipmentSheet.describeCard(equipment[i] as HackerFile)
                 }
                 temp[i + 1] = equipment[i]
             }
@@ -107,7 +107,7 @@ class LegacyWatchEquipmentCommands : LegacyApplicationDataHandler {
         } else if (function == com.hackwars.rpc.GameCommandWires.INSTALLEQUIPMENT) {
             val payload = applicationData.payloadAs<InstallEquipmentPayload>()
 
-            computer.MyEquipmentSheet.equip(payload.position, payload.name)
+            computer.equipmentSheet.equip(payload.position, payload.name)
 
             var equipment = computer.MyFileSystem.getEquipment("")
             var temp = arrayOfNulls<Any?>(equipment.size + 1)
@@ -118,7 +118,7 @@ class LegacyWatchEquipmentCommands : LegacyApplicationDataHandler {
             equipment = temp
             computer.PA.directory = equipment
 
-            equipment = computer.MyEquipmentSheet.getEquipment()
+            equipment = computer.equipmentSheet.getEquipment() as Array<Any?>
             temp = arrayOfNulls(equipment.size + 1)
             temp[0] = payload.windowHandle
             for (i in equipment.indices) {
@@ -133,11 +133,11 @@ class LegacyWatchEquipmentCommands : LegacyApplicationDataHandler {
             val payload = applicationData.payloadAs<RepairEquipmentPayload>()
 
             if (payload.position != -1) {
-                computer.MyEquipmentSheet.repair(payload.position)
+                computer.equipmentSheet.repair(payload.position)
             } else {
                 val equipment = computer.MyFileSystem.getFile("", payload.name)
                 if (equipment != null) {
-                    computer.MyEquipmentSheet.repair(equipment)
+                    computer.equipmentSheet.repair(equipment)
                 }
             }
 

@@ -2,10 +2,7 @@ package game
 
 import com.hackwars.data.service.GameWorldDataService
 import game.data.GameServerDataLocator
-import org.w3c.dom.Node
 import util.LoadXML
-import java.util.ArrayList
-import java.util.HashMap
 
 /**
  * By Alexander Morrison
@@ -51,42 +48,42 @@ open class DropTable @JvmOverloads constructor(
             if (temp != null) {
                 name = temp.nodeValue
             }
-            HF.setName(name)
+            HF.name = name
 
             temp = LX.findNodeRecursive(N, "location", 0)
             temp = LX.findNodeRecursive(temp, "#text", 0)
             if (temp != null) {
                 val location = temp.nodeValue
-                HF.setLocation(location)
+                HF.location = location
             }
 
             temp = LX.findNodeRecursive(N, "description", 0)
             temp = LX.findNodeRecursive(temp, "#text", 0)
             if (temp != null) {
                 val description = temp.nodeValue
-                HF.setDescription(description)
+                HF.description = description
             }
 
             temp = LX.findNodeRecursive(N, "price", 0)
             temp = LX.findNodeRecursive(temp, "#text", 0)
             val price = java.lang.Float.valueOf(temp.nodeValue)
-            HF.setPrice(price)
+            HF.price = price
 
             temp = LX.findNodeRecursive(N, "quantity", 0)
             temp = LX.findNodeRecursive(temp, "#text", 0)
             val quantity = Integer.valueOf(temp.nodeValue)
-            HF.setQuantity(quantity)
+            HF.quantity = quantity
 
             temp = LX.findNodeRecursive(N, "cpu", 0)
             temp = LX.findNodeRecursive(temp, "#text", 0)
             val cpu = java.lang.Float.valueOf(temp.nodeValue)
-            HF.setCPUCost(cpu)
+            HF.cpuCost = cpu
 
             temp = LX.findNodeRecursive(N, "maker", 0)
             temp = LX.findNodeRecursive(temp, "#text", 0)
             if (temp != null) {
                 val maker = temp.nodeValue
-                HF.setMaker(maker)
+                HF.maker = maker
             }
 
             val Script = HashMap<Any?, Any?>()
@@ -107,7 +104,7 @@ open class DropTable @JvmOverloads constructor(
                         Script[Keys[ii]] = ""
                     }
                 }
-                HF.setContent(Script)
+                HF.content = Script
             }
         } catch (e: Exception) {
             e.printStackTrace()
@@ -123,7 +120,8 @@ open class DropTable @JvmOverloads constructor(
             val O = Drops[i] as Array<*>
             val currentRange = O[0] as Integer
             if (drop < currentRange.toInt()) {
-                val HF = parseData("<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\" ?>" + O[1] as String, true)
+                val HF =
+                    parseData("<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\" ?>" + O[1] as String, true)
                 return HF!!
             }
         }
@@ -136,32 +134,20 @@ open class DropTable @JvmOverloads constructor(
      * quest item based on the name of the quest item.
      */
     fun getQuestItem(name: String): HackerFile? {
-        for (i in Drops.indices) {
-            val O = Drops[i] as Array<*>
+        for (drop in Drops) {
+            val file = parseData(
+                "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\" ?>"
+                        + ((drop as? Array<*>)?.getOrNull(1) as? String ?: continue),
+                false
+            )
 
-            val HF = parseData("<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\" ?>" + O[1] as String, false)
-            val HM = HF!!.getContent()
-            val itemname = HF.getName()
-
-            if (itemname != null) {
-                if (itemname == name) {
-                    if (HF.getName() == "Equipment" || HF.getName() == "LowEquipment" || HF.getName() == "MediumEquipment" || HF.getName() == "HighEquipment" || HF.getName() == "RareEquipment") {
-                        val quality = HF.getMaker()
-
-                        if (quality == "Low") {
-                            return MyComputer.equipmentSheet.generateHardware(EquipmentSheet.LOW.toFloat())
-                        } else if (quality == "Medium") {
-                            return MyComputer.equipmentSheet.generateHardware(EquipmentSheet.MEDIUM.toFloat())
-                        } else if (quality == "High") {
-                            return MyComputer.equipmentSheet.generateHardware(EquipmentSheet.HIGH.toFloat())
-                        } else if (quality == "Rare") {
-                            return MyComputer.equipmentSheet.generateHardware(EquipmentSheet.RARE.toFloat())
-                        }
-                    }
-
-                    return HF
+            when (file?.name) {
+                "Equipment", "LowEquipment", "MediumEquipment", "HighEquipment", "RareEquipment" -> {
+                    return generateHardware(HardwareRarity.fromMaker(file.maker))
                 }
             }
+
+            if (file?.name == name) return file
         }
         return null
     }
@@ -169,26 +155,19 @@ open class DropTable @JvmOverloads constructor(
     /**
      * Return the data parsed from a packet as a Hacker File.
      */
-    fun parseDrop(HF: HackerFile?, parseHardware: Boolean): HackerFile? {
-        if (parseHardware) {
-            if (HF!!.getName() == "Equipment" || HF.getName() == "LowEquipment" || HF.getName() == "MediumEquipment" || HF.getName() == "HighEquipment" || HF.getName() == "RareEquipment") {
-                val quality = HF.getMaker()
-                if (quality == "Low") {
-                    return MyComputer.equipmentSheet.generateHardware(EquipmentSheet.LOW.toFloat())
-                } else if (quality == "Medium") {
-                    return MyComputer.equipmentSheet.generateHardware(EquipmentSheet.MEDIUM.toFloat())
-                } else if (quality == "High") {
-                    return MyComputer.equipmentSheet.generateHardware(EquipmentSheet.HIGH.toFloat())
-                } else if (quality == "Rare") {
-                    return MyComputer.equipmentSheet.generateHardware(EquipmentSheet.RARE.toFloat())
-                }
-            }
+    fun parseDrop(file: HackerFile?, parseHardware: Boolean): HackerFile? {
+        if(!parseHardware) return file
 
-            if (HF.getType() == HackerFile.NEW_FIREWALL) {
-                return MyComputer.newFireWall!!.generateFirewall(HF.getName())
+        when (file?.name) {
+            "Equipment", "LowEquipment", "MediumEquipment", "HighEquipment", "RareEquipment" -> {
+                return generateHardware(HardwareRarity.fromMaker(file.maker))
             }
         }
 
-        return HF
+        if (file?.type == HackerFile.NEW_FIREWALL) {
+            return MyComputer.newFireWall!!.generateFirewall(file.name)
+        }
+
+        return file
     }
 }

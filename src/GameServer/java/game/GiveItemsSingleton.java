@@ -180,11 +180,11 @@ public class GiveItemsSingleton {
 
             NewFireWall F = new NewFireWall();
             for (int i = 0; i < basic; i++) {
-                Items.add(PlayerComputer.getEquipmentSheet().generateHardware(EquipmentSheet.LOW));
+                Items.add(GenerateHardwareKt.generateHardware(HardwareRarity.LOW));
             }
 
             for (int i = 0; i < medium; i++) {
-                Items.add(PlayerComputer.getEquipmentSheet().generateHardware(EquipmentSheet.MEDIUM));
+                Items.add(GenerateHardwareKt.generateHardware(HardwareRarity.MEDIUM));
             }
 
             if (PlayerComputer.getFileSystem().getSpaceLeft() < Items.size()) {
@@ -217,11 +217,11 @@ public class GiveItemsSingleton {
 
             NewFireWall F = new NewFireWall();
             for (int i = 0; i < basic; i++) {
-                Items.add(PlayerComputer.getEquipmentSheet().generateHardware(EquipmentSheet.MEDIUM));
+                Items.add(GenerateHardwareKt.generateHardware(HardwareRarity.MEDIUM));
             }
 
             for (int i = 0; i < medium; i++) {
-                Items.add(PlayerComputer.getEquipmentSheet().generateHardware(EquipmentSheet.HIGH));
+                Items.add(GenerateHardwareKt.generateHardware(HardwareRarity.HIGH));
             }
 
             if (PlayerComputer.getFileSystem().getSpaceLeft() < Items.size()) {
@@ -255,11 +255,11 @@ public class GiveItemsSingleton {
 
             NewFireWall F = new NewFireWall();
             for (int i = 0; i < basic; i++) {
-                Items.add(PlayerComputer.getEquipmentSheet().generateHardware(EquipmentSheet.HIGH));
+                Items.add(GenerateHardwareKt.generateHardware(HardwareRarity.HIGH));
             }
 
             for (int i = 0; i < medium; i++) {
-                Items.add(PlayerComputer.getEquipmentSheet().generateHardware(EquipmentSheet.RARE));
+                Items.add(GenerateHardwareKt.generateHardware(HardwareRarity.RARE));
             }
 
             if (PlayerComputer.getFileSystem().getSpaceLeft() < Items.size()) {

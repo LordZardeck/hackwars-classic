@@ -204,7 +204,7 @@ class LegacyFilesystemInventoryCommandsTest {
         computer.CurrentQuests = HashMap()
         computer.Stats = HashMap()
         computer.PA = PacketAssignment(0)
-        computer.MyEquipmentSheet = Mockito.mock(EquipmentSheet::class.java)
+        computer.equipmentSheet = Mockito.mock(EquipmentSheet::class.java)
         computer.messageHandler = MessageHandler(computer)
         computer.MyFileSystem = FileSystem(computer)
         return computer

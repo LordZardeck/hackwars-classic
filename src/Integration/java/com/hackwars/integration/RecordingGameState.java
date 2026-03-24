@@ -11,10 +11,8 @@ public class RecordingGameState extends GameState {
     private final List<RemoteFunctionCall> remoteCalls = Collections.synchronizedList(new ArrayList<RemoteFunctionCall>());
     private final List<String> requestedFunctions = Collections.synchronizedList(new ArrayList<String>());
 
-    @Override
     public void setFunction(String function) {
         requestedFunctions.add(function);
-        super.setFunction(function);
     }
 
     @Override

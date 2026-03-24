@@ -2,316 +2,94 @@ package game
 
 import game.payload.FloatCommandPayload
 import game.payload.SaveFileRequestPayload
-import java.text.DecimalFormat
-import java.text.NumberFormat
+import kotlin.math.abs
 
-class EquipmentSheet(private val MyComputer: Computer) {
-    private var bonusCount = 9
-    private var CardType = arrayOf("AGP Card", "PCI Card", "PCI Card")
-    private var hardwareCount = 2
-    private var hardwareClassification = arrayOf("Value Priced", "Consumer's", "Premium", "Experimental", "Alien")
-    private var HardwareDescriptions = HashMap<Any?, Any?>()
+const val HEAL_MODIFIER_BASE = 4
+const val HEAL_MODIFIER_MIN = 1
+const val BANKING_BONUS_MAX = 0.07f
 
-    private var AGPEquipped: HackerFile? = null
-    private var PCI0Equipped: HackerFile? = null
-    private var PCI1Equipped: HackerFile? = null
-
-    var Bonuses = ArrayList<Any?>()
-
-    init {
-        var ED = EquipmentData(HEAL_RATE, EquipmentData.INT)
-        ED.setBonusChart(intArrayOf(-1, -1, -1, -1, -2, -2, -2, -2, -3, -3))
-        ED.setBonusNames(arrayOf("Self-Healing", "Self-Healing"))
-        HardwareDescriptions[HEAL_RATE] = ED
-
-        ED = EquipmentData(DAMAGE_BONUS, EquipmentData.FLOAT)
-        ED.setBonusChart(floatArrayOf(1.0f, 1.0f, 2.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f))
-        ED.setBonusNames(arrayOf("Segmenting", "Segmentation"))
-        HardwareDescriptions[DAMAGE_BONUS] = ED
-
-        ED = EquipmentData(BANKING_BONUS, EquipmentData.FLOAT)
-        ED.setBonusChart(floatArrayOf(0.01f, 0.01f, 0.015f, 0.02f, 0.02f, 0.025f, 0.03f, 0.03f, 0.035f, 0.04f))
-        ED.setBonusNames(arrayOf("Reimbursing", "Reimbursement"))
-        HardwareDescriptions[BANKING_BONUS] = ED
-
-        ED = EquipmentData(HEAL_COST_BONUS, EquipmentData.FLOAT)
-        ED.setBonusChart(floatArrayOf(-0.05f, -0.10f, -0.15f, -0.20f, -0.25f, -0.30f, -0.35f, -0.40f, -0.45f, -0.50f))
-        ED.setBonusNames(arrayOf("System Monitoring", "System Monitoring"))
-        HardwareDescriptions[HEAL_COST_BONUS] = ED
-
-        ED = EquipmentData(CPU_BONUS, EquipmentData.FLOAT)
-        ED.setBonusChart(floatArrayOf(5.0f, 10.0f, 15.0f, 20.0f, 25.0f, 30.0f, 35.0f, 40.0f, 45.0f, 50.0f))
-        ED.setBonusNames(arrayOf("Hyper-Threading", "Hyper-Threading"))
-        HardwareDescriptions[CPU_BONUS] = ED
-
-        ED = EquipmentData(WATCH_BONUS, EquipmentData.INT)
-        ED.setBonusChart(intArrayOf(1, 1, 2, 2, 3, 3, 4, 4, 5, 5))
-        ED.setBonusNames(arrayOf("RAM Optimizing", "RAM Optimization"))
-        HardwareDescriptions[WATCH_BONUS] = ED
-
-        ED = EquipmentData(HD_BONUS, EquipmentData.INT)
-        ED.setBonusChart(intArrayOf(-10, -5, 5, 5, 10, 15, 15, 20, 20, 30))
-        ED.setBonusNames(arrayOf("RAID Controlling", "RAID Controlling"))
-        HardwareDescriptions[HD_BONUS] = ED
-
-        ED = EquipmentData(MINING_BONUS, EquipmentData.FLOAT)
-        ED.setBonusChart(floatArrayOf(1.0f, 1.0f, 2.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f))
-        ED.setBonusNames(arrayOf("Redirecting", "Redirection"))
-        HardwareDescriptions[MINING_BONUS] = ED
-
-        ED = EquipmentData(FREEZE_IMMUNE, EquipmentData.BOOLEAN)
-        ED.setBonusNames(arrayOf("Non-Blocking", "Non-Blocking Operations"))
-        HardwareDescriptions[FREEZE_IMMUNE] = ED
-
-        ED = EquipmentData(DESTROY_WATCH_IMMUNE, EquipmentData.BOOLEAN)
-        ED.setBonusNames(arrayOf("Parity Checking", "Parity Checking"))
-        HardwareDescriptions[DESTROY_WATCH_IMMUNE] = ED
-    }
-
-    fun getHealMod(): Int {
-        var HEAL_MOD = 4
-        for (i in 0 until Bonuses.size) {
-            val BD = Bonuses[i] as BonusData
-            HEAL_MOD += BD.getHealMod()
-        }
-        if (HEAL_MOD < 1) {
-            return 1
-        }
-        return HEAL_MOD
-    }
-
-    fun getDamageBonus(): Float {
-        var damageBonus = 0.0f
-        for (i in 0 until Bonuses.size) {
-            val BD = Bonuses[i] as BonusData
-            damageBonus += BD.getDamageBonus()
-        }
-        return damageBonus
-    }
-
-    fun getMiningBonus(): Float {
-        var miningBonus = 0.0f
-        for (i in 0 until Bonuses.size) {
-            val BD = Bonuses[i] as BonusData
-            miningBonus += BD.getMiningBonus()
-        }
-        return miningBonus
-    }
-
-    fun getFreezeImmune(): Boolean {
-        var freezeImmune = false
-        for (i in 0 until Bonuses.size) {
-            val BD = Bonuses[i] as BonusData
-            if (BD.getFreezeImmune()) {
-                freezeImmune = true
+data class CpuBonusData(var bonus: Float = 0.0f, var maxBonus: Float = 0.0f) {
+    fun applyEquippedBonus(equippedBonuses: ArrayList<BonusData>, canApply: (BonusData) -> Boolean): CpuBonusData {
+        return equippedBonuses.fold(this) { acc, data ->
+            if (canApply(data)) {
+                acc.maxBonus += data.cpuBonus.getOrNull(0) ?: 0.0f
+                acc.bonus += data.cpuBonus.getOrNull(1) ?: 0.0f
             }
-        }
-        return freezeImmune
-    }
 
-    fun getDestroyWatchesImmune(): Boolean {
-        var destroyWatchImmune = false
-        for (i in 0 until Bonuses.size) {
-            val BD = Bonuses[i] as BonusData
-            if (BD.getDestroyWatchesImmune()) {
-                destroyWatchImmune = true
-            }
+            acc
         }
-        return destroyWatchImmune
     }
+}
 
-    fun getBankingBonus(): Float {
-        var bankingBonus = 0.0f
-        for (i in 0 until Bonuses.size) {
-            val BD = Bonuses[i] as BonusData
-            bankingBonus += BD.getBankingBonus()
-        }
-        if (bankingBonus > 0.07f) {
-            return 0.07f
-        }
-        return bankingBonus
-    }
+class EquipmentSheet(private val computer: Computer) {
+    private var equippedAGPFile: HackerFile? = null
+    private var equippedPCI0File: HackerFile? = null
+    private var equippedPCI1File: HackerFile? = null
 
-    fun getHealBonus(): Float {
-        var healCostBonus = 1.0f
-        for (i in 0 until Bonuses.size) {
-            val BD = Bonuses[i] as BonusData
-            healCostBonus += BD.getHealBonus()
-        }
-        if (healCostBonus <= 0.25) {
-            healCostBonus = 0.25f
-        }
-        return healCostBonus
-    }
+    private var equippedBonuses = ArrayList<BonusData>()
 
-    fun getCPUBonus(): Float = getCPUBonus(null)
+    fun getHealModifier() = (HEAL_MODIFIER_BASE + equippedBonuses.sumOf { it.healMod }).coerceAtLeast(HEAL_MODIFIER_MIN)
+    fun getDamageBonus() = equippedBonuses.sumOf { it.damageBonus.toDouble() }.toFloat()
+    fun getMiningBonus() = equippedBonuses.sumOf { it.miningBonus.toDouble() }.toFloat()
+    fun getFreezeImmune() = equippedBonuses.firstOrNull { it.freezeImmune }?.let { return true } ?: false
+    fun getDestroyWatchesImmune() =
+        equippedBonuses.firstOrNull { it.destroyWatchesImmune }?.let { return true } ?: false
+
+    fun getBankingBonus() =
+        equippedBonuses.sumOf { it.bankingBonus.toDouble() }.toFloat().coerceAtMost(BANKING_BONUS_MAX)
+
+    fun getHealBonus() = (1.0f + equippedBonuses.sumOf { it.healBonus.toDouble() }.toFloat()).coerceAtLeast(0.25f)
 
     val cpuBonus: Float
-        get() = getCPUBonus()
+        get() = getCPUBonus(null)
 
     fun getCPUBonus(card: HackerFile?): Float {
-        var CPUBonus = 0.0f
-        var CPUMaxBonus = 0.0f
-        for (i in 0 until Bonuses.size) {
-            val BD = Bonuses[i] as BonusData
-            if (card == null || BD.getEquipmentFile() === card) {
-                CPUBonus += BD.getCPUBonus()[1]
-                CPUMaxBonus += BD.getCPUBonus()[0]
-            }
+        var (bonus, maxBonus) = CpuBonusData().applyEquippedBonus(equippedBonuses) { card == null || it.equipmentFile === card }
+
+        val deficit = computer.maximumCPUNoBonus - computer.baseCPULoad + bonus
+        if (!computer.attacking && deficit < 0f) {
+            bonus += abs(deficit).coerceAtMost(maxBonus)
         }
-        val spaceLeft = MyComputer.maximumCPUNoBonus - MyComputer.baseCPULoad
-        if (!MyComputer.attacking) {
-            if (spaceLeft + CPUBonus < 0.0f) {
-                var required = Math.abs(spaceLeft + CPUBonus)
-                if (required + CPUBonus > CPUMaxBonus) {
-                    required = CPUMaxBonus
-                }
-                CPUBonus += required
-            }
-        }
-        return CPUBonus
+
+        return bonus
     }
 
     fun getWatchBonus(): Int = getWatchBonus(null)
 
     fun getWatchBonus(card: HackerFile?): Int {
-        var WatchBonus = 0
-        for (i in 0 until Bonuses.size) {
-            val BD = Bonuses[i] as BonusData
-            if (card == null || BD.getEquipmentFile() === card) {
-                WatchBonus += BD.getWatchBonus()
-            }
+        var bonus = equippedBonuses.sumOf { it.takeIf { card == null || it.equipmentFile === card }?.watchBonus ?: 0 }
+
+        val deficit = computer.maximumWatchesNoBonus - computer.watchHandler.watchCount + bonus
+        if (deficit < 0) {
+            bonus += abs(deficit)
         }
-        val spaceLeft = MyComputer.maximumWatchesNoBonus - MyComputer.watchHandler.watchCount
-        if (spaceLeft + WatchBonus < 0) {
-            WatchBonus += Math.abs(spaceLeft + WatchBonus.toDouble()).toInt()
-        }
-        return WatchBonus
+        return bonus
     }
 
-    fun getHDBonus(): Int = getHDBonus(null)
+    val driveBonus = getHDBonus(null)
 
-    fun getHDBonus(card: HackerFile?): Int {
-        var HDBonus = 0
-        for (i in 0 until Bonuses.size) {
-            val BD = Bonuses[i] as BonusData
-            if (card == null || BD.getEquipmentFile() === card) {
-                HDBonus += BD.getHDBonus()
-            }
-        }
-        return HDBonus
-    }
-
-    fun generateHardware(rarity: Float): HackerFile {
-        var maxQuality = 5
-        var maxAttribute = 8
-        if (rarity == HIGH.toFloat()) {
-            maxAttribute = 9
-        }
-        if (rarity == RARE.toFloat()) {
-            maxAttribute = 10
-        }
-        if (rarity == RARE.toFloat()) {
-            maxQuality = 10
-        }
-        if (rarity == HIGH.toFloat()) {
-            maxQuality = 8
-        }
-        if (rarity == MEDIUM.toFloat()) {
-            maxQuality = 6
-        }
-
-        val attribute1 = (Math.random() * maxAttribute).toInt()
-        var attribute2: Int
-        do {
-            attribute2 = (Math.random() * maxAttribute).toInt()
-        } while (attribute2 == attribute1)
-
-        var quality1 = (Math.random() * maxQuality).toInt()
-        val quality2 =
-            if (quality1 < 2) {
-                var q: Int
-                do {
-                    q = (Math.random() * maxQuality).toInt()
-                } while (q < 2)
-                q
-            } else {
-                (Math.random() * maxQuality).toInt()
-            }
-
-        if (attribute1 == 8 || attribute1 == 9) {
-            quality1 = 9
-        }
-        var quality2Var = quality2
-        if (attribute2 == 8 || attribute2 == 9) {
-            quality2Var = 9
-        }
-
-        val hardwareType = (Math.random() * hardwareCount).toInt()
-        var itemName = ""
-        var ED = HardwareDescriptions[attribute1] as EquipmentData
-        var BonusNames = ED.getBonusNames()
-        itemName += BonusNames[0].toString() + " "
-        itemName += CardType[hardwareType] + " "
-        ED = HardwareDescriptions[attribute2] as EquipmentData
-        BonusNames = ED.getBonusNames()
-        itemName += "of " + BonusNames[1]
-
-        val HF = HackerFile(hardwareType + 18)
-        HF.setName(CardType[hardwareType] + ".license")
-        HF.setDescription(itemName)
-        val Keys = HashMap<Any?, Any?>()
-        Keys["attribute0"] = "" + attribute1
-        Keys["attribute1"] = "" + attribute2
-        Keys["attribute2"] = "" + 0
-        Keys["quality0"] = "" + quality1
-        Keys["quality1"] = "" + quality2Var
-        Keys["quality2"] = "" + 0
-
-        val durability = floatArrayOf(
-            50.0f, 50.0f, 50.0f, 50.0f, 50.0f,
-            50.0f, 50.0f, 50.0f, 50.0f, 50.0f,
-            100.0f, 100.0f, 100.0f, 100.0f, 100.0f,
-            150.0f, 150.0f, 150.0f, 200.0f, 200.0f, 250.0f
-        )
-        val choice = (Math.random() * durability.size.toDouble()).toInt()
-        Keys["maxquality"] = "" + durability[choice]
-        Keys["currentquality"] = "" + durability[choice]
-
-        HF.setContent(Keys)
-        HF.setQuantity(1)
-        HF.setMaker("Low")
-        if (quality1 + quality2Var > 5) {
-            HF.setMaker("Medium")
-        }
-        if (quality1 + quality2Var >= 14) {
-            HF.setMaker("High")
-        }
-        if (quality1 + quality2Var >= 18) {
-            HF.setMaker("Rare")
-        }
-        return HF
-    }
+    fun getHDBonus(card: HackerFile?) =
+        equippedBonuses.sumOf { it.takeIf { card == null || it.equipmentFile === card }?.hdBonus ?: 0 }
 
     fun removeAllowed(card: HackerFile?): Boolean {
-        val cpuRemaining = MyComputer.maximumCPULoad - MyComputer.baseCPULoad
+        val cpuRemaining = computer.maximumCPULoad - computer.baseCPULoad
         val cpuBonus = getCPUBonus(card)
         if (cpuRemaining - cpuBonus < 0.0f) {
-            MyComputer.addMessage(MessageHandler.UNEQUIP_FAIL_CPU_RESTRICTIONS)
+            computer.addMessage(MessageHandler.UNEQUIP_FAIL_CPU_RESTRICTIONS)
             return false
         }
 
-        val spaceLeft = MyComputer.fileSystem.getSpaceLeft()
+        val spaceLeft = computer.fileSystem.getSpaceLeft()
         val hdBonus = getHDBonus(card).toFloat()
         if (spaceLeft - hdBonus < 0) {
-            MyComputer.addMessage(MessageHandler.UNEQUIP_FAIL_HD_FULL)
+            computer.addMessage(MessageHandler.UNEQUIP_FAIL_HD_FULL)
             return false
         }
 
-        val watchSpaceLeft = MyComputer.getMaximumWatches() - MyComputer.watchHandler.watchCount
+        val watchSpaceLeft = computer.getMaximumWatches() - computer.watchHandler.watchCount
         val watchBonus = getWatchBonus(card)
         if (watchSpaceLeft - watchBonus < 0) {
-            MyComputer.addMessage(MessageHandler.UNEQUIP_FAIL_WATCH_RESTRICTIONS)
+            computer.addMessage(MessageHandler.UNEQUIP_FAIL_WATCH_RESTRICTIONS)
             return false
         }
         return true
@@ -327,42 +105,42 @@ class EquipmentSheet(private val MyComputer: Computer) {
         }
 
         if (doChecks) {
-            val cpuRemaining = MyComputer.maximumCPULoad - MyComputer.baseCPULoad
+            val cpuRemaining = computer.maximumCPULoad - computer.baseCPULoad
             var cpuBonus = 0.0f
-            cpuBonus += bd1.getCPUBonus()[1]
-            cpuBonus += bd2.getCPUBonus()[1]
+            cpuBonus += bd1.cpuBonus[1]
+            cpuBonus += bd2.cpuBonus[1]
             if (bd3 != null) {
-                cpuBonus += bd3.getCPUBonus()[1]
+                cpuBonus += bd3.cpuBonus[1]
             }
             if (cpuRemaining + cpuBonus < 0.0f) {
-                MyComputer.addMessage(MessageHandler.EQUIP_FAIL_CPU_RESTRICTIONS)
+                computer.addMessage(MessageHandler.EQUIP_FAIL_CPU_RESTRICTIONS)
                 return false
             }
 
-            var spaceLeft = MyComputer.fileSystem.getSpaceLeft()
+            var spaceLeft = computer.fileSystem.getSpaceLeft()
             if (!isEquipped) {
                 spaceLeft++
             }
             var hdBonus = 0
-            hdBonus += bd1.getHDBonus()
-            hdBonus += bd2.getHDBonus()
+            hdBonus += bd1.hdBonus
+            hdBonus += bd2.hdBonus
             if (bd3 != null) {
-                hdBonus += bd3.getHDBonus()
+                hdBonus += bd3.hdBonus
             }
             if (spaceLeft + hdBonus < 0) {
-                MyComputer.addMessage(MessageHandler.EQUIP_FAIL_HD_FULL)
+                computer.addMessage(MessageHandler.EQUIP_FAIL_HD_FULL)
                 return false
             }
 
-            val watchSpaceLeft = MyComputer.getMaximumWatches() - MyComputer.watchHandler.watchCount
+            val watchSpaceLeft = computer.getMaximumWatches() - computer.watchHandler.watchCount
             var watchBonus = 0
-            watchBonus += bd1.getWatchBonus()
-            watchBonus += bd2.getWatchBonus()
+            watchBonus += bd1.watchBonus
+            watchBonus += bd2.watchBonus
             if (bd3 != null) {
-                watchBonus += bd3.getWatchBonus()
+                watchBonus += bd3.watchBonus
             }
             if (watchSpaceLeft + watchBonus < 0) {
-                MyComputer.addMessage(MessageHandler.EQUIP_FAIL_WATCH_RESTRICTIONS)
+                computer.addMessage(MessageHandler.EQUIP_FAIL_WATCH_RESTRICTIONS)
                 return false
             }
         }
@@ -372,71 +150,68 @@ class EquipmentSheet(private val MyComputer: Computer) {
     }
 
     fun removeCardFromBonuses(ParentFile: HackerFile?) {
-        val bonusIterator = Bonuses.iterator()
+        val bonusIterator = equippedBonuses.iterator()
         while (bonusIterator.hasNext()) {
             val BD = bonusIterator.next() as BonusData
-            if (BD.getEquipmentFile() === ParentFile) {
+            if (BD.equipmentFile === ParentFile) {
                 bonusIterator.remove()
             }
         }
     }
 
-    fun addCardToBonuses(bd1: BonusData, bd2: BonusData, bd3: BonusData?) {
-        Bonuses.add(bd1)
-        Bonuses.add(bd2)
-        if (bd3 != null) {
-            Bonuses.add(bd3)
-        }
+    fun addCardToBonuses(attribute1Bonus: BonusData, attribute2Bonus: BonusData, attribute3Bonus: BonusData?) {
+        equippedBonuses.add(attribute1Bonus)
+        equippedBonuses.add(attribute2Bonus)
+        attribute3Bonus?.let(equippedBonuses::add)
     }
 
-    private fun getBonusData(ParentFile: HackerFile?, attribute: Int, quality: Int): BonusData {
-        val ED = HardwareDescriptions[attribute] as EquipmentData
-        val BD = BonusData(ParentFile)
+    private fun getBonusData(parentFile: HackerFile?, attribute: Int, quality: Int): BonusData {
+        // TODO: Change the contract so that bonus data can handle an Equipment Definition to process what property to apply to
+        val bonusData = BonusData(parentFile)
 
-        if (attribute == HEAL_RATE) {
-            val BonusChart = ED.getBonusChart() as IntArray
-            val bonus = BonusChart[quality]
-            BD.setHealMod(bonus)
-        } else if (attribute == DAMAGE_BONUS) {
-            val BonusChart = ED.getBonusChart() as FloatArray
-            val bonus = BonusChart[quality]
-            BD.setDamageBonus(bonus)
-        } else if (attribute == MINING_BONUS) {
-            val BonusChart = ED.getBonusChart() as FloatArray
-            val bonus = BonusChart[quality]
-            BD.setMiningBonus(bonus)
-        } else if (attribute == BANKING_BONUS) {
-            val BonusChart = ED.getBonusChart() as FloatArray
-            val bonus = BonusChart[quality]
-            BD.setBankingBonus(bonus)
-        } else if (attribute == HEAL_COST_BONUS) {
-            val BonusChart = ED.getBonusChart() as FloatArray
-            val bonus = BonusChart[quality]
-            BD.setHealBonus(bonus)
-        } else if (attribute == CPU_BONUS) {
-            val BonusChart = ED.getBonusChart() as FloatArray
-            val bonus = BonusChart[quality]
-            BD.setCPUBonus(bonus)
-        } else if (attribute == WATCH_BONUS) {
-            val BonusChart = ED.getBonusChart() as IntArray
-            val bonus = BonusChart[quality]
-            BD.setWatchBonus(bonus)
-        } else if (attribute == HD_BONUS) {
-            val BonusChart = ED.getBonusChart() as IntArray
-            val bonus = BonusChart[quality]
-            BD.setHDBonus(bonus)
-        } else if (attribute == FREEZE_IMMUNE) {
-            BD.setFreezeImmune(true)
-        } else if (attribute == DESTROY_WATCH_IMMUNE) {
-            BD.setDestroyWatchesImmune(true)
-        }
+        EquipmentBonusType
+            .fromId(attribute)
+            ?.let { EquipmentDefinition.fromType(it) }
+            ?.let { data ->
+                when (data) {
+                    is EquipmentDefinition.HealingEquipment ->
+                        bonusData.healMod = data.bonusForQuality(quality)
 
-        return BD
+                    is EquipmentDefinition.DamageBonusEquipment ->
+                        bonusData.damageBonus = data.bonusForQuality(quality)
+
+                    is EquipmentDefinition.MiningBonusEquipment ->
+                        bonusData.miningBonus = data.bonusForQuality(quality)
+
+                    is EquipmentDefinition.BankingBonusEquipment ->
+                        bonusData.bankingBonus = data.bonusForQuality(quality)
+
+                    is EquipmentDefinition.HealCostBonusEquipment ->
+                        bonusData.healBonus = data.bonusForQuality(quality)
+
+                    is EquipmentDefinition.CpuBonusEquipment ->
+                        bonusData.setCpuBonus(data.bonusForQuality(quality))
+
+                    is EquipmentDefinition.WatchBonusEquipment ->
+                        bonusData.watchBonus = data.bonusForQuality(quality)
+
+                    is EquipmentDefinition.HdBonusEquipment ->
+                        bonusData.hdBonus = data.bonusForQuality(quality)
+
+                    is EquipmentDefinition.FreezeImmuneEquipment ->
+                        bonusData.freezeImmune = data.bonusForQuality(quality)
+
+                    is EquipmentDefinition.DestroyWatchImmuneEquipment ->
+                        bonusData.destroyWatchesImmune = data.bonusForQuality(quality)
+                }
+            }
+
+        return bonusData
     }
 
-    fun fetchQualities(HF: HackerFile?): IntArray {
+    fun fetchQualities(file: HackerFile?): IntArray {
         val returnMe = IntArray(6)
-        val Content = HF!!.getContent()
+        val Content = file!!.content
         returnMe[0] = (Content["attribute0"] as String).toInt()
         returnMe[1] = (Content["quality0"] as String).toInt()
         returnMe[2] = (Content["attribute1"] as String).toInt()
@@ -452,38 +227,36 @@ class EquipmentSheet(private val MyComputer: Computer) {
     }
 
     private fun getHackerFileFromName(position: Int, name: String?): HackerFile? {
-        var EquipFile: HackerFile? = null
+        var file: HackerFile? = null
         if (name != null) {
-            EquipFile = MyComputer.fileSystem.getFile("", name)
-            if (position == AGP && EquipFile!!.getType() != HackerFile.AGP) {
-                MyComputer.addMessage(MessageHandler.EQUIP_FAIL_WRONG_TYPE)
+            file = computer.fileSystem.getFile("", name)
+            if (position == AGP && file!!.type != HackerFile.AGP) {
+                computer.addMessage(MessageHandler.EQUIP_FAIL_WRONG_TYPE)
                 return null
             }
-            if ((position == PCI0 || position == PCI1) && EquipFile!!.getType() != HackerFile.PCI) {
-                MyComputer.addMessage(MessageHandler.EQUIP_FAIL_WRONG_TYPE)
+            if ((position == PCI0 || position == PCI1) && file!!.type != HackerFile.PCI) {
+                computer.addMessage(MessageHandler.EQUIP_FAIL_WRONG_TYPE)
                 return null
             }
         }
-        return EquipFile
+        return file
     }
 
-    private fun unequipCard(equippedCard: HackerFile?, cardToEquip: HackerFile?, position: Int): Boolean {
+    private fun unequipCard(equippedCard: HackerFile, position: Int): Boolean {
         if (!removeAllowed(equippedCard)) {
             return false
         }
 
         removeCardFromBonuses(equippedCard)
-        MyComputer.computerHandler.addData(
-            ApplicationData(SaveFileRequestPayload("", equippedCard!!), 0, MyComputer.getIP()),
-            MyComputer.getIP()
+        computer.computerHandler.addData(
+            ApplicationData(SaveFileRequestPayload("", equippedCard), 0, computer.getIP()),
+            computer.getIP()
         )
 
-        if (position == AGP) {
-            AGPEquipped = null
-        } else if (position == PCI0) {
-            PCI0Equipped = null
-        } else if (position == PCI1) {
-            PCI1Equipped = null
+        when (position) {
+            AGP -> equippedAGPFile = null
+            PCI0 -> equippedPCI0File = null
+            PCI1 -> equippedPCI1File = null
         }
         return true
     }
@@ -493,16 +266,16 @@ class EquipmentSheet(private val MyComputer: Computer) {
             return false
         }
 
-        MyComputer.fileSystem.deleteFile("", cardToEquip!!.getName())
-        if (position == AGP) {
-            AGPEquipped = cardToEquip
+        if (cardToEquip?.name != null) {
+            computer.fileSystem.deleteFile("", cardToEquip.name)
         }
-        if (position == PCI0) {
-            PCI0Equipped = cardToEquip
+
+        when (position) {
+            AGP -> equippedAGPFile = cardToEquip
+            PCI0 -> equippedPCI0File = cardToEquip
+            PCI1 -> equippedPCI1File = cardToEquip
         }
-        if (position == PCI1) {
-            PCI1Equipped = cardToEquip
-        }
+
         return true
     }
 
@@ -511,17 +284,17 @@ class EquipmentSheet(private val MyComputer: Computer) {
         var equippedCard: HackerFile? = null
         var isEquipped = false
 
-        if (position == AGP && AGPEquipped != null) {
-            equippedCard = AGPEquipped
-        } else if (position == PCI0 && PCI0Equipped != null) {
-            equippedCard = PCI0Equipped
-        } else if (position == PCI1 && PCI1Equipped != null) {
-            equippedCard = PCI1Equipped
+        if (position == AGP && equippedAGPFile != null) {
+            equippedCard = equippedAGPFile
+        } else if (position == PCI0 && equippedPCI0File != null) {
+            equippedCard = equippedPCI0File
+        } else if (position == PCI1 && equippedPCI1File != null) {
+            equippedCard = equippedPCI1File
         }
 
         if (equippedCard != null) {
             isEquipped = true
-            unequipped = unequipCard(equippedCard, cardToEquip, position)
+            unequipped = unequipCard(equippedCard, position)
         }
 
         if (!unequipped) {
@@ -531,7 +304,7 @@ class EquipmentSheet(private val MyComputer: Computer) {
         if (cardToEquip != null) {
             if (equipCard(cardToEquip, position, true, isEquipped)) {
                 if (sendMessage && equippedCard != null) {
-                    MyComputer.addMessage(MessageHandler.EQUIP_SUCCESS, arrayOf(cardToEquip.getName()))
+                    computer.addMessage(MessageHandler.EQUIP_SUCCESS, arrayOf(cardToEquip.name))
                 }
             } else {
                 if (equippedCard != null) {
@@ -541,58 +314,39 @@ class EquipmentSheet(private val MyComputer: Computer) {
         }
     }
 
-    fun equip(position: Int, EquipFile: HackerFile?) {
-        equipLogic(position, EquipFile, false)
+    fun equip(position: Int, cardToEquip: HackerFile?) {
+        equipLogic(position, cardToEquip, false)
     }
 
     fun equip(position: Int, name: String?) {
-        val cardToEquip = getHackerFileFromName(position, name)
-        equipLogic(position, cardToEquip, true)
+        equipLogic(position, getHackerFileFromName(position, name), true)
     }
 
-    fun getEquipment(): Array<Any?> {
-        val returnMe = arrayOfNulls<Any>(3)
-        returnMe[0] = AGPEquipped
-        returnMe[1] = PCI0Equipped
-        returnMe[2] = PCI1Equipped
-        return returnMe
+    fun getEquipment(): Array<HackerFile?> {
+        return arrayOf(equippedAGPFile, equippedPCI0File, equippedPCI1File)
     }
 
     fun degradeEquipment() {
-        if (MyComputer.getType() != Computer.NPC) {
-            if (AGPEquipped != null) {
-                degradeEquipment(AGPEquipped)
-            }
-            if (PCI0Equipped != null) {
-                degradeEquipment(PCI0Equipped)
-            }
-            if (PCI1Equipped != null) {
-                degradeEquipment(PCI1Equipped)
-            }
+        if (computer.getType() != Computer.NPC) {
+            equippedAGPFile?.let(::degradeEquipment)
+            equippedPCI0File?.let(::degradeEquipment)
+            equippedPCI1File?.let(::degradeEquipment)
         }
     }
 
-    fun repair(EquipmentID: Int) {
-        var Equipment: HackerFile? = null
-        if (EquipmentID == 0) {
-            Equipment = AGPEquipped
-        }
-        if (EquipmentID == 1) {
-            Equipment = PCI0Equipped
-        }
-        if (EquipmentID == 2) {
-            Equipment = PCI1Equipped
-        }
-        if (Equipment == null) {
-            return
-        }
-        repair(Equipment)
+    fun repair(equipmentId: Int) {
+        (when (equipmentId) {
+            0 -> equippedAGPFile
+            1 -> equippedPCI0File
+            2 -> equippedPCI1File
+            else -> null
+        })?.let(::repair)
     }
 
-    fun repair(Equipment: HackerFile?) {
+    fun repair(equipment: HackerFile?) {
         val commodityUsed = intArrayOf(0, 0, 0, 0, 0)
-        val quality = (Equipment!!.getContent()["quality0"] as String).toInt()
-        val quality1 = (Equipment.getContent()["quality1"] as String).toInt()
+        val quality = (equipment!!.content["quality0"] as String).toInt()
+        val quality1 = (equipment.content["quality1"] as String).toInt()
 
         commodityUsed[4] = commodityAmounts[4][quality] + commodityAmounts[4][quality1]
         commodityUsed[3] = commodityAmounts[3][quality] + commodityAmounts[3][quality1]
@@ -602,13 +356,13 @@ class EquipmentSheet(private val MyComputer: Computer) {
 
         var commodityFailed = false
         for (i in 0..4) {
-            val check = MyComputer.getCommodity(i).toInt()
+            val check = computer.getCommodity(i).toInt()
             if (check < commodityUsed[i]) {
                 commodityFailed = true
             }
         }
 
-        val repairLevel = MyComputer.repairLevel.toInt()
+        val repairLevel = computer.repairLevel.toInt()
         if (!commodityFailed) {
             var repairFailed = false
             var repairFailString = ""
@@ -628,34 +382,34 @@ class EquipmentSheet(private val MyComputer: Computer) {
             if (!repairFailed) {
                 var xp = 0.0f
                 for (i in 0..4) {
-                    val check = MyComputer.getCommodity(i).toInt()
-                    MyComputer.setCommodityAmount(i, (check - commodityUsed[i]).toFloat())
-                    xp += commodityUsed[i] * MyComputer.repairXP[i]
+                    val check = computer.getCommodity(i).toInt()
+                    computer.setCommodityAmount(i, (check - commodityUsed[i]).toFloat())
+                    xp += commodityUsed[i] * computer.repairXP[i]
                 }
 
-                MyComputer.computerHandler.addData(
+                computer.computerHandler.addData(
                     ApplicationData(
                         FloatCommandPayload(com.hackwars.rpc.GameCommands.REPAIRXP.command, xp),
                         0,
-                        MyComputer.getIP()
+                        computer.getIP()
                     ),
-                    MyComputer.getIP()
+                    computer.getIP()
                 )
 
-                val Content = Equipment.getContent()
+                val Content = equipment.content
                 val max = (Content["maxquality"] as String).toFloat()
                 Content["currentquality"] = "" + max
 
-                MyComputer.setRepaired(true)
+                computer.setRepaired(true)
                 var message = ""
                 for (i in 0..3) {
                     if (commodityUsed[i] > 0) {
                         message += "[" + commodityUsed[i] + "x" + Computer.commodityString[i] + "] "
                     }
                 }
-                MyComputer.addMessage(MessageHandler.REPAIR_SUCCESS, arrayOf(Equipment.getName(), message))
+                computer.addMessage(MessageHandler.REPAIR_SUCCESS, arrayOf(equipment.name, message))
             } else {
-                MyComputer.addMessage(
+                computer.addMessage(
                     MessageHandler.REPAIR_FAIL_LEVEL,
                     arrayOf(repairFailString, Computer.requiredRepairLevel[repairFailedCommodity])
                 )
@@ -667,26 +421,26 @@ class EquipmentSheet(private val MyComputer: Computer) {
                     message += "[" + commodityUsed[i] + "x" + Computer.commodityString[i] + "] "
                 }
             }
-            MyComputer.addMessage(
+            computer.addMessage(
                 MessageHandler.REPAIR_FAIL_NOT_ENOUGH_COMMODITIES,
-                arrayOf(Equipment.getName(), message)
+                arrayOf(equipment.name, message)
             )
         }
     }
 
     fun degradeEquipment(HF: HackerFile?) {
-        val Content = HF!!.getContent()
+        val Content = HF!!.content
         if (Content["maxquality"] == null || Content["maxquality"] == "" || Content["maxquality"] == "null") {
             Content["maxquality"] = "" + 50.0
             Content["currentquality"] = "" + 50.0
-            Content["lastdegrade"] = "" + MyComputer.currentTime
+            Content["lastdegrade"] = "" + computer.currentTime
         } else {
             try {
                 val maxQuality = (Content["maxquality"] as String).toFloat()
                 var currentQuality = (Content["currentquality"] as String).toFloat()
                 val lastDegrade = (Content["lastdegrade"] as String).toLong()
-                if (MyComputer.currentTime - lastDegrade >= DEGRADE_RATE.toLong()) {
-                    Content["lastdegrade"] = "" + MyComputer.currentTime
+                if (computer.currentTime - lastDegrade >= DEGRADE_RATE.toLong()) {
+                    Content["lastdegrade"] = "" + computer.currentTime
                     currentQuality--
                     if (currentQuality >= 0) {
                         Content["currentquality"] = "" + currentQuality
@@ -695,25 +449,25 @@ class EquipmentSheet(private val MyComputer: Computer) {
             } catch (_: Exception) {
                 Content["maxquality"] = "" + 50.0
                 Content["currentquality"] = "" + 50.0
-                Content["lastdegrade"] = "" + MyComputer.currentTime
+                Content["lastdegrade"] = "" + computer.currentTime
             }
         }
     }
 
-    fun describeCard(TheCard: HackerFile?) {
-        val BonusCheck = BonusData(TheCard)
-        val attribute0 = (TheCard!!.getContent()["attribute0"] as String).toInt()
-        val quality0 = (TheCard.getContent()["quality0"] as String).toInt()
+    fun describeCard(card: HackerFile?) {
+        val BonusCheck = BonusData(card)
+        val attribute0 = (card!!.content["attribute0"] as String).toInt()
+        val quality0 = (card.content["quality0"] as String).toInt()
         val a1 = describeAttribute(attribute0, quality0, BonusCheck)
 
-        val attribute1 = (TheCard.getContent()["attribute1"] as String).toInt()
-        val quality1 = (TheCard.getContent()["quality1"] as String).toInt()
+        val attribute1 = (card.content["attribute1"] as String).toInt()
+        val quality1 = (card.content["quality1"] as String).toInt()
         val a2 = describeAttribute(attribute1, quality1, BonusCheck)
 
         var a3 = ""
         try {
-            val attribute2 = (TheCard.getContent()["attribute2"] as String).toInt()
-            val quality2 = (TheCard.getContent()["quality2"] as String).toInt()
+            val attribute2 = (card.content["attribute2"] as String).toInt()
+            val quality2 = (card.content["quality2"] as String).toInt()
             if (a3 != "0") {
                 a3 = describeAttribute(attribute2, quality2, BonusCheck)
             }
@@ -724,144 +478,97 @@ class EquipmentSheet(private val MyComputer: Computer) {
         if (a3 != "") {
             bonusdata += "|$a3"
         }
-        TheCard.getContent()["bonusdata"] = bonusdata
+        card.content["bonusdata"] = bonusdata
     }
 
-    fun describeAttribute(attribute: Int, quality: Int, BD: BonusData): String {
-        var bonusString = ""
-        val ED = HardwareDescriptions[attribute] as EquipmentData
-        val decimalFormat: NumberFormat = DecimalFormat("0.00%")
-        val nf: NumberFormat = DecimalFormat("0.0")
-        if (attribute == HEAL_RATE) {
-            val BonusChart = ED.getBonusChart() as IntArray
-            val bonus = BonusChart[quality]
-            BD.setHealBonus(bonus.toFloat())
-            if (BD.getHealBonus() > 0) {
-                var value = BD.getHealBonus().toDouble()
-                value /= 4.0
-                val intvalue = (value * 100.0).toInt()
-                val max = bonus.toFloat() / 4.0f
-                val maxS = decimalFormat.format(max)
-                bonusString = "" + intvalue + "%/" + maxS + " Slower Heal Rate"
-            } else {
-                var value = -1.0 * BD.getHealBonus()
-                value /= 4.0
-                val intvalue = (value * 100.0).toInt()
-                val max = bonus.toFloat() / 4.0f
-                val maxS = decimalFormat.format(-max)
-                bonusString = "" + intvalue + "%/" + maxS + " Faster Heal Rate"
-            }
-        } else if (attribute == DAMAGE_BONUS) {
-            val BonusChart = ED.getBonusChart() as FloatArray
-            val bonus = BonusChart[quality]
-            BD.setDamageBonus(bonus)
-            bonusString =
-                if (BD.getDamageBonus() < 0) {
-                    "" + nf.format(BD.getDamageBonus()) + "/" + nf.format(bonus) + " to Attack Damage"
-                } else {
-                    "+" + nf.format(BD.getDamageBonus()) + "/" + nf.format(bonus) + " to Attack Damage"
-                }
-        } else if (attribute == MINING_BONUS) {
-            val BonusChart = ED.getBonusChart() as FloatArray
-            val bonus = BonusChart[quality]
-            BD.setMiningBonus(bonus)
-            bonusString =
-                if (BD.getMiningBonus() < 0) {
-                    "" + nf.format(BD.getMiningBonus()) + "/" + nf.format(bonus) + " to Redirecting Damage"
-                } else {
-                    "+" + nf.format(BD.getMiningBonus()) + "/" + nf.format(bonus) + " to Redirecting Damage"
-                }
-        } else if (attribute == BANKING_BONUS) {
-            val BonusChart = ED.getBonusChart() as FloatArray
-            val bonus = BonusChart[quality]
-            BD.setBankingBonus(bonus)
-            if (BD.getBankingBonus() > 0) {
-                val value = BD.getBankingBonus().toDouble()
-                val intvalue = (value * 1000.0).toInt()
-                bonusString =
-                    "" + (intvalue.toDouble() / 10.0) + "%/" + decimalFormat.format(bonus) + " Lower Banking Costs"
-            } else {
-                val value = -1.0 * BD.getBankingBonus()
-                val intvalue = (value * 1000.0).toInt()
-                bonusString =
-                    "" + (intvalue.toDouble() / 10.0) + "%/" + decimalFormat.format(-bonus) + " Higher Banking Costs"
-            }
-        } else if (attribute == HEAL_COST_BONUS) {
-            val BonusChart = ED.getBonusChart() as FloatArray
-            val bonus = BonusChart[quality]
-            BD.setHealBonus(bonus.toFloat())
-            if (BD.getHealBonus() > 0) {
-                val value = BD.getHealBonus().toDouble()
-                val intvalue = (value * 100.0).toInt()
-                bonusString = "" + intvalue + "%/" + decimalFormat.format(bonus) + " Higher Healing Costs"
-            } else {
-                val value = -1.0 * BD.getHealBonus()
-                val intvalue = (value * 100.0).toInt()
-                bonusString = "" + intvalue + "%/" + decimalFormat.format(-bonus) + " Lower Healing Costs"
-            }
-        } else if (attribute == CPU_BONUS) {
-            val BonusChart = ED.getBonusChart() as FloatArray
-            val bonus = BonusChart[quality]
-            BD.setCPUBonus(bonus)
-            bonusString =
-                if (BD.getCPUBonus()[1] >= 0) {
-                    "+" + nf.format(BD.getCPUBonus()[1]) + "/" + nf.format(bonus) + " CPU Points"
-                } else {
-                    "" + nf.format(BD.getCPUBonus()[1]) + "/" + nf.format(bonus) + " CPU Points"
-                }
-        } else if (attribute == WATCH_BONUS) {
-            val BonusChart = ED.getBonusChart() as IntArray
-            val bonus = BonusChart[quality]
-            BD.setWatchBonus(bonus)
-            bonusString =
-                if (BD.getWatchBonus() >= 0) {
-                    "+" + BD.getWatchBonus() + "/" + bonus + " Watch"
-                } else {
-                    "" + BD.getWatchBonus() + "/" + bonus + " Watch"
-                }
-        } else if (attribute == HD_BONUS) {
-            val BonusChart = ED.getBonusChart() as IntArray
-            val bonus = BonusChart[quality]
-            BD.setHDBonus(bonus)
-            bonusString =
-                if (BD.getHDBonus() >= 0) {
-                    "+" + BD.getHDBonus() + "/" + bonus + " HD Space"
-                } else {
-                    "" + BD.getHDBonus() + "/" + bonus + " HD Space"
-                }
-        } else if (attribute == FREEZE_IMMUNE) {
-            val value = BD.calculateDegradation()
-            val intvalue = (value * 100.0).toInt()
-            bonusString = "" + intvalue + "% Freeze Immune"
-        } else if (attribute == DESTROY_WATCH_IMMUNE) {
-            val value = BD.calculateDegradation()
-            val intvalue = (value * 100.0).toInt()
-            bonusString = "" + intvalue + "% Destroy Watch Immune"
-        }
+    fun describeAttribute(attribute: Int, quality: Int, bonusData: BonusData): String {
+        val flatPercentBonusFormat = "%d%% %s"
+        val flatBonusFormat = "%+.1f/%1$+.1f %s"
+        val percentBonusFormat = "%.1f%%/%1$.1f%% %s %s"
+        return EquipmentBonusType
+            .fromId(attribute)
+            ?.let { EquipmentDefinition.fromType(it) }
+            ?.let { data ->
+                when (data) {
+                    is EquipmentDefinition.HealingEquipment -> {
+                        bonusData.healBonus = data.bonusForQuality(quality).toFloat()
+                        percentBonusFormat.format(
+                            abs(bonusData.healBonus / 4.0f * 100),
+                            "Slower".takeIf { bonusData.healBonus > 0 } ?: "Faster",
+                            "Heal Rate"
+                        )
+                    }
 
-        return bonusString
+                    is EquipmentDefinition.DamageBonusEquipment -> {
+                        bonusData.damageBonus = data.bonusForQuality(quality)
+                        flatBonusFormat.format(bonusData.damageBonus, "to Attack Damage")
+                    }
+
+                    is EquipmentDefinition.MiningBonusEquipment -> {
+                        bonusData.miningBonus = data.bonusForQuality(quality)
+                        flatBonusFormat.format(bonusData.miningBonus, "to Redirecting Damage")
+                    }
+
+                    is EquipmentDefinition.BankingBonusEquipment -> {
+                        bonusData.bankingBonus = data.bonusForQuality(quality)
+                        percentBonusFormat.format(
+                            abs(bonusData.bankingBonus * 100),
+                            "Lower".takeIf { bonusData.bankingBonus > 0 } ?: "Higher",
+                            "Banking Costs"
+                        )
+                    }
+
+                    is EquipmentDefinition.HealCostBonusEquipment -> {
+                        bonusData.healBonus = data.bonusForQuality(quality)
+                        percentBonusFormat.format(
+                            abs(bonusData.healBonus * 100),
+                            "Higher".takeIf { bonusData.healBonus > 0 } ?: "Lower",
+                            "Healing Costs"
+                        )
+                    }
+
+                    is EquipmentDefinition.CpuBonusEquipment -> {
+                        bonusData.setCpuBonus(data.bonusForQuality(quality))
+                        flatBonusFormat.format(bonusData.cpuBonus[1], "CPU Points")
+                    }
+
+                    is EquipmentDefinition.WatchBonusEquipment -> {
+                        bonusData.watchBonus = data.bonusForQuality(quality)
+                        flatBonusFormat.format(bonusData.watchBonus, "Watch")
+                    }
+
+                    is EquipmentDefinition.HdBonusEquipment -> {
+                        bonusData.hdBonus = data.bonusForQuality(quality)
+                        flatBonusFormat.format(bonusData.hdBonus, "HD Space")
+                    }
+
+                    is EquipmentDefinition.FreezeImmuneEquipment -> {
+                        bonusData.freezeImmune = data.bonusForQuality(quality)
+                        flatPercentBonusFormat.format(
+                            bonusData.calculateDegradation().times(100).toInt(),
+                            "Freeze Immune"
+                        )
+                    }
+
+                    is EquipmentDefinition.DestroyWatchImmuneEquipment -> {
+                        bonusData.destroyWatchesImmune = data.bonusForQuality(quality)
+                        flatPercentBonusFormat.format(
+                            bonusData.calculateDegradation().times(100).toInt(),
+                            "Destroy Watch Immune"
+                        )
+                    }
+                }
+            }
+            ?: ""
     }
 
     fun outputXML(): String {
-        var returnMe = "<equipment>\n"
-        if (AGPEquipped != null) {
-            returnMe += AGPEquipped!!.outputXML()
-        }
-        returnMe += "</equipment>\n"
-
-        returnMe += "<equipment>\n"
-        if (PCI0Equipped != null) {
-            returnMe += PCI0Equipped!!.outputXML()
-        }
-        returnMe += "</equipment>\n"
-
-        returnMe += "<equipment>\n"
-        if (PCI1Equipped != null) {
-            returnMe += PCI1Equipped!!.outputXML()
-        }
-        returnMe += "</equipment>\n"
-
-        return returnMe
+        val equipmentXMLLine = "<equipment>\n%s\n</equipment>\n"
+        return """
+            ${equipmentXMLLine.format(equippedAGPFile?.outputXML() ?: "")}
+            ${equipmentXMLLine.format(equippedPCI0File?.outputXML() ?: "")}
+            ${equipmentXMLLine.format(equippedPCI1File?.outputXML() ?: "")}
+        """.trimIndent()
     }
 
     companion object {
@@ -886,14 +593,6 @@ class EquipmentSheet(private val MyComputer: Computer) {
         const val PCI0 = 1
         const val PCI1 = 2
 
-        const val HEAL_RATE = 0
-        const val DAMAGE_BONUS = 1
-        const val WATCH_BONUS = 2
-        const val HD_BONUS = 3
-        const val BANKING_BONUS = 4
-        const val HEAL_COST_BONUS = 5
-        const val CPU_BONUS = 6
-        const val MINING_BONUS = 7
         const val FREEZE_IMMUNE = 8
         const val DESTROY_WATCH_IMMUNE = 9
     }

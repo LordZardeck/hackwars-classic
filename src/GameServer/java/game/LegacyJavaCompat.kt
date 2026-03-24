@@ -109,4 +109,4 @@ val Port.ip: String
     get() = getIP()
 
 val EquipmentSheet.cpuBonus: Float
-    get() = getCPUBonus()
+    get() = cpuBonus

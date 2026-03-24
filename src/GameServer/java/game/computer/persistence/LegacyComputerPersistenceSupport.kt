@@ -143,7 +143,7 @@ class LegacyComputerPersistenceSupport(
                 title = computer.pageTitle,
                 body = computer.pageBody
             ),
-            equipmentXml = computer.MyEquipmentSheet.outputXML(),
+            equipmentXml = computer.equipmentSheet.outputXML(),
             preferences = preferences
         )
     }
@@ -311,7 +311,7 @@ class LegacyComputerPersistenceSupport(
         computer.MyFileSystem = FileSystem(computer)
         computer.MyMakeBounty = MakeBounty(computer.MyFileSystem)
         computer.MyWatchHandler = WatchHandler(computer, computer.RawComputerHandler)
-        computer.MyEquipmentSheet = EquipmentSheet(computer)
+        computer.equipmentSheet = EquipmentSheet(computer)
         computer.MyDropTable = null
         computer.currentCPU = 0f
         computer.reportCPU = 0f
@@ -330,7 +330,7 @@ class LegacyComputerPersistenceSupport(
         while (equipmentNode != null) {
             val fileNode = loadXml.findNode(equipmentNode, "file", 0)
             if (fileNode != null) {
-                computer.MyEquipmentSheet.equip(index, loadFile(fileNode, loadXml))
+                computer.equipmentSheet.equip(index, loadFile(fileNode, loadXml))
             }
             index += 1
             equipmentNode = loadXml.findNode(root, "equipment", index)

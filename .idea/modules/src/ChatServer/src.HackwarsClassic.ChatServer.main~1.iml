@@ -1,9 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<module external.linked.project.id=":ChatServer:test" external.linked.project.path="$MODULE_DIR$/../../../../src/ChatServer" external.root.project.path="$MODULE_DIR$/../../../.." external.system.id="GRADLE" external.system.module.group="HackwarsClassic" external.system.module.type="sourceSet" external.system.module.version="unspecified" type="JAVA_MODULE" version="4">
+<module external.linked.project.id=":ChatServer:main" external.linked.project.path="$MODULE_DIR$/../../../../src/ChatServer" external.root.project.path="$MODULE_DIR$/../../../.." external.system.id="GRADLE" external.system.module.group="HackwarsClassic" external.system.module.type="sourceSet" external.system.module.version="unspecified" type="JAVA_MODULE" version="4">
   <component name="FacetManager">
     <facet external-system-id="GRADLE" type="kotlin-language" name="Kotlin">
       <configuration version="5" platform="JVM 23" allPlatforms="JVM [23]" useProjectSettings="false" pureKotlinSourceFolders="$MODULE_DIR$/../../../../src/ChatServer/src/test/kotlin">
-        <additionalVisibleModuleNames>:ChatServer:main</additionalVisibleModuleNames>
         <compilerSettings>
           <option name="additionalArguments" value="-Xwhen-guards" />
         </compilerSettings>
@@ -14,9 +13,9 @@
             <flagArg name="noStdlib" arg="true" />
           </flagArguments>
           <stringArguments>
-            <stringArg name="destination" arg="$MODULE_DIR$/../../../../src/ChatServer/build/classes/kotlin/test" />
+            <stringArg name="destination" arg="$MODULE_DIR$/../../../../src/ChatServer/build/classes/kotlin/main" />
             <stringArg name="jvmTarget" arg="23" />
-            <stringArg name="moduleName" arg="ChatServer_test" />
+            <stringArg name="moduleName" arg="ChatServer" />
             <stringArg name="apiVersion" arg="2.1" />
             <stringArg name="languageVersion" arg="2.1" />
           </stringArguments>
@@ -37,14 +36,18 @@
     </facet>
   </component>
   <component name="NewModuleRootManager">
-    <output-test url="file://$MODULE_DIR$/../../../../src/ChatServer/build/classes/java/test" />
+    <output url="file://$MODULE_DIR$/../../../../src/ChatServer/build/classes/java/main" />
     <exclude-output />
-    <content url="file://$MODULE_DIR$/../../../../src/ChatServer/src/test" />
+    <content url="file://$MODULE_DIR$/../../../../src/ChatServer/java">
+      <sourceFolder url="file://$MODULE_DIR$/../../../../src/ChatServer/java" isTestSource="false" />
+    </content>
+    <content url="file://$MODULE_DIR$/../../../../src/ChatServer/resources">
+      <sourceFolder url="file://$MODULE_DIR$/../../../../src/ChatServer/resources" type="java-resource" />
+    </content>
     <orderEntry type="jdk" jdkName="openjdk-25" jdkType="JavaSDK" />
     <orderEntry type="sourceFolder" forTests="false" />
-    <orderEntry type="module" module-name="src.HackwarsClassic.ChatServer.main" />
-    <orderEntry type="module" module-name="src.HackwarsClassic.HackWars.main" />
-    <orderEntry type="module" module-name="src.HackwarsClassic.Networking.main" />
+    <orderEntry type="module" module-name="src.HackwarsClassic.HackWars.main~1" />
+    <orderEntry type="module" module-name="src.HackwarsClassic.Networking.main~1" />
     <orderEntry type="library" scope="PROVIDED" name="Gradle: org.jetbrains.kotlin:kotlin-stdlib:2.1.20" level="project" />
     <orderEntry type="library" name="Gradle: ch.qos.logback:logback-classic:1.5.18" level="project" />
     <orderEntry type="library" name="Gradle: mysql:mysql-connector-java:5.1.49" level="project" />
@@ -60,5 +63,4 @@
     <orderEntry type="library" scope="RUNTIME" name="Gradle: org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm:1.10.2" level="project" />
     <orderEntry type="library" scope="RUNTIME" name="Gradle: org.antlr:stringtemplate:3.1-b1" level="project" />
   </component>
-  <component name="TestModuleProperties" production-module="HackwarsClassic.ChatServer.main" />
 </module>

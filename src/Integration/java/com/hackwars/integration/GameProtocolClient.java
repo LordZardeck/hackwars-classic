@@ -52,7 +52,7 @@ public final class GameProtocolClient implements AutoCloseable {
     }
 
     public PacketAssignment requestPage(Duration timeout) throws InterruptedException {
-        messageClient.addFinishedAssignment(new RequestPage(loginSuccess.getEncryptedIP()).toRfc());
+        messageClient.addFinishedAssignment(new RequestPage(loginSuccess.getEncryptedIP()).toRfc(0));
         return inbox.await(PacketAssignment.class, timeout, packet ->
             packet.getTitle() != null && packet.getBody() != null
         );

@@ -117,7 +117,7 @@ object FunctionTestSupport {
 
         val equipmentSheet = mock<EquipmentSheet>()
         whenever(equipmentSheet.cpuBonus).thenReturn(0f)
-        whenever(computer.equipmentSheet).thenReturn(equipmentSheet)
+        computer.equipmentSheet = equipmentSheet
 
         whenever(computer.packetAssignment).thenReturn(mock<PacketAssignment>())
         whenever(computer.fileSystem).thenReturn(mock<FileSystem>())

@@ -52,7 +52,7 @@ open class FileSystem(private val MyComputer: Computer) {
      Return the maximum hard-drive space of this hard-drive.
      */
     fun getMaximumSpace(): Int {
-        return HD_CHART[HDType] + MyComputer.equipmentSheet.getHDBonus().toInt()
+        return HD_CHART[HDType] + MyComputer.equipmentSheet.driveBonus
     }
 
     /**
@@ -141,7 +141,7 @@ open class FileSystem(private val MyComputer: Computer) {
             }
         }
 
-        if (!(quota - 2 < HD_CHART[HDType] + MyComputer.equipmentSheet.getHDBonus().toInt())) {
+        if (!(quota - 2 < HD_CHART[HDType] + MyComputer.equipmentSheet.driveBonus)) {
             return false
         }
         quota++
@@ -159,7 +159,7 @@ open class FileSystem(private val MyComputer: Computer) {
             if (locationPath[i] != "") {
                 if (currentHashMap[locationPath[i]] == null) {
                     if (i != locationPath.size - 1) {
-                        if (!(quota - 2 < HD_CHART[HDType] + MyComputer.equipmentSheet.getHDBonus().toInt())) {
+                        if (!(quota - 2 < HD_CHART[HDType] + MyComputer.equipmentSheet.driveBonus)) {
                             return false
                         }
                         quota++
@@ -293,7 +293,7 @@ open class FileSystem(private val MyComputer: Computer) {
         }
 
         if (!Exists && checkSpace) {
-            if (!(quota - 2 < HD_CHART[HDType] + MyComputer.equipmentSheet.getHDBonus().toInt())) {
+            if (!(quota - 2 < HD_CHART[HDType] + MyComputer.equipmentSheet.driveBonus)) {
                 return false
             }
         }

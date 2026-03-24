@@ -603,10 +603,10 @@ public class LegacyCombatNetworkQuestCommandsTest {
     private FileSystem createFileSystem(String ip) {
         Computer storageComputer = mock(Computer.class);
         EquipmentSheet equipmentSheet = mock(EquipmentSheet.class);
-        when(storageComputer.getEquipmentSheet()).thenReturn(equipmentSheet);
+        storageComputer.equipmentSheet = equipmentSheet;
         when(storageComputer.getCurrentTime()).thenReturn(0L);
         when(storageComputer.getIP()).thenReturn(ip);
-        when(equipmentSheet.getHDBonus()).thenReturn(0);
+        when(equipmentSheet.getDriveBonus()).thenReturn(0);
 
         FileSystem fileSystem = new FileSystem(storageComputer);
         fileSystem.setHDType(5);

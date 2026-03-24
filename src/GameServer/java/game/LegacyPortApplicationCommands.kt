@@ -42,7 +42,7 @@ class LegacyPortApplicationCommands : LegacyApplicationDataHandler {
     }
 
     private fun handleDeleteFirewall(computer: Computer, applicationData: ApplicationData) {
-        val maxCPU = Computer.CPU_CHART[computer.cputype] + computer.MyEquipmentSheet.getCPUBonus()
+        val maxCPU = Computer.CPU_CHART[computer.cputype] + computer.equipmentSheet.cpuBonus
         if (computer.cPULoad <= maxCPU) {
             val targetPort = applicationData.payloadAs<DeleteFirewall>().portID ?: return
 
@@ -53,13 +53,13 @@ class LegacyPortApplicationCommands : LegacyApplicationDataHandler {
                     if (computer.MyFileSystem.getSpaceLeft() > 0) {
                         var installedAlready = tempPort.getFireWall()!!.getHackerFile()
                         installedAlready = computer.checkRename(installedAlready!!, "")
-                        installedAlready!!.setLocation("")
-                        if (installedAlready.getQuantity() == 0) {
-                            installedAlready.setQuantity(1)
+                        installedAlready!!.location = ""
+                        if (installedAlready.quantity == 0) {
+                            installedAlready.quantity = 1
                         }
                         computer.MyFileSystem.addFile(installedAlready, false)
                         tempPort.setFireWall(NewFireWall.createNoneFirewall())
-                        computer.addMessage(MessageHandler.REMOVE_FIREWALL_SUCCESS, arrayOf(installedAlready.getName()))
+                        computer.addMessage(MessageHandler.REMOVE_FIREWALL_SUCCESS, arrayOf(installedAlready.name))
                     } else {
                         computer.addMessage(MessageHandler.REMOVE_FIREWALL_FAIL_HD_FULL)
                     }
@@ -78,28 +78,28 @@ class LegacyPortApplicationCommands : LegacyApplicationDataHandler {
         val hackerFile = computer.MyFileSystem.getFile(path, name)
 
         if (hackerFile != null) {
-            val equipLevel = Integer.parseInt(hackerFile.getContent()["equip_level"] as String)
+            val equipLevel = Integer.parseInt(hackerFile.content["equip_level"] as String)
             if (computer.getLevel(computer.Stats["FireWall"] as Float) >= equipLevel) {
-                val cpuCheck = computer.cPULoad + hackerFile.getCPUCost()
-                val maxCPU = Computer.CPU_CHART[computer.cputype] + computer.MyEquipmentSheet.getCPUBonus()
+                val cpuCheck = computer.cPULoad + hackerFile.cpuCost
+                val maxCPU = Computer.CPU_CHART[computer.cputype] + computer.equipmentSheet.cpuBonus
                 if (cpuCheck <= maxCPU) {
                     val port = findPort(computer, resolvedPort)
                     if (port != null) {
-                        hackerFile.setQuantity(hackerFile.getQuantity() - 1)
-                        if (hackerFile.getQuantity() <= 0) {
+                        hackerFile.quantity = hackerFile.quantity - 1
+                        if (hackerFile.quantity <= 0) {
                             computer.MyFileSystem.deleteFile(path, name)
                         }
 
                         var installedAlready = port.getFireWall()!!.getHackerFile()
-                        if (installedAlready!!.getName() != "None") {
+                        if (installedAlready!!.name != "None") {
                             installedAlready = computer.checkRename(installedAlready, "")
-                            installedAlready!!.setLocation("")
-                            if (installedAlready.getQuantity() == 0) {
-                                installedAlready.setQuantity(1)
+                            installedAlready!!.location = ""
+                            if (installedAlready.quantity == 0) {
+                                installedAlready.quantity = 1
                             }
                             computer.MyFileSystem.addFile(installedAlready, false)
                             port.setFireWall(hackerFile)
-                            computer.addMessage(MessageHandler.FIREWALL_REPLACED, arrayOf(installedAlready.getName()))
+                            computer.addMessage(MessageHandler.FIREWALL_REPLACED, arrayOf(installedAlready.name))
                         } else {
                             port.setFireWall(hackerFile)
                         }
@@ -124,8 +124,8 @@ class LegacyPortApplicationCommands : LegacyApplicationDataHandler {
             var port: Port? = findPort(computer, resolvedPort) ?: return
             val currentPort = port ?: return
 
-            val cpuCheck = computer.cPULoad + hackerFile.getCPUCost() - currentPort.getBaseCPUCost()
-            val maxCPU = Computer.CPU_CHART[computer.cputype] + computer.MyEquipmentSheet.getCPUBonus()
+            val cpuCheck = computer.cPULoad + hackerFile.cpuCost - currentPort.getBaseCPUCost()
+            val maxCPU = Computer.CPU_CHART[computer.cputype] + computer.equipmentSheet.cpuBonus
             if (cpuCheck <= maxCPU) {
                 var allow = true
                 var message: Array<Any?>? = null
@@ -149,8 +149,8 @@ class LegacyPortApplicationCommands : LegacyApplicationDataHandler {
                 }
 
                 if (port != null) {
-                    hackerFile.setQuantity(hackerFile.getQuantity() - 1)
-                    if (hackerFile.getQuantity() <= 0) {
+                    hackerFile.quantity = hackerFile.quantity - 1
+                    if (hackerFile.quantity <= 0) {
                         computer.MyFileSystem.deleteFile(path, name)
                     }
 
@@ -158,9 +158,9 @@ class LegacyPortApplicationCommands : LegacyApplicationDataHandler {
                     if (portType >= 0) {
                         port.setType(portType)
                         port.setMaliciousTarget(computer.ip)
-                        val script = hackerFile.getContent() as HashMap<*, *>
+                        val script = hackerFile.content as HashMap<*, *>
                         var newProgram: Program? = null
-                        port.setCPUCost(hackerFile.getCPUCost())
+                        port.setCPUCost(hackerFile.cpuCost)
 
                         if (portType == Port.ATTACK) {
                             newProgram = AttackProgram(
@@ -203,12 +203,12 @@ class LegacyPortApplicationCommands : LegacyApplicationDataHandler {
             val hackerFile = computer.MyFileSystem.getFile(path, name)
 
             if (hackerFile != null) {
-                val cpuCheck = computer.cPULoad + hackerFile.getCPUCost()
-                val maxCPU = Computer.CPU_CHART[computer.cputype] + computer.MyEquipmentSheet.getCPUBonus()
+                val cpuCheck = computer.cPULoad + hackerFile.cpuCost
+                val maxCPU = Computer.CPU_CHART[computer.cputype] + computer.equipmentSheet.cpuBonus
 
                 if (cpuCheck <= maxCPU) {
-                    hackerFile.setQuantity(hackerFile.getQuantity() - 1)
-                    if (hackerFile.getQuantity() <= 0) {
+                    hackerFile.quantity = hackerFile.quantity - 1
+                    if (hackerFile.quantity <= 0) {
                         computer.MyFileSystem.deleteFile(path, name)
                     }
 
@@ -218,7 +218,7 @@ class LegacyPortApplicationCommands : LegacyApplicationDataHandler {
                         port.setNumber(resolvedPort)
                         port.setType(portType)
                         port.setHealth(100.0f)
-                        port.setCPUCost(hackerFile.getCPUCost())
+                        port.setCPUCost(hackerFile.cpuCost)
                         port.setNote("")
                         val firewall = NewFireWall(computer.MyComputerHandler)
                         firewall.loadHackerFile(NewFireWall.createNoneFirewall())
@@ -227,7 +227,7 @@ class LegacyPortApplicationCommands : LegacyApplicationDataHandler {
                         port.setDummy(false)
                         port.setOn(true)
                         port.setMaliciousTarget(computer.ip)
-                        val script = hackerFile.getContent() as HashMap<*, *>
+                        val script = hackerFile.content as HashMap<*, *>
                         var newProgram: Program? = null
 
                         if (portType == Port.ATTACK) {
@@ -294,7 +294,7 @@ class LegacyPortApplicationCommands : LegacyApplicationDataHandler {
             packetPorts[index] = tempPort.getPacketPort()
             index++
         }
-        computer.PA.setPacketPorts(packetPorts.requireNoNulls())
+        computer.PA.packetPorts = packetPorts.requireNoNulls()
         computer.systemChange = true
     }
 
