@@ -106,7 +106,7 @@ class FTPProgram(
                 listing[3] = HF!!.getPrice()
                 listing[4] = HF!!.getMaker()
                 listing[5] = HF!!.getCPUCost()
-                listing[6] = HF!!.getDescription()
+                listing[6] = HF!!.getPublicDescription()
                 directory[1] = listing
             }
 

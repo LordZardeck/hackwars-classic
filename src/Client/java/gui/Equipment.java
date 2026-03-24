@@ -310,7 +310,7 @@ public class Equipment extends Application implements KeyListener, TableModelLis
                     rowData[PLUTONIUM] = pu;
                     rowData[CURRENT_DURABILITY] = durability;
                     rowData[MAX_DURABILITY] = max;
-                    rowData[NAME] = HF.getDescription();
+                    rowData[NAME] = HF.getPublicDescription();
                     float price = Home.getPrice(HF.getMaker());
                     rowData[STORE_PRICE] = price;
                     rowData[YOUR_STORE_PRICE] = HF.getPrice();
@@ -326,7 +326,7 @@ public class Equipment extends Application implements KeyListener, TableModelLis
     }
 
     public static Inventory getInventoryObject(HackerFile HF, int equipped, Hacker MyHacker, EquipmentPopUp EPU) {
-        String name = HF.getDescription();
+        String name = HF.getPublicDescription();
         HashMap content = HF.getContent();
         int a1 = Integer.valueOf((String) content.get("attribute0"));
         int a2 = Integer.valueOf((String) content.get("attribute1"));

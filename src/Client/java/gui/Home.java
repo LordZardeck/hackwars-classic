@@ -670,7 +670,7 @@ public class Home extends Application implements ComponentListener, TableModelLi
         maker.setText(HF.getMaker());
         NumberFormat nf = NumberFormat.getCurrencyInstance();
         price.setText(nf.format(HF.getPrice()));
-        description.setText(HF.getDescription());
+        description.setText(HF.getPublicDescription());
         cpu.setText("" + HF.getCPUCost());
         quantity.setText("" + HF.getQuantity());
         cardInfo.setText("");

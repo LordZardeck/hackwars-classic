@@ -110,9 +110,9 @@ public class HomeIcon extends JPanel implements MouseListener, ActionListener {
     public void receivedFile(HackerFile HF) {
         file = HF;
         if (type != PCI && type != AGP)
-            HPU.setInfo(name, types[type], HF.getDescription(), HF.getPrice(), HF.getQuantity(), HF.getMaker());
+            HPU.setInfo(name, types[type], HF.getPublicDescription(), HF.getPrice(), HF.getQuantity(), HF.getMaker());
         else {
-            String cardName = HF.getDescription();
+            String cardName = HF.getPublicDescription();
             HashMap content = HF.getContent();
             if (content.get("attribute0") != null) {
                 int quality1 = Integer.valueOf((String) content.get("quality0"));
@@ -299,7 +299,7 @@ public class HomeIcon extends JPanel implements MouseListener, ActionListener {
             file = null;
         }
         if (e.getActionCommand().equals("Set Description")) {
-            HomeDescriptionDialog HDD = new HomeDescriptionDialog(invList.getHome(), file.getDescription());
+            HomeDescriptionDialog HDD = new HomeDescriptionDialog(invList.getHome(), file.getPublicDescription());
             file = null;
         }
     }

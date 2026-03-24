@@ -1,6 +1,5 @@
 package game
 
-import assignments.PacketAssignment
 import game.payload.CombatFirewallXpPayload
 import game.payload.DamagePayload
 import java.util.HashMap

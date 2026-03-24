@@ -2,7 +2,6 @@ package game
 
 import java.util.ArrayList
 import java.util.HashMap
-import java.util.Iterator
 import java.util.Map
 
 /**
@@ -378,7 +377,7 @@ open class FileSystem(private val MyComputer: Computer) {
                 O[3] = java.lang.Float.valueOf(HF.getPrice())
                 O[4] = HF.getMaker()
                 O[5] = HF.getCPUCost()
-                O[6] = HF.getDescription()
+                O[6] = HF.getPublicDescription()
                 if (HF.getType() == HackerFile.NEW_FIREWALL) {
                     val content = HF.getContent()
                     var priceObject = content["store_price"]

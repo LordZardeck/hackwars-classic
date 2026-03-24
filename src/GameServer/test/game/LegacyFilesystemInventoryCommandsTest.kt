@@ -166,7 +166,7 @@ class LegacyFilesystemInventoryCommandsTest {
         )
 
         assertTrue(handled)
-        assertEquals("original", clue.description)
+        assertEquals("original", clue.publicDescription)
         assertNull(computer.PA.getFile())
     }
 

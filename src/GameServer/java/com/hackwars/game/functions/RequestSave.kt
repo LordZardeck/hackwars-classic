@@ -33,7 +33,7 @@ class RequestSave(computer: Computer) : Function(computer) {
         val triggerParameters = payload.triggerParameters
 
         val newFile = HackerFile(HackerFile.TEXT)
-        newFile.description = "A save file for $fileName."
+        newFile.setDescription("A save file for $fileName.")
         newFile.maker = fileName
         newFile.quantity = 0
 

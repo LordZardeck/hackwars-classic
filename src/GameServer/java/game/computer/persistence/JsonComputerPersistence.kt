@@ -8,7 +8,6 @@ import game.Computer
 import game.HackerFile
 import game.LegacyComputerPersistenceSupport
 import game.Port
-import game.Watch
 import org.w3c.dom.Node
 import util.LoadXML
 import java.time.LocalDateTime
@@ -334,7 +333,7 @@ class JsonComputerPersistenceSupport(
             type = file.type,
             name = file.name ?: "",
             location = file.location ?: "",
-            description = file.description ?: "",
+            description = file.publicDescription ?: "",
             price = file.price,
             quantity = file.quantity,
             cpuCost = file.cpuCost,
@@ -427,7 +426,7 @@ class JsonComputerPersistenceSupport(
         val result = HackerFile(file.type)
         result.name = file.name
         result.location = file.location
-        result.description = file.description
+        result.setDescription(file.description)
         result.price = file.price
         result.quantity = file.quantity
         result.cpuCost = file.cpuCost

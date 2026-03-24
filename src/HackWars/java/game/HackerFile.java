@@ -163,9 +163,9 @@ public class HackerFile implements Serializable {
     /**
      Get the file description.
      */
-    public String getDescription() {
+    public String getPublicDescription() {
         if (type == BOUNTY) {
-            return (description + "Iterations Left: " + (String) Content.get("count"));
+            return (description + "Iterations Left: " + Content.get("count"));
         }
 
         return (description);

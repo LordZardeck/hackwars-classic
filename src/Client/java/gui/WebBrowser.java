@@ -519,7 +519,7 @@ public class WebBrowser extends Application implements ComponentListener {
         //System.out.println("Received "+HF.getName());
         JPanel change = null;
         int x = 0;
-        JPanel add = getPanel(HF.getName(), HF.getPrice(), HF.getMaker(), HF.getCPUCost(), HF.getQuantity(), HF.getDescription(), HF.getType(), HF.getContent());
+        JPanel add = getPanel(HF.getName(), HF.getPrice(), HF.getMaker(), HF.getCPUCost(), HF.getQuantity(), HF.getPublicDescription(), HF.getType(), HF.getContent());
         if (HF.getType() == HackerFile.BANKING_COMPILED) {
             change = banking;
             bcount += 20 + add.getPreferredSize().width;
@@ -599,7 +599,7 @@ public class WebBrowser extends Application implements ComponentListener {
         }
 
         if (HF.getType() == HackerFile.AGP) {
-            String name = HF.getDescription();
+            String name = HF.getPublicDescription();
 
             Inventory inv = Equipment.getInventoryObject(HF, 100, MyHacker, EPU);//new Inventory(MyHacker,EPU,name,value1,value2,type,Inventory.AGP,HF.getName(),100,d,new int[]{0,0,0,0,0});
             float price = HF.getPrice();
@@ -610,7 +610,7 @@ public class WebBrowser extends Application implements ComponentListener {
 
         }
         if (HF.getType() == HackerFile.PCI) {
-            String name = HF.getDescription();
+            String name = HF.getPublicDescription();
 
             Inventory inv = Equipment.getInventoryObject(HF, 100, MyHacker, EPU);//new Inventory(MyHacker,EPU,name,value1,value2,type,Inventory.PCI,HF.getName(),100,d,new int[]{0,0,0,0,0});
             float price = HF.getPrice();

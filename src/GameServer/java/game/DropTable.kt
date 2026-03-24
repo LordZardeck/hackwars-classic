@@ -60,8 +60,7 @@ open class DropTable @JvmOverloads constructor(
             temp = LX.findNodeRecursive(N, "description", 0)
             temp = LX.findNodeRecursive(temp, "#text", 0)
             if (temp != null) {
-                val description = temp.nodeValue
-                HF.description = description
+                HF.setDescription(temp.nodeValue)
             }
 
             temp = LX.findNodeRecursive(N, "price", 0)

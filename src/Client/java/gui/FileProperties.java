@@ -108,7 +108,7 @@ public class FileProperties extends Application {
         maker.setText(file.getMaker());
         NumberFormat nf = NumberFormat.getCurrencyInstance();
         price.setText(nf.format(file.getPrice()));
-        description.setText(file.getDescription());
+        description.setText(file.getPublicDescription());
         cpu.setText("" + file.getCPUCost());
         quantity.setText("" + file.getQuantity());
         if (file.getType() == HackerFile.AGP || file.getType() == HackerFile.PCI) {

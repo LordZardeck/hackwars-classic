@@ -58,7 +58,7 @@ fun generateHardware(rarity: HardwareRarity): HackerFile {
 
     return HackerFile(hardwareType).apply {
         name = HARDWARE_FILE_TYPES[hardwareType] + ".license"
-        description = "$attributeOneDescription ${HARDWARE_FILE_TYPES[hardwareType]} of $attributeTwoDescription"
+        setDescription("$attributeOneDescription ${HARDWARE_FILE_TYPES[hardwareType]} of $attributeTwoDescription")
         content = HashMap<Any?, Any?>(
             mapOf(
                 "attribute0" to attribute1.toString(),
