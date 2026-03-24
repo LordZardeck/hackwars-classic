@@ -4,6 +4,7 @@ class RecordingGameStatePublisher : GameStatePublisher {
     val snapshots = mutableListOf<Pair<Set<String>, ComputerState>>()
     val deltas = mutableListOf<Pair<Set<String>, ComputerDelta>>()
     val programUpdates = mutableListOf<Pair<Set<String>, ProgramUpdate>>()
+    val uiEvents = mutableListOf<Pair<Set<String>, GameUiEvent>>()
 
     override suspend fun publishSnapshot(connectionIds: Set<String>, snapshot: ComputerState) {
         snapshots += connectionIds.toSet() to snapshot
@@ -15,5 +16,9 @@ class RecordingGameStatePublisher : GameStatePublisher {
 
     override suspend fun publishProgramUpdate(connectionIds: Set<String>, update: ProgramUpdate) {
         programUpdates += connectionIds.toSet() to update
+    }
+
+    override suspend fun publishUiEvent(connectionIds: Set<String>, event: GameUiEvent) {
+        uiEvents += connectionIds.toSet() to event
     }
 }

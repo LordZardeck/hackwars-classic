@@ -102,6 +102,7 @@ class JdbcRewriteSeedSink(
             id = stateId,
             playerIp = payload.ipAddress,
             displayName = payload.playerId,
+            isNpc = payload.isNpc,
         )
         connection.prepareStatement(
             """
@@ -181,10 +182,27 @@ class JdbcRewriteSeedSink(
                 ),
             )
         if (payload.enableHttp) {
+            val enterScript = if (current.identity.isNpc) {
+                """
+                int main() {
+                    triggerWatchRemote(2, "TARGET-IP", "reason", "npc-hook");
+                    return 0;
+                }
+                """.trimIndent()
+            } else {
+                """
+                int main() {
+                    logMessage("website visited");
+                    popUp("Welcome visitor");
+                    replaceContent("first", getVisitorIP());
+                    return 0;
+                }
+                """.trimIndent()
+            }
             val httpBundle = ProgramScriptBundle(
                 family = ScriptFamily.HTTP,
                 scriptsBySlot = linkedMapOf(
-                    ProgramScriptSlot.ENTER to "int main() { replaceContent(\"first\", getVisitorIP()); return 0; }",
+                    ProgramScriptSlot.ENTER to enterScript,
                     ProgramScriptSlot.EXIT to "int main() { return 0; }",
                     ProgramScriptSlot.SUBMIT to "int main() { hideStore(); return 0; }",
                 ),

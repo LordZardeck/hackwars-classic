@@ -247,6 +247,7 @@ class DefaultCommandDispatcher(
         private val pendingStateChanges = linkedMapOf<GameStateId, PendingStateChange>()
         private val manualDeltas = mutableListOf<ComputerDelta>()
         private val pendingProgramUpdates = mutableListOf<ProgramUpdate>()
+        private val pendingUiEvents = mutableListOf<GameUiEvent>()
 
         override suspend fun loadState(id: GameStateId): ComputerState? = repository.load(id)
 
@@ -297,6 +298,10 @@ class DefaultCommandDispatcher(
             pendingProgramUpdates += update
         }
 
+        override suspend fun publishUiEvent(event: GameUiEvent) {
+            pendingUiEvents += event
+        }
+
         suspend fun flush() {
             pendingStateChanges.values.forEach { pendingChange ->
                 val recipients = interestRegistry.subscribersFor(pendingChange.stateId)
@@ -327,9 +332,17 @@ class DefaultCommandDispatcher(
                 }
             }
 
+            val connectionId = connectionId
+            if (connectionId != null) {
+                pendingUiEvents.forEach { event ->
+                    publisher.publishUiEvent(setOf(connectionId), event)
+                }
+            }
+
             pendingStateChanges.clear()
             manualDeltas.clear()
             pendingProgramUpdates.clear()
+            pendingUiEvents.clear()
         }
 
         private data class PendingStateChange(
@@ -489,6 +502,7 @@ class CoroutineProgramScheduler(
     ) : CommandContext {
         private val bufferedProgramUpdates = mutableListOf<ProgramUpdate>()
         private val bufferedDeltas = mutableListOf<ComputerDelta>()
+        private val bufferedUiEvents = mutableListOf<GameUiEvent>()
 
         override val connectionId: String? = metadata.connectionId
         override val requestId: String? = metadata.requestId
@@ -530,6 +544,10 @@ class CoroutineProgramScheduler(
             bufferedProgramUpdates += update
         }
 
+        override suspend fun publishUiEvent(event: GameUiEvent) {
+            bufferedUiEvents += event
+        }
+
         suspend fun flush() {
             bufferedDeltas.forEach { delta ->
                 val recipients = interestRegistry.subscribersFor(delta.gameStateId)
@@ -544,8 +562,15 @@ class CoroutineProgramScheduler(
                     publisher.publishProgramUpdate(recipients, update)
                 }
             }
+            val connectionId = connectionId
+            if (connectionId != null) {
+                bufferedUiEvents.forEach { event ->
+                    publisher.publishUiEvent(setOf(connectionId), event)
+                }
+            }
             bufferedDeltas.clear()
             bufferedProgramUpdates.clear()
+            bufferedUiEvents.clear()
         }
     }
 

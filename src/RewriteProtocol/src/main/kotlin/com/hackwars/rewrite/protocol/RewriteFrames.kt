@@ -10,6 +10,7 @@ import hackwars.rewrite.v1.CommandResponseEnvelope
 import hackwars.rewrite.v1.CommandResponseStatus
 import hackwars.rewrite.v1.ErrorEnvelope
 import hackwars.rewrite.v1.FrameEnvelope
+import hackwars.rewrite.v1.GameUiEventEnvelope
 import hackwars.rewrite.v1.GameStateDeltaEnvelope
 import hackwars.rewrite.v1.GameStateSnapshotEnvelope
 import hackwars.rewrite.v1.PingEnvelope
@@ -170,6 +171,20 @@ object RewriteFrames {
             event_id = eventId,
             event_type = eventType,
             channel_name = channelName,
+            payload = payload.toByteString(),
+        ),
+    )
+
+    fun gameUiEvent(
+        eventId: String,
+        eventType: String,
+        payload: ByteArray = ByteArray(0),
+        envelopeId: String = UUID.randomUUID().toString(),
+    ): FrameEnvelope = FrameEnvelope(
+        envelope_id = envelopeId,
+        game_ui_event = GameUiEventEnvelope(
+            event_id = eventId,
+            event_type = eventType,
             payload = payload.toByteString(),
         ),
     )

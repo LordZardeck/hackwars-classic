@@ -98,6 +98,7 @@ interface GameStatePublisher {
     suspend fun publishSnapshot(connectionIds: Set<String>, snapshot: ComputerState)
     suspend fun publishDelta(connectionIds: Set<String>, delta: ComputerDelta)
     suspend fun publishProgramUpdate(connectionIds: Set<String>, update: ProgramUpdate)
+    suspend fun publishUiEvent(connectionIds: Set<String>, event: GameUiEvent)
 }
 
 object NoOpGameStatePublisher : GameStatePublisher {
@@ -106,6 +107,8 @@ object NoOpGameStatePublisher : GameStatePublisher {
     override suspend fun publishDelta(connectionIds: Set<String>, delta: ComputerDelta) = Unit
 
     override suspend fun publishProgramUpdate(connectionIds: Set<String>, update: ProgramUpdate) = Unit
+
+    override suspend fun publishUiEvent(connectionIds: Set<String>, event: GameUiEvent) = Unit
 }
 
 interface ComputerStateRepository {
@@ -134,6 +137,14 @@ interface ProgramScheduler {
     ): ProgramHandle
 }
 
+interface HookSideEffectSink {
+    suspend fun emitWatchTrigger(intent: WatchTriggerIntent)
+}
+
+object NoOpHookSideEffectSink : HookSideEffectSink {
+    override suspend fun emitWatchTrigger(intent: WatchTriggerIntent) = Unit
+}
+
 interface CommandDispatcher : ProgramScheduler {
     suspend fun dispatch(
         command: FireAndForgetCommand,
@@ -159,4 +170,5 @@ interface CommandContext {
     suspend fun <R> request(command: RequestCommand<R>): R
     suspend fun publishDelta(delta: ComputerDelta)
     suspend fun publishProgramUpdate(update: ProgramUpdate)
+    suspend fun publishUiEvent(event: GameUiEvent)
 }

@@ -55,6 +55,7 @@ enum class FramePayloadType {
     DELTA,
     PROGRAM_UPDATE,
     CHAT_EVENT,
+    GAME_UI_EVENT,
     PING,
     ERROR,
     EMPTY,
@@ -163,6 +164,7 @@ fun FrameEnvelope.payloadType(): FramePayloadType = when {
     delta != null -> FramePayloadType.DELTA
     program_update != null -> FramePayloadType.PROGRAM_UPDATE
     chat_event != null -> FramePayloadType.CHAT_EVENT
+    game_ui_event != null -> FramePayloadType.GAME_UI_EVENT
     ping != null -> FramePayloadType.PING
     error != null -> FramePayloadType.ERROR
     else -> FramePayloadType.EMPTY

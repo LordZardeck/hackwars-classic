@@ -1,3 +1,7 @@
 apply from: "${rootDir}/src/RewriteBuildLogic/gradle/rewrite-library.gradle"
 
 description = 'Rewrite-safe HackScript parser and interpreter for phased compatibility.'
+
+dependencies {
+    api "org.jetbrains.kotlinx:kotlinx-serialization-json:1.8.1"
+}

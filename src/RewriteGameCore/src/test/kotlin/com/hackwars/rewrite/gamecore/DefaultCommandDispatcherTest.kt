@@ -32,6 +32,8 @@ class DefaultCommandDispatcherTest {
             }
 
             override suspend fun publishProgramUpdate(connectionIds: Set<String>, update: ProgramUpdate) = Unit
+
+            override suspend fun publishUiEvent(connectionIds: Set<String>, event: GameUiEvent) = Unit
         }
 
         val response = dispatcher.request(

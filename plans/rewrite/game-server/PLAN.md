@@ -143,17 +143,44 @@
   - `submit` now runs `submit` then `enter` against a shared mutable body/include-store state, while parse/runtime failures fall back to the static `RW-GS-S3B1` render path.
   - Daily pay, empty-petty-cash, and social/Facebook stubs remain outside this slice.
 
-### RW-GS-S3B3 - Extended HTTP linker side effects and broader HackScript compatibility
-- Status: `todo`
-- Owner: `unassigned`
+### RW-GS-S3B3A - HTTP hook side-effect seams
+- Status: `done`
+- Owner: `codex`
 - Depends on: `RW-GS-S3B2`
-- Allowed write scope: `:RewriteHackScript`, `:RewriteGameCore`, `:RewriteGameServer`
-- Verification command: `./gradlew :RewriteHackScript:test :RewriteGameCore:test :RewriteGameServer:test`
+- Allowed write scope: `:RewriteHackScript`, `:RewriteGameCore`, `:RewriteGameServer`, `:RewriteProtocol`, `:RewritePersistence`
+- Verification command: `./gradlew :RewriteHackScript:test :RewriteGameCore:test :RewritePersistence:test :RewritePersistence:migrationTest :RewriteGameServer:test :RewriteTestKit:integrationTest rewriteCheck`
 - Artifacts: `build/reports/tests/test`
 - Commit rule: `single green commit only`
 - Notes:
-  - Owns deferred HTTP-side helpers such as `triggerWatch`, `triggerWatchRemote`, `logMessage`, `popUp`, and any other side-effectful linker functions.
-  - May broaden HackScript syntax coverage beyond the phased render-focused subset only after preserving `RW-GS-S3B2` behavior and failure fallback rules.
+  - Implements `logMessage`, `popUp`, and `triggerWatch`/`triggerWatchRemote` as rewrite-safe side-effect seams on top of the phased HTTP hook runtime.
+  - `logMessage` now appends persisted bounded host log state and emits `logs` deltas to host listeners.
+  - `popUp` now emits typed transient `GameUiEventEnvelope` frames to the requesting connection only and preserves the legacy four-popup cap per hook execution slot.
+  - `triggerWatch` and `triggerWatchRemote` now record typed `WatchTriggerIntent` objects through `HookSideEffectSink`; actual watch gameplay remains deferred.
+  - Request/submit flush order is now fixed to deltas, then UI events, then correlated response. Exit remains fire-and-forget with side effects only.
+
+### RW-GS-S3B3B - Bind HTTP watch-trigger intents into the real watch engine
+- Status: `todo`
+- Owner: `unassigned`
+- Depends on: `RW-GS-S3B3A`, `RW-GS-S5`
+- Allowed write scope: `:RewriteGameCore`, `:RewriteGameServer`
+- Verification command: `./gradlew :RewriteGameCore:test :RewriteGameServer:test`
+- Artifacts: `build/reports/tests/test`
+- Commit rule: `single green commit only`
+- Notes:
+  - Consumes `WatchTriggerIntent` from the seam introduced in `RW-GS-S3B3A` and binds it into the rewrite watch manager and watch execution rules.
+  - Must preserve the NPC-only gate on `triggerWatchRemote` and the non-fatal hook failure rules from `RW-GS-S3B2` and `RW-GS-S3B3A`.
+
+### RW-GS-S3B3C - Broader HackScript side-effect helpers and client/system-message parity
+- Status: `todo`
+- Owner: `unassigned`
+- Depends on: `RW-GS-S3B3A`
+- Allowed write scope: `:RewriteHackScript`, `:RewriteGameCore`, `:RewriteGameServer`, `:RewriteProtocol`, `:RewriteClient`
+- Verification command: `./gradlew :RewriteHackScript:test :RewriteGameCore:test :RewriteGameServer:test :RewriteClient:test`
+- Artifacts: `build/reports/tests/test`
+- Commit rule: `single green commit only`
+- Notes:
+  - Owns any remaining side-effectful linker helpers beyond the `RW-GS-S3B3A` seam, including richer system-message and popup parity work once the rewrite client utility/message slices exist.
+  - May broaden HackScript compatibility only after preserving the render-path and side-effect ordering guarantees already covered by `RW-GS-S3B2` and `RW-GS-S3B3A`.
 
 ### RW-GS-S4 - Network switching, scan, quests, tasks, clues, search, bounties
 - Status: `in_progress`

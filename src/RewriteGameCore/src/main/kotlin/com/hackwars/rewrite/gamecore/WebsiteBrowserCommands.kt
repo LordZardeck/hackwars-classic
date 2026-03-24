@@ -1,6 +1,15 @@
 package com.hackwars.rewrite.gamecore
 
+import com.hackwars.rewrite.hackscript.AppendHostLog
+import com.hackwars.rewrite.hackscript.HttpHookEffect
 import com.hackwars.rewrite.hackscript.HttpHookExecutionResult
+import com.hackwars.rewrite.hackscript.PopupToVisitor
+import com.hackwars.rewrite.hackscript.TriggerLocalWatch
+import com.hackwars.rewrite.hackscript.TriggerRemoteWatch
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 import kotlinx.serialization.Serializable
 
 const val LEGACY_SERVER_NOT_FOUND_TITLE: String = "Server Not Found"
@@ -12,7 +21,7 @@ interface HttpHookRuntime {
 
     suspend fun onSubmit(request: HttpHookRequest): HttpHookExecutionResult? = null
 
-    suspend fun onExit(request: HttpHookRequest) = Unit
+    suspend fun onExit(request: HttpHookRequest): HttpHookExecutionResult? = null
 }
 
 data class HttpHookRequest(
@@ -116,6 +125,8 @@ class RequestWebpageCommand(
     private val targetStateId: GameStateId,
     private val parameters: Map<String, String>,
     private val httpHookRuntime: HttpHookRuntime = NoOpHttpHookRuntime,
+    private val hookSideEffectSink: HookSideEffectSink = NoOpHookSideEffectSink,
+    private val clock: () -> Long = { System.currentTimeMillis() },
 ) : RequestCommand<WebsiteRenderResponse> {
     override val name: String = "requestwebpage"
     override val lifetime: CommandLifetime = CommandLifetime.defaultRequest
@@ -139,7 +150,16 @@ class RequestWebpageCommand(
                 installedApplication = installedApplication,
             ),
         )
-        return renderWebsite(targetState, executionResult)
+        val updatedTargetState = processHookEffects(
+            originCommandName = name,
+            context = context,
+            sourceStateId = sourceStateId,
+            targetState = targetState,
+            effects = executionResult?.effects.orEmpty(),
+            hookSideEffectSink = hookSideEffectSink,
+            clock = clock,
+        )
+        return renderWebsite(updatedTargetState, executionResult)
     }
 }
 
@@ -148,6 +168,8 @@ class SubmitWebpageCommand(
     private val targetStateId: GameStateId,
     private val parameters: Map<String, String>,
     private val httpHookRuntime: HttpHookRuntime = NoOpHttpHookRuntime,
+    private val hookSideEffectSink: HookSideEffectSink = NoOpHookSideEffectSink,
+    private val clock: () -> Long = { System.currentTimeMillis() },
 ) : RequestCommand<WebsiteRenderResponse> {
     override val name: String = "submit"
     override val lifetime: CommandLifetime = CommandLifetime.defaultRequest
@@ -171,7 +193,16 @@ class SubmitWebpageCommand(
                 installedApplication = installedApplication,
             ),
         )
-        return renderWebsite(targetState, executionResult)
+        val updatedTargetState = processHookEffects(
+            originCommandName = name,
+            context = context,
+            sourceStateId = sourceStateId,
+            targetState = targetState,
+            effects = executionResult?.effects.orEmpty(),
+            hookSideEffectSink = hookSideEffectSink,
+            clock = clock,
+        )
+        return renderWebsite(updatedTargetState, executionResult)
     }
 }
 
@@ -179,6 +210,8 @@ class ExitWebpageCommand(
     private val sourceStateId: GameStateId,
     private val targetStateId: GameStateId,
     private val httpHookRuntime: HttpHookRuntime = NoOpHttpHookRuntime,
+    private val hookSideEffectSink: HookSideEffectSink = NoOpHookSideEffectSink,
+    private val clock: () -> Long = { System.currentTimeMillis() },
 ) : FireAndForgetCommand {
     override val name: String = "exit"
     override val lifetime: CommandLifetime = CommandLifetime.defaultFireAndForget
@@ -187,7 +220,7 @@ class ExitWebpageCommand(
     override suspend fun execute(context: CommandContext) {
         val targetState = context.loadState(targetStateId) ?: return
         val installedApplication = targetState.activeDefaultApplication(ApplicationKind.HTTP) ?: return
-        httpHookRuntime.onExit(
+        val executionResult = httpHookRuntime.onExit(
             HttpHookRequest(
                 sourceStateId = sourceStateId,
                 targetStateId = targetStateId,
@@ -196,6 +229,15 @@ class ExitWebpageCommand(
                 targetState = targetState,
                 installedApplication = installedApplication,
             ),
+        )
+        processHookEffects(
+            originCommandName = name,
+            context = context,
+            sourceStateId = sourceStateId,
+            targetState = targetState,
+            effects = executionResult?.effects.orEmpty(),
+            hookSideEffectSink = hookSideEffectSink,
+            clock = clock,
         )
     }
 }
@@ -272,6 +314,83 @@ private fun renderWebsite(
         version = targetState.version,
     )
 }
+
+private suspend fun processHookEffects(
+    originCommandName: String,
+    context: CommandContext,
+    sourceStateId: GameStateId,
+    targetState: ComputerState,
+    effects: List<HttpHookEffect>,
+    hookSideEffectSink: HookSideEffectSink,
+    clock: () -> Long,
+): ComputerState {
+    var currentTargetState = targetState
+    effects.forEach { effect ->
+        when (effect) {
+            is AppendHostLog -> {
+                val createdAt = clock()
+                currentTargetState = context.appendEvents(
+                    id = targetState.id,
+                    events = listOf(
+                        HostLogAppendedEvent(
+                            entry = ComputerLogEntry(
+                                createdAtEpochMillis = createdAt,
+                                renderedLine = renderLegacyLogLine(createdAt, effect.message),
+                                sourceIp = sourceStateId.value,
+                            ),
+                        ),
+                    ),
+                )
+            }
+
+            is PopupToVisitor -> {
+                context.publishUiEvent(PopupUiEvent(effect.message))
+            }
+
+            is TriggerLocalWatch -> {
+                hookSideEffectSink.emitWatchTrigger(
+                    WatchTriggerIntent(
+                        targetStateId = targetState.id,
+                        watchIndex = effect.index,
+                        sourceIp = sourceStateId.value,
+                        parameters = effect.parameters,
+                        external = true,
+                        originCommandName = originCommandName,
+                        requestId = context.requestId,
+                    ),
+                )
+            }
+
+            is TriggerRemoteWatch -> {
+                hookSideEffectSink.emitWatchTrigger(
+                    WatchTriggerIntent(
+                        targetStateId = GameStateId(effect.targetIp),
+                        watchIndex = effect.index,
+                        sourceIp = sourceStateId.value,
+                        parameters = effect.parameters,
+                        external = true,
+                        originCommandName = originCommandName,
+                        requestId = context.requestId,
+                    ),
+                )
+            }
+        }
+    }
+    return currentTargetState
+}
+
+private fun renderLegacyLogLine(
+    createdAtEpochMillis: Long,
+    message: String,
+): String {
+    val timestamp = Instant.ofEpochMilli(createdAtEpochMillis)
+        .atZone(ZoneId.systemDefault())
+        .format(LEGACY_LOG_FORMATTER)
+    return "$timestamp $message"
+}
+
+private val LEGACY_LOG_FORMATTER: DateTimeFormatter =
+    DateTimeFormatter.ofPattern("d-MMM-yyyy (h:mm:ss a)", Locale.US)
 
 private fun fallbackWebsite(
     targetStateId: GameStateId,

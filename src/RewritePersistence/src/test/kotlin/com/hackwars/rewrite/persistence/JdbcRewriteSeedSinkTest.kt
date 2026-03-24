@@ -1,5 +1,6 @@
 package com.hackwars.rewrite.persistence
 
+import com.hackwars.rewrite.gamecore.ProgramScriptSlot
 import java.sql.Connection
 import java.sql.DriverManager
 import java.time.Instant
@@ -146,14 +147,53 @@ class JdbcRewriteSeedSinkTest {
                 createdAt = Instant.EPOCH,
             ),
         )
+        writeBatch(
+            RewriteSeedBatch(
+                batchId = "player-npc",
+                source = LegacyMySqlDumpDescriptor("/legacy/npc.sql", "hackwars"),
+                seedPayload = SeedPlayerAccount(
+                    playerId = "npc-user",
+                    playFabId = "PF-NPC",
+                    playerIp = "NPC-IP",
+                ),
+                createdAt = Instant.EPOCH,
+            ),
+        )
+        writeBatch(
+            RewriteSeedBatch(
+                batchId = "computer-npc",
+                source = LegacyXmlDescriptor("/legacy/npc.xml", "computer"),
+                seedPayload = SeedComputerState(
+                    computerId = "NPC-IP",
+                    playerId = "npc-user",
+                    ipAddress = "NPC-IP",
+                    isNpc = true,
+                ),
+                createdAt = Instant.EPOCH,
+            ),
+        )
+        writeBatch(
+            RewriteSeedBatch(
+                batchId = "inventory-npc",
+                source = LegacyJsonDescriptor("/legacy/npc-inventory.json", "inventory"),
+                seedPayload = SeedInventorySnapshot(
+                    computerId = "NPC-IP",
+                    notes = listOf("npc note"),
+                    websiteTitle = "NPC Page",
+                    websiteBody = "<html>NPC Body</html>",
+                ),
+                createdAt = Instant.EPOCH,
+            ),
+        )
 
-        assertEquals(9, countRows("rewrite_import_batch"))
-        assertEquals(3, countRows("rewrite_player_account"))
-        assertEquals(3, countRows("rewrite_computer_state"))
+        assertEquals(12, countRows("rewrite_import_batch"))
+        assertEquals(4, countRows("rewrite_player_account"))
+        assertEquals(4, countRows("rewrite_computer_state"))
 
         val state = loadStatePayload("LOCAL-IP")
         val storeState = loadStatePayload("store1")
         val offlineState = loadStatePayload("offline1")
+        val npcState = loadStatePayload("NPC-IP")
         assertTrue(state.filesystem.directoriesByPath.containsKey("/Public"))
         assertTrue(state.filesystem.directoriesByPath.containsKey("/Store"))
         assertTrue(state.filesystem.filesByPath.values.any { it.name == "note-1.txt" && it.contents == "migration note" })
@@ -162,6 +202,7 @@ class JdbcRewriteSeedSinkTest {
         assertTrue(state.filesystem.filesByPath["/Public/bank.bin"]?.compiledBinary?.bankingApplication == true)
         assertTrue(state.filesystem.filesByPath["/Public/http"]?.scriptBundle?.scriptsBySlot?.isNotEmpty() == true)
         assertTrue(state.filesystem.filesByPath["/Public/http.bin"]?.scriptBundle?.scriptsBySlot?.isNotEmpty() == true)
+        assertTrue(state.filesystem.filesByPath["/Public/http"]?.scriptBundle?.script(ProgramScriptSlot.ENTER)?.contains("logMessage") == true)
         assertEquals("Seeded Local Page", state.website.title)
         assertEquals(2, state.website.votesAvailable)
         assertEquals(4, state.website.voteCount)
@@ -175,6 +216,8 @@ class JdbcRewriteSeedSinkTest {
         assertEquals(9, storeState.website.voteCount)
         assertTrue(offlineState.ports.none { it.installedApplication?.kind?.name == "HTTP" })
         assertEquals("Offline Page", offlineState.website.title)
+        assertTrue(npcState.identity.isNpc)
+        assertTrue(npcState.filesystem.filesByPath["/Public/http"]?.scriptBundle?.script(ProgramScriptSlot.ENTER)?.contains("triggerWatchRemote") == true)
     }
 
     private fun resetDatabase() {

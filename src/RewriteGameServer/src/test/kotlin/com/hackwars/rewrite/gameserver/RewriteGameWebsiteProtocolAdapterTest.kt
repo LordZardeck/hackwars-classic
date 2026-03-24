@@ -35,6 +35,10 @@ import com.hackwars.rewrite.gamecore.DefaultCommandDispatcher
 import com.hackwars.rewrite.protocol.ProtocolTimeoutPolicy
 import com.hackwars.rewrite.protocol.RewriteFrames
 import com.hackwars.rewrite.protocol.RewriteService
+import com.hackwars.rewrite.gamecore.GameUiEvent
+import com.hackwars.rewrite.gamecore.HookSideEffectSink
+import com.hackwars.rewrite.gamecore.PopupUiEvent
+import com.hackwars.rewrite.gamecore.WatchTriggerIntent
 import com.hackwars.rewrite.testkit.FakePlayerAccount
 import com.hackwars.rewrite.testkit.FakeSessionCatalog
 import com.hackwars.rewrite.testkit.FakeSessionTicketVerifier
@@ -241,6 +245,115 @@ class RewriteGameWebsiteProtocolAdapterTest {
     }
 
     @Test
+    fun requestWebpagePublishesHostLogDeltaThenPopupEventThenResponse() = runTest {
+        val fixture = createFixture()
+        val local = fixture.authenticatedConnection("LOCAL-IP")
+        val owner = fixture.authenticatedConnection("SIDEFX-IP")
+
+        local.send(
+            RewriteFrames.command(
+                commandId = "sidefx-1",
+                commandName = "requestwebpage",
+                payload = RewriteGameJson.encode(
+                    serializer = RequestWebpagePayload.serializer(),
+                    value = RequestWebpagePayload(
+                        targetIp = "SIDEFX-IP",
+                        sourceIp = "LOCAL-IP",
+                    ),
+                ),
+                expectsResponse = true,
+            ),
+        )
+
+        val ownerDelta = owner.awaitFrame()
+        val popupFrame = local.awaitFrame()
+        val responseFrame = local.awaitFrame()
+        val popup = RewriteGameJson.decode(
+            serializer = GameUiEvent.serializer(),
+            payload = popupFrame.game_ui_event!!.payload.toByteArray(),
+        )
+        val response = RewriteGameJson.decode(
+            serializer = WebsiteRenderResponse.serializer(),
+            payload = responseFrame.command_response!!.payload.toByteArray(),
+        )
+
+        assertEquals("SIDEFX-IP", ownerDelta.delta?.game_state_id)
+        assertEquals(listOf("logs"), ownerDelta.delta?.delta_keys)
+        assertEquals("popup", popupFrame.game_ui_event?.event_type)
+        assertEquals("hello", assertIs<PopupUiEvent>(popup).message)
+        assertEquals("<html>LOCAL-IP-<?second?></html>", response.body)
+    }
+
+    @Test
+    fun exitEmitsSideEffectsWithoutResponseAndWatchTriggersGoOnlyToSink() = runTest {
+        val fixture = createFixture()
+        val local = fixture.authenticatedConnection("LOCAL-IP")
+        val owner = fixture.authenticatedConnection("SIDEFX-IP")
+
+        local.send(
+            RewriteFrames.command(
+                commandId = "exit-sidefx-1",
+                commandName = "exit",
+                payload = RewriteGameJson.encode(
+                    serializer = ExitWebpagePayload.serializer(),
+                    value = ExitWebpagePayload(
+                        targetIp = "SIDEFX-IP",
+                        sourceIp = "LOCAL-IP",
+                    ),
+                ),
+                expectsResponse = false,
+            ),
+        )
+
+        val ownerDelta = owner.awaitFrame()
+        val popupFrame = local.awaitFrame()
+        val popup = RewriteGameJson.decode(
+            serializer = GameUiEvent.serializer(),
+            payload = popupFrame.game_ui_event!!.payload.toByteArray(),
+        )
+
+        assertEquals(listOf("logs"), ownerDelta.delta?.delta_keys)
+        assertEquals("bye", assertIs<PopupUiEvent>(popup).message)
+        assertTrue(local.drainFrames().none { it.command_response != null })
+
+        local.send(
+            RewriteFrames.command(
+                commandId = "watch-local-1",
+                commandName = "requestwebpage",
+                payload = RewriteGameJson.encode(
+                    serializer = RequestWebpagePayload.serializer(),
+                    value = RequestWebpagePayload(
+                        targetIp = "WATCH-IP",
+                        sourceIp = "LOCAL-IP",
+                    ),
+                ),
+                expectsResponse = true,
+            ),
+        )
+        local.awaitFrame()
+        assertEquals(1, fixture.sink.intents.size)
+        assertEquals("WATCH-IP", fixture.sink.intents.single().targetStateId.value)
+
+        local.send(
+            RewriteFrames.command(
+                commandId = "watch-remote-1",
+                commandName = "requestwebpage",
+                payload = RewriteGameJson.encode(
+                    serializer = RequestWebpagePayload.serializer(),
+                    value = RequestWebpagePayload(
+                        targetIp = "NPC-IP",
+                        sourceIp = "LOCAL-IP",
+                    ),
+                ),
+                expectsResponse = true,
+            ),
+        )
+        local.awaitFrame()
+        assertEquals(2, fixture.sink.intents.size)
+        assertEquals("REMOTE-IP", fixture.sink.intents.last().targetStateId.value)
+    }
+
+    @Test
     fun requestWebpageFallbackAndExitProduceNoSubscriptionsOrMutations() = runTest {
         val fixture = createFixture()
         val local = fixture.authenticatedConnection("LOCAL-IP")
@@ -334,11 +447,15 @@ class RewriteGameWebsiteProtocolAdapterTest {
                 GameStateId("LOCAL-IP") to localState(),
                 GameStateId("TARGET-IP") to targetState(),
                 GameStateId("HOOKED-IP") to hookedState(),
+                GameStateId("SIDEFX-IP") to sideEffectState(),
+                GameStateId("WATCH-IP") to localWatchState(),
+                GameStateId("NPC-IP") to npcSideEffectState(),
                 GameStateId("store1") to storeState(),
                 GameStateId("OFFLINE-IP") to offlineState(),
             ),
         )
         val interests = InMemoryInterestRegistry()
+        val sink = RecordingHookSideEffectSink()
         val adapter = RewriteGameProtocolAdapter(
             dispatcher = DefaultCommandDispatcher(
                 repository = repository,
@@ -346,6 +463,7 @@ class RewriteGameWebsiteProtocolAdapterTest {
             ),
             interestRegistry = interests,
             serverId = "1",
+            hookSideEffectSink = sink,
         )
         val harnessAdapter = HarnessBackedGameAdapter(adapter)
         val harness = InMemoryRewriteServiceHarness(
@@ -356,6 +474,7 @@ class RewriteGameWebsiteProtocolAdapterTest {
                         FakePlayerAccount("PF-LOCALUSER", "LOCAL-IP", "SESSION-LOCALUSER"),
                         FakePlayerAccount("PF-TARGETUSER", "TARGET-IP", "SESSION-TARGETUSER"),
                         FakePlayerAccount("PF-HOOKED", "HOOKED-IP", "SESSION-HOOKED"),
+                        FakePlayerAccount("PF-SIDEFX", "SIDEFX-IP", "SESSION-SIDEFX"),
                         FakePlayerAccount("PF-STOREUSER", "store1", "SESSION-STOREUSER"),
                         FakePlayerAccount("PF-OFFLINE", "OFFLINE-IP", "SESSION-OFFLINE"),
                     ),
@@ -370,7 +489,7 @@ class RewriteGameWebsiteProtocolAdapterTest {
             clock = { Instant.ofEpochMilli(testScheduler.currentTime) },
         )
         harnessAdapter.attachHarness(harness)
-        return Fixture(harness)
+        return Fixture(harness, sink)
     }
 
     private suspend fun Fixture.authenticatedConnection(requestedIp: String): InMemoryClientConnection {
@@ -522,6 +641,102 @@ class RewriteGameWebsiteProtocolAdapterTest {
         )
     }
 
+    private fun sideEffectState(): ComputerState {
+        return ComputerState.empty(GameStateId("SIDEFX-IP"), playFabId = "PF-SIDEFX").copy(
+            website = WebsiteState(
+                title = "Side Effects",
+                body = "<html><?first?>-<?second?></html>",
+            ),
+            economy = EconomyState(defaultBankPort = 6),
+            ports = listOf(
+                bankingPort(),
+                ftpPort(),
+                httpPort(
+                    scriptBundle = ProgramScriptBundle(
+                        family = ScriptFamily.HTTP,
+                        scriptsBySlot = linkedMapOf(
+                            ProgramScriptSlot.ENTER to """
+                                int main() {
+                                    logMessage("visited");
+                                    popUp("hello");
+                                    triggerWatch(1, "mode", "alpha");
+                                    replaceContent("first", getVisitorIP());
+                                    return 0;
+                                }
+                            """.trimIndent(),
+                            ProgramScriptSlot.EXIT to """
+                                int main() {
+                                    logMessage("exit");
+                                    popUp("bye");
+                                    return 0;
+                                }
+                            """.trimIndent(),
+                            ProgramScriptSlot.SUBMIT to "int main() { return 0; }",
+                        ),
+                    ),
+                ),
+            ),
+        )
+    }
+
+    private fun npcSideEffectState(): ComputerState {
+        return ComputerState.empty(GameStateId("NPC-IP"), playFabId = "PF-NPC", isNpc = true).copy(
+            website = WebsiteState(
+                title = "NPC",
+                body = "<html>npc</html>",
+            ),
+            economy = EconomyState(defaultBankPort = 6),
+            ports = listOf(
+                bankingPort(),
+                ftpPort(),
+                httpPort(
+                    scriptBundle = ProgramScriptBundle(
+                        family = ScriptFamily.HTTP,
+                        scriptsBySlot = linkedMapOf(
+                            ProgramScriptSlot.ENTER to """
+                                int main() {
+                                    triggerWatchRemote(3, "REMOTE-IP", "scope", "npc");
+                                    return 0;
+                                }
+                            """.trimIndent(),
+                            ProgramScriptSlot.EXIT to "int main() { return 0; }",
+                            ProgramScriptSlot.SUBMIT to "int main() { return 0; }",
+                        ),
+                    ),
+                ),
+            ),
+        )
+    }
+
+    private fun localWatchState(): ComputerState {
+        return ComputerState.empty(GameStateId("WATCH-IP"), playFabId = "PF-WATCH").copy(
+            website = WebsiteState(
+                title = "Watch",
+                body = "<html>watch</html>",
+            ),
+            economy = EconomyState(defaultBankPort = 6),
+            ports = listOf(
+                bankingPort(),
+                ftpPort(),
+                httpPort(
+                    scriptBundle = ProgramScriptBundle(
+                        family = ScriptFamily.HTTP,
+                        scriptsBySlot = linkedMapOf(
+                            ProgramScriptSlot.ENTER to """
+                                int main() {
+                                    triggerWatch(1, "mode", "alpha");
+                                    return 0;
+                                }
+                            """.trimIndent(),
+                            ProgramScriptSlot.EXIT to "int main() { return 0; }",
+                            ProgramScriptSlot.SUBMIT to "int main() { return 0; }",
+                        ),
+                    ),
+                ),
+            ),
+        )
+    }
+
     private fun bankingPort(): PortState {
         return PortState(
             number = 6,
@@ -570,7 +785,16 @@ class RewriteGameWebsiteProtocolAdapterTest {
 
     private data class Fixture(
         val harness: InMemoryRewriteServiceHarness,
+        val sink: RecordingHookSideEffectSink,
     )
+
+    private class RecordingHookSideEffectSink : HookSideEffectSink {
+        val intents = mutableListOf<WatchTriggerIntent>()
+
+        override suspend fun emitWatchTrigger(intent: WatchTriggerIntent) {
+            intents += intent
+        }
+    }
 
     private class HarnessBackedGameAdapter(
         private val adapter: RewriteGameProtocolAdapter,
@@ -619,6 +843,7 @@ private fun sessionTicketFor(requestedIp: String): String = when (requestedIp) {
     "LOCAL-IP" -> "SESSION-LOCALUSER"
     "TARGET-IP" -> "SESSION-TARGETUSER"
     "HOOKED-IP" -> "SESSION-HOOKED"
+    "SIDEFX-IP" -> "SESSION-SIDEFX"
     "store1" -> "SESSION-STOREUSER"
     "OFFLINE-IP" -> "SESSION-OFFLINE"
     else -> "SESSION-LOCALUSER"
@@ -628,6 +853,7 @@ private fun playFabIdFor(requestedIp: String): String = when (requestedIp) {
     "LOCAL-IP" -> "PF-LOCALUSER"
     "TARGET-IP" -> "PF-TARGETUSER"
     "HOOKED-IP" -> "PF-HOOKED"
+    "SIDEFX-IP" -> "PF-SIDEFX"
     "store1" -> "PF-STOREUSER"
     "OFFLINE-IP" -> "PF-OFFLINE"
     else -> "PF-LOCALUSER"

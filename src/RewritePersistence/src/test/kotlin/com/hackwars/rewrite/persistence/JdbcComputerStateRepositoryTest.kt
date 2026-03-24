@@ -10,6 +10,7 @@ import com.hackwars.rewrite.gamecore.EquipmentSlot
 import com.hackwars.rewrite.gamecore.FileCompiledEvent
 import com.hackwars.rewrite.gamecore.FileSavedEvent
 import com.hackwars.rewrite.gamecore.GameStateId
+import com.hackwars.rewrite.gamecore.ComputerLogEntry
 import com.hackwars.rewrite.gamecore.InstalledEquipment
 import com.hackwars.rewrite.gamecore.PortState
 import com.hackwars.rewrite.gamecore.PreferenceSetEvent
@@ -30,6 +31,7 @@ import com.hackwars.rewrite.gamecore.StoreInventoryReceivedEvent
 import com.hackwars.rewrite.gamecore.StoreLiquidationLineItem
 import com.hackwars.rewrite.gamecore.StoreListingPurchasedEvent
 import com.hackwars.rewrite.gamecore.HttpExperienceAdjustedEvent
+import com.hackwars.rewrite.gamecore.HostLogAppendedEvent
 import com.hackwars.rewrite.gamecore.WebsiteSavedEvent
 import com.hackwars.rewrite.gamecore.WebsiteVoteCountAdjustedEvent
 import com.hackwars.rewrite.gamecore.WebsiteVotesAvailableAdjustedEvent
@@ -66,7 +68,7 @@ class JdbcComputerStateRepositoryTest {
         val stateId = GameStateId("LOCAL-IP")
         seedPlayerAndComputer(
             stateId = stateId,
-            state = ComputerState.empty(id = stateId, playFabId = "PF-LOCALUSER"),
+            state = ComputerState.empty(id = stateId, playFabId = "PF-LOCALUSER", isNpc = true),
         )
         val repository = JdbcComputerStateRepository(
             connectionFactory = ::newConnection,
@@ -76,14 +78,24 @@ class JdbcComputerStateRepositoryTest {
         val updated = runBlockingAppend(repository, stateId, listOf(
             PreferenceSetEvent("show_clock", "true"),
             PreferenceSetEvent("show_logs", "false"),
+            HostLogAppendedEvent(
+                ComputerLogEntry(
+                    createdAtEpochMillis = 0L,
+                    renderedLine = "1-Jan-1970 (12:00:00 AM) hook hit",
+                    sourceIp = "REMOTE-IP",
+                ),
+            ),
         ))
         val reloaded = runBlockingLoad(repository, stateId)
 
         assertEquals(updated, reloaded)
-        assertEquals(2, updated.version)
+        assertEquals(3, updated.version)
         assertEquals("true", updated.preferences.values["show_clock"])
         assertEquals("false", updated.preferences.values["show_logs"])
-        assertEquals(2, countRows("rewrite_state_event"))
+        assertTrue(updated.identity.isNpc)
+        assertEquals(1, updated.logs.entries.size)
+        assertEquals("REMOTE-IP", updated.logs.entries.single().sourceIp)
+        assertEquals(3, countRows("rewrite_state_event"))
     }
 
     @Test

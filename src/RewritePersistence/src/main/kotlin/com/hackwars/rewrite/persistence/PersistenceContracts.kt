@@ -72,6 +72,7 @@ data class SeedComputerState(
     val computerId: String,
     val playerId: String,
     val ipAddress: String,
+    val isNpc: Boolean = false,
 ) : SeedPayload
 
 data class SeedInventorySnapshot(

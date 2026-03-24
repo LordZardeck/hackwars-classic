@@ -1,5 +1,8 @@
 package com.hackwars.rewrite.hackscript
 
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
+
 class HttpHookScriptEngine(
     private val maxLoopIterations: Int = 10_000,
 ) {
@@ -12,6 +15,7 @@ class HttpHookScriptEngine(
                 result = HttpHookExecutionResult(
                     body = input.initialBody,
                     includeStore = input.initialIncludeStore,
+                    effects = emptyList(),
                 ),
             )
         }
@@ -24,6 +28,7 @@ class HttpHookScriptEngine(
                 result = HttpHookExecutionResult(
                     body = engineState.body,
                     includeStore = engineState.includeStore,
+                    effects = engineState.effects,
                 ),
                 diagnostics = engineState.diagnostics,
             )
@@ -54,15 +59,71 @@ class HttpHookScriptEngine(
 data class HttpHookExecutionInput(
     val visitorIp: String,
     val hostIp: String,
+    val hostIsNpc: Boolean = false,
     val initialBody: String,
     val initialIncludeStore: Boolean = true,
     val queryParameters: Map<String, String> = emptyMap(),
     val formParameters: Map<String, String> = emptyMap(),
 )
 
+@Serializable
+sealed interface HookValue
+
+@Serializable
+@SerialName("int")
+data class IntHookValue(val value: Int) : HookValue
+
+@Serializable
+@SerialName("float")
+data class FloatHookValue(val value: Double) : HookValue
+
+@Serializable
+@SerialName("string")
+data class StringHookValue(val value: String) : HookValue
+
+@Serializable
+@SerialName("boolean")
+data class BooleanHookValue(val value: Boolean) : HookValue
+
+@Serializable
+@SerialName("array")
+data class ArrayHookValue(val values: List<HookValue>) : HookValue
+
+@Serializable
+sealed interface HttpHookEffect
+
+@Serializable
+@SerialName("append_host_log")
+data class AppendHostLog(
+    val message: String,
+) : HttpHookEffect
+
+@Serializable
+@SerialName("popup_to_visitor")
+data class PopupToVisitor(
+    val message: String,
+) : HttpHookEffect
+
+@Serializable
+@SerialName("trigger_local_watch")
+data class TriggerLocalWatch(
+    val index: Int,
+    val parameters: Map<String, HookValue>,
+) : HttpHookEffect
+
+@Serializable
+@SerialName("trigger_remote_watch")
+data class TriggerRemoteWatch(
+    val index: Int,
+    val targetIp: String,
+    val parameters: Map<String, HookValue>,
+) : HttpHookEffect
+
+@Serializable
 data class HttpHookExecutionResult(
     val body: String,
     val includeStore: Boolean = true,
+    val effects: List<HttpHookEffect> = emptyList(),
 )
 
 data class HackScriptDiagnostic(
@@ -82,6 +143,8 @@ private data class EngineState(
     var body: String = input.initialBody,
     var includeStore: Boolean = input.initialIncludeStore,
     val diagnostics: MutableList<HackScriptDiagnostic> = mutableListOf(),
+    val effects: MutableList<HttpHookEffect> = mutableListOf(),
+    var popupCount: Int = 0,
 )
 
 private class Interpreter(
@@ -303,8 +366,144 @@ private class Interpreter(
                 Value.IntValue(arguments[0].asString().toIntOrNull() ?: 0)
             }
 
+            "logMessage" -> {
+                if (arguments.size != 1) {
+                    state.diagnostics += HackScriptDiagnostic(
+                        code = "BAD_ARGUMENT_SHAPE",
+                        message = "logMessage expects 1 argument.",
+                    )
+                    return Value.IntValue(0)
+                }
+                state.effects += AppendHostLog(arguments[0].asString())
+                Value.IntValue(0)
+            }
+
+            "popUp" -> {
+                if (arguments.size != 1) {
+                    state.diagnostics += HackScriptDiagnostic(
+                        code = "BAD_ARGUMENT_SHAPE",
+                        message = "popUp expects 1 argument.",
+                    )
+                    return Value.IntValue(0)
+                }
+                if (state.popupCount >= 4) {
+                    state.diagnostics += HackScriptDiagnostic(
+                        code = "POPUP_LIMIT_EXCEEDED",
+                        message = "popUp reached the per-slot limit of 4 events.",
+                    )
+                    return Value.IntValue(0)
+                }
+                state.popupCount += 1
+                state.effects += PopupToVisitor(arguments[0].asString())
+                Value.IntValue(0)
+            }
+
+            "triggerWatch" -> {
+                val effect = buildLocalWatchEffect(arguments)
+                if (effect != null) {
+                    state.effects += effect
+                }
+                Value.IntValue(0)
+            }
+
+            "triggerWatchRemote" -> {
+                if (!state.input.hostIsNpc) {
+                    state.diagnostics += HackScriptDiagnostic(
+                        code = "REMOTE_WATCH_REQUIRES_NPC_HOST",
+                        message = "triggerWatchRemote only works when the host is NPC-controlled.",
+                    )
+                    return Value.IntValue(0)
+                }
+                val effect = buildRemoteWatchEffect(arguments)
+                if (effect != null) {
+                    state.effects += effect
+                }
+                Value.IntValue(0)
+            }
+
             else -> throw ScriptFailure("UNSUPPORTED_FUNCTION", "Unsupported function ${expression.name}.")
         }
+    }
+
+    private fun buildLocalWatchEffect(arguments: List<Value>): TriggerLocalWatch? {
+        if (arguments.isEmpty() || arguments.size % 2 == 0) {
+            state.diagnostics += HackScriptDiagnostic(
+                code = "BAD_ARGUMENT_SHAPE",
+                message = "triggerWatch expects an index followed by key/value pairs.",
+            )
+            return null
+        }
+        if (arguments[0] is Value.ArrayValue) {
+            state.diagnostics += HackScriptDiagnostic(
+                code = "BAD_ARGUMENT_SHAPE",
+                message = "triggerWatch index must be a scalar value.",
+            )
+            return null
+        }
+        val parameters = linkedMapOf<String, HookValue>()
+        var index = 1
+        while (index < arguments.size) {
+            val key = (arguments[index] as? Value.StringValue)?.value
+            val value = arguments.getOrNull(index + 1)?.toHookValue()
+            if (key == null || value == null) {
+                state.diagnostics += HackScriptDiagnostic(
+                    code = "BAD_ARGUMENT_SHAPE",
+                    message = "triggerWatch parameters must be alternating string keys and scalar or array values.",
+                )
+                return null
+            }
+            parameters[key] = value
+            index += 2
+        }
+        return TriggerLocalWatch(
+            index = arguments[0].asInt(),
+            parameters = parameters,
+        )
+    }
+
+    private fun buildRemoteWatchEffect(arguments: List<Value>): TriggerRemoteWatch? {
+        if (arguments.size < 2 || arguments.size % 2 != 0) {
+            state.diagnostics += HackScriptDiagnostic(
+                code = "BAD_ARGUMENT_SHAPE",
+                message = "triggerWatchRemote expects an index, target IP, and key/value pairs.",
+            )
+            return null
+        }
+        if (arguments[0] is Value.ArrayValue) {
+            state.diagnostics += HackScriptDiagnostic(
+                code = "BAD_ARGUMENT_SHAPE",
+                message = "triggerWatchRemote index must be a scalar value.",
+            )
+            return null
+        }
+        val targetIp = (arguments[1] as? Value.StringValue)?.value
+        if (targetIp == null) {
+            state.diagnostics += HackScriptDiagnostic(
+                code = "BAD_ARGUMENT_SHAPE",
+                message = "triggerWatchRemote target IP must be a string.",
+            )
+            return null
+        }
+        val parameters = linkedMapOf<String, HookValue>()
+        var index = 2
+        while (index < arguments.size) {
+            val key = (arguments[index] as? Value.StringValue)?.value
+            val value = arguments.getOrNull(index + 1)?.toHookValue()
+            if (key == null || value == null) {
+                state.diagnostics += HackScriptDiagnostic(
+                    code = "BAD_ARGUMENT_SHAPE",
+                    message = "triggerWatchRemote parameters must be alternating string keys and scalar or array values.",
+                )
+                return null
+            }
+            parameters[key] = value
+            index += 2
+        }
+        return TriggerRemoteWatch(
+            index = arguments[0].asInt(),
+            targetIp = targetIp,
+            parameters = parameters,
+        )
     }
 
     private fun parameter(arguments: List<Value>): String {
@@ -379,6 +578,20 @@ private sealed interface Value {
         override fun asDouble(): Double = values.size.toDouble()
         override fun asInt(): Int = values.size
         override fun raw(): Any = values.map { it.raw() }
+    }
+}
+
+private fun Value.toHookValue(): HookValue? = when (this) {
+    is Value.IntValue -> IntHookValue(value)
+    is Value.FloatValue -> FloatHookValue(value)
+    is Value.StringValue -> StringHookValue(value)
+    is Value.BooleanValue -> BooleanHookValue(value)
+    is Value.ArrayValue -> {
+        val convertedValues = mutableListOf<HookValue>()
+        values.forEach { value ->
+            convertedValues += value.toHookValue() ?: return null
+        }
+        ArrayHookValue(convertedValues)
     }
 }
 

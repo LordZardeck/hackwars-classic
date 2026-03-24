@@ -24,16 +24,17 @@ class HackScriptHttpHookRuntime(
             body = request.targetState.website.body,
             includeStore = true,
         ) ?: return null
-        return executeSlot(
+        val afterEnter = executeSlot(
             request = request,
             slot = ProgramScriptSlot.ENTER,
             body = afterSubmit.body,
             includeStore = afterSubmit.includeStore,
-        )
+        ) ?: return null
+        return afterEnter.copy(effects = afterSubmit.effects + afterEnter.effects)
     }
 
-    override suspend fun onExit(request: HttpHookRequest) {
-        executeSlot(
+    override suspend fun onExit(request: HttpHookRequest): HttpHookExecutionResult? {
+        return executeSlot(
             request = request,
             slot = ProgramScriptSlot.EXIT,
             body = request.targetState.website.body,
@@ -60,6 +61,7 @@ class HackScriptHttpHookRuntime(
             input = HttpHookExecutionInput(
                 visitorIp = request.sourceStateId.value,
                 hostIp = request.targetStateId.value,
+                hostIsNpc = request.targetState.identity.isNpc,
                 initialBody = body,
                 initialIncludeStore = includeStore,
                 queryParameters = request.queryParameters,

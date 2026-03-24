@@ -1,5 +1,6 @@
 package com.hackwars.rewrite.gamecore
 
+import com.hackwars.rewrite.hackscript.HookValue
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlin.math.max
@@ -24,6 +25,7 @@ data class ComputerState(
     val quests: QuestState = QuestState(),
     val preferences: PreferenceState = PreferenceState(),
     val stats: PlayerStatsState = PlayerStatsState(),
+    val logs: LogState = LogState(),
     val runtime: RuntimeState = RuntimeState(),
 ) {
     companion object {
@@ -32,12 +34,14 @@ data class ComputerState(
             playFabId: String = "",
             playerIp: String = id.value,
             displayName: String = "",
+            isNpc: Boolean = false,
         ): ComputerState = ComputerState(
             id = id,
             identity = ComputerIdentity(
                 playFabId = playFabId,
                 playerIp = playerIp,
                 displayName = displayName,
+                isNpc = isNpc,
             ),
         )
     }
@@ -48,6 +52,7 @@ data class ComputerIdentity(
     val playFabId: String = "",
     val playerIp: String = "",
     val displayName: String = "",
+    val isNpc: Boolean = false,
 )
 
 @Serializable
@@ -276,6 +281,23 @@ data class PreferenceState(
 )
 
 @Serializable
+data class ComputerLogEntry(
+    val createdAtEpochMillis: Long,
+    val renderedLine: String,
+    val sourceIp: String,
+)
+
+@Serializable
+data class LogState(
+    val entries: List<ComputerLogEntry> = emptyList(),
+) {
+    fun append(entry: ComputerLogEntry, maximumEntries: Int = 50): LogState {
+        val nextEntries = (entries + entry).takeLast(maximumEntries)
+        return copy(entries = nextEntries)
+    }
+}
+
+@Serializable
 data class PlayerStatsState(
     val experienceByFamily: Map<ScriptFamily, Int> = emptyMap(),
     val totalLevel: Int = 0,
@@ -411,6 +433,27 @@ data class HttpExperienceAdjustedEvent(
 
     override fun toProjection(state: ComputerState): DeltaProjection {
         return StateSectionsDeltaProjection(stats = state.stats)
+    }
+}
+
+@Serializable
+@SerialName("host_log_appended")
+data class HostLogAppendedEvent(
+    val entry: ComputerLogEntry,
+) : ComputerEvent {
+    override val changedPaths: Set<String> = setOf("logs.entries")
+    override val deltaKeys: Set<String> = setOf("logs")
+
+    override fun applyTo(state: ComputerState, nextVersion: Long): ComputerState {
+        return state.copy(
+            version = nextVersion,
+            logs = state.logs.append(entry),
+            runtime = state.runtime.withMutationVersion(nextVersion),
+        )
+    }
+
+    override fun toProjection(state: ComputerState): DeltaProjection {
+        return StateSectionsDeltaProjection(logs = state.logs)
     }
 }
 
@@ -978,6 +1021,7 @@ data class StateSectionsDeltaProjection(
     val website: WebsiteState? = null,
     val preferences: PreferenceState? = null,
     val stats: PlayerStatsState? = null,
+    val logs: LogState? = null,
 ) : DeltaProjection
 
 @Serializable
@@ -1017,6 +1061,25 @@ data class ProgramUpdate(
     val status: ProgramLifecycleStatus,
     val relatedStateIds: Set<GameStateId>,
     val progress: ProgramProgress = ProgramProgress(),
+)
+
+@Serializable
+sealed interface GameUiEvent
+
+@Serializable
+@SerialName("popup")
+data class PopupUiEvent(
+    val message: String,
+) : GameUiEvent
+
+data class WatchTriggerIntent(
+    val targetStateId: GameStateId,
+    val watchIndex: Int,
+    val sourceIp: String,
+    val parameters: Map<String, HookValue>,
+    val external: Boolean,
+    val originCommandName: String,
+    val requestId: String?,
 )
 
 @Serializable
@@ -1281,6 +1344,7 @@ private fun mergeStateSectionsProjection(
         website = latest { it.website },
         preferences = latest { it.preferences },
         stats = latest { it.stats },
+        logs = latest { it.logs },
     )
 }
 

@@ -36,6 +36,7 @@ message FrameEnvelope {
     ChatEventEnvelope chat_event = 9;
     PingEnvelope ping = 10;
     ErrorEnvelope error = 11;
+    GameUiEventEnvelope game_ui_event = 12;
   }
 }
 
@@ -109,6 +110,12 @@ message ChatEventEnvelope {
   string event_type = 2;
   string channel_name = 3;
   bytes payload = 4;
+}
+
+message GameUiEventEnvelope {
+  string event_id = 1;
+  string event_type = 2;
+  bytes payload = 3;
 }
 
 message PingEnvelope {

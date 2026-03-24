@@ -31,6 +31,7 @@ import com.hackwars.rewrite.gamecore.GameSessionBootstrapCommand
 import com.hackwars.rewrite.gamecore.GameSessionBootstrapResult
 import com.hackwars.rewrite.gamecore.GameStateId
 import com.hackwars.rewrite.gamecore.GameStatePublisher
+import com.hackwars.rewrite.gamecore.GameUiEvent
 import com.hackwars.rewrite.gamecore.HackScriptHttpHookRuntime
 import com.hackwars.rewrite.gamecore.ExitWebpageCommand
 import com.hackwars.rewrite.gamecore.ExitWebpagePayload
@@ -48,7 +49,9 @@ import com.hackwars.rewrite.gamecore.InstallFirewallPayload
 import com.hackwars.rewrite.gamecore.InstallFirewallResponse
 import com.hackwars.rewrite.gamecore.InterestRegistry
 import com.hackwars.rewrite.gamecore.MutationAcceptedResponse
+import com.hackwars.rewrite.gamecore.HookSideEffectSink
 import com.hackwars.rewrite.gamecore.HttpHookRuntime
+import com.hackwars.rewrite.gamecore.NoOpHookSideEffectSink
 import com.hackwars.rewrite.gamecore.PageEditorResponse
 import com.hackwars.rewrite.gamecore.PurchaseResponse
 import com.hackwars.rewrite.gamecore.ProgramLifecycleStatus
@@ -101,6 +104,7 @@ import hackwars.rewrite.v1.CommandResponseStatus
 import hackwars.rewrite.v1.ErrorEnvelope
 import hackwars.rewrite.v1.FrameEnvelope
 import hackwars.rewrite.v1.ProgramStatus
+import java.util.UUID
 
 data class AuthenticatedGameSession(
     val connectionId: String,
@@ -117,7 +121,8 @@ class RewriteGameProtocolAdapter(
     private val interestRegistry: InterestRegistry,
     private val serverId: String = "1",
     private val httpHookRuntime: HttpHookRuntime = HackScriptHttpHookRuntime(),
-    private val registry: CommandRegistry = defaultRegistry(serverId, httpHookRuntime),
+    private val hookSideEffectSink: HookSideEffectSink = NoOpHookSideEffectSink,
+    private val registry: CommandRegistry = defaultRegistry(serverId, httpHookRuntime, hookSideEffectSink),
 ) {
     suspend fun onSessionStarted(
         session: AuthenticatedGameSession,
@@ -278,6 +283,17 @@ class RewriteGameProtocolAdapter(
                     transport.send(connectionId, frame)
                 }
             }
+
+            override suspend fun publishUiEvent(connectionIds: Set<String>, event: GameUiEvent) {
+                val frame = RewriteFrames.gameUiEvent(
+                    eventId = UUID.randomUUID().toString(),
+                    eventType = event.protocolEventType(),
+                    payload = RewriteGameJson.encode(GameUiEvent.serializer(), event),
+                )
+                connectionIds.forEach { connectionId ->
+                    transport.send(connectionId, frame)
+                }
+            }
         }
     }
 
@@ -313,6 +329,7 @@ class RewriteGameProtocolAdapter(
         fun defaultRegistry(
             serverId: String,
             httpHookRuntime: HttpHookRuntime,
+            hookSideEffectSink: HookSideEffectSink,
         ): CommandRegistry {
             return CommandRegistry()
                 .register("requestpage") { input ->
@@ -340,6 +357,7 @@ class RewriteGameProtocolAdapter(
                         targetStateId = resolveWebsiteTarget(payload.targetIp, serverId),
                         parameters = payload.parameters,
                         httpHookRuntime = httpHookRuntime,
+                        hookSideEffectSink = hookSideEffectSink,
                     )
                 }
                 .register("submit") { input ->
@@ -354,6 +372,7 @@ class RewriteGameProtocolAdapter(
                             ?: authenticatedStateId,
                         parameters = payload.parameters,
                         httpHookRuntime = httpHookRuntime,
+                        hookSideEffectSink = hookSideEffectSink,
                     )
                 }
                 .register("exit") { input ->
@@ -367,6 +386,7 @@ class RewriteGameProtocolAdapter(
                             ?.let { resolveWebsiteTarget(it, serverId) }
                             ?: authenticatedStateId,
                         httpHookRuntime = httpHookRuntime,
+                        hookSideEffectSink = hookSideEffectSink,
                     )
                 }
                 .register("vote") { input ->
@@ -681,6 +701,10 @@ class RewriteGameProtocolAdapter(
             )
         }
     }
+}
+
+private fun GameUiEvent.protocolEventType(): String = when (this) {
+    is com.hackwars.rewrite.gamecore.PopupUiEvent -> "popup"
 }
 
 private fun ProgramLifecycleStatus.toProtocolStatus(): ProgramStatus = when (this) {
