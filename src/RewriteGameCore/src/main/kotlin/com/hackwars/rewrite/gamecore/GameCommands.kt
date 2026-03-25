@@ -9,6 +9,7 @@ class GameSessionBootstrapCommand(
     private val playFabId: String,
     private val interestRegistry: InterestRegistry,
     private val networkDirectoryRepository: NetworkDirectoryRepository? = null,
+    private val clock: () -> Long = { System.currentTimeMillis() },
 ) : RequestCommand<GameSessionBootstrapResult> {
     override val name: String = "game-session-bootstrap"
     override val lifetime: CommandLifetime = CommandLifetime.defaultRequest
@@ -20,17 +21,34 @@ class GameSessionBootstrapCommand(
         }
         interestRegistry.register(connectionId, stateId)
         val existingState = context.loadState(stateId)
+        val loginTimestamp = clock()
         val state = existingState
             ?: ComputerState.empty(
                 id = stateId,
                 playFabId = playFabId,
                 playerIp = stateId.value,
+            ).copy(
+                identity = ComputerState.empty(
+                    id = stateId,
+                    playFabId = playFabId,
+                    playerIp = stateId.value,
+                ).identity.copy(lastLoginAtEpochMillis = loginTimestamp),
             )
+        val stateWithLogin = if (existingState == null) {
+            state
+        } else {
+            context.appendEvents(
+                id = stateId,
+                events = listOf(
+                    LastLoginRecordedEvent(occurredAtEpochMillis = loginTimestamp),
+                ),
+            )
+        }
         val refreshedState = when {
-            networkDirectoryRepository == null -> state
-            existingState == null -> state.copy(
+            networkDirectoryRepository == null -> stateWithLogin
+            existingState == null -> stateWithLogin.copy(
                 network = resolveNetworkDirectoryState(
-                    state = state,
+                    state = stateWithLogin,
                     networkDirectoryRepository = networkDirectoryRepository,
                 ),
             )
@@ -41,10 +59,10 @@ class GameSessionBootstrapCommand(
                     networkDirectoryRepository = networkDirectoryRepository,
                 ),
             ).let { refreshed ->
-                state.copy(
+                stateWithLogin.copy(
                     version = refreshed.version,
                     network = refreshed.network,
-                    runtime = state.runtime.withMutationVersion(refreshed.version),
+                    runtime = stateWithLogin.runtime.withMutationVersion(refreshed.version),
                 )
             }
         }

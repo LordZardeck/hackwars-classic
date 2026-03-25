@@ -118,6 +118,19 @@ interface NetworkDirectoryRepository {
     ): NetworkSwitchValidation
 }
 
+data class SearchableWebsiteDocument(
+    val address: String,
+    val title: String,
+    val body: String,
+    val searchable: Boolean,
+    val lastLoginAtEpochMillis: Long? = null,
+    val isNpc: Boolean = false,
+)
+
+interface SearchCatalogRepository {
+    suspend fun loadDocuments(): List<SearchableWebsiteDocument>
+}
+
 interface GameStatePublisher {
     suspend fun publishSnapshot(connectionIds: Set<String>, snapshot: ComputerState)
     suspend fun publishDelta(connectionIds: Set<String>, delta: ComputerDelta)

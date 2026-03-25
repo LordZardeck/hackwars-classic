@@ -88,11 +88,15 @@ import com.hackwars.rewrite.gamecore.RequestPurchaseCommand
 import com.hackwars.rewrite.gamecore.RequestPurchasePayload
 import com.hackwars.rewrite.gamecore.RequestScanCommand
 import com.hackwars.rewrite.gamecore.RequestScanPayload
+import com.hackwars.rewrite.gamecore.RequestSearchCommand
+import com.hackwars.rewrite.gamecore.RequestSearchPayload
 import com.hackwars.rewrite.gamecore.RewriteGameJson
 import com.hackwars.rewrite.gamecore.SaveFileCommand
 import com.hackwars.rewrite.gamecore.SaveFilePayload
 import com.hackwars.rewrite.gamecore.SaveFileRequestResponse
 import com.hackwars.rewrite.gamecore.ScanResponse
+import com.hackwars.rewrite.gamecore.SearchCatalogRepository
+import com.hackwars.rewrite.gamecore.SearchResultsResponse
 import com.hackwars.rewrite.gamecore.SecondaryDirectoryListingResponse
 import com.hackwars.rewrite.gamecore.SellFileCommand
 import com.hackwars.rewrite.gamecore.SellFileCommandPayload
@@ -120,6 +124,7 @@ import com.hackwars.rewrite.gamecore.WebsiteRenderResponse
 import com.hackwars.rewrite.gamecore.WithdrawCommand
 import com.hackwars.rewrite.gamecore.WithdrawPayload
 import com.hackwars.rewrite.persistence.JdbcNetworkDirectoryRepository
+import com.hackwars.rewrite.persistence.JdbcSearchCatalogRepository
 import com.hackwars.rewrite.persistence.RewritePostgresConnectionFactory
 import com.hackwars.rewrite.protocol.RewriteFrames
 import hackwars.rewrite.v1.CommandEnvelope
@@ -143,12 +148,23 @@ class RewriteGameProtocolAdapter(
     private val dispatcher: CommandDispatcher,
     private val interestRegistry: InterestRegistry,
     private val serverId: String = "1",
+    private val clock: () -> Long = { System.currentTimeMillis() },
     private val httpHookRuntime: HttpHookRuntime = HackScriptHttpHookRuntime(),
     private val hookSideEffectSink: HookSideEffectSink = NoOpHookSideEffectSink,
     private val networkDirectoryRepository: NetworkDirectoryRepository = JdbcNetworkDirectoryRepository(
         connectionFactory = RewritePostgresConnectionFactory.fromEnvironment(),
     ),
-    private val registry: CommandRegistry = defaultRegistry(serverId, httpHookRuntime, hookSideEffectSink, networkDirectoryRepository),
+    private val searchCatalogRepository: SearchCatalogRepository = JdbcSearchCatalogRepository(
+        connectionFactory = RewritePostgresConnectionFactory.fromEnvironment(),
+    ),
+    private val registry: CommandRegistry = defaultRegistry(
+        serverId,
+        clock,
+        httpHookRuntime,
+        hookSideEffectSink,
+        networkDirectoryRepository,
+        searchCatalogRepository,
+    ),
 ) {
     suspend fun onSessionStarted(
         session: AuthenticatedGameSession,
@@ -160,6 +176,7 @@ class RewriteGameProtocolAdapter(
                 playFabId = session.playFabId,
                 interestRegistry = interestRegistry,
                 networkDirectoryRepository = networkDirectoryRepository,
+                clock = clock,
             ),
             metadata = metadataFor(session),
             publisher = NoOpGameStatePublisher,
@@ -348,6 +365,7 @@ class RewriteGameProtocolAdapter(
             is PurchaseResponse -> RewriteGameJson.encode(PurchaseResponse.serializer(), result)
             is NetworkSwitchResponse -> RewriteGameJson.encode(NetworkSwitchResponse.serializer(), result)
             is ScanResponse -> RewriteGameJson.encode(ScanResponse.serializer(), result)
+            is SearchResultsResponse -> RewriteGameJson.encode(SearchResultsResponse.serializer(), result)
             is SetPreferenceCommandResponse -> RewriteGameJson.encode(SetPreferenceCommandResponse.serializer(), result)
             is PageEditorResponse -> RewriteGameJson.encode(PageEditorResponse.serializer(), result)
             is SavePageResponse -> RewriteGameJson.encode(SavePageResponse.serializer(), result)
@@ -361,9 +379,11 @@ class RewriteGameProtocolAdapter(
     private companion object {
         fun defaultRegistry(
             serverId: String,
+            clock: () -> Long,
             httpHookRuntime: HttpHookRuntime,
             hookSideEffectSink: HookSideEffectSink,
             networkDirectoryRepository: NetworkDirectoryRepository,
+            searchCatalogRepository: SearchCatalogRepository,
         ): CommandRegistry {
             return CommandRegistry()
                 .register("requestpage") { input ->
@@ -517,6 +537,16 @@ class RewriteGameProtocolAdapter(
                             payload.targetIp?.takeUnless { it.isBlank() }
                                 ?: error("Target ip is required for ${input.commandName}."),
                         ),
+                    )
+                }
+                .register("requestsearch") { input ->
+                    val payload = decodePayload(input, RequestSearchPayload.serializer())
+                    RequestSearchCommand(
+                        requesterStateId = requireAuthenticatedStateId(input),
+                        query = payload.query.orEmpty(),
+                        startIndex = payload.startIndex,
+                        searchCatalogRepository = searchCatalogRepository,
+                        clock = clock,
                     )
                 }
                 .register("setpreferences") { input ->

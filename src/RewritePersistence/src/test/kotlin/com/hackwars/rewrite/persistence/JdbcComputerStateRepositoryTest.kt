@@ -14,6 +14,7 @@ import com.hackwars.rewrite.gamecore.ComputerLogEntry
 import com.hackwars.rewrite.gamecore.InstalledEquipment
 import com.hackwars.rewrite.gamecore.PortState
 import com.hackwars.rewrite.gamecore.PreferenceSetEvent
+import com.hackwars.rewrite.gamecore.LastLoginRecordedEvent
 import com.hackwars.rewrite.gamecore.ProgramScriptBundle
 import com.hackwars.rewrite.gamecore.ProgramScriptSlot
 import com.hackwars.rewrite.gamecore.ScriptFamily
@@ -91,6 +92,7 @@ class JdbcComputerStateRepositoryTest {
         )
 
         val updated = runBlockingAppend(repository, stateId, listOf(
+            LastLoginRecordedEvent(occurredAtEpochMillis = 123_456L),
             PreferenceSetEvent("show_clock", "true"),
             PreferenceSetEvent("show_logs", "false"),
             HostLogAppendedEvent(
@@ -104,13 +106,14 @@ class JdbcComputerStateRepositoryTest {
         val reloaded = runBlockingLoad(repository, stateId)
 
         assertEquals(updated, reloaded)
-        assertEquals(3, updated.version)
+        assertEquals(4, updated.version)
+        assertEquals(123_456L, updated.identity.lastLoginAtEpochMillis)
         assertEquals("true", updated.preferences.values["show_clock"])
         assertEquals("false", updated.preferences.values["show_logs"])
         assertTrue(updated.identity.isNpc)
         assertEquals(1, updated.logs.entries.size)
         assertEquals("REMOTE-IP", updated.logs.entries.single().sourceIp)
-        assertEquals(3, countRows("rewrite_state_event"))
+        assertEquals(4, countRows("rewrite_state_event"))
     }
 
     @Test

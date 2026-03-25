@@ -225,16 +225,17 @@
   - `changenetwork` continues to behave the same on the wire, but it now resolves switch validation text and destination directory data from rewrite-owned persistence rather than hardcoded defaults.
 
 ### RW-GS-S4C - Search and world/browser lookup flows
-- Status: `todo`
+- Status: `done`
 - Owner: `unassigned`
 - Depends on: `RW-GS-S4B2`
-- Allowed write scope: `:RewriteGameCore`, `:RewriteGameServer`
-- Verification command: `./gradlew :RewriteGameCore:test :RewriteGameServer:test`
+- Allowed write scope: `:RewriteGameCore`, `:RewritePersistence`, `:RewriteGameServer`
+- Verification command: `./gradlew :RewriteGameCore:test :RewritePersistence:test :RewritePersistence:migrationTest :RewriteGameServer:test :RewriteTestKit:integrationTest rewriteCheck`
 - Artifacts: `build/reports/tests/test`
 - Commit rule: `single green commit only`
 - Notes:
-  - Owns rewrite search/discovery flows and any world/browser lookup behavior that should not be bundled into website rendering or network switching.
-  - Must preserve request/response-only semantics and keep results scoped to the requesting client surfaces.
+  - Owns rewrite ranked website search on the existing game connection and keeps results request/response-only with no discovery subscriptions.
+  - Preserves the legacy visibility gate: searchable sites must have active HTTP and belong to NPCs or players inactive for at least 14 days.
+  - Keeps browser lookup narrow in this slice: `requestsearch` returns normalized site addresses for later `requestwebpage`, while remote domain lookup and broader world discovery remain deferred.
 
 ### RW-GS-S5 - Combat, redirect, zombie attack, watches, long-running programs
 - Status: `todo`

@@ -81,6 +81,7 @@ data class SeedInventorySnapshot(
     val notes: List<String>,
     val websiteTitle: String = "",
     val websiteBody: String = "",
+    val lastLoginAtEpochMillis: Long? = null,
     val votesAvailable: Int = 0,
     val voteCount: Int = 0,
     val totalLevel: Int = 0,

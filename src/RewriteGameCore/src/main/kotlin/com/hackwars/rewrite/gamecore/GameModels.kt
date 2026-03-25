@@ -54,6 +54,7 @@ data class ComputerIdentity(
     val playerIp: String = "",
     val displayName: String = "",
     val isNpc: Boolean = false,
+    val lastLoginAtEpochMillis: Long? = null,
 )
 
 @Serializable
@@ -430,6 +431,27 @@ sealed interface ComputerEvent {
     fun applyTo(state: ComputerState, nextVersion: Long): ComputerState
 
     fun toProjection(state: ComputerState): DeltaProjection
+}
+
+@Serializable
+@SerialName("last_login_recorded")
+data class LastLoginRecordedEvent(
+    val occurredAtEpochMillis: Long,
+) : ComputerEvent {
+    override val changedPaths: Set<String> = setOf("identity.lastLoginAtEpochMillis")
+    override val deltaKeys: Set<String> = setOf("identity")
+
+    override fun applyTo(state: ComputerState, nextVersion: Long): ComputerState {
+        return state.copy(
+            version = nextVersion,
+            identity = state.identity.copy(lastLoginAtEpochMillis = occurredAtEpochMillis),
+            runtime = state.runtime.withMutationVersion(nextVersion),
+        )
+    }
+
+    override fun toProjection(state: ComputerState): DeltaProjection {
+        return StateSectionsDeltaProjection(identity = state.identity)
+    }
 }
 
 @Serializable
@@ -1213,6 +1235,7 @@ sealed interface DeltaProjection
 @Serializable
 @SerialName("state_sections")
 data class StateSectionsDeltaProjection(
+    val identity: ComputerIdentity? = null,
     val network: NetworkState? = null,
     val filesystem: FilesystemState? = null,
     val economy: EconomyState? = null,
@@ -1383,6 +1406,21 @@ data class ScanResponse(
     val scanningExperienceAfter: Int? = null,
     val ports: List<ScannedPortView> = emptyList(),
     val requesterVersion: Long,
+)
+
+@Serializable
+data class SearchResultEntry(
+    val address: String,
+    val title: String,
+    val description: String,
+)
+
+@Serializable
+data class SearchResultsResponse(
+    val queryTerms: List<String>,
+    val startIndex: Int,
+    val totalSize: Int,
+    val results: List<SearchResultEntry>,
 )
 
 @Serializable
@@ -1673,6 +1711,7 @@ private fun mergeStateSectionsProjection(
         return projections.mapNotNull(selector).lastOrNull()
     }
     return StateSectionsDeltaProjection(
+        identity = latest { it.identity },
         network = latest { it.network },
         filesystem = latest { it.filesystem },
         economy = latest { it.economy },

@@ -50,6 +50,18 @@ class GameCoreContractsTest {
                     networkDirectoryRepository = networkRepository,
                 )
             }
+            .register("requestsearch") { input ->
+                val payload = RewriteGameJson.codec.decodeFromString(
+                    deserializer = RequestSearchPayload.serializer(),
+                    string = input.payloadJson ?: error("Expected request search payload json."),
+                )
+                RequestSearchCommand(
+                    requesterStateId = input.metadata.authenticatedStateId ?: GameStateId("LOCAL-IP"),
+                    query = payload.query.orEmpty(),
+                    startIndex = payload.startIndex,
+                    searchCatalogRepository = InMemorySearchCatalogRepository(emptyList()),
+                )
+            }
             .register("setpreferences") { input ->
                 val payload = RewriteGameJson.codec.decodeFromString(
                     deserializer = SetPreferencePayload.serializer(),
@@ -94,6 +106,22 @@ class GameCoreContractsTest {
                 metadata = CommandMetadata(authenticatedStateId = GameStateId("LOCAL-IP")),
             ),
         )
+        val search = registry.requireCreate(
+            CommandEnvelopeInput(
+                commandId = "search-1",
+                commandName = "requestsearch",
+                targetStateIds = emptySet(),
+                payloadJson = RewriteGameJson.codec.encodeToString(
+                    serializer = RequestSearchPayload.serializer(),
+                    value = RequestSearchPayload(
+                        query = "alpha beta",
+                        startIndex = 0,
+                    ),
+                ),
+                expectsResponse = true,
+                metadata = CommandMetadata(authenticatedStateId = GameStateId("LOCAL-IP")),
+            ),
+        )
         val setPreference = registry.requireCreate(
             CommandEnvelopeInput(
                 commandId = "pref-1",
@@ -111,9 +139,10 @@ class GameCoreContractsTest {
             ),
         )
 
-        assertEquals(setOf("requestscan", "changenetwork", "setpreferences"), registry.registeredNames())
+        assertEquals(setOf("requestscan", "changenetwork", "requestsearch", "setpreferences"), registry.registeredNames())
         assertIs<RequestScanCommand>(scan)
         assertIs<ChangeNetworkCommand>(changeNetwork)
+        assertIs<RequestSearchCommand>(search)
         assertIs<SetPreferenceCommand>(setPreference)
     }
 }
