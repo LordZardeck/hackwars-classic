@@ -7,6 +7,7 @@ import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
+import kotlin.test.assertContains
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
@@ -281,6 +282,215 @@ class AttackCommandsTest {
     }
 
     @Test
+    fun requestAttackRunsInitializeScriptAndFlushesAttackerLogsBeforeResponse() = runTest {
+        val attackerId = GameStateId("ATTACKER-IP")
+        val targetId = GameStateId("TARGET-IP")
+        val repository = InMemoryComputerStateRepository(
+            seededStates = mapOf(
+                attackerId to attackerState(
+                    attackerId,
+                    attackScriptBundle = attackScriptBundle(initialize = """int main() { logMessage("init"); return 0; }"""),
+                ),
+                targetId to targetState(targetId),
+            ),
+        )
+        val interests = InMemoryInterestRegistry().apply {
+            register("attacker-conn", attackerId)
+            register("target-conn", targetId)
+        }
+        val publisher = RecordingGameStatePublisher()
+        val registry = InMemoryAttackProgramRegistry()
+        val dispatcher = dispatcher(repository, interests)
+
+        val response = dispatcher.request(
+            command = RequestAttackCommand(
+                attackerStateId = attackerId,
+                targetStateId = targetId,
+                sourceIp = attackerId.value,
+                sourcePort = 12,
+                targetPort = 25,
+                loadout = AttackLoadout(),
+                attackProgramRegistry = registry,
+            ),
+            metadata = CommandMetadata(connectionId = "attacker-conn", requestId = "attack-init"),
+            publisher = publisher,
+        )
+
+        val updatedAttacker = repository.load(attackerId)
+
+        requireNotNull(updatedAttacker)
+        assertTrue(response.accepted)
+        assertEquals(1, updatedAttacker.logs.entries.size)
+        assertContains(updatedAttacker.logs.entries.single().renderedLine, "init")
+        assertEquals(2, publisher.deltas.size)
+        assertEquals(setOf("economy", "ports", "combat", "runtime", "logs"), publisher.deltas[0].second.deltaKeys)
+        assertEquals(setOf("combat"), publisher.deltas[1].second.deltaKeys)
+    }
+
+    @Test
+    fun attackTicksRunContinueScriptBeforeDamageStateFlush() = runTest {
+        val attackerId = GameStateId("ATTACKER-IP")
+        val targetId = GameStateId("TARGET-IP")
+        val repository = InMemoryComputerStateRepository(
+            seededStates = mapOf(
+                attackerId to attackerState(
+                    attackerId,
+                    attackScriptBundle = attackScriptBundle(continueScript = """int main() { logMessage("tick"); return 0; }"""),
+                ),
+                targetId to targetState(targetId),
+            ),
+        )
+        val interests = InMemoryInterestRegistry().apply {
+            register("attacker-conn", attackerId)
+            register("target-conn", targetId)
+        }
+        val publisher = RecordingGameStatePublisher()
+        val registry = InMemoryAttackProgramRegistry()
+        val dispatcher = dispatcher(repository, interests)
+
+        dispatcher.request(
+            command = RequestAttackCommand(
+                attackerStateId = attackerId,
+                targetStateId = targetId,
+                sourceIp = attackerId.value,
+                sourcePort = 12,
+                targetPort = 25,
+                loadout = AttackLoadout(),
+                attackProgramRegistry = registry,
+            ),
+            metadata = CommandMetadata(connectionId = "attacker-conn", requestId = "attack-continue"),
+            publisher = publisher,
+        )
+        runCurrent()
+        publisher.deltas.clear()
+        publisher.programUpdates.clear()
+
+        advanceTimeBy(180_100)
+        runCurrent()
+
+        val updatedAttacker = repository.load(attackerId)
+
+        requireNotNull(updatedAttacker)
+        assertEquals(1, updatedAttacker.logs.entries.size)
+        assertContains(updatedAttacker.logs.entries.single().renderedLine, "tick")
+        assertEquals(setOf("ports"), publisher.deltas[0].second.deltaKeys)
+        assertEquals(setOf("combat", "stats", "logs"), publisher.deltas[1].second.deltaKeys)
+        assertEquals(ProgramLifecycleStatus.RUNNING, publisher.programUpdates.single().second.status)
+    }
+
+    @Test
+    fun attackCompletionRunsFinalizeScriptBeforeCleanupFlush() = runTest {
+        val attackerId = GameStateId("ATTACKER-IP")
+        val targetId = GameStateId("TARGET-IP")
+        val repository = InMemoryComputerStateRepository(
+            seededStates = mapOf(
+                attackerId to attackerState(
+                    attackerId,
+                    attackScriptBundle = attackScriptBundle(finalize = """int main() { logMessage("finalize"); return 0; }"""),
+                ),
+                targetId to targetState(targetId).copy(
+                    ports = listOf(
+                        PortState(
+                            number = 25,
+                            type = "http",
+                            enabled = true,
+                            health = 1.5,
+                        ),
+                    ),
+                ),
+            ),
+        )
+        val interests = InMemoryInterestRegistry().apply {
+            register("attacker-conn", attackerId)
+            register("target-conn", targetId)
+        }
+        val publisher = RecordingGameStatePublisher()
+        val registry = InMemoryAttackProgramRegistry()
+        val dispatcher = dispatcher(repository, interests)
+
+        dispatcher.request(
+            command = RequestAttackCommand(
+                attackerStateId = attackerId,
+                targetStateId = targetId,
+                sourceIp = attackerId.value,
+                sourcePort = 12,
+                targetPort = 25,
+                loadout = AttackLoadout(),
+                attackProgramRegistry = registry,
+            ),
+            metadata = CommandMetadata(connectionId = "attacker-conn", requestId = "attack-finalize"),
+            publisher = publisher,
+        )
+        runCurrent()
+        publisher.deltas.clear()
+        publisher.programUpdates.clear()
+
+        advanceTimeBy(180_100)
+        runCurrent()
+
+        val updatedAttacker = repository.load(attackerId)
+
+        requireNotNull(updatedAttacker)
+        assertEquals(1, updatedAttacker.logs.entries.size)
+        assertContains(updatedAttacker.logs.entries.single().renderedLine, "finalize")
+        assertEquals(setOf("ports", "combat"), publisher.deltas[0].second.deltaKeys)
+        assertEquals(setOf("combat", "ports", "runtime", "stats", "logs"), publisher.deltas[1].second.deltaKeys)
+        assertEquals(ProgramLifecycleStatus.COMPLETED, publisher.programUpdates.single().second.status)
+    }
+
+    @Test
+    fun attackScriptFailureDoesNotCancelAttackOrSuppressDeterministicDamage() = runTest {
+        val attackerId = GameStateId("ATTACKER-IP")
+        val targetId = GameStateId("TARGET-IP")
+        val repository = InMemoryComputerStateRepository(
+            seededStates = mapOf(
+                attackerId to attackerState(
+                    attackerId,
+                    attackScriptBundle = attackScriptBundle(continueScript = """int main() { freeze(); return 0; }"""),
+                ),
+                targetId to targetState(targetId),
+            ),
+        )
+        val interests = InMemoryInterestRegistry().apply {
+            register("attacker-conn", attackerId)
+            register("target-conn", targetId)
+        }
+        val publisher = RecordingGameStatePublisher()
+        val registry = InMemoryAttackProgramRegistry()
+        val dispatcher = dispatcher(repository, interests)
+
+        dispatcher.request(
+            command = RequestAttackCommand(
+                attackerStateId = attackerId,
+                targetStateId = targetId,
+                sourceIp = attackerId.value,
+                sourcePort = 12,
+                targetPort = 25,
+                loadout = AttackLoadout(),
+                attackProgramRegistry = registry,
+            ),
+            metadata = CommandMetadata(connectionId = "attacker-conn", requestId = "attack-failure"),
+            publisher = publisher,
+        )
+        runCurrent()
+        publisher.deltas.clear()
+        publisher.programUpdates.clear()
+
+        advanceTimeBy(180_100)
+        runCurrent()
+
+        val updatedAttacker = repository.load(attackerId)
+        val updatedTarget = repository.load(targetId)
+
+        requireNotNull(updatedAttacker)
+        requireNotNull(updatedTarget)
+        assertEquals(97.8, updatedTarget.port(25)?.health)
+        assertEquals(1, updatedAttacker.combat.activeAttacksBySourcePort.getValue(12).iterationCount)
+        assertTrue(updatedAttacker.logs.entries.isEmpty())
+        assertEquals(ProgramLifecycleStatus.RUNNING, publisher.programUpdates.single().second.status)
+    }
+
+    @Test
     fun attackCompletionClearsBilateralCombatStateFreesCpuAndPublishesCompleted() = runTest {
         val attackerId = GameStateId("ATTACKER-IP")
         val targetId = GameStateId("TARGET-IP")
@@ -476,6 +686,85 @@ class AttackCommandsTest {
     }
 
     @Test
+    fun cancelAndTimeoutCleanupDoNotRunFinalizeScripts() = runTest {
+        val attackerId = GameStateId("ATTACKER-IP")
+        val targetId = GameStateId("TARGET-IP")
+        val finalizer = attackScriptBundle(finalize = """int main() { logMessage("should-not-run"); return 0; }""")
+
+        val cancelRepository = InMemoryComputerStateRepository(
+            seededStates = mapOf(
+                attackerId to attackerState(attackerId, attackScriptBundle = finalizer),
+                targetId to targetState(targetId),
+            ),
+        )
+        val cancelInterests = InMemoryInterestRegistry().apply {
+            register("attacker-conn", attackerId)
+            register("target-conn", targetId)
+        }
+        val cancelRegistry = InMemoryAttackProgramRegistry()
+        val cancelDispatcher = dispatcher(cancelRepository, cancelInterests)
+
+        cancelDispatcher.request(
+            command = RequestAttackCommand(
+                attackerStateId = attackerId,
+                targetStateId = targetId,
+                sourceIp = attackerId.value,
+                sourcePort = 12,
+                targetPort = 25,
+                loadout = AttackLoadout(),
+                attackProgramRegistry = cancelRegistry,
+            ),
+            metadata = CommandMetadata(connectionId = "attacker-conn", requestId = "attack-cancel-no-finalize"),
+            publisher = RecordingGameStatePublisher(),
+        )
+        runCurrent()
+        cancelDispatcher.request(
+            command = RequestCancelAttackCommand(
+                attackerStateId = attackerId,
+                sourceIp = attackerId.value,
+                sourcePort = 12,
+                attackProgramRegistry = cancelRegistry,
+            ),
+            metadata = CommandMetadata(connectionId = "attacker-conn", requestId = "cancel-no-finalize"),
+            publisher = RecordingGameStatePublisher(),
+        )
+        runCurrent()
+
+        assertTrue(cancelRepository.load(attackerId)?.logs?.entries?.isEmpty() == true)
+
+        val timeoutRepository = InMemoryComputerStateRepository(
+            seededStates = mapOf(
+                attackerId to attackerState(attackerId, attackScriptBundle = finalizer),
+                targetId to targetState(targetId),
+            ),
+        )
+        val timeoutInterests = InMemoryInterestRegistry().apply {
+            register("attacker-conn", attackerId)
+        }
+        val timeoutRegistry = InMemoryAttackProgramRegistry()
+        val timeoutDispatcher = dispatcher(timeoutRepository, timeoutInterests)
+
+        timeoutDispatcher.request(
+            command = RequestAttackCommand(
+                attackerStateId = attackerId,
+                targetStateId = targetId,
+                sourceIp = attackerId.value,
+                sourcePort = 12,
+                targetPort = 25,
+                loadout = AttackLoadout(),
+                attackProgramRegistry = timeoutRegistry,
+            ),
+            metadata = CommandMetadata(connectionId = "attacker-conn", requestId = "attack-timeout-no-finalize"),
+            publisher = RecordingGameStatePublisher(),
+        )
+        runCurrent()
+        advanceTimeBy(450_100)
+        runCurrent()
+
+        assertTrue(timeoutRepository.load(attackerId)?.logs?.entries?.isEmpty() == true)
+    }
+
+    @Test
     fun requestAttackDefaultResolvesBankAndAttackSourcePorts() = runTest {
         val attackerId = GameStateId("ATTACKER-IP")
         val targetId = GameStateId("TARGET-IP")
@@ -666,6 +955,7 @@ class AttackCommandsTest {
     private fun attackerState(
         stateId: GameStateId,
         bankIsAlsoAttack: Boolean = false,
+        attackScriptBundle: ProgramScriptBundle? = null,
     ): ComputerState {
         val bankApplication = InstalledApplication(
             name = "bank.bin",
@@ -700,6 +990,7 @@ class AttackCommandsTest {
                         name = "attack.bin",
                         kind = ApplicationKind.ATTACK,
                         cpuCost = 8.0,
+                        scriptBundle = attackScriptBundle,
                     ),
                 ),
             ),
@@ -715,6 +1006,21 @@ class AttackCommandsTest {
                     enabled = true,
                 ),
             ),
+        )
+    }
+
+    private fun attackScriptBundle(
+        initialize: String? = null,
+        continueScript: String? = null,
+        finalize: String? = null,
+    ): ProgramScriptBundle {
+        return ProgramScriptBundle(
+            family = ScriptFamily.ATTACK,
+            scriptsBySlot = buildMap {
+                initialize?.let { put(ProgramScriptSlot.INITIALIZE, it) }
+                continueScript?.let { put(ProgramScriptSlot.CONTINUE, it) }
+                finalize?.let { put(ProgramScriptSlot.FINALIZE, it) }
+            },
         )
     }
 }

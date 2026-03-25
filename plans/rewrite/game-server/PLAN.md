@@ -278,7 +278,7 @@
   - Preserves the locked legacy petty-cash threshold and overheat gates, and keeps health-watch auto-fire deferred to `RW-GS-S5A3B`.
 
 ### RW-GS-S5A3B - Passive health-watch auto-fire
-- Status: `in_progress`
+- Status: `done`
 - Owner: `codex`
 - Depends on: `RW-GS-S5A3A`, `RW-GS-S5B2A`
 - Allowed write scope: `:RewriteGameCore`, `:RewriteGameServer`
@@ -288,7 +288,7 @@
 - Notes:
   - Owns passive `WatchKind.HEALTH` auto-fire on combat-driven port-health loss using the same installed-watch runtime and single-pass evaluation model as the earlier watch slices.
   - Health watchers now execute only from typed combat damage, refresh baselines on non-overheated matching ports, and keep heal or recovery-driven baseline resets deferred to a later runtime or heal slice.
-  - Must not regress the explicit and passive petty-cash or scan behavior from earlier watch slices while `RW-GS-S5B2B` remains deferred for richer combat runtime and attack-script behavior.
+  - Must not regress the explicit and passive petty-cash or scan behavior from earlier watch slices while `RW-GS-S5B2B2` remains deferred for richer combat helpers and firewall behavior.
 
 ### RW-GS-S5B1 - Attack start/cancel program foundation
 - Status: `done`
@@ -316,22 +316,35 @@
   - Running ticks now mutate target port health, refresh attacker-side typed target views, and publish target deltas while keeping `ProgramUpdate` scoped to attacker-state listeners only.
   - Emits typed passive health-change triggers on combat damage so `RW-GS-S5A3B` can bind health-watch auto-fire without reworking the combat loop.
 
-### RW-GS-S5B2B - Attack-script runtime and richer combat behavior
-- Status: `todo`
-- Owner: `unassigned`
+### RW-GS-S5B2B1 - Installed attack-script runtime core
+- Status: `done`
+- Owner: `codex`
 - Depends on: `RW-GS-S5B2A`
 - Allowed write scope: `:RewriteHackScript`, `:RewriteGameCore`, `:RewriteGameServer`, `:RewritePersistence`
 - Verification command: `./gradlew :RewriteHackScript:test :RewriteGameCore:test :RewritePersistence:test :RewriteGameServer:test :RewriteTestKit:integrationTest`
 - Artifacts: `build/reports/tests/test`
 - Commit rule: `single green commit only`
 - Notes:
-  - Owns attack-script execution, richer firewall combat behavior, and any follow-on target-side combat semantics beyond the deterministic base loop delivered in `RW-GS-S5B2A`.
+  - Runs installed attack-application `INITIALIZE`, `CONTINUE`, and `FINALIZE` script slots from `ProgramScriptBundle` using the rewrite-native HackScript runtime.
+  - Keeps the effect surface intentionally narrow in this tranche: attack scripts can read typed combat context and append attacker-side host logs only.
+  - Preserves the deterministic damage and attack-XP loop from `RW-GS-S5B2A`; parse/runtime failures are non-fatal and do not cancel the outer attack flow.
+
+### RW-GS-S5B2B2 - Richer combat helpers and firewall behavior
+- Status: `todo`
+- Owner: `unassigned`
+- Depends on: `RW-GS-S5B2B1`
+- Allowed write scope: `:RewriteHackScript`, `:RewriteGameCore`, `:RewriteGameServer`, `:RewritePersistence`
+- Verification command: `./gradlew :RewriteHackScript:test :RewriteGameCore:test :RewritePersistence:test :RewriteGameServer:test :RewriteTestKit:integrationTest`
+- Artifacts: `build/reports/tests/test`
+- Commit rule: `single green commit only`
+- Notes:
+  - Owns richer firewall combat behavior, broader attack-side helpers, and any follow-on target-side combat semantics beyond the deterministic base loop plus installed attack-script runtime delivered in `RW-GS-S5B2A` and `RW-GS-S5B2B1`.
   - Keeps `launchnetworkattack` deferred until the rewrite has a typed redirecting or shipping-port model.
 
 ### RW-GS-S5C - Redirect, zombie, and combat cleanup
 - Status: `todo`
 - Owner: `unassigned`
-- Depends on: `RW-GS-S5B2B`
+- Depends on: `RW-GS-S5B2B2`
 - Allowed write scope: `:RewriteGameCore`, `:RewriteGameServer`
 - Verification command: `./gradlew :RewriteGameCore:test :RewriteGameServer:test`
 - Artifacts: `build/reports/tests/test`

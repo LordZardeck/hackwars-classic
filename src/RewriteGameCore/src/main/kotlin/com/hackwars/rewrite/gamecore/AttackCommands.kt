@@ -1,5 +1,6 @@
 package com.hackwars.rewrite.gamecore
 
+import com.hackwars.rewrite.hackscript.AttackExecutionInput
 import com.hackwars.rewrite.hackscript.HookValue
 import java.util.UUID
 import kotlinx.serialization.SerialName
@@ -239,6 +240,7 @@ class RequestAttackCommand(
                 loadout = loadout,
                 windowHandle = windowHandle,
                 reservedCpu = reservedCpu,
+                attackRuntimeExecutor = DefaultAttackRuntimeExecutor,
                 clock = clock,
             ),
         )
@@ -420,6 +422,7 @@ internal class AttackInitializeCommand(
     private val loadout: AttackLoadout,
     private val windowHandle: Int,
     private val reservedCpu: Double,
+    private val attackRuntimeExecutor: AttackRuntimeExecutor = DefaultAttackRuntimeExecutor,
     private val clock: () -> Long = { System.currentTimeMillis() },
 ) : RequestCommand<AttackInitializeResult> {
     override val name: String = "attackinitialize"
@@ -489,6 +492,17 @@ internal class AttackInitializeCommand(
                 ),
             ),
         )
+        attackRuntimeExecutor.execute(
+            context = context,
+            attackerState = updatedAttacker,
+            sourcePort = sourcePort,
+            phase = AttackScriptPhase.INITIALIZE,
+            input = updatedAttacker.toAttackExecutionInput(
+                sourcePort = sourcePort,
+                targetView = session.targetView,
+                iterations = 0,
+            ),
+        )
         return AttackInitializeResult(session = session)
     }
 }
@@ -497,6 +511,7 @@ internal class AttackTickCommand(
     private val attackerStateId: GameStateId,
     private val targetStateId: GameStateId,
     private val sourcePort: Int,
+    private val attackRuntimeExecutor: AttackRuntimeExecutor = DefaultAttackRuntimeExecutor,
 ) : RequestCommand<ProgramExecutionStep> {
     override val name: String = "attackcontinue"
     override val lifetime: CommandLifetime = CommandLifetime.defaultRequest
@@ -566,6 +581,23 @@ internal class AttackTickCommand(
             )
         }
 
+        val currentTargetView = targetState.buildAttackTargetView(
+            targetPort = session.targetPort,
+            lastAppliedDamage = session.targetView.lastAppliedDamage,
+            completed = false,
+            healthOverride = previousHealth,
+        )
+        val continueOutcome = attackRuntimeExecutor.evaluate(
+            attackerState = attackerState,
+            sourcePort = sourcePort,
+            phase = AttackScriptPhase.CONTINUE,
+            input = attackerState.toAttackExecutionInput(
+                sourcePort = sourcePort,
+                targetView = currentTargetView,
+                iterations = session.iterationCount + 1,
+            ),
+        )
+
         val baseDamage = attackerState.attackBaseDamage()
         val appliedDamage = min(baseDamage, previousHealth)
         val newHealth = (previousHealth - appliedDamage).coerceAtLeast(0.0)
@@ -608,6 +640,47 @@ internal class AttackTickCommand(
             previousHealth = previousHealth,
             newHealth = newHealth,
         )
+        if (continueOutcome != null) {
+            attackRuntimeExecutor.apply(
+                context = context,
+                attackerStateId = attackerStateId,
+                phase = AttackScriptPhase.CONTINUE,
+                input = attackerState.toAttackExecutionInput(
+                    sourcePort = sourcePort,
+                    targetView = currentTargetView,
+                    iterations = session.iterationCount + 1,
+                ),
+                outcome = continueOutcome,
+            )
+        }
+        if (completed) {
+            val finalizeTargetView = targetState.buildAttackTargetView(
+                targetPort = session.targetPort,
+                lastAppliedDamage = appliedDamage,
+                completed = true,
+                healthOverride = 0.0,
+            )
+            val finalizeInput = attackerState.toAttackExecutionInput(
+                sourcePort = sourcePort,
+                targetView = finalizeTargetView,
+                iterations = session.iterationCount + 1,
+            )
+            val finalizeOutcome = attackRuntimeExecutor.evaluate(
+                attackerState = attackerState,
+                sourcePort = sourcePort,
+                phase = AttackScriptPhase.FINALIZE,
+                input = finalizeInput,
+            )
+            if (finalizeOutcome != null) {
+                attackRuntimeExecutor.apply(
+                    context = context,
+                    attackerStateId = attackerStateId,
+                    phase = AttackScriptPhase.FINALIZE,
+                    input = finalizeInput,
+                    outcome = finalizeOutcome,
+                )
+            }
+        }
 
         context.appendEvents(
             id = attackerStateId,
@@ -855,7 +928,7 @@ class RefreshCombatRuntimeCommand(
     }
 }
 
-class AttackProgramCommand(
+internal class AttackProgramCommand(
     private val attackerStateId: GameStateId,
     private val targetStateId: GameStateId,
     private val sourcePort: Int,
@@ -1026,5 +1099,26 @@ private fun ComputerState.buildAttackTargetView(
         npc = identity.isNpc,
         lastAppliedDamage = lastAppliedDamage,
         completed = completed,
+    )
+}
+
+private fun ComputerState.toAttackExecutionInput(
+    sourcePort: Int,
+    targetView: AttackTargetView,
+    iterations: Int,
+): AttackExecutionInput {
+    return AttackExecutionInput(
+        sourceIp = id.value,
+        sourcePort = sourcePort,
+        targetIp = targetView.targetStateId.value,
+        targetPort = targetView.targetPort,
+        targetHealth = targetView.health,
+        targetCpuCost = targetView.cpuCost,
+        targetWatchPresent = targetView.watchPresent,
+        targetPettyCash = targetView.pettyCash,
+        hostHealth = port(sourcePort)?.health ?: 0.0,
+        currentCpuLoad = runtime.currentCpuLoad,
+        maximumCpuLoad = hardware.cpuMax,
+        iterations = iterations,
     )
 }

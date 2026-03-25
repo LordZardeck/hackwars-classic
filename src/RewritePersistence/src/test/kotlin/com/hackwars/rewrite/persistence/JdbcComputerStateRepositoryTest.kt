@@ -292,7 +292,7 @@ class JdbcComputerStateRepositoryTest {
     fun replaysAttackStartEconomyRuntimeAndCombatStateDeterministically() {
         resetDatabase()
         val stateId = GameStateId("LOCAL-IP")
-        val initialState = ComputerState.empty(
+        val baseState = ComputerState.empty(
             id = stateId,
             playFabId = "PF-LOCALUSER",
         ).copy(
@@ -333,11 +333,32 @@ class JdbcComputerStateRepositoryTest {
                 ),
             ),
         )
-        seedPlayerAndComputer(stateId = stateId, state = initialState)
         val repository = JdbcComputerStateRepository(
             connectionFactory = ::newConnection,
             serializer = serializer,
         )
+        val attackScriptBundle = ProgramScriptBundle(
+            family = ScriptFamily.ATTACK,
+            scriptsBySlot = linkedMapOf(
+                ProgramScriptSlot.INITIALIZE to """int main() { logMessage("init"); return 0; }""",
+                ProgramScriptSlot.CONTINUE to """int main() { logMessage("continue"); return 0; }""",
+                ProgramScriptSlot.FINALIZE to """int main() { logMessage("finalize"); return 0; }""",
+            ),
+        )
+        val initialState = baseState.copy(
+            ports = baseState.ports.map { port ->
+                if (port.number == 12) {
+                    port.copy(
+                        installedApplication = port.installedApplication?.copy(
+                            scriptBundle = attackScriptBundle,
+                        ),
+                    )
+                } else {
+                    port
+                }
+            },
+        )
+        seedPlayerAndComputer(stateId = stateId, state = initialState)
         val session = AttackSessionState(
             programId = "attack-session-1",
             sourcePort = 12,
@@ -365,6 +386,13 @@ class JdbcComputerStateRepositoryTest {
             stateId,
             listOf(
                 EconomyBalanceAdjustedEvent(pettyCashDelta = -10.0),
+                HostLogAppendedEvent(
+                    entry = ComputerLogEntry(
+                        createdAtEpochMillis = 1_500L,
+                        renderedLine = "1-Jan-1970 (12:00:01 AM) continue",
+                        sourceIp = stateId.value,
+                    ),
+                ),
                 SkillExperienceAdjustedEvent(
                     family = ScriptFamily.ATTACK,
                     delta = 2.2,
@@ -417,6 +445,8 @@ class JdbcComputerStateRepositoryTest {
         assertEquals(2.2, reloaded.combat.activeAttacksBySourcePort.getValue(12).targetView.lastAppliedDamage)
         assertEquals(stateId, reloaded.combat.incomingAttacksByTargetPort.getValue(25).attackerStateId)
         assertEquals("worm.bin", reloaded.combat.activeAttacksBySourcePort.getValue(12).maliciousScripts.single()?.name)
+        assertEquals(attackScriptBundle, reloaded.ports.single { it.number == 12 }.installedApplication?.scriptBundle)
+        assertEquals("1-Jan-1970 (12:00:01 AM) continue", reloaded.logs.entries.single().renderedLine)
     }
 
     @Test

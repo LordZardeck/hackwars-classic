@@ -19,6 +19,8 @@ import com.hackwars.rewrite.gamecore.InMemoryNetworkDirectoryRepository
 import com.hackwars.rewrite.gamecore.InstalledApplication
 import com.hackwars.rewrite.gamecore.InstalledWatch
 import com.hackwars.rewrite.gamecore.PortState
+import com.hackwars.rewrite.gamecore.ProgramScriptBundle
+import com.hackwars.rewrite.gamecore.ProgramScriptSlot
 import com.hackwars.rewrite.gamecore.ProgramLifecycleStatus
 import com.hackwars.rewrite.gamecore.RequestAttackPayload
 import com.hackwars.rewrite.gamecore.RequestCancelAttackPayload
@@ -103,6 +105,49 @@ class RewriteGameAttackProtocolAdapterTest {
     }
 
     @Test
+    fun initializeScriptLogsFlushBeforeTheCorrelatedStartResponse() = runTest {
+        val fixture = createFixture(
+            localState = attackerState(
+                GameStateId("LOCAL-IP"),
+                attackScriptBundle = attackScriptBundle(
+                    initialize = """int main() { logMessage("init"); return 0; }""",
+                ),
+            ),
+        )
+        val attacker = fixture.authenticatedConnection("LOCAL-IP")
+        val target = fixture.authenticatedConnection("TARGET-IP")
+
+        attacker.send(
+            RewriteFrames.command(
+                commandId = "attack-init-1",
+                commandName = "requestattack",
+                payload = RewriteGameJson.encode(
+                    serializer = RequestAttackPayload.serializer(),
+                    value = RequestAttackPayload(
+                        targetIp = "TARGET-IP",
+                        targetPort = 25,
+                        sourceIp = "LOCAL-IP",
+                        sourcePort = 12,
+                    ),
+                ),
+                expectsResponse = true,
+            ),
+        )
+
+        val attackerDelta = attacker.awaitFrame()
+        val targetDelta = target.awaitFrame()
+        val responseFrame = attacker.awaitFrame()
+        val response = RewriteGameJson.decode(
+            serializer = AttackStartResponse.serializer(),
+            payload = responseFrame.command_response!!.payload.toByteArray(),
+        )
+
+        assertEquals(setOf("economy", "ports", "combat", "runtime", "logs"), attackerDelta.delta?.delta_keys?.toSet())
+        assertEquals(setOf("combat"), targetDelta.delta?.delta_keys?.toSet())
+        assertTrue(response.accepted)
+    }
+
+    @Test
     fun attackTicksPublishTargetAndAttackerDeltasBeforeAttackerScopedRunningUpdate() = runTest {
         val fixture = createFixture()
         val attacker = fixture.authenticatedConnection("LOCAL-IP")
@@ -141,6 +186,53 @@ class RewriteGameAttackProtocolAdapterTest {
         assertEquals(setOf("combat", "stats"), attackerDelta.delta?.delta_keys?.toSet())
         assertEquals(ProgramStatus.PROGRAM_STATUS_RUNNING, updateFrame.program_update?.status)
         assertTrue(target.drainFrames().isEmpty())
+    }
+
+    @Test
+    fun continueScriptLogDeltasFlushBeforeTheAttackerScopedRunningUpdate() = runTest {
+        val fixture = createFixture(
+            localState = attackerState(
+                GameStateId("LOCAL-IP"),
+                attackScriptBundle = attackScriptBundle(
+                    continueScript = """int main() { logMessage("continue"); return 0; }""",
+                ),
+            ),
+        )
+        val attacker = fixture.authenticatedConnection("LOCAL-IP")
+        val target = fixture.authenticatedConnection("TARGET-IP")
+
+        attacker.send(
+            RewriteFrames.command(
+                commandId = "attack-continue-start",
+                commandName = "requestattack",
+                payload = RewriteGameJson.encode(
+                    serializer = RequestAttackPayload.serializer(),
+                    value = RequestAttackPayload(
+                        targetIp = "TARGET-IP",
+                        targetPort = 25,
+                        sourceIp = "LOCAL-IP",
+                        sourcePort = 12,
+                    ),
+                ),
+                expectsResponse = true,
+            ),
+        )
+        attacker.awaitFrame()
+        target.awaitFrame()
+        attacker.awaitFrame()
+        runCurrent()
+        attacker.awaitFrame()
+
+        advanceTimeBy(180_100)
+        runCurrent()
+
+        val targetDelta = target.awaitFrame()
+        val attackerDelta = attacker.awaitFrame()
+        val updateFrame = attacker.awaitFrame()
+
+        assertEquals(setOf("ports"), targetDelta.delta?.delta_keys?.toSet())
+        assertEquals(setOf("combat", "stats", "logs"), attackerDelta.delta?.delta_keys?.toSet())
+        assertEquals(ProgramStatus.PROGRAM_STATUS_RUNNING, updateFrame.program_update?.status)
     }
 
     @Test
@@ -184,6 +276,54 @@ class RewriteGameAttackProtocolAdapterTest {
         assertEquals(setOf("combat", "ports", "runtime", "stats"), attackerDelta.delta?.delta_keys?.toSet())
         assertEquals(ProgramStatus.PROGRAM_STATUS_COMPLETED, updateFrame.program_update?.status)
         assertTrue(target.drainFrames().isEmpty())
+    }
+
+    @Test
+    fun finalizeScriptLogDeltasFlushBeforeTheCompletedUpdate() = runTest {
+        val fixture = createFixture(
+            localState = attackerState(
+                GameStateId("LOCAL-IP"),
+                attackScriptBundle = attackScriptBundle(
+                    finalize = """int main() { logMessage("finalize"); return 0; }""",
+                ),
+            ),
+            targetState = targetState(GameStateId("TARGET-IP"), health = 1.5),
+        )
+        val attacker = fixture.authenticatedConnection("LOCAL-IP")
+        val target = fixture.authenticatedConnection("TARGET-IP")
+
+        attacker.send(
+            RewriteFrames.command(
+                commandId = "attack-finalize-start",
+                commandName = "requestattack",
+                payload = RewriteGameJson.encode(
+                    serializer = RequestAttackPayload.serializer(),
+                    value = RequestAttackPayload(
+                        targetIp = "TARGET-IP",
+                        targetPort = 25,
+                        sourceIp = "LOCAL-IP",
+                        sourcePort = 12,
+                    ),
+                ),
+                expectsResponse = true,
+            ),
+        )
+        attacker.awaitFrame()
+        target.awaitFrame()
+        attacker.awaitFrame()
+        runCurrent()
+        attacker.awaitFrame()
+
+        advanceTimeBy(180_100)
+        runCurrent()
+
+        val targetDelta = target.awaitFrame()
+        val attackerDelta = attacker.awaitFrame()
+        val updateFrame = attacker.awaitFrame()
+
+        assertEquals(setOf("ports", "combat"), targetDelta.delta?.delta_keys?.toSet())
+        assertEquals(setOf("combat", "ports", "runtime", "stats", "logs"), attackerDelta.delta?.delta_keys?.toSet())
+        assertEquals(ProgramStatus.PROGRAM_STATUS_COMPLETED, updateFrame.program_update?.status)
     }
 
     @Test
@@ -337,6 +477,68 @@ class RewriteGameAttackProtocolAdapterTest {
         assertEquals(ProgramStatus.PROGRAM_STATUS_CANCELLED, updateFrame.program_update?.status)
         assertTrue(response.accepted)
         assertTrue(response.hadActiveSession)
+    }
+
+    @Test
+    fun cancelCleanupDoesNotRunFinalizeScripts() = runTest {
+        val finalizeBundle = attackScriptBundle(
+            finalize = """int main() { logMessage("should-not-run"); return 0; }""",
+        )
+        val cancelFixture = createFixture(
+            localState = attackerState(GameStateId("LOCAL-IP"), attackScriptBundle = finalizeBundle),
+        )
+        val cancelAttacker = cancelFixture.authenticatedConnection("LOCAL-IP")
+        val cancelTarget = cancelFixture.authenticatedConnection("TARGET-IP")
+
+        cancelAttacker.send(
+            RewriteFrames.command(
+                commandId = "attack-cancel-finalize-start",
+                commandName = "requestattack",
+                payload = RewriteGameJson.encode(
+                    serializer = RequestAttackPayload.serializer(),
+                    value = RequestAttackPayload(
+                        targetIp = "TARGET-IP",
+                        targetPort = 25,
+                        sourceIp = "LOCAL-IP",
+                        sourcePort = 12,
+                    ),
+                ),
+                expectsResponse = true,
+            ),
+        )
+        cancelAttacker.awaitFrame()
+        cancelTarget.awaitFrame()
+        cancelAttacker.awaitFrame()
+        runCurrent()
+        cancelAttacker.awaitFrame()
+
+        cancelAttacker.send(
+            RewriteFrames.command(
+                commandId = "attack-cancel-finalize",
+                commandName = "requestcancelattack",
+                payload = RewriteGameJson.encode(
+                    serializer = RequestCancelAttackPayload.serializer(),
+                    value = RequestCancelAttackPayload(
+                        ip = "LOCAL-IP",
+                        port = 12,
+                    ),
+                ),
+                expectsResponse = true,
+            ),
+        )
+        val attackerDelta = cancelAttacker.awaitFrame()
+        val targetDelta = cancelTarget.awaitFrame()
+        val updateFrame = cancelAttacker.awaitFrame()
+        val responseFrame = cancelAttacker.awaitFrame()
+        val response = RewriteGameJson.decode(
+            serializer = AttackCancelResponse.serializer(),
+            payload = responseFrame.command_response!!.payload.toByteArray(),
+        )
+
+        assertEquals(setOf("ports", "combat", "runtime"), attackerDelta.delta?.delta_keys?.toSet())
+        assertEquals(setOf("combat"), targetDelta.delta?.delta_keys?.toSet())
+        assertEquals(ProgramStatus.PROGRAM_STATUS_CANCELLED, updateFrame.program_update?.status)
+        assertTrue(response.accepted)
     }
 
     @Test
@@ -514,7 +716,10 @@ class RewriteGameAttackProtocolAdapterTest {
         }
     }
 
-    private fun attackerState(stateId: GameStateId): ComputerState {
+    private fun attackerState(
+        stateId: GameStateId,
+        attackScriptBundle: ProgramScriptBundle? = null,
+    ): ComputerState {
         return ComputerState.empty(id = stateId, playFabId = "PF-${stateId.value}").copy(
             economy = EconomyState(
                 pettyCash = 100.0,
@@ -543,6 +748,7 @@ class RewriteGameAttackProtocolAdapterTest {
                         name = "attack.bin",
                         kind = ApplicationKind.ATTACK,
                         cpuCost = 8.0,
+                        scriptBundle = attackScriptBundle,
                     ),
                 ),
             ),
@@ -579,6 +785,21 @@ class RewriteGameAttackProtocolAdapterTest {
                 applicationKind = ApplicationKind.WATCH,
                 outputName = "watch.bin",
             ),
+        )
+    }
+
+    private fun attackScriptBundle(
+        initialize: String? = null,
+        continueScript: String? = null,
+        finalize: String? = null,
+    ): ProgramScriptBundle {
+        return ProgramScriptBundle(
+            family = ScriptFamily.ATTACK,
+            scriptsBySlot = buildMap {
+                initialize?.let { put(ProgramScriptSlot.INITIALIZE, it) }
+                continueScript?.let { put(ProgramScriptSlot.CONTINUE, it) }
+                finalize?.let { put(ProgramScriptSlot.FINALIZE, it) }
+            },
         )
     }
 }
