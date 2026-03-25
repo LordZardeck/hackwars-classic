@@ -9,6 +9,7 @@ class GameSessionBootstrapCommand(
     private val playFabId: String,
     private val interestRegistry: InterestRegistry,
     private val networkDirectoryRepository: NetworkDirectoryRepository? = null,
+    private val attackProgramRegistry: AttackProgramRegistry = NoOpAttackProgramRegistry,
     private val clock: () -> Long = { System.currentTimeMillis() },
 ) : RequestCommand<GameSessionBootstrapResult> {
     override val name: String = "game-session-bootstrap"
@@ -44,29 +45,35 @@ class GameSessionBootstrapCommand(
                 ),
             )
         }
-        val refreshedState = when {
-            networkDirectoryRepository == null -> stateWithLogin
-            existingState == null -> stateWithLogin.copy(
+        if (existingState != null) {
+            if (networkDirectoryRepository != null) {
+                context.request(
+                    RefreshCurrentNetworkDirectoryCommand(
+                        stateId = stateId,
+                        networkDirectoryRepository = networkDirectoryRepository,
+                    ),
+                )
+            }
+            context.request(
+                RefreshCombatRuntimeCommand(
+                    stateId = stateId,
+                    attackProgramRegistry = attackProgramRegistry,
+                ),
+            )
+        }
+
+        val bootstrapState = when {
+            existingState == null && networkDirectoryRepository != null -> stateWithLogin.copy(
                 network = resolveNetworkDirectoryState(
                     state = stateWithLogin,
                     networkDirectoryRepository = networkDirectoryRepository,
                 ),
             )
 
-            else -> context.request(
-                RefreshCurrentNetworkDirectoryCommand(
-                    stateId = stateId,
-                    networkDirectoryRepository = networkDirectoryRepository,
-                ),
-            ).let { refreshed ->
-                stateWithLogin.copy(
-                    version = refreshed.version,
-                    network = refreshed.network,
-                    runtime = stateWithLogin.runtime.withMutationVersion(refreshed.version),
-                )
-            }
+            existingState == null -> stateWithLogin
+            else -> context.requireExistingState(stateId)
         }
-        return GameSessionBootstrapResult(state = refreshedState)
+        return GameSessionBootstrapResult(state = bootstrapState)
     }
 }
 

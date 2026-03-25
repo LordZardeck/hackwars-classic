@@ -340,8 +340,35 @@ data class WebsiteState(
 
 @Serializable
 data class CombatState(
-    val activePrograms: List<String> = emptyList(),
+    val activeAttacksBySourcePort: Map<Int, AttackSessionState> = emptyMap(),
     val healthByPort: Map<Int, Int> = emptyMap(),
+)
+
+@Serializable
+data class AttackScriptReference(
+    val folder: String,
+    val name: String,
+)
+
+@Serializable
+data class AttackLoadout(
+    val secondaryPorts: List<Int> = emptyList(),
+    val maliciousScripts: List<AttackScriptReference?> = emptyList(),
+    val extraInfo: List<HookValue> = emptyList(),
+)
+
+@Serializable
+data class AttackSessionState(
+    val programId: String,
+    val sourcePort: Int,
+    val targetStateId: GameStateId,
+    val targetPort: Int,
+    val windowHandle: Int = 0,
+    val secondaryPorts: List<Int> = emptyList(),
+    val maliciousScripts: List<AttackScriptReference?> = emptyList(),
+    val extraInfo: List<HookValue> = emptyList(),
+    val startedAtEpochMillis: Long = 0L,
+    val iterationCount: Int = 0,
 )
 
 @Serializable
@@ -1340,6 +1367,7 @@ data class StateSectionsDeltaProjection(
     val hardware: HardwareState? = null,
     val ports: List<PortState>? = null,
     val website: WebsiteState? = null,
+    val combat: CombatState? = null,
     val quests: QuestState? = null,
     val preferences: PreferenceState? = null,
     val stats: PlayerStatsState? = null,
@@ -1857,6 +1885,7 @@ private fun mergeStateSectionsProjection(
         hardware = latest { it.hardware },
         ports = latest { it.ports },
         website = latest { it.website },
+        combat = latest { it.combat },
         quests = latest { it.quests },
         preferences = latest { it.preferences },
         stats = latest { it.stats },

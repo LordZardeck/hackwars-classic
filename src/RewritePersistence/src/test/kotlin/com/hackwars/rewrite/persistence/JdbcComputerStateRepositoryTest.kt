@@ -2,7 +2,11 @@ package com.hackwars.rewrite.persistence
 
 import com.hackwars.rewrite.gamecore.ComputerState
 import com.hackwars.rewrite.gamecore.ComputerEvent
+import com.hackwars.rewrite.gamecore.AttackScriptReference
+import com.hackwars.rewrite.gamecore.AttackSessionState
 import com.hackwars.rewrite.gamecore.CompiledBinaryMetadata
+import com.hackwars.rewrite.gamecore.CombatState
+import com.hackwars.rewrite.gamecore.CombatStateUpdatedEvent
 import com.hackwars.rewrite.gamecore.DirectoryCreatedEvent
 import com.hackwars.rewrite.gamecore.DirectoryEntry
 import com.hackwars.rewrite.gamecore.EquipmentInstalledEvent
@@ -26,6 +30,7 @@ import com.hackwars.rewrite.gamecore.BountyMetadata
 import com.hackwars.rewrite.gamecore.BountyTypes
 import com.hackwars.rewrite.gamecore.ClueDataStoredEvent
 import com.hackwars.rewrite.gamecore.ApplicationKind
+import com.hackwars.rewrite.gamecore.EconomyState
 import com.hackwars.rewrite.gamecore.EconomyBalanceAdjustedEvent
 import com.hackwars.rewrite.gamecore.InstalledApplication
 import com.hackwars.rewrite.gamecore.PurchasedFileReceivedEvent
@@ -279,6 +284,98 @@ class JdbcComputerStateRepositoryTest {
         assertEquals(httpBinary.scriptBundle, reloaded.ports.single { it.number == 80 }.installedApplication?.scriptBundle)
         assertEquals("cpu-card.bin", reloaded.hardware.equipmentSlots[EquipmentSlot.CPU]?.name)
         assertTrue(countRows("rewrite_state_snapshot") >= 1)
+    }
+
+    @Test
+    fun replaysAttackStartEconomyRuntimeAndCombatStateDeterministically() {
+        resetDatabase()
+        val stateId = GameStateId("LOCAL-IP")
+        val initialState = ComputerState.empty(
+            id = stateId,
+            playFabId = "PF-LOCALUSER",
+        ).copy(
+            economy = EconomyState(
+                pettyCash = 100.0,
+                bankMoney = 50.0,
+                defaultBankPort = 6,
+            ),
+            hardware = ComputerState.empty(id = stateId).hardware.copy(cpuMax = 100.0),
+            ports = listOf(
+                PortState(
+                    number = 6,
+                    type = "bank",
+                    enabled = true,
+                    installedApplication = InstalledApplication(
+                        name = "bank.bin",
+                        kind = ApplicationKind.BANKING,
+                        banking = true,
+                        cpuCost = 2.0,
+                    ),
+                ),
+                PortState(
+                    number = 12,
+                    type = "attack",
+                    enabled = true,
+                    defaultPort = true,
+                    installedApplication = InstalledApplication(
+                        name = "attack.bin",
+                        kind = ApplicationKind.ATTACK,
+                        cpuCost = 8.0,
+                    ),
+                ),
+            ),
+        )
+        seedPlayerAndComputer(stateId = stateId, state = initialState)
+        val repository = JdbcComputerStateRepository(
+            connectionFactory = ::newConnection,
+            serializer = serializer,
+        )
+        val session = AttackSessionState(
+            programId = "attack-session-1",
+            sourcePort = 12,
+            targetStateId = GameStateId("TARGET-IP"),
+            targetPort = 25,
+            windowHandle = 4,
+            secondaryPorts = listOf(7, 8),
+            maliciousScripts = listOf(AttackScriptReference("/Public", "worm.bin")),
+            startedAtEpochMillis = 1_000L,
+        )
+
+        val updated = runBlockingAppend(
+            repository,
+            stateId,
+            listOf(
+                EconomyBalanceAdjustedEvent(pettyCashDelta = -10.0),
+                CombatStateUpdatedEvent(
+                    changedPathList = setOf(
+                        "combat.activeAttacksBySourcePort.12",
+                        "ports.12.attacking",
+                        "runtime.currentCpuLoad",
+                    ),
+                    deltaKeyList = setOf("ports", "combat", "runtime"),
+                    combat = CombatState(activeAttacksBySourcePort = mapOf(12 to session)),
+                    ports = initialState.ports.map { port ->
+                        if (port.number == 12) {
+                            port.copy(attacking = true)
+                        } else {
+                            port
+                        }
+                    },
+                    currentCpuLoad = 8.0,
+                    includePorts = true,
+                    includeRuntime = true,
+                ),
+            ),
+        )
+        val reloaded = runBlockingLoad(repository, stateId)
+
+        requireNotNull(reloaded)
+        assertEquals(updated, reloaded)
+        assertEquals(90.0, reloaded.economy.pettyCash)
+        assertTrue(reloaded.ports.single { it.number == 12 }.attacking)
+        assertEquals(8.0, reloaded.runtime.currentCpuLoad)
+        assertEquals("attack-session-1", reloaded.combat.activeAttacksBySourcePort.getValue(12).programId)
+        assertEquals("worm.bin", reloaded.combat.activeAttacksBySourcePort.getValue(12).maliciousScripts.single()?.name)
     }
 
     @Test

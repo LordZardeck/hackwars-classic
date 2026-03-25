@@ -4,6 +4,9 @@ import com.hackwars.rewrite.gamecore.CommandDispatcher
 import com.hackwars.rewrite.gamecore.CommandEnvelopeInput
 import com.hackwars.rewrite.gamecore.CommandMetadata
 import com.hackwars.rewrite.gamecore.CommandRegistry
+import com.hackwars.rewrite.gamecore.AttackCancelResponse
+import com.hackwars.rewrite.gamecore.AttackProgramRegistry
+import com.hackwars.rewrite.gamecore.AttackStartResponse
 import com.hackwars.rewrite.gamecore.BankTransactionResponse
 import com.hackwars.rewrite.gamecore.BountyCreatedResponse
 import com.hackwars.rewrite.gamecore.ChangeNetworkCommand
@@ -59,6 +62,7 @@ import com.hackwars.rewrite.gamecore.MakeBountyPayload
 import com.hackwars.rewrite.gamecore.MutationAcceptedResponse
 import com.hackwars.rewrite.gamecore.HookSideEffectSink
 import com.hackwars.rewrite.gamecore.HttpHookRuntime
+import com.hackwars.rewrite.gamecore.InMemoryAttackProgramRegistry
 import com.hackwars.rewrite.gamecore.NetworkDirectoryRepository
 import com.hackwars.rewrite.gamecore.NetworkSwitchResponse
 import com.hackwars.rewrite.gamecore.NoOpGameStatePublisher
@@ -68,6 +72,10 @@ import com.hackwars.rewrite.gamecore.PurchaseResponse
 import com.hackwars.rewrite.gamecore.ProgramLifecycleStatus
 import com.hackwars.rewrite.gamecore.ProgramUpdate
 import com.hackwars.rewrite.gamecore.RequestCommand
+import com.hackwars.rewrite.gamecore.RequestAttackCommand
+import com.hackwars.rewrite.gamecore.RequestAttackPayload
+import com.hackwars.rewrite.gamecore.RequestCancelAttackCommand
+import com.hackwars.rewrite.gamecore.RequestCancelAttackPayload
 import com.hackwars.rewrite.gamecore.RequestPageCommand
 import com.hackwars.rewrite.gamecore.RequestPagePayload
 import com.hackwars.rewrite.gamecore.RequestSaveCommand
@@ -145,6 +153,7 @@ import com.hackwars.rewrite.gamecore.WatchMutationResponse
 import com.hackwars.rewrite.gamecore.WebsiteRenderResponse
 import com.hackwars.rewrite.gamecore.WithdrawCommand
 import com.hackwars.rewrite.gamecore.WithdrawPayload
+import com.hackwars.rewrite.gamecore.attackLoadoutFromLegacyPayload
 import com.hackwars.rewrite.persistence.JdbcNetworkDirectoryRepository
 import com.hackwars.rewrite.persistence.JdbcSearchCatalogRepository
 import com.hackwars.rewrite.persistence.RewritePostgresConnectionFactory
@@ -179,12 +188,14 @@ class RewriteGameProtocolAdapter(
     private val searchCatalogRepository: SearchCatalogRepository = JdbcSearchCatalogRepository(
         connectionFactory = RewritePostgresConnectionFactory.fromEnvironment(),
     ),
+    private val attackProgramRegistry: AttackProgramRegistry = InMemoryAttackProgramRegistry(),
     private val registry: CommandRegistry = defaultRegistry(
         serverId,
         clock,
         httpHookRuntime,
         networkDirectoryRepository,
         searchCatalogRepository,
+        attackProgramRegistry,
     ),
 ) {
     suspend fun onSessionStarted(
@@ -197,6 +208,7 @@ class RewriteGameProtocolAdapter(
                 playFabId = session.playFabId,
                 interestRegistry = interestRegistry,
                 networkDirectoryRepository = networkDirectoryRepository,
+                attackProgramRegistry = attackProgramRegistry,
                 clock = clock,
             ),
             metadata = metadataFor(session),
@@ -373,6 +385,8 @@ class RewriteGameProtocolAdapter(
             is ClueDataAcceptedResponse -> RewriteGameJson.encode(ClueDataAcceptedResponse.serializer(), result)
             is BountyCreatedResponse -> RewriteGameJson.encode(BountyCreatedResponse.serializer(), result)
             is TriggerRequestResponse -> RewriteGameJson.encode(TriggerRequestResponse.serializer(), result)
+            is AttackStartResponse -> RewriteGameJson.encode(AttackStartResponse.serializer(), result)
+            is AttackCancelResponse -> RewriteGameJson.encode(AttackCancelResponse.serializer(), result)
             is MutationAcceptedResponse -> RewriteGameJson.encode(MutationAcceptedResponse.serializer(), result)
             is CompileFileResponse -> RewriteGameJson.encode(CompileFileResponse.serializer(), result)
             is DecompileFileResponse -> RewriteGameJson.encode(DecompileFileResponse.serializer(), result)
@@ -403,10 +417,11 @@ class RewriteGameProtocolAdapter(
         fun defaultRegistry(
             serverId: String,
             clock: () -> Long,
-        httpHookRuntime: HttpHookRuntime,
-        networkDirectoryRepository: NetworkDirectoryRepository,
-        searchCatalogRepository: SearchCatalogRepository,
-    ): CommandRegistry {
+            httpHookRuntime: HttpHookRuntime,
+            networkDirectoryRepository: NetworkDirectoryRepository,
+            searchCatalogRepository: SearchCatalogRepository,
+            attackProgramRegistry: AttackProgramRegistry,
+        ): CommandRegistry {
             return CommandRegistry()
                 .register("requestpage") { input ->
                     val payload = decodePayload(input, RequestPagePayload.serializer())
@@ -556,6 +571,40 @@ class RewriteGameProtocolAdapter(
                             payload.targetIp?.takeUnless { it.isBlank() }
                                 ?: error("Target ip is required for ${input.commandName}."),
                         ),
+                    )
+                }
+                .register("requestattack") { input ->
+                    val payload = decodePayload(input, RequestAttackPayload.serializer())
+                    val authenticatedStateId = requireAuthenticatedStateId(input)
+                    requirePayloadIpMatches(authenticatedStateId, payload.sourceIp, input.commandName)
+                    RequestAttackCommand(
+                        attackerStateId = authenticatedStateId,
+                        targetStateId = GameStateId(
+                            payload.targetIp.takeUnless { it.isBlank() }
+                                ?: error("Target ip is required for ${input.commandName}."),
+                        ),
+                        sourceIp = payload.sourceIp,
+                        sourcePort = payload.sourcePort,
+                        targetPort = payload.targetPort,
+                        loadout = attackLoadoutFromLegacyPayload(
+                            secondaryPorts = payload.secondaryPorts,
+                            scripts = payload.scripts,
+                            extraInfo = payload.extraInfo,
+                        ),
+                        windowHandle = payload.windowHandle ?: 0,
+                        attackProgramRegistry = attackProgramRegistry,
+                        clock = clock,
+                    )
+                }
+                .register("requestcancelattack") { input ->
+                    val payload = decodePayload(input, RequestCancelAttackPayload.serializer())
+                    val authenticatedStateId = requireAuthenticatedStateId(input)
+                    requirePayloadIpMatches(authenticatedStateId, payload.ip, input.commandName)
+                    RequestCancelAttackCommand(
+                        attackerStateId = authenticatedStateId,
+                        sourceIp = payload.ip,
+                        sourcePort = payload.port,
+                        attackProgramRegistry = attackProgramRegistry,
                     )
                 }
                 .register("requestsearch") { input ->

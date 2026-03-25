@@ -89,6 +89,46 @@ class InMemoryComputerStateRepository(
     }
 }
 
+class InMemoryAttackProgramRegistry : AttackProgramRegistry {
+    private val handlesByProgramId = mutableMapOf<String, ProgramHandle>()
+    private val programIdsBySource = mutableMapOf<Pair<GameStateId, Int>, String>()
+    private val mutex = Mutex()
+
+    override suspend fun register(stateId: GameStateId, sourcePort: Int, programId: String, handle: ProgramHandle) {
+        mutex.withLock {
+            handlesByProgramId[programId] = handle
+            programIdsBySource[stateId to sourcePort] = programId
+        }
+    }
+
+    override suspend fun programIdFor(stateId: GameStateId, sourcePort: Int): String? = mutex.withLock {
+        programIdsBySource[stateId to sourcePort]
+    }
+
+    override suspend fun hasProgram(programId: String): Boolean = mutex.withLock {
+        handlesByProgramId.containsKey(programId)
+    }
+
+    override suspend fun cancel(stateId: GameStateId, sourcePort: Int, reason: String): Boolean {
+        val handle = mutex.withLock {
+            val programId = programIdsBySource[stateId to sourcePort] ?: return false
+            handlesByProgramId[programId]
+        } ?: return false
+        handle.cancel(reason)
+        return true
+    }
+
+    override suspend fun unregister(programId: String) {
+        mutex.withLock {
+            handlesByProgramId.remove(programId)
+            val key = programIdsBySource.entries.firstOrNull { it.value == programId }?.key
+            if (key != null) {
+                programIdsBySource.remove(key)
+            }
+        }
+    }
+}
+
 class DefaultCommandDispatcher(
     private val repository: ComputerStateRepository,
     private val interestRegistry: InterestRegistry,
@@ -293,6 +333,14 @@ class DefaultCommandDispatcher(
                 metadata = metadata,
                 publisher = publisher,
                 inheritedLocks = heldLocks,
+            )
+        }
+
+        override suspend fun schedule(command: ProgramCommand): ProgramHandle {
+            return dispatcher.schedule(
+                command = command,
+                metadata = metadata,
+                publisher = publisher,
             )
         }
 
@@ -541,7 +589,7 @@ class CoroutineProgramScheduler(
         override suspend fun appendEvents(id: GameStateId, events: List<ComputerEvent>): ComputerState = dispatcher.nestedRequest(
             AppendEventsCommand(id, events),
             metadata,
-            NoOpGameStatePublisher,
+            publisher,
             heldLocks,
         )
 
@@ -551,6 +599,14 @@ class CoroutineProgramScheduler(
 
         override suspend fun <R> request(command: RequestCommand<R>): R {
             return dispatcher.nestedRequest(command, metadata, publisher, heldLocks)
+        }
+
+        override suspend fun schedule(command: ProgramCommand): ProgramHandle {
+            return dispatcher.schedule(
+                command = command,
+                metadata = metadata,
+                publisher = publisher,
+            )
         }
 
         override suspend fun emitWatchTrigger(intent: WatchTriggerIntent): WatchExecutionResult {

@@ -174,6 +174,26 @@ interface ProgramScheduler {
     ): ProgramHandle
 }
 
+interface AttackProgramRegistry {
+    suspend fun register(stateId: GameStateId, sourcePort: Int, programId: String, handle: ProgramHandle)
+    suspend fun programIdFor(stateId: GameStateId, sourcePort: Int): String?
+    suspend fun hasProgram(programId: String): Boolean
+    suspend fun cancel(stateId: GameStateId, sourcePort: Int, reason: String): Boolean
+    suspend fun unregister(programId: String)
+}
+
+object NoOpAttackProgramRegistry : AttackProgramRegistry {
+    override suspend fun register(stateId: GameStateId, sourcePort: Int, programId: String, handle: ProgramHandle) = Unit
+
+    override suspend fun programIdFor(stateId: GameStateId, sourcePort: Int): String? = null
+
+    override suspend fun hasProgram(programId: String): Boolean = false
+
+    override suspend fun cancel(stateId: GameStateId, sourcePort: Int, reason: String): Boolean = false
+
+    override suspend fun unregister(programId: String) = Unit
+}
+
 interface WatchTriggerIntentSink {
     suspend fun emitWatchTrigger(intent: WatchTriggerIntent)
 }
@@ -211,6 +231,7 @@ interface CommandContext {
     suspend fun appendEvents(id: GameStateId, events: List<ComputerEvent>): ComputerState
     suspend fun dispatch(command: FireAndForgetCommand)
     suspend fun <R> request(command: RequestCommand<R>): R
+    suspend fun schedule(command: ProgramCommand): ProgramHandle
     suspend fun emitWatchTrigger(intent: WatchTriggerIntent): WatchExecutionResult
     suspend fun publishDelta(delta: ComputerDelta)
     suspend fun publishProgramUpdate(update: ProgramUpdate)

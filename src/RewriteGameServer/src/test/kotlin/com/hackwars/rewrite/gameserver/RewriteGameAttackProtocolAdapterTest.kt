@@ -1,0 +1,362 @@
+package com.hackwars.rewrite.gameserver
+
+import com.hackwars.rewrite.gamecore.ApplicationKind
+import com.hackwars.rewrite.gamecore.AttackCancelResponse
+import com.hackwars.rewrite.gamecore.AttackSessionState
+import com.hackwars.rewrite.gamecore.AttackStartResponse
+import com.hackwars.rewrite.gamecore.CombatState
+import com.hackwars.rewrite.gamecore.ComputerState
+import com.hackwars.rewrite.gamecore.CoroutineProgramScheduler
+import com.hackwars.rewrite.gamecore.DefaultCommandDispatcher
+import com.hackwars.rewrite.gamecore.EconomyState
+import com.hackwars.rewrite.gamecore.GameStateId
+import com.hackwars.rewrite.gamecore.HardwareState
+import com.hackwars.rewrite.gamecore.InMemoryAttackProgramRegistry
+import com.hackwars.rewrite.gamecore.InMemoryComputerStateRepository
+import com.hackwars.rewrite.gamecore.InMemoryInterestRegistry
+import com.hackwars.rewrite.gamecore.InMemoryNetworkDirectoryRepository
+import com.hackwars.rewrite.gamecore.InstalledApplication
+import com.hackwars.rewrite.gamecore.PortState
+import com.hackwars.rewrite.gamecore.ProgramLifecycleStatus
+import com.hackwars.rewrite.gamecore.RequestAttackPayload
+import com.hackwars.rewrite.gamecore.RequestCancelAttackPayload
+import com.hackwars.rewrite.gamecore.RewriteGameJson
+import com.hackwars.rewrite.gamecore.RuntimeState
+import com.hackwars.rewrite.protocol.ProtocolTimeoutPolicy
+import com.hackwars.rewrite.protocol.RewriteFrames
+import com.hackwars.rewrite.protocol.RewriteService
+import com.hackwars.rewrite.testkit.FakePlayerAccount
+import com.hackwars.rewrite.testkit.FakeSessionCatalog
+import com.hackwars.rewrite.testkit.FakeSessionTicketVerifier
+import com.hackwars.rewrite.testkit.InMemoryAuthenticatedSession
+import com.hackwars.rewrite.testkit.InMemoryClientConnection
+import com.hackwars.rewrite.testkit.InMemoryRewriteServiceHarness
+import com.hackwars.rewrite.testkit.RewriteServiceAdapter
+import hackwars.rewrite.v1.FrameEnvelope
+import hackwars.rewrite.v1.ProgramStatus
+import java.time.Instant
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.runCurrent
+import kotlinx.coroutines.test.runTest
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.seconds
+
+@OptIn(ExperimentalCoroutinesApi::class)
+class RewriteGameAttackProtocolAdapterTest {
+    @Test
+    fun requestAttackPublishesDeltaThenResponseAndScopesProgramUpdatesToTheAttacker() = runTest {
+        val fixture = createFixture()
+        val attacker = fixture.authenticatedConnection("LOCAL-IP")
+        val target = fixture.authenticatedConnection("TARGET-IP")
+
+        attacker.send(
+            RewriteFrames.command(
+                commandId = "attack-1",
+                commandName = "requestattack",
+                payload = RewriteGameJson.encode(
+                    serializer = RequestAttackPayload.serializer(),
+                    value = RequestAttackPayload(
+                        targetIp = "TARGET-IP",
+                        targetPort = 25,
+                        sourceIp = "LOCAL-IP",
+                        sourcePort = 12,
+                        secondaryPorts = listOf(7, 8),
+                        windowHandle = 4,
+                    ),
+                ),
+                expectsResponse = true,
+            ),
+        )
+
+        val delta = attacker.awaitFrame()
+        val responseFrame = attacker.awaitFrame()
+        val response = RewriteGameJson.decode(
+            serializer = AttackStartResponse.serializer(),
+            payload = responseFrame.command_response!!.payload.toByteArray(),
+        )
+
+        assertEquals(setOf("economy", "ports", "combat", "runtime"), delta.delta?.delta_keys?.toSet())
+        assertTrue(response.accepted)
+        assertEquals(12, response.sourcePort)
+        assertEquals("TARGET-IP", response.targetStateId?.value)
+
+        runCurrent()
+
+        val updateFrame = attacker.awaitFrame()
+        assertEquals(ProgramStatus.PROGRAM_STATUS_RUNNING, updateFrame.program_update?.status)
+        assertTrue(target.drainFrames().isEmpty())
+    }
+
+    @Test
+    fun requestCancelAttackPublishesCleanupDeltaAndCancelledProgramUpdateBeforeResponse() = runTest {
+        val fixture = createFixture()
+        val attacker = fixture.authenticatedConnection("LOCAL-IP")
+
+        attacker.send(
+            RewriteFrames.command(
+                commandId = "attack-cancel-start",
+                commandName = "requestattack",
+                payload = RewriteGameJson.encode(
+                    serializer = RequestAttackPayload.serializer(),
+                    value = RequestAttackPayload(
+                        targetIp = "TARGET-IP",
+                        targetPort = 25,
+                        sourceIp = "LOCAL-IP",
+                        sourcePort = 12,
+                    ),
+                ),
+                expectsResponse = true,
+            ),
+        )
+        attacker.awaitFrame()
+        attacker.awaitFrame()
+        runCurrent()
+        attacker.awaitFrame()
+
+        attacker.send(
+            RewriteFrames.command(
+                commandId = "attack-cancel-1",
+                commandName = "requestcancelattack",
+                payload = RewriteGameJson.encode(
+                    serializer = RequestCancelAttackPayload.serializer(),
+                    value = RequestCancelAttackPayload(
+                        ip = "LOCAL-IP",
+                        port = 12,
+                    ),
+                ),
+                expectsResponse = true,
+            ),
+        )
+
+        val delta = attacker.awaitFrame()
+        val updateFrame = attacker.awaitFrame()
+        val responseFrame = attacker.awaitFrame()
+        val response = RewriteGameJson.decode(
+            serializer = AttackCancelResponse.serializer(),
+            payload = responseFrame.command_response!!.payload.toByteArray(),
+        )
+
+        assertEquals(setOf("ports", "combat", "runtime"), delta.delta?.delta_keys?.toSet())
+        assertEquals(ProgramStatus.PROGRAM_STATUS_CANCELLED, updateFrame.program_update?.status)
+        assertTrue(response.accepted)
+        assertTrue(response.hadActiveSession)
+    }
+
+    @Test
+    fun bootstrapReturnsOneSnapshotAndClearsStaleAttackRuntimeWithoutPreBootstrapDeltas() = runTest {
+        val staleState = attackerState(GameStateId("LOCAL-IP")).copy(
+            ports = attackerState(GameStateId("LOCAL-IP")).ports.map { port ->
+                if (port.number == 12) port.copy(attacking = true) else port
+            },
+            combat = CombatState(
+                activeAttacksBySourcePort = mapOf(
+                    12 to AttackSessionState(
+                        programId = "stale-program",
+                        sourcePort = 12,
+                        targetStateId = GameStateId("TARGET-IP"),
+                        targetPort = 25,
+                        iterationCount = 3,
+                    ),
+                ),
+            ),
+            runtime = RuntimeState(currentCpuLoad = 8.0),
+        )
+        val fixture = createFixture(localState = staleState)
+        val attacker = fixture.authenticatedConnection("LOCAL-IP")
+
+        assertTrue(attacker.bootstrap.combat.activeAttacksBySourcePort.isEmpty())
+        assertFalse(attacker.bootstrap.ports.first { it.number == 12 }.attacking)
+        assertEquals(0.0, attacker.bootstrap.runtime.currentCpuLoad)
+        assertTrue(attacker.connection.drainFrames().isEmpty())
+    }
+
+    private fun TestScope.createFixture(
+        localState: ComputerState = attackerState(GameStateId("LOCAL-IP")),
+        targetState: ComputerState = targetState(GameStateId("TARGET-IP")),
+    ): Fixture {
+        val repository = InMemoryComputerStateRepository(
+            seededStates = mapOf(
+                GameStateId("LOCAL-IP") to localState,
+                GameStateId("TARGET-IP") to targetState,
+            ),
+        )
+        val interests = InMemoryInterestRegistry()
+        val registry = InMemoryAttackProgramRegistry()
+        val adapter = RewriteGameProtocolAdapter(
+            dispatcher = DefaultCommandDispatcher(
+                repository = repository,
+                interestRegistry = interests,
+                programScheduler = CoroutineProgramScheduler(
+                    dispatcher = null,
+                    interestRegistry = interests,
+                    coroutineScope = backgroundScope,
+                ),
+            ),
+            interestRegistry = interests,
+            serverId = "1",
+            networkDirectoryRepository = InMemoryNetworkDirectoryRepository.defaultWorld("1"),
+            attackProgramRegistry = registry,
+        )
+        val harnessAdapter = HarnessBackedGameAdapter(adapter)
+        val harness = InMemoryRewriteServiceHarness(
+            adapter = harnessAdapter,
+            verifier = FakeSessionTicketVerifier(
+                catalog = FakeSessionCatalog(
+                    accounts = listOf(
+                        FakePlayerAccount("PF-LOCALUSER", "LOCAL-IP", "SESSION-LOCALUSER"),
+                        FakePlayerAccount("PF-TARGET", "TARGET-IP", "SESSION-TARGET"),
+                    ),
+                ),
+                clock = { Instant.ofEpochMilli(testScheduler.currentTime) },
+            ),
+            scope = backgroundScope,
+            timeoutPolicy = ProtocolTimeoutPolicy(
+                authTimeout = 5.seconds,
+                idleTimeout = 45.seconds,
+            ),
+            clock = { Instant.ofEpochMilli(testScheduler.currentTime) },
+        )
+        harnessAdapter.attachHarness(harness)
+        return Fixture(harness)
+    }
+
+    private suspend fun Fixture.authenticatedConnection(requestedIp: String): AuthenticatedConnection {
+        val connection = harness.connect()
+        connection.send(
+            RewriteFrames.authRequest(
+                service = RewriteService.GAME,
+                sessionTicket = sessionTicketFor(requestedIp),
+                clientBuild = "rewrite-attack-it",
+                playFabIdHint = playFabIdFor(requestedIp),
+                requestedIp = requestedIp,
+            ),
+        )
+        connection.awaitFrame()
+        val snapshot = connection.awaitFrame()
+        return AuthenticatedConnection(
+            connection = connection,
+            bootstrap = RewriteGameJson.decode(
+                serializer = ComputerState.serializer(),
+                payload = snapshot.snapshot!!.payload.toByteArray(),
+            ),
+        )
+    }
+
+    private fun sessionTicketFor(requestedIp: String): String = when (requestedIp) {
+        "LOCAL-IP" -> "SESSION-LOCALUSER"
+        "TARGET-IP" -> "SESSION-TARGET"
+        else -> error("No session ticket for $requestedIp")
+    }
+
+    private fun playFabIdFor(requestedIp: String): String = when (requestedIp) {
+        "LOCAL-IP" -> "PF-LOCALUSER"
+        "TARGET-IP" -> "PF-TARGET"
+        else -> error("No PlayFab id for $requestedIp")
+    }
+
+    private data class Fixture(
+        val harness: InMemoryRewriteServiceHarness,
+    )
+
+    private data class AuthenticatedConnection(
+        val connection: InMemoryClientConnection,
+        val bootstrap: ComputerState,
+    ) {
+        suspend fun send(frame: FrameEnvelope) = connection.send(frame)
+        suspend fun awaitFrame(): FrameEnvelope = connection.awaitFrame()
+        fun drainFrames(): List<FrameEnvelope> = connection.drainFrames()
+    }
+
+    private class HarnessBackedGameAdapter(
+        private val adapter: RewriteGameProtocolAdapter,
+    ) : RewriteServiceAdapter {
+        override val service = RewriteService.GAME
+
+        private lateinit var harness: InMemoryRewriteServiceHarness
+
+        fun attachHarness(harness: InMemoryRewriteServiceHarness) {
+            this.harness = harness
+        }
+
+        override suspend fun onSessionStarted(session: InMemoryAuthenticatedSession): List<FrameEnvelope> {
+            return adapter.onSessionStarted(
+                session = session.toGameSession(),
+                transport = GameConnectionTransport { connectionId, frame ->
+                    harness.push(connectionId, frame)
+                },
+            )
+        }
+
+        override suspend fun onCommand(
+            session: InMemoryAuthenticatedSession,
+            command: hackwars.rewrite.v1.CommandEnvelope,
+        ): List<FrameEnvelope> {
+            return adapter.onCommand(
+                session = session.toGameSession(),
+                command = command,
+                transport = GameConnectionTransport { connectionId, frame ->
+                    harness.push(connectionId, frame)
+                },
+            )
+        }
+    }
+
+    private fun attackerState(stateId: GameStateId): ComputerState {
+        return ComputerState.empty(id = stateId, playFabId = "PF-${stateId.value}").copy(
+            economy = EconomyState(
+                pettyCash = 100.0,
+                bankMoney = 50.0,
+                defaultBankPort = 6,
+            ),
+            hardware = HardwareState(cpuMax = 100.0, hdMaximum = 100),
+            ports = listOf(
+                PortState(
+                    number = 6,
+                    type = "bank",
+                    enabled = true,
+                    installedApplication = InstalledApplication(
+                        name = "bank.bin",
+                        kind = ApplicationKind.BANKING,
+                        banking = true,
+                        cpuCost = 2.0,
+                    ),
+                ),
+                PortState(
+                    number = 12,
+                    type = "attack",
+                    enabled = true,
+                    defaultPort = true,
+                    installedApplication = InstalledApplication(
+                        name = "attack.bin",
+                        kind = ApplicationKind.ATTACK,
+                        cpuCost = 8.0,
+                    ),
+                ),
+            ),
+        )
+    }
+
+    private fun targetState(stateId: GameStateId): ComputerState {
+        return ComputerState.empty(id = stateId, playFabId = "PF-${stateId.value}").copy(
+            ports = listOf(
+                PortState(
+                    number = 25,
+                    type = "http",
+                    enabled = true,
+                ),
+            ),
+        )
+    }
+}
+
+private fun InMemoryAuthenticatedSession.toGameSession(): AuthenticatedGameSession {
+    return AuthenticatedGameSession(
+        connectionId = connectionId,
+        playFabId = verifiedSession.playFabId,
+        playerIp = verifiedSession.playerIp,
+    )
+}
