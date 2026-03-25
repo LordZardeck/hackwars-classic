@@ -221,7 +221,6 @@ class QuestProgressCommandsTest {
         interests.register("conn-1", stateId)
         val publisher = RecordingGameStatePublisher()
         val dispatcher = DefaultCommandDispatcher(repository, interests)
-        val sink = RecordingWatchTriggerIntentSink()
 
         val indexResponse = dispatcher.request(
             command = RequestTriggerCommand(
@@ -230,7 +229,6 @@ class QuestProgressCommandsTest {
                 selector = TriggerSelector.ByIndex(2),
                 sourceIp = stateId.value,
                 triggerParameters = mapOf("mode" to StringHookValue("alpha")),
-                watchTriggerIntentSink = sink,
             ),
             metadata = CommandMetadata(connectionId = "conn-1", requestId = "trigger-1"),
             publisher = publisher,
@@ -242,7 +240,6 @@ class QuestProgressCommandsTest {
                 note = "quest-step",
                 sourceIp = stateId.value,
                 triggerParameters = mapOf("count" to IntHookValue(5)),
-                watchTriggerIntentSink = sink,
             ),
             metadata = CommandMetadata(connectionId = "conn-1", requestId = "trigger-2"),
             publisher = publisher,
@@ -250,12 +247,10 @@ class QuestProgressCommandsTest {
 
         assertTrue(indexResponse.accepted)
         assertTrue(noteResponse.accepted)
-        assertEquals(2, sink.intents.size)
-        assertEquals(TriggerSelector.ByIndex(2), sink.intents[0].selector)
-        assertEquals(TriggerSelector.ByNote("quest-step"), sink.intents[1].selector)
-        assertEquals("LOCAL-IP", sink.intents[0].sourceIp)
-        assertEquals(mapOf("mode" to StringHookValue("alpha")), sink.intents[0].parameters)
-        assertEquals(mapOf("count" to IntHookValue(5)), sink.intents[1].parameters)
+        assertEquals(null, indexResponse.matchedWatchIndex)
+        assertFalse(indexResponse.executed)
+        assertEquals(null, noteResponse.matchedWatchIndex)
+        assertFalse(noteResponse.executed)
         assertTrue(publisher.deltas.isEmpty())
     }
 
@@ -314,13 +309,5 @@ class QuestProgressCommandsTest {
         return ComputerState.empty(id = stateId, playerIp = stateId.value).copy(
             filesystem = ComputerState.empty(id = stateId, playerIp = stateId.value).filesystem.ensureDirectory("/Store"),
         )
-    }
-
-    private class RecordingWatchTriggerIntentSink : WatchTriggerIntentSink {
-        val intents = mutableListOf<WatchTriggerIntent>()
-
-        override suspend fun emitWatchTrigger(intent: WatchTriggerIntent) {
-            intents += intent
-        }
     }
 }

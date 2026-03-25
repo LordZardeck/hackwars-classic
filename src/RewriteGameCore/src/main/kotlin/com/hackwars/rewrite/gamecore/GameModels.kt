@@ -1635,6 +1635,8 @@ data class TriggerRequestResponse(
     val selector: TriggerSelector,
     val sourceIp: String,
     val accepted: Boolean,
+    val matchedWatchIndex: Int? = null,
+    val executed: Boolean = false,
 )
 
 @Serializable

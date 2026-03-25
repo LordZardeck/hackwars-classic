@@ -329,7 +329,6 @@ class WatchCommandsTest {
                 targetId to ComputerState.empty(id = targetId, playerIp = targetId.value),
             ),
         )
-        val sink = RecordingWatchTriggerIntentSink()
         val dispatcher = DefaultCommandDispatcher(repository, InMemoryInterestRegistry())
         val publisher = RecordingGameStatePublisher()
 
@@ -340,7 +339,6 @@ class WatchCommandsTest {
                 selector = TriggerSelector.ByNote("armed"),
                 sourceIp = sourceId.value,
                 triggerParameters = mapOf("mode" to StringHookValue("alpha")),
-                watchTriggerIntentSink = sink,
             ),
             publisher = publisher,
         )
@@ -349,19 +347,11 @@ class WatchCommandsTest {
 
         requireNotNull(updated)
         assertTrue(response.accepted)
-        assertEquals(1, sink.intents.size)
-        assertEquals(TriggerSelector.ByNote("armed"), sink.intents.single().selector)
+        assertEquals(null, response.matchedWatchIndex)
+        assertFalse(response.executed)
         assertEquals(sourceState.watches, updated.watches)
         assertEquals(sourceState.runtime.currentCpuLoad, updated.runtime.currentCpuLoad)
         assertTrue(publisher.deltas.isEmpty())
-    }
-
-    private class RecordingWatchTriggerIntentSink : WatchTriggerIntentSink {
-        val intents = mutableListOf<WatchTriggerIntent>()
-
-        override suspend fun emitWatchTrigger(intent: WatchTriggerIntent) {
-            intents += intent
-        }
     }
 }
 

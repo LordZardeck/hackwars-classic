@@ -22,6 +22,7 @@ import com.hackwars.rewrite.gamecore.RequestTaskPayload
 import com.hackwars.rewrite.gamecore.RequestTriggerPayload
 import com.hackwars.rewrite.gamecore.RewriteGameJson
 import com.hackwars.rewrite.gamecore.SaveFileRequestResponse
+import com.hackwars.rewrite.gamecore.ScriptFamily
 import com.hackwars.rewrite.gamecore.StateSectionsDeltaProjection
 import com.hackwars.rewrite.gamecore.StoredFile
 import com.hackwars.rewrite.gamecore.StoredFileKind
@@ -29,6 +30,9 @@ import com.hackwars.rewrite.gamecore.TaskProgressResponse
 import com.hackwars.rewrite.gamecore.TriggerRequestResponse
 import com.hackwars.rewrite.gamecore.TriggerSelector
 import com.hackwars.rewrite.gamecore.WatchTriggerIntent
+import com.hackwars.rewrite.gamecore.InstalledWatch
+import com.hackwars.rewrite.gamecore.WatchKind
+import com.hackwars.rewrite.gamecore.WatchManagerState
 import com.hackwars.rewrite.gamecore.DefaultCommandDispatcher
 import com.hackwars.rewrite.gamecore.buildFilePath
 import com.hackwars.rewrite.gamecore.ensureDirectory
@@ -179,9 +183,10 @@ class RewriteGameQuestProtocolAdapterTest {
     }
 
     @Test
-    fun makeBountyAndRequestTriggerProduceExpectedFramesAndSinkIntents() = runTest {
+    fun makeBountyAndRequestTriggerExecuteEnabledWatchAndEmitExpectedFrames() = runTest {
         val fixture = createFixture()
         val local = fixture.authenticatedConnection("LOCAL-IP")
+        val target = fixture.authenticatedConnection("TARGET-IP")
         val store = fixture.authenticatedConnection("store1")
 
         local.send(
@@ -236,6 +241,7 @@ class RewriteGameQuestProtocolAdapterTest {
             ),
         )
 
+        val triggerDelta = target.awaitFrame()
         val triggerResponseFrame = local.awaitFrame()
         val triggerResponse = RewriteGameJson.decode(
             serializer = TriggerRequestResponse.serializer(),
@@ -243,6 +249,10 @@ class RewriteGameQuestProtocolAdapterTest {
         )
 
         assertTrue(triggerResponse.accepted)
+        assertEquals(0, triggerResponse.matchedWatchIndex)
+        assertTrue(triggerResponse.executed)
+        assertEquals("TARGET-IP", triggerDelta.delta?.game_state_id)
+        assertEquals(listOf("logs"), triggerDelta.delta?.delta_keys)
         assertEquals(1, fixture.sink.intents.size)
         assertEquals(TriggerSelector.ByNote("quest-step"), fixture.sink.intents.single().selector)
         assertNull(store.drainFrames().firstOrNull { it.command_response != null || it.delta != null })
@@ -263,6 +273,7 @@ class RewriteGameQuestProtocolAdapterTest {
             dispatcher = DefaultCommandDispatcher(
                 repository = repository,
                 interestRegistry = interests,
+                watchTriggerIntentSink = sink,
             ),
             interestRegistry = interests,
             serverId = "1",
@@ -367,6 +378,32 @@ class RewriteGameQuestProtocolAdapterTest {
     private fun targetState(): ComputerState {
         return ComputerState.empty(GameStateId("TARGET-IP"), playFabId = "PF-TARGETUSER").copy(
             quests = QuestState(),
+            watches = WatchManagerState(
+                watches = listOf(
+                    InstalledWatch(
+                        kind = WatchKind.PETTY_CASH,
+                        enabled = true,
+                        note = "quest-step",
+                        cpuCost = 5.0,
+                        quantityThreshold = 0.0,
+                        baselineQuantity = 0.0,
+                        installPort = 6,
+                        searchFirewallType = 0,
+                        observedPorts = listOf(6),
+                        contents = """
+                            int main() {
+                                logMessage(getTriggerParameter("mode"));
+                                return 0;
+                            }
+                        """.trimIndent(),
+                        compiledBinary = CompiledBinaryMetadata(
+                            scriptFamily = ScriptFamily.WATCH,
+                            applicationKind = ApplicationKind.WATCH,
+                            outputName = "quest-watch.bin",
+                        ),
+                    ),
+                ),
+            ),
         )
     }
 

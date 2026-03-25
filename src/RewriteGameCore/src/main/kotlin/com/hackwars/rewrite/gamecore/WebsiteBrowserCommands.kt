@@ -125,7 +125,6 @@ class RequestWebpageCommand(
     private val targetStateId: GameStateId,
     private val parameters: Map<String, String>,
     private val httpHookRuntime: HttpHookRuntime = NoOpHttpHookRuntime,
-    private val hookSideEffectSink: HookSideEffectSink = NoOpHookSideEffectSink,
     private val clock: () -> Long = { System.currentTimeMillis() },
 ) : RequestCommand<WebsiteRenderResponse> {
     override val name: String = "requestwebpage"
@@ -156,7 +155,6 @@ class RequestWebpageCommand(
             sourceStateId = sourceStateId,
             targetState = targetState,
             effects = executionResult?.effects.orEmpty(),
-            hookSideEffectSink = hookSideEffectSink,
             clock = clock,
         )
         return renderWebsite(updatedTargetState, executionResult)
@@ -168,7 +166,6 @@ class SubmitWebpageCommand(
     private val targetStateId: GameStateId,
     private val parameters: Map<String, String>,
     private val httpHookRuntime: HttpHookRuntime = NoOpHttpHookRuntime,
-    private val hookSideEffectSink: HookSideEffectSink = NoOpHookSideEffectSink,
     private val clock: () -> Long = { System.currentTimeMillis() },
 ) : RequestCommand<WebsiteRenderResponse> {
     override val name: String = "submit"
@@ -199,7 +196,6 @@ class SubmitWebpageCommand(
             sourceStateId = sourceStateId,
             targetState = targetState,
             effects = executionResult?.effects.orEmpty(),
-            hookSideEffectSink = hookSideEffectSink,
             clock = clock,
         )
         return renderWebsite(updatedTargetState, executionResult)
@@ -210,7 +206,6 @@ class ExitWebpageCommand(
     private val sourceStateId: GameStateId,
     private val targetStateId: GameStateId,
     private val httpHookRuntime: HttpHookRuntime = NoOpHttpHookRuntime,
-    private val hookSideEffectSink: HookSideEffectSink = NoOpHookSideEffectSink,
     private val clock: () -> Long = { System.currentTimeMillis() },
 ) : FireAndForgetCommand {
     override val name: String = "exit"
@@ -236,7 +231,6 @@ class ExitWebpageCommand(
             sourceStateId = sourceStateId,
             targetState = targetState,
             effects = executionResult?.effects.orEmpty(),
-            hookSideEffectSink = hookSideEffectSink,
             clock = clock,
         )
     }
@@ -321,7 +315,6 @@ private suspend fun processHookEffects(
     sourceStateId: GameStateId,
     targetState: ComputerState,
     effects: List<HttpHookEffect>,
-    hookSideEffectSink: HookSideEffectSink,
     clock: () -> Long,
 ): ComputerState {
     var currentTargetState = targetState
@@ -348,7 +341,7 @@ private suspend fun processHookEffects(
             }
 
             is TriggerLocalWatch -> {
-                hookSideEffectSink.emitWatchTrigger(
+                context.emitWatchTrigger(
                     WatchTriggerIntent(
                         targetStateId = targetState.id,
                         selector = TriggerSelector.ByIndex(effect.index),
@@ -362,7 +355,7 @@ private suspend fun processHookEffects(
             }
 
             is TriggerRemoteWatch -> {
-                hookSideEffectSink.emitWatchTrigger(
+                context.emitWatchTrigger(
                     WatchTriggerIntent(
                         targetStateId = GameStateId(effect.targetIp),
                         selector = TriggerSelector.ByIndex(effect.index),
@@ -379,7 +372,7 @@ private suspend fun processHookEffects(
     return currentTargetState
 }
 
-private fun renderLegacyLogLine(
+internal fun renderLegacyLogLine(
     createdAtEpochMillis: Long,
     message: String,
 ): String {

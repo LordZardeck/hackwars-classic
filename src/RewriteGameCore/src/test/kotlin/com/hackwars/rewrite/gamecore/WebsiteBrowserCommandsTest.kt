@@ -381,9 +381,13 @@ class WebsiteBrowserCommandsTest {
         val interests = InMemoryInterestRegistry()
         interests.register("conn-1", sourceId)
         val publisher = RecordingGameStatePublisher()
-        val dispatcher = DefaultCommandDispatcher(repository, interests)
-        val runtime = HackScriptHttpHookRuntime()
         val sink = RecordingHookSideEffectSink()
+        val dispatcher = DefaultCommandDispatcher(
+            repository = repository,
+            interestRegistry = interests,
+            watchTriggerIntentSink = sink,
+        )
+        val runtime = HackScriptHttpHookRuntime()
 
         dispatcher.request(
             command = RequestWebpageCommand(
@@ -391,7 +395,6 @@ class WebsiteBrowserCommandsTest {
                 targetStateId = localTargetId,
                 parameters = emptyMap(),
                 httpHookRuntime = runtime,
-                hookSideEffectSink = sink,
             ),
             metadata = CommandMetadata(connectionId = "conn-1", requestId = "req-local"),
             publisher = publisher,
@@ -402,7 +405,6 @@ class WebsiteBrowserCommandsTest {
                 targetStateId = npcTargetId,
                 parameters = emptyMap(),
                 httpHookRuntime = runtime,
-                hookSideEffectSink = sink,
             ),
             metadata = CommandMetadata(connectionId = "conn-1", requestId = "req-npc"),
             publisher = publisher,

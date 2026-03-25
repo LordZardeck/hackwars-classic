@@ -493,6 +493,17 @@ class JdbcRewriteSeedSink(
                 searchFirewallType = 0,
                 observedPorts = listOf(6),
                 contents = "seeded watch script",
+                scriptBundle = ProgramScriptBundle(
+                    family = ScriptFamily.WATCH,
+                    scriptsBySlot = linkedMapOf(
+                        ProgramScriptSlot.FIRE to """
+                            int main() {
+                                logMessage("seeded-watch-${index + 1}");
+                                return 0;
+                            }
+                        """.trimIndent(),
+                    ),
+                ),
                 compiledBinary = CompiledBinaryMetadata(
                     scriptFamily = ScriptFamily.WATCH,
                     applicationKind = ApplicationKind.WATCH,

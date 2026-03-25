@@ -183,7 +183,6 @@ class RewriteGameProtocolAdapter(
         serverId,
         clock,
         httpHookRuntime,
-        hookSideEffectSink,
         networkDirectoryRepository,
         searchCatalogRepository,
     ),
@@ -404,11 +403,10 @@ class RewriteGameProtocolAdapter(
         fun defaultRegistry(
             serverId: String,
             clock: () -> Long,
-            httpHookRuntime: HttpHookRuntime,
-            hookSideEffectSink: HookSideEffectSink,
-            networkDirectoryRepository: NetworkDirectoryRepository,
-            searchCatalogRepository: SearchCatalogRepository,
-        ): CommandRegistry {
+        httpHookRuntime: HttpHookRuntime,
+        networkDirectoryRepository: NetworkDirectoryRepository,
+        searchCatalogRepository: SearchCatalogRepository,
+    ): CommandRegistry {
             return CommandRegistry()
                 .register("requestpage") { input ->
                     val payload = decodePayload(input, RequestPagePayload.serializer())
@@ -435,7 +433,6 @@ class RewriteGameProtocolAdapter(
                         targetStateId = resolveWebsiteTarget(payload.targetIp, serverId),
                         parameters = payload.parameters,
                         httpHookRuntime = httpHookRuntime,
-                        hookSideEffectSink = hookSideEffectSink,
                     )
                 }
                 .register("submit") { input ->
@@ -450,7 +447,6 @@ class RewriteGameProtocolAdapter(
                             ?: authenticatedStateId,
                         parameters = payload.parameters,
                         httpHookRuntime = httpHookRuntime,
-                        hookSideEffectSink = hookSideEffectSink,
                     )
                 }
                 .register("exit") { input ->
@@ -464,7 +460,6 @@ class RewriteGameProtocolAdapter(
                             ?.let { resolveWebsiteTarget(it, serverId) }
                             ?: authenticatedStateId,
                         httpHookRuntime = httpHookRuntime,
-                        hookSideEffectSink = hookSideEffectSink,
                     )
                 }
                 .register("vote") { input ->
@@ -748,7 +743,6 @@ class RewriteGameProtocolAdapter(
                         selector = payload.selector,
                         sourceIp = sourceIp,
                         triggerParameters = payload.triggerParameters,
-                        watchTriggerIntentSink = hookSideEffectSink,
                     )
                 }
                 .register("requestdirectory") { input ->

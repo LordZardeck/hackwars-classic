@@ -155,20 +155,20 @@
   - Implements `logMessage`, `popUp`, and `triggerWatch`/`triggerWatchRemote` as rewrite-safe side-effect seams on top of the phased HTTP hook runtime.
   - `logMessage` now appends persisted bounded host log state and emits `logs` deltas to host listeners.
   - `popUp` now emits typed transient `GameUiEventEnvelope` frames to the requesting connection only and preserves the legacy four-popup cap per hook execution slot.
-  - `triggerWatch` and `triggerWatchRemote` now record typed `WatchTriggerIntent` objects through `HookSideEffectSink`; actual watch gameplay remains deferred.
+  - `triggerWatch` and `triggerWatchRemote` now record typed `WatchTriggerIntent` objects through `HookSideEffectSink`; explicit execution binding now lives in `RW-GS-S5A2` while passive and combat-oriented watch behavior remains deferred.
   - Request/submit flush order is now fixed to deltas, then UI events, then correlated response. Exit remains fire-and-forget with side effects only.
 
 ### RW-GS-S3B3B - Bind HTTP watch-trigger intents into the real watch engine
-- Status: `todo`
-- Owner: `unassigned`
+- Status: `done`
+- Owner: `codex`
 - Depends on: `RW-GS-S3B3A`, `RW-GS-S5A2`
 - Allowed write scope: `:RewriteGameCore`, `:RewriteGameServer`
 - Verification command: `./gradlew :RewriteGameCore:test :RewriteGameServer:test`
 - Artifacts: `build/reports/tests/test`
 - Commit rule: `single green commit only`
 - Notes:
-  - Consumes `WatchTriggerIntent` from the seam introduced in `RW-GS-S3B3A` and binds it into the rewrite watch manager and watch execution rules.
-  - Must preserve the NPC-only gate on `triggerWatchRemote` and the non-fatal hook failure rules from `RW-GS-S3B2` and `RW-GS-S3B3A`.
+  - Consumes `WatchTriggerIntent` from the seam introduced in `RW-GS-S3B3A` and binds it into synchronous installed-watch execution during `requestwebpage`, `submit`, and `exit`.
+  - Preserves the NPC-only gate on `triggerWatchRemote`, the non-fatal hook failure rules from `RW-GS-S3B2` and `RW-GS-S3B3A`, and the existing correlated browser response ordering.
 
 ### RW-GS-S3B3C - Broader HackScript side-effect helpers and client/system-message parity
 - Status: `todo`
@@ -252,16 +252,17 @@
   - `requesttrigger` and HTTP hook `triggerWatch*` remain seam-only in this slice and continue emitting `WatchTriggerIntent` without binding into execution.
 
 ### RW-GS-S5A2 - Explicit watch-trigger execution and binding
-- Status: `todo`
-- Owner: `unassigned`
+- Status: `in_progress`
+- Owner: `codex`
 - Depends on: `RW-GS-S5A1`, `RW-GS-S3B3A`
-- Allowed write scope: `:RewriteGameCore`, `:RewriteGameServer`
-- Verification command: `./gradlew :RewriteGameCore:test :RewriteGameServer:test`
+- Allowed write scope: `:RewriteHackScript`, `:RewriteGameCore`, `:RewriteGameServer`, `:RewritePersistence`
+- Verification command: `./gradlew :RewriteHackScript:test :RewriteGameCore:test :RewritePersistence:test :RewritePersistence:migrationTest :RewriteGameServer:test :RewriteTestKit:integrationTest rewriteCheck`
 - Artifacts: `build/reports/tests/test`
 - Commit rule: `single green commit only`
 - Notes:
-  - Binds existing `WatchTriggerIntent` from explicit trigger commands and HTTP hook seams into real installed-watch execution rules.
-  - Must preserve the manager/config guarantees from `RW-GS-S5A1` while still keeping watch execution deterministic and typed.
+  - Binds existing `WatchTriggerIntent` from explicit trigger commands and HTTP hook seams into real installed-watch execution rules that run synchronously in the current command flow.
+  - Keeps the supported helper surface intentionally narrow in this slice: explicit triggers can append host logs and deposit petty cash, while unsupported helpers fail that watch execution non-fatally.
+  - Preserves the manager/config guarantees from `RW-GS-S5A1` and keeps missing or disabled matches as successful no-ops.
 
 ### RW-GS-S5A3 - Passive watch auto-fire and watch XP
 - Status: `todo`
@@ -273,7 +274,7 @@
 - Commit rule: `single green commit only`
 - Notes:
   - Adds passive auto-fire for health, petty-cash, and scan watches plus watch-side XP and progression behavior.
-  - Must preserve legacy threshold semantics and CPU/runtime interactions established in `RW-GS-S5A1`.
+  - Remains blocked on preserving legacy passive-threshold semantics and watch-XP rules after the explicit-trigger execution core stabilizes.
 
 ### RW-GS-S5B - Attack-program foundation
 - Status: `todo`

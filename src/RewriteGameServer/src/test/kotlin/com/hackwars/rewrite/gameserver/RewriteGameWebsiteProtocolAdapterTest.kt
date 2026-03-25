@@ -2,6 +2,7 @@ package com.hackwars.rewrite.gameserver
 
 import com.hackwars.rewrite.gamecore.ApplicationKind
 import com.hackwars.rewrite.gamecore.ComputerState
+import com.hackwars.rewrite.gamecore.CompiledBinaryMetadata
 import com.hackwars.rewrite.gamecore.DeltaProjection
 import com.hackwars.rewrite.gamecore.EconomyState
 import com.hackwars.rewrite.gamecore.ExitWebpagePayload
@@ -10,6 +11,7 @@ import com.hackwars.rewrite.gamecore.InMemoryComputerStateRepository
 import com.hackwars.rewrite.gamecore.InMemoryInterestRegistry
 import com.hackwars.rewrite.gamecore.InMemoryNetworkDirectoryRepository
 import com.hackwars.rewrite.gamecore.InstalledApplication
+import com.hackwars.rewrite.gamecore.InstalledWatch
 import com.hackwars.rewrite.gamecore.PageEditorResponse
 import com.hackwars.rewrite.gamecore.PlayerStatsState
 import com.hackwars.rewrite.gamecore.PortState
@@ -27,6 +29,8 @@ import com.hackwars.rewrite.gamecore.SubmitWebpagePayload
 import com.hackwars.rewrite.gamecore.ScriptFamily
 import com.hackwars.rewrite.gamecore.VotePayload
 import com.hackwars.rewrite.gamecore.VoteResponse
+import com.hackwars.rewrite.gamecore.WatchKind
+import com.hackwars.rewrite.gamecore.WatchManagerState
 import com.hackwars.rewrite.gamecore.WebsiteRenderResponse
 import com.hackwars.rewrite.gamecore.WebsiteState
 import com.hackwars.rewrite.gamecore.buildFilePath
@@ -286,10 +290,12 @@ class RewriteGameWebsiteProtocolAdapterTest {
     }
 
     @Test
-    fun exitEmitsSideEffectsWithoutResponseAndWatchTriggersGoOnlyToSink() = runTest {
+    fun exitEmitsSideEffectsWithoutResponseAndHookWatchTriggersExecuteInline() = runTest {
         val fixture = createFixture()
         val local = fixture.authenticatedConnection("LOCAL-IP")
         val owner = fixture.authenticatedConnection("SIDEFX-IP")
+        val watchHost = fixture.authenticatedConnection("WATCH-IP")
+        val remoteWatchHost = fixture.authenticatedConnection("REMOTE-IP")
 
         local.send(
             RewriteFrames.command(
@@ -331,9 +337,16 @@ class RewriteGameWebsiteProtocolAdapterTest {
                 expectsResponse = true,
             ),
         )
-        local.awaitFrame()
+        val localWatchDelta = watchHost.awaitFrame()
+        val localWatchResponseFrame = local.awaitFrame()
+        val localWatchResponse = RewriteGameJson.decode(
+            serializer = WebsiteRenderResponse.serializer(),
+            payload = localWatchResponseFrame.command_response!!.payload.toByteArray(),
+        )
         assertEquals(1, fixture.sink.intents.size)
         assertEquals("WATCH-IP", fixture.sink.intents.single().targetStateId.value)
+        assertEquals(listOf("logs"), localWatchDelta.delta?.delta_keys)
+        assertEquals("WATCH-IP", localWatchResponse.resolvedTargetStateId.value)
 
         local.send(
             RewriteFrames.command(
@@ -349,9 +362,16 @@ class RewriteGameWebsiteProtocolAdapterTest {
                 expectsResponse = true,
             ),
         )
-        local.awaitFrame()
+        val remoteWatchDelta = remoteWatchHost.awaitFrame()
+        val remoteWatchResponseFrame = local.awaitFrame()
+        val remoteWatchResponse = RewriteGameJson.decode(
+            serializer = WebsiteRenderResponse.serializer(),
+            payload = remoteWatchResponseFrame.command_response!!.payload.toByteArray(),
+        )
         assertEquals(2, fixture.sink.intents.size)
         assertEquals("REMOTE-IP", fixture.sink.intents.last().targetStateId.value)
+        assertEquals(listOf("logs"), remoteWatchDelta.delta?.delta_keys)
+        assertEquals("NPC-IP", remoteWatchResponse.resolvedTargetStateId.value)
     }
 
     @Test
@@ -451,6 +471,7 @@ class RewriteGameWebsiteProtocolAdapterTest {
                 GameStateId("SIDEFX-IP") to sideEffectState(),
                 GameStateId("WATCH-IP") to localWatchState(),
                 GameStateId("NPC-IP") to npcSideEffectState(),
+                GameStateId("REMOTE-IP") to remoteWatchState(),
                 GameStateId("store1") to storeState(),
                 GameStateId("OFFLINE-IP") to offlineState(),
             ),
@@ -461,6 +482,7 @@ class RewriteGameWebsiteProtocolAdapterTest {
             dispatcher = DefaultCommandDispatcher(
                 repository = repository,
                 interestRegistry = interests,
+                watchTriggerIntentSink = sink,
             ),
             interestRegistry = interests,
             serverId = "1",
@@ -477,6 +499,9 @@ class RewriteGameWebsiteProtocolAdapterTest {
                         FakePlayerAccount("PF-TARGETUSER", "TARGET-IP", "SESSION-TARGETUSER"),
                         FakePlayerAccount("PF-HOOKED", "HOOKED-IP", "SESSION-HOOKED"),
                         FakePlayerAccount("PF-SIDEFX", "SIDEFX-IP", "SESSION-SIDEFX"),
+                        FakePlayerAccount("PF-WATCH", "WATCH-IP", "SESSION-WATCH"),
+                        FakePlayerAccount("PF-NPC", "NPC-IP", "SESSION-NPC"),
+                        FakePlayerAccount("PF-REMOTE", "REMOTE-IP", "SESSION-REMOTE"),
                         FakePlayerAccount("PF-STOREUSER", "store1", "SESSION-STOREUSER"),
                         FakePlayerAccount("PF-OFFLINE", "OFFLINE-IP", "SESSION-OFFLINE"),
                     ),
@@ -697,7 +722,7 @@ class RewriteGameWebsiteProtocolAdapterTest {
                         scriptsBySlot = linkedMapOf(
                             ProgramScriptSlot.ENTER to """
                                 int main() {
-                                    triggerWatchRemote(3, "REMOTE-IP", "scope", "npc");
+                                    triggerWatchRemote(0, "REMOTE-IP", "scope", "npc");
                                     return 0;
                                 }
                             """.trimIndent(),
@@ -726,12 +751,75 @@ class RewriteGameWebsiteProtocolAdapterTest {
                         scriptsBySlot = linkedMapOf(
                             ProgramScriptSlot.ENTER to """
                                 int main() {
-                                    triggerWatch(1, "mode", "alpha");
+                                    triggerWatch(0, "mode", "alpha");
                                     return 0;
                                 }
                             """.trimIndent(),
                             ProgramScriptSlot.EXIT to "int main() { return 0; }",
                             ProgramScriptSlot.SUBMIT to "int main() { return 0; }",
+                        ),
+                    ),
+                ),
+            ),
+            watches = WatchManagerState(
+                watches = listOf(
+                    InstalledWatch(
+                        kind = WatchKind.PETTY_CASH,
+                        enabled = true,
+                        note = "local-trigger",
+                        cpuCost = 5.0,
+                        quantityThreshold = 0.0,
+                        baselineQuantity = 0.0,
+                        installPort = 6,
+                        searchFirewallType = 0,
+                        observedPorts = listOf(6),
+                        contents = """
+                            int main() {
+                                logMessage(getTriggerParameter("mode"));
+                                return 0;
+                            }
+                        """.trimIndent(),
+                        compiledBinary = CompiledBinaryMetadata(
+                            scriptFamily = ScriptFamily.WATCH,
+                            applicationKind = ApplicationKind.WATCH,
+                            outputName = "watch.bin",
+                        ),
+                    ),
+                ),
+            ),
+        )
+    }
+
+    private fun remoteWatchState(): ComputerState {
+        return ComputerState.empty(GameStateId("REMOTE-IP"), playFabId = "PF-REMOTE").copy(
+            economy = EconomyState(defaultBankPort = 6),
+            ports = listOf(
+                bankingPort(),
+                ftpPort(),
+                httpPort(),
+            ),
+            watches = WatchManagerState(
+                watches = listOf(
+                    InstalledWatch(
+                        kind = WatchKind.PETTY_CASH,
+                        enabled = true,
+                        note = "remote-trigger",
+                        cpuCost = 5.0,
+                        quantityThreshold = 0.0,
+                        baselineQuantity = 0.0,
+                        installPort = 6,
+                        searchFirewallType = 0,
+                        observedPorts = listOf(6),
+                        contents = """
+                            int main() {
+                                logMessage(getTriggerParameter("scope"));
+                                return 0;
+                            }
+                        """.trimIndent(),
+                        compiledBinary = CompiledBinaryMetadata(
+                            scriptFamily = ScriptFamily.WATCH,
+                            applicationKind = ApplicationKind.WATCH,
+                            outputName = "watch.bin",
                         ),
                     ),
                 ),
@@ -846,6 +934,9 @@ private fun sessionTicketFor(requestedIp: String): String = when (requestedIp) {
     "TARGET-IP" -> "SESSION-TARGETUSER"
     "HOOKED-IP" -> "SESSION-HOOKED"
     "SIDEFX-IP" -> "SESSION-SIDEFX"
+    "WATCH-IP" -> "SESSION-WATCH"
+    "NPC-IP" -> "SESSION-NPC"
+    "REMOTE-IP" -> "SESSION-REMOTE"
     "store1" -> "SESSION-STOREUSER"
     "OFFLINE-IP" -> "SESSION-OFFLINE"
     else -> "SESSION-LOCALUSER"
@@ -856,6 +947,9 @@ private fun playFabIdFor(requestedIp: String): String = when (requestedIp) {
     "TARGET-IP" -> "PF-TARGETUSER"
     "HOOKED-IP" -> "PF-HOOKED"
     "SIDEFX-IP" -> "PF-SIDEFX"
+    "WATCH-IP" -> "PF-WATCH"
+    "NPC-IP" -> "PF-NPC"
+    "REMOTE-IP" -> "PF-REMOTE"
     "store1" -> "PF-STOREUSER"
     "OFFLINE-IP" -> "PF-OFFLINE"
     else -> "PF-LOCALUSER"

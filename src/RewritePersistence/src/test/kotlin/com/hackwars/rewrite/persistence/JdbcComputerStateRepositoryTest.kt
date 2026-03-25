@@ -333,6 +333,17 @@ class JdbcComputerStateRepositoryTest {
             searchFirewallType = 0,
             observedPorts = listOf(6),
             contents = "watch script",
+            scriptBundle = ProgramScriptBundle(
+                family = ScriptFamily.WATCH,
+                scriptsBySlot = linkedMapOf(
+                    ProgramScriptSlot.FIRE to """
+                        int main() {
+                            logMessage("watch");
+                            return 0;
+                        }
+                    """.trimIndent(),
+                ),
+            ),
             compiledBinary = watchBinary.compiledBinary,
         )
 
@@ -376,6 +387,10 @@ class JdbcComputerStateRepositoryTest {
         assertEquals(listOf(80, 21, 6), reloaded.watches.watches.single().observedPorts)
         assertEquals(4, reloaded.watches.watches.single().searchFirewallType)
         assertEquals(ScriptFamily.WATCH, reloaded.watches.watches.single().compiledBinary?.scriptFamily)
+        assertEquals(
+            installedWatch.scriptBundle?.script(ProgramScriptSlot.FIRE),
+            reloaded.watches.watches.single().scriptBundle?.script(ProgramScriptSlot.FIRE),
+        )
         assertEquals(3, reloaded.hardware.equipmentSlots[EquipmentSlot.PCI]?.watchCapacityBoost)
         assertEquals(5.0, reloaded.runtime.currentCpuLoad)
         assertTrue(countRows("rewrite_state_snapshot") >= 1)

@@ -211,6 +211,7 @@ interface CommandContext {
     suspend fun appendEvents(id: GameStateId, events: List<ComputerEvent>): ComputerState
     suspend fun dispatch(command: FireAndForgetCommand)
     suspend fun <R> request(command: RequestCommand<R>): R
+    suspend fun emitWatchTrigger(intent: WatchTriggerIntent): WatchExecutionResult
     suspend fun publishDelta(delta: ComputerDelta)
     suspend fun publishProgramUpdate(update: ProgramUpdate)
     suspend fun publishUiEvent(event: GameUiEvent)

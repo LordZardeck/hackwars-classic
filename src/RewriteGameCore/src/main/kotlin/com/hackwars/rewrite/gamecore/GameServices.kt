@@ -92,6 +92,8 @@ class InMemoryComputerStateRepository(
 class DefaultCommandDispatcher(
     private val repository: ComputerStateRepository,
     private val interestRegistry: InterestRegistry,
+    private val watchExecutionCoordinator: WatchExecutionCoordinator = DefaultWatchExecutionCoordinator(),
+    private val watchTriggerIntentSink: WatchTriggerIntentSink = NoOpWatchTriggerIntentSink,
     private val programScheduler: ProgramScheduler = CoroutineProgramScheduler(
         dispatcher = null,
         interestRegistry = interestRegistry,
@@ -154,6 +156,8 @@ class DefaultCommandDispatcher(
                 publisher = publisher,
                 dispatcher = this,
                 heldLocks = heldLocks,
+                watchExecutionCoordinator = watchExecutionCoordinator,
+                watchTriggerIntentSink = watchTriggerIntentSink,
             )
 
             var thrown: Throwable? = null
@@ -240,6 +244,8 @@ class DefaultCommandDispatcher(
         private val publisher: GameStatePublisher,
         private val dispatcher: DefaultCommandDispatcher,
         private val heldLocks: Set<GameStateId>,
+        private val watchExecutionCoordinator: WatchExecutionCoordinator,
+        private val watchTriggerIntentSink: WatchTriggerIntentSink,
     ) : CommandContext {
         override val connectionId: String? = metadata.connectionId
         override val requestId: String? = metadata.requestId
@@ -288,6 +294,11 @@ class DefaultCommandDispatcher(
                 publisher = publisher,
                 inheritedLocks = heldLocks,
             )
+        }
+
+        override suspend fun emitWatchTrigger(intent: WatchTriggerIntent): WatchExecutionResult {
+            watchTriggerIntentSink.emitWatchTrigger(intent)
+            return watchExecutionCoordinator.execute(this, intent)
         }
 
         override suspend fun publishDelta(delta: ComputerDelta) {
@@ -390,6 +401,8 @@ class CoroutineProgramScheduler(
                     interestRegistry = interestRegistry,
                     publisher = publisher,
                     heldLocks = emptySet(),
+                    watchExecutionCoordinator = NoOpWatchExecutionCoordinator,
+                    watchTriggerIntentSink = NoOpWatchTriggerIntentSink,
                 )
                 command.onCancel(cancelContext, reason)
                 cancelContext.publishProgramUpdate(
@@ -429,6 +442,8 @@ class CoroutineProgramScheduler(
                 interestRegistry = interestRegistry,
                 publisher = publisher,
                 heldLocks = emptySet(),
+                watchExecutionCoordinator = NoOpWatchExecutionCoordinator,
+                watchTriggerIntentSink = NoOpWatchTriggerIntentSink,
             )
             command.onCancel(context, "Command lifetime expired.")
             context.publishProgramUpdate(
@@ -499,6 +514,8 @@ class CoroutineProgramScheduler(
         private val interestRegistry: InterestRegistry,
         private val publisher: GameStatePublisher,
         private val heldLocks: Set<GameStateId>,
+        private val watchExecutionCoordinator: WatchExecutionCoordinator,
+        private val watchTriggerIntentSink: WatchTriggerIntentSink,
     ) : CommandContext {
         private val bufferedProgramUpdates = mutableListOf<ProgramUpdate>()
         private val bufferedDeltas = mutableListOf<ComputerDelta>()
@@ -534,6 +551,11 @@ class CoroutineProgramScheduler(
 
         override suspend fun <R> request(command: RequestCommand<R>): R {
             return dispatcher.nestedRequest(command, metadata, publisher, heldLocks)
+        }
+
+        override suspend fun emitWatchTrigger(intent: WatchTriggerIntent): WatchExecutionResult {
+            watchTriggerIntentSink.emitWatchTrigger(intent)
+            return watchExecutionCoordinator.execute(this, intent)
         }
 
         override suspend fun publishDelta(delta: ComputerDelta) {

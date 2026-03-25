@@ -246,7 +246,6 @@ class RequestTriggerCommand(
     private val selector: TriggerSelector,
     private val sourceIp: String,
     private val triggerParameters: Map<String, HookValue>,
-    private val watchTriggerIntentSink: WatchTriggerIntentSink = NoOpWatchTriggerIntentSink,
 ) : RequestCommand<TriggerRequestResponse> {
     override val name: String = "requesttrigger"
     override val lifetime: CommandLifetime = CommandLifetime.defaultRequest
@@ -255,7 +254,7 @@ class RequestTriggerCommand(
     override suspend fun execute(context: CommandContext): TriggerRequestResponse {
         require(sourceIp.isNotBlank()) { "Trigger source ip is required." }
 
-        watchTriggerIntentSink.emitWatchTrigger(
+        val execution = context.emitWatchTrigger(
             WatchTriggerIntent(
                 targetStateId = targetStateId,
                 selector = selector,
@@ -273,6 +272,8 @@ class RequestTriggerCommand(
             selector = selector,
             sourceIp = sourceIp,
             accepted = true,
+            matchedWatchIndex = execution.matchedWatchIndex,
+            executed = execution.executed,
         )
     }
 }
@@ -283,7 +284,6 @@ class RequestTriggerNoteCommand(
     private val note: String,
     private val sourceIp: String,
     private val triggerParameters: Map<String, HookValue>,
-    private val watchTriggerIntentSink: WatchTriggerIntentSink = NoOpWatchTriggerIntentSink,
 ) : RequestCommand<TriggerRequestResponse> {
     override val name: String = "requesttriggernote"
     override val lifetime: CommandLifetime = CommandLifetime.defaultRequest
@@ -296,7 +296,6 @@ class RequestTriggerNoteCommand(
             selector = TriggerSelector.ByNote(note),
             sourceIp = sourceIp,
             triggerParameters = triggerParameters,
-            watchTriggerIntentSink = watchTriggerIntentSink,
         ).execute(context)
     }
 }
