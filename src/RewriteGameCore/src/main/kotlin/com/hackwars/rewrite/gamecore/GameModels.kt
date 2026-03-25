@@ -341,7 +341,7 @@ data class WebsiteState(
 @Serializable
 data class CombatState(
     val activeAttacksBySourcePort: Map<Int, AttackSessionState> = emptyMap(),
-    val healthByPort: Map<Int, Int> = emptyMap(),
+    val incomingAttacksByTargetPort: Map<Int, IncomingAttackState> = emptyMap(),
 )
 
 @Serializable
@@ -363,12 +363,35 @@ data class AttackSessionState(
     val sourcePort: Int,
     val targetStateId: GameStateId,
     val targetPort: Int,
+    val targetView: AttackTargetView = AttackTargetView(),
     val windowHandle: Int = 0,
     val secondaryPorts: List<Int> = emptyList(),
     val maliciousScripts: List<AttackScriptReference?> = emptyList(),
     val extraInfo: List<HookValue> = emptyList(),
     val startedAtEpochMillis: Long = 0L,
     val iterationCount: Int = 0,
+)
+
+@Serializable
+data class IncomingAttackState(
+    val attackerStateId: GameStateId = GameStateId(""),
+    val attackerSourcePort: Int = 0,
+    val targetPort: Int = 0,
+    val startedAtEpochMillis: Long = 0L,
+    val windowHandle: Int = 0,
+)
+
+@Serializable
+data class AttackTargetView(
+    val targetStateId: GameStateId = GameStateId(""),
+    val targetPort: Int = 0,
+    val health: Double = 0.0,
+    val pettyCash: Double = 0.0,
+    val cpuCost: Double = 0.0,
+    val watchPresent: Boolean = false,
+    val npc: Boolean = false,
+    val lastAppliedDamage: Double = 0.0,
+    val completed: Boolean = false,
 )
 
 @Serializable

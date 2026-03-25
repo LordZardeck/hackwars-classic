@@ -2,7 +2,7 @@ package com.hackwars.rewrite.gamecore
 
 import com.hackwars.rewrite.hackscript.WatchExecutionInput
 
-internal sealed interface PassiveWatchTrigger {
+sealed interface PassiveWatchTrigger {
     val targetStateId: GameStateId
     val sourceIp: String
     val external: Boolean
@@ -20,18 +20,28 @@ internal sealed interface PassiveWatchTrigger {
         override val sourceIp: String,
         override val external: Boolean,
     ) : PassiveWatchTrigger
+
+    data class HealthChanged(
+        override val targetStateId: GameStateId,
+        override val sourceIp: String,
+        override val external: Boolean,
+        val portNumber: Int,
+        val previousHealth: Double,
+        val newHealth: Double,
+    ) : PassiveWatchTrigger
 }
 
 internal class PassiveWatchCoordinator(
     private val runtimeExecutor: WatchRuntimeExecutor = WatchRuntimeExecutor(),
-) {
-    suspend fun evaluate(
+) : PassiveWatchTriggerSink {
+    override suspend fun emit(
         context: CommandContext,
         trigger: PassiveWatchTrigger,
     ) {
         when (trigger) {
             is PassiveWatchTrigger.PettyCashChanged -> evaluatePettyCashChanged(context, trigger)
             is PassiveWatchTrigger.ScanSucceeded -> evaluateScanSucceeded(context, trigger)
+            is PassiveWatchTrigger.HealthChanged -> Unit
         }
     }
 
@@ -173,7 +183,7 @@ internal class PassiveWatchCoordinator(
     }
 }
 
-internal val DefaultPassiveWatchCoordinator = PassiveWatchCoordinator()
+val DefaultPassiveWatchCoordinator: PassiveWatchTriggerSink = PassiveWatchCoordinator()
 
 internal suspend fun CommandContext.evaluatePassivePettyCashChange(
     targetStateId: GameStateId,
@@ -185,8 +195,7 @@ internal suspend fun CommandContext.evaluatePassivePettyCashChange(
     if (previousPettyCash == newPettyCash) {
         return
     }
-    DefaultPassiveWatchCoordinator.evaluate(
-        context = this,
+    emitPassiveWatchTrigger(
         trigger = PassiveWatchTrigger.PettyCashChanged(
             targetStateId = targetStateId,
             sourceIp = sourceIp,
@@ -202,12 +211,34 @@ internal suspend fun CommandContext.evaluatePassiveScanSuccess(
     sourceIp: String,
     external: Boolean = sourceIp != targetStateId.value,
 ) {
-    DefaultPassiveWatchCoordinator.evaluate(
-        context = this,
+    emitPassiveWatchTrigger(
         trigger = PassiveWatchTrigger.ScanSucceeded(
             targetStateId = targetStateId,
             sourceIp = sourceIp,
             external = external,
+        ),
+    )
+}
+
+internal suspend fun CommandContext.emitPassiveHealthChange(
+    targetStateId: GameStateId,
+    sourceIp: String,
+    portNumber: Int,
+    previousHealth: Double,
+    newHealth: Double,
+    external: Boolean = sourceIp != targetStateId.value,
+) {
+    if (previousHealth == newHealth) {
+        return
+    }
+    emitPassiveWatchTrigger(
+        PassiveWatchTrigger.HealthChanged(
+            targetStateId = targetStateId,
+            sourceIp = sourceIp,
+            external = external,
+            portNumber = portNumber,
+            previousHealth = previousHealth,
+            newHealth = newHealth,
         ),
     )
 }

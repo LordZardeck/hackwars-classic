@@ -4,6 +4,7 @@ import com.hackwars.rewrite.gamecore.ComputerState
 import com.hackwars.rewrite.gamecore.ComputerEvent
 import com.hackwars.rewrite.gamecore.AttackScriptReference
 import com.hackwars.rewrite.gamecore.AttackSessionState
+import com.hackwars.rewrite.gamecore.AttackTargetView
 import com.hackwars.rewrite.gamecore.CompiledBinaryMetadata
 import com.hackwars.rewrite.gamecore.CombatState
 import com.hackwars.rewrite.gamecore.CombatStateUpdatedEvent
@@ -16,6 +17,7 @@ import com.hackwars.rewrite.gamecore.FileSavedEvent
 import com.hackwars.rewrite.gamecore.GameStateId
 import com.hackwars.rewrite.gamecore.ComputerLogEntry
 import com.hackwars.rewrite.gamecore.InstalledEquipment
+import com.hackwars.rewrite.gamecore.IncomingAttackState
 import com.hackwars.rewrite.gamecore.PortState
 import com.hackwars.rewrite.gamecore.PreferenceSetEvent
 import com.hackwars.rewrite.gamecore.LastLoginRecordedEvent
@@ -323,6 +325,12 @@ class JdbcComputerStateRepositoryTest {
                         cpuCost = 8.0,
                     ),
                 ),
+                PortState(
+                    number = 25,
+                    type = "http",
+                    enabled = true,
+                    health = 100.0,
+                ),
             ),
         )
         seedPlayerAndComputer(stateId = stateId, state = initialState)
@@ -335,6 +343,17 @@ class JdbcComputerStateRepositoryTest {
             sourcePort = 12,
             targetStateId = GameStateId("TARGET-IP"),
             targetPort = 25,
+            targetView = AttackTargetView(
+                targetStateId = GameStateId("TARGET-IP"),
+                targetPort = 25,
+                health = 97.8,
+                pettyCash = 0.0,
+                cpuCost = 0.0,
+                watchPresent = false,
+                npc = false,
+                lastAppliedDamage = 2.2,
+                completed = false,
+            ),
             windowHandle = 4,
             secondaryPorts = listOf(7, 8),
             maliciousScripts = listOf(AttackScriptReference("/Public", "worm.bin")),
@@ -346,19 +365,36 @@ class JdbcComputerStateRepositoryTest {
             stateId,
             listOf(
                 EconomyBalanceAdjustedEvent(pettyCashDelta = -10.0),
+                SkillExperienceAdjustedEvent(
+                    family = ScriptFamily.ATTACK,
+                    delta = 2.2,
+                ),
                 CombatStateUpdatedEvent(
                     changedPathList = setOf(
                         "combat.activeAttacksBySourcePort.12",
+                        "combat.incomingAttacksByTargetPort.25",
+                        "ports.25.health",
                         "ports.12.attacking",
                         "runtime.currentCpuLoad",
                     ),
                     deltaKeyList = setOf("ports", "combat", "runtime"),
-                    combat = CombatState(activeAttacksBySourcePort = mapOf(12 to session)),
+                    combat = CombatState(
+                        activeAttacksBySourcePort = mapOf(12 to session),
+                        incomingAttacksByTargetPort = mapOf(
+                            25 to IncomingAttackState(
+                                attackerStateId = stateId,
+                                attackerSourcePort = 12,
+                                targetPort = 25,
+                                startedAtEpochMillis = 1_000L,
+                                windowHandle = 4,
+                            ),
+                        ),
+                    ),
                     ports = initialState.ports.map { port ->
-                        if (port.number == 12) {
-                            port.copy(attacking = true)
-                        } else {
-                            port
+                        when (port.number) {
+                            12 -> port.copy(attacking = true)
+                            25 -> port.copy(health = 97.8)
+                            else -> port
                         }
                     },
                     currentCpuLoad = 8.0,
@@ -373,8 +409,13 @@ class JdbcComputerStateRepositoryTest {
         assertEquals(updated, reloaded)
         assertEquals(90.0, reloaded.economy.pettyCash)
         assertTrue(reloaded.ports.single { it.number == 12 }.attacking)
+        assertEquals(97.8, reloaded.ports.single { it.number == 25 }.health)
         assertEquals(8.0, reloaded.runtime.currentCpuLoad)
+        assertEquals(2.2, reloaded.stats.experienceByFamily[ScriptFamily.ATTACK])
         assertEquals("attack-session-1", reloaded.combat.activeAttacksBySourcePort.getValue(12).programId)
+        assertEquals(97.8, reloaded.combat.activeAttacksBySourcePort.getValue(12).targetView.health)
+        assertEquals(2.2, reloaded.combat.activeAttacksBySourcePort.getValue(12).targetView.lastAppliedDamage)
+        assertEquals(stateId, reloaded.combat.incomingAttacksByTargetPort.getValue(25).attackerStateId)
         assertEquals("worm.bin", reloaded.combat.activeAttacksBySourcePort.getValue(12).maliciousScripts.single()?.name)
     }
 

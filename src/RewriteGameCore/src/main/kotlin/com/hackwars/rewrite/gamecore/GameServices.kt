@@ -134,6 +134,7 @@ class DefaultCommandDispatcher(
     private val interestRegistry: InterestRegistry,
     private val watchExecutionCoordinator: WatchExecutionCoordinator = DefaultWatchExecutionCoordinator(),
     private val watchTriggerIntentSink: WatchTriggerIntentSink = NoOpWatchTriggerIntentSink,
+    private val passiveWatchTriggerSink: PassiveWatchTriggerSink = DefaultPassiveWatchCoordinator,
     private val programScheduler: ProgramScheduler = CoroutineProgramScheduler(
         dispatcher = null,
         interestRegistry = interestRegistry,
@@ -198,6 +199,7 @@ class DefaultCommandDispatcher(
                 heldLocks = heldLocks,
                 watchExecutionCoordinator = watchExecutionCoordinator,
                 watchTriggerIntentSink = watchTriggerIntentSink,
+                passiveWatchTriggerSink = passiveWatchTriggerSink,
             )
 
             var thrown: Throwable? = null
@@ -286,6 +288,7 @@ class DefaultCommandDispatcher(
         private val heldLocks: Set<GameStateId>,
         private val watchExecutionCoordinator: WatchExecutionCoordinator,
         private val watchTriggerIntentSink: WatchTriggerIntentSink,
+        private val passiveWatchTriggerSink: PassiveWatchTriggerSink,
     ) : CommandContext {
         override val connectionId: String? = metadata.connectionId
         override val requestId: String? = metadata.requestId
@@ -347,6 +350,10 @@ class DefaultCommandDispatcher(
         override suspend fun emitWatchTrigger(intent: WatchTriggerIntent): WatchExecutionResult {
             watchTriggerIntentSink.emitWatchTrigger(intent)
             return watchExecutionCoordinator.execute(this, intent)
+        }
+
+        override suspend fun emitPassiveWatchTrigger(trigger: PassiveWatchTrigger) {
+            passiveWatchTriggerSink.emit(this, trigger)
         }
 
         override suspend fun publishDelta(delta: ComputerDelta) {
@@ -451,6 +458,7 @@ class CoroutineProgramScheduler(
                     heldLocks = emptySet(),
                     watchExecutionCoordinator = NoOpWatchExecutionCoordinator,
                     watchTriggerIntentSink = NoOpWatchTriggerIntentSink,
+                    passiveWatchTriggerSink = NoOpPassiveWatchTriggerSink,
                 )
                 command.onCancel(cancelContext, reason)
                 cancelContext.publishProgramUpdate(
@@ -458,7 +466,7 @@ class CoroutineProgramScheduler(
                         programId = command.programId,
                         programType = command.programType,
                         status = ProgramLifecycleStatus.CANCELLED,
-                        relatedStateIds = command.targetStateIds,
+                        relatedStateIds = command.programUpdateStateIds,
                         progress = ProgramProgress(message = reason),
                     ),
                 )
@@ -492,6 +500,7 @@ class CoroutineProgramScheduler(
                 heldLocks = emptySet(),
                 watchExecutionCoordinator = NoOpWatchExecutionCoordinator,
                 watchTriggerIntentSink = NoOpWatchTriggerIntentSink,
+                passiveWatchTriggerSink = NoOpPassiveWatchTriggerSink,
             )
             command.onCancel(context, "Command lifetime expired.")
             context.publishProgramUpdate(
@@ -499,7 +508,7 @@ class CoroutineProgramScheduler(
                     programId = command.programId,
                     programType = command.programType,
                     status = ProgramLifecycleStatus.CANCELLED,
-                    relatedStateIds = command.targetStateIds,
+                    relatedStateIds = command.programUpdateStateIds,
                     progress = ProgramProgress(message = "lifetime expired"),
                 ),
             )
@@ -507,7 +516,7 @@ class CoroutineProgramScheduler(
         } catch (exception: CancellationException) {
             throw exception
         } catch (exception: Exception) {
-            val recipients = command.targetStateIds
+            val recipients = command.programUpdateStateIds
                 .flatMapTo(linkedSetOf()) { interestRegistry.subscribersFor(it) }
             if (recipients.isNotEmpty()) {
                 publisher.publishProgramUpdate(
@@ -516,7 +525,7 @@ class CoroutineProgramScheduler(
                         programId = command.programId,
                         programType = command.programType,
                         status = ProgramLifecycleStatus.FAILED,
-                        relatedStateIds = command.targetStateIds,
+                        relatedStateIds = command.programUpdateStateIds,
                         progress = ProgramProgress(message = exception.message ?: "program failed"),
                     ),
                 )
@@ -547,7 +556,7 @@ class CoroutineProgramScheduler(
                     programId = command.programId,
                     programType = command.programType,
                     status = step.status,
-                    relatedStateIds = step.relatedStateIds.ifEmpty { command.targetStateIds },
+                    relatedStateIds = step.relatedStateIds.ifEmpty { command.programUpdateStateIds },
                     progress = step.progress,
                 ),
             )
@@ -564,6 +573,7 @@ class CoroutineProgramScheduler(
         private val heldLocks: Set<GameStateId>,
         private val watchExecutionCoordinator: WatchExecutionCoordinator,
         private val watchTriggerIntentSink: WatchTriggerIntentSink,
+        private val passiveWatchTriggerSink: PassiveWatchTriggerSink,
     ) : CommandContext {
         private val bufferedProgramUpdates = mutableListOf<ProgramUpdate>()
         private val bufferedDeltas = mutableListOf<ComputerDelta>()
@@ -612,6 +622,10 @@ class CoroutineProgramScheduler(
         override suspend fun emitWatchTrigger(intent: WatchTriggerIntent): WatchExecutionResult {
             watchTriggerIntentSink.emitWatchTrigger(intent)
             return watchExecutionCoordinator.execute(this, intent)
+        }
+
+        override suspend fun emitPassiveWatchTrigger(trigger: PassiveWatchTrigger) {
+            passiveWatchTriggerSink.emit(this, trigger)
         }
 
         override suspend fun publishDelta(delta: ComputerDelta) {

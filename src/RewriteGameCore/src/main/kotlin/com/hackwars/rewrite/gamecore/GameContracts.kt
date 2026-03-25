@@ -43,11 +43,13 @@ interface ProgramCommand : GameCommand {
     val programId: String
     val programType: String
     val tickInterval: Duration
+    val programUpdateStateIds: Set<GameStateId>
+        get() = targetStateIds
 
     suspend fun onStart(context: CommandContext): ProgramExecutionStep = ProgramExecutionStep(
         status = ProgramLifecycleStatus.RUNNING,
         progress = ProgramProgress(message = "started"),
-        relatedStateIds = targetStateIds,
+        relatedStateIds = programUpdateStateIds,
     )
 
     suspend fun onTick(context: CommandContext): ProgramExecutionStep
@@ -208,6 +210,14 @@ object NoOpHookSideEffectSink : HookSideEffectSink {
     override suspend fun emitWatchTrigger(intent: WatchTriggerIntent) = Unit
 }
 
+interface PassiveWatchTriggerSink {
+    suspend fun emit(context: CommandContext, trigger: PassiveWatchTrigger)
+}
+
+object NoOpPassiveWatchTriggerSink : PassiveWatchTriggerSink {
+    override suspend fun emit(context: CommandContext, trigger: PassiveWatchTrigger) = Unit
+}
+
 interface CommandDispatcher : ProgramScheduler {
     suspend fun dispatch(
         command: FireAndForgetCommand,
@@ -233,6 +243,7 @@ interface CommandContext {
     suspend fun <R> request(command: RequestCommand<R>): R
     suspend fun schedule(command: ProgramCommand): ProgramHandle
     suspend fun emitWatchTrigger(intent: WatchTriggerIntent): WatchExecutionResult
+    suspend fun emitPassiveWatchTrigger(trigger: PassiveWatchTrigger)
     suspend fun publishDelta(delta: ComputerDelta)
     suspend fun publishProgramUpdate(update: ProgramUpdate)
     suspend fun publishUiEvent(event: GameUiEvent)

@@ -280,7 +280,7 @@
 ### RW-GS-S5A3B - Passive health-watch auto-fire
 - Status: `todo`
 - Owner: `unassigned`
-- Depends on: `RW-GS-S5A3A`, `RW-GS-S5B2`
+- Depends on: `RW-GS-S5A3A`, `RW-GS-S5B2A`
 - Allowed write scope: `:RewriteGameCore`, `:RewriteGameServer`
 - Verification command: `./gradlew :RewriteGameCore:test :RewriteGameServer:test`
 - Artifacts: `build/reports/tests/test`
@@ -290,7 +290,7 @@
   - Remains blocked on combat-side state transitions and must not regress the explicit and passive petty-cash/scan behavior from earlier watch slices.
 
 ### RW-GS-S5B1 - Attack start/cancel program foundation
-- Status: `in_progress`
+- Status: `done`
 - Owner: `codex`
 - Depends on: `RW-GS-005`
 - Allowed write scope: `:RewriteGameCore`, `:RewriteGameServer`, `:RewritePersistence`
@@ -302,22 +302,35 @@
   - Preserves the locked start fee, CPU reservation, and source-port attacking bookkeeping while deferring target mutation, damage, rewards, and attack-script side effects.
   - Keeps `ProgramUpdate` as the only in-flight stream surface, with attacker-state deltas flushing before correlated start/cancel responses.
 
-### RW-GS-S5B2 - Target-side combat continuation, damage, and rewards
-- Status: `todo`
-- Owner: `unassigned`
+### RW-GS-S5B2A - Deterministic target-side combat damage and resolution
+- Status: `done`
+- Owner: `codex`
 - Depends on: `RW-GS-S5B1`
 - Allowed write scope: `:RewriteGameCore`, `:RewriteGameServer`, `:RewritePersistence`
 - Verification command: `./gradlew :RewriteGameCore:test :RewritePersistence:test :RewriteGameServer:test :RewriteTestKit:integrationTest`
 - Artifacts: `build/reports/tests/test`
 - Commit rule: `single green commit only`
 - Notes:
-  - Owns target-side initialize/continue/finalize behavior, damage/reward plumbing, and the combat-state transitions needed to unblock passive health-watch auto-fire.
+  - Adds bilateral combat admission and cleanup, deterministic target-port damage ticks, attacker attack-XP rewards, and target incoming-lock persistence without introducing attack-script runtime yet.
+  - Running ticks now mutate target port health, refresh attacker-side typed target views, and publish target deltas while keeping `ProgramUpdate` scoped to attacker-state listeners only.
+  - Emits typed passive health-change triggers on combat damage so `RW-GS-S5A3B` can bind health-watch auto-fire without reworking the combat loop.
+
+### RW-GS-S5B2B - Attack-script runtime and richer combat behavior
+- Status: `todo`
+- Owner: `unassigned`
+- Depends on: `RW-GS-S5B2A`
+- Allowed write scope: `:RewriteHackScript`, `:RewriteGameCore`, `:RewriteGameServer`, `:RewritePersistence`
+- Verification command: `./gradlew :RewriteHackScript:test :RewriteGameCore:test :RewritePersistence:test :RewriteGameServer:test :RewriteTestKit:integrationTest`
+- Artifacts: `build/reports/tests/test`
+- Commit rule: `single green commit only`
+- Notes:
+  - Owns attack-script execution, richer firewall combat behavior, and any follow-on target-side combat semantics beyond the deterministic base loop delivered in `RW-GS-S5B2A`.
   - Keeps `launchnetworkattack` deferred until the rewrite has a typed redirecting or shipping-port model.
 
 ### RW-GS-S5C - Redirect, zombie, and combat cleanup
 - Status: `todo`
 - Owner: `unassigned`
-- Depends on: `RW-GS-S5B2`
+- Depends on: `RW-GS-S5B2B`
 - Allowed write scope: `:RewriteGameCore`, `:RewriteGameServer`
 - Verification command: `./gradlew :RewriteGameCore:test :RewriteGameServer:test`
 - Artifacts: `build/reports/tests/test`
