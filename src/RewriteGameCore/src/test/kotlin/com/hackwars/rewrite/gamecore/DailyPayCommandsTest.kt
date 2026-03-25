@@ -4,6 +4,7 @@ import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -76,6 +77,15 @@ class DailyPayCommandsTest {
         assertEquals(0.4, updatedTarget.dailyPay.reductionMultiplier)
         assertEquals(actorId, updatedTarget.dailyPay.lastBountyHttpStateId)
         assertEquals(listOf(setOf("stats", "filesystem"), setOf("dailyPay")), publisher.deltas.map { it.second.deltaKeys })
+        assertEquals(listOf(setOf("actor-conn"), setOf("actor-conn")), publisher.uiEvents.map { it.first })
+        val successAttackMessage = assertIs<AttackMessageUiEvent>(publisher.uiEvents[0].second)
+        assertEquals("Daily pay successfully changed.", successAttackMessage.message)
+        assertEquals(80, successAttackMessage.port)
+        assertEquals(targetId.value, successAttackMessage.ip)
+        assertEquals(
+            "Daily pay successfully changed.",
+            assertIs<TextMessageUiEvent>(publisher.uiEvents[1].second).message,
+        )
     }
 
     @Test
@@ -112,6 +122,7 @@ class DailyPayCommandsTest {
             ),
         )
         val interests = InMemoryInterestRegistry().apply {
+            register("actor-conn", actorId)
             register("target-conn", targetId)
         }
         val publisher = RecordingGameStatePublisher()
@@ -137,12 +148,22 @@ class DailyPayCommandsTest {
         assertEquals(0.25, updatedTarget.dailyPay.reductionMultiplier)
         assertEquals(revenueTargetId, updatedTarget.dailyPay.revenueTargetStateId)
         assertEquals(listOf(setOf("dailyPay")), publisher.deltas.map { it.second.deltaKeys })
+        assertEquals(1, publisher.uiEvents.size)
+        assertEquals(setOf("actor-conn"), publisher.uiEvents.single().first)
+        val alreadyControlledMessage = assertIs<AttackMessageUiEvent>(publisher.uiEvents.single().second)
+        assertEquals("You already controlled this HTTP.", alreadyControlledMessage.message)
+        assertEquals(80, alreadyControlledMessage.port)
+        assertEquals(targetId.value, alreadyControlledMessage.ip)
     }
 
     @Test
     fun changeDailyPayWrongPortTypeAndFirewallNoopStayAcceptedNoOps() = runTest {
         val actorId = GameStateId("LOCAL-IP")
         val targetId = GameStateId("TARGET-IP")
+        val wrongPortPublisher = RecordingGameStatePublisher()
+        val wrongPortInterests = InMemoryInterestRegistry().apply {
+            register("actor-conn", actorId)
+        }
         val dispatcher = DefaultCommandDispatcher(
             repository = InMemoryComputerStateRepository(
                 seededStates = mapOf(
@@ -158,7 +179,7 @@ class DailyPayCommandsTest {
                     ),
                 ),
             ),
-            interestRegistry = InMemoryInterestRegistry(),
+            interestRegistry = wrongPortInterests,
         )
 
         val wrongPort = dispatcher.request(
@@ -168,6 +189,8 @@ class DailyPayCommandsTest {
                 targetPort = 80,
                 requestedRevenueTargetStateId = GameStateId("REV-IP"),
             ),
+            metadata = CommandMetadata(connectionId = "actor-conn", requestId = "wrong-port"),
+            publisher = wrongPortPublisher,
         )
 
         val firewallRepository = InMemoryComputerStateRepository(
@@ -182,7 +205,11 @@ class DailyPayCommandsTest {
                 ),
             ),
         )
-        val firewallDispatcher = DefaultCommandDispatcher(firewallRepository, InMemoryInterestRegistry())
+        val firewallPublisher = RecordingGameStatePublisher()
+        val firewallInterests = InMemoryInterestRegistry().apply {
+            register("actor-conn", actorId)
+        }
+        val firewallDispatcher = DefaultCommandDispatcher(firewallRepository, firewallInterests)
         val firewallNoop = firewallDispatcher.request(
             command = ChangeDailyPayCommand(
                 actorStateId = actorId,
@@ -190,6 +217,8 @@ class DailyPayCommandsTest {
                 targetPort = 80,
                 requestedRevenueTargetStateId = GameStateId("REV-IP"),
             ),
+            metadata = CommandMetadata(connectionId = "actor-conn", requestId = "firewall-noop"),
+            publisher = firewallPublisher,
         )
 
         assertEquals(ChangeDailyPayOutcome.WRONG_PORT_TYPE, wrongPort.outcome)
@@ -197,6 +226,62 @@ class DailyPayCommandsTest {
         assertEquals(ChangeDailyPayOutcome.FIREWALL_NOOP, firewallNoop.outcome)
         assertTrue(firewallNoop.accepted)
         assertEquals(targetId, requireNotNull(firewallRepository.load(targetId)).dailyPay.revenueTargetStateId)
+        val wrongPortPopup = assertIs<PopupUiEvent>(wrongPortPublisher.uiEvents.single().second)
+        assertEquals(setOf("actor-conn"), wrongPortPublisher.uiEvents.single().first)
+        assertEquals("You can only change daily pay on an HTTP port.", wrongPortPopup.message)
+        assertEquals(PopupUiStyle.ERROR, wrongPortPopup.style)
+        val firewallPopup = assertIs<PopupUiEvent>(firewallPublisher.uiEvents.single().second)
+        assertEquals(setOf("actor-conn"), firewallPublisher.uiEvents.single().first)
+        assertEquals("${targetId.value}'s firewall has caused the change daily pay to fail.", firewallPopup.message)
+        assertEquals(PopupUiStyle.MESSAGE, firewallPopup.style)
+    }
+
+    @Test
+    fun changeDailyPayBountyGuardPublishesPopupErrorWithoutMutatingState() = runTest {
+        val actorId = GameStateId("LOCAL-IP")
+        val targetId = GameStateId("TARGET-IP")
+        val repository = InMemoryComputerStateRepository(
+            seededStates = mapOf(
+                actorId to actorState(actorId),
+                targetId to httpTargetState(
+                    targetId,
+                    dailyPay = DailyPayState(
+                        revenueTargetStateId = targetId,
+                        lastBountyHttpStateId = actorId,
+                    ),
+                ),
+            ),
+        )
+        val interests = InMemoryInterestRegistry().apply {
+            register("actor-conn", actorId)
+            register("target-conn", targetId)
+        }
+        val publisher = RecordingGameStatePublisher()
+        val dispatcher = DefaultCommandDispatcher(repository, interests)
+
+        val response = dispatcher.request(
+            command = ChangeDailyPayCommand(
+                actorStateId = actorId,
+                targetStateId = targetId,
+                targetPort = 80,
+                requestedRevenueTargetStateId = GameStateId("REV-IP"),
+            ),
+            metadata = CommandMetadata(connectionId = "actor-conn", requestId = "bounty-guard"),
+            publisher = publisher,
+        )
+
+        val updatedTarget = requireNotNull(repository.load(targetId))
+
+        assertEquals(ChangeDailyPayOutcome.BOUNTY_GUARD, response.outcome)
+        assertEquals(targetId, updatedTarget.dailyPay.revenueTargetStateId)
+        assertTrue(publisher.deltas.isEmpty())
+        val popup = assertIs<PopupUiEvent>(publisher.uiEvents.single().second)
+        assertEquals(setOf("actor-conn"), publisher.uiEvents.single().first)
+        assertEquals(
+            "You cannot immediately take back over an HTTP attacked as part of a bounty.",
+            popup.message,
+        )
+        assertEquals(PopupUiStyle.ERROR, popup.style)
     }
 
     @Test

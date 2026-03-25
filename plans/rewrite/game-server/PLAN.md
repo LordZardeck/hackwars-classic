@@ -447,15 +447,17 @@
   - Adds the hidden session-loaded daily-income runtime, including subscriber-scoped startup and shutdown, due-pay log/economy/vote/HTTP-XP side effects, and passive petty-cash watch evaluation on both affected states.
 
 ### RW-GS-S5B2B2B3B2C2B - daily-pay UI and social polish
-- Status: `todo`
-- Owner: `unassigned`
+- Status: `done`
+- Owner: `codex`
 - Depends on: `RW-GS-S5B2B2B3B2C2A`
-- Allowed write scope: `:RewriteGameCore`, `:RewriteGameServer`, `:RewriteClient`
+- Allowed write scope: `:RewriteGameCore`, `:RewriteGameServer`
 - Verification command: `./gradlew :RewriteGameCore:test :RewriteGameServer:test :RewriteTestKit:integrationTest`
 - Artifacts: `build/reports/tests/test`
 - Commit rule: `single green commit only`
 - Notes:
-  - Owns any later daily-pay popup or game-message parity work after the typed redirect core and hidden runtime are stable.
+  - Adds attacker-scoped rewrite UI parity for public `changedailypay` and the attack-script `changeDailyPay(targetIp)` helper using typed popup, text-message, and attack-message events.
+  - Preserves delta-first ordering before correlated responses or attacker-scoped program updates and keeps hidden daily-income runtime behavior unchanged.
+  - Keeps Facebook-style social polish and zombie-linked behavior deferred to the next slice.
 
 ### RW-GS-S5B2B2B3B2C3 - zombie-linked social helpers and transport
 - Status: `todo`

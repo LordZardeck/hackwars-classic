@@ -667,13 +667,13 @@ internal class AttackTickCommand(
         var lastAppliedDamage = 0.0
 
         fun refreshTargetState() {
-            currentTargetState = targetState.copy(
+            currentTargetState = currentTargetState.copy(
                 combat = currentTargetCombat,
                 economy = currentTargetEconomy,
                 filesystem = currentTargetFilesystem,
                 ports = currentTargetPorts,
                 watches = currentTargetWatches,
-                runtime = targetState.runtime.copy(currentCpuLoad = currentTargetRuntimeCpuLoad),
+                runtime = currentTargetState.runtime.copy(currentCpuLoad = currentTargetRuntimeCpuLoad),
             )
         }
 
@@ -967,28 +967,19 @@ internal class AttackTickCommand(
         }
 
         suspend fun changeCurrentTargetDailyPay(requestedRevenueTargetIp: String) {
-            val updatedTargetState = context.requireExistingState(targetStateId)
             val updatedAttackerState = context.requireExistingState(attackerStateId)
-            val refreshedTargetPortState = requireNotNull(updatedTargetState.port(currentSession.targetPort)) {
-                "Target port ${currentSession.targetPort} disappeared during changeDailyPay on ${targetStateId.value}."
-            }
             performChangeDailyPay(
                 context = context,
                 actorState = updatedAttackerState,
-                targetState = updatedTargetState,
-                targetPortState = refreshedTargetPortState,
+                targetState = currentTargetState,
+                targetPortState = currentTargetPortState,
                 requestedRevenueTargetStateId = GameStateId(requestedRevenueTargetIp),
             )
-            currentTargetState = context.requireExistingState(targetStateId)
-            currentTargetCombat = currentTargetState.combat
-            currentTargetEconomy = currentTargetState.economy
-            currentTargetFilesystem = currentTargetState.filesystem
-            currentTargetPorts = currentTargetState.ports
-            currentTargetWatches = currentTargetState.watches
-            currentTargetRuntimeCpuLoad = currentTargetState.runtime.currentCpuLoad
-            currentTargetPortState = requireNotNull(currentTargetState.port(currentSession.targetPort)) {
-                "Target port ${currentSession.targetPort} disappeared after changeDailyPay on ${targetStateId.value}."
-            }
+            val persistedTargetState = context.requireExistingState(targetStateId)
+            currentTargetState = currentTargetState.copy(
+                version = persistedTargetState.version,
+                dailyPay = persistedTargetState.dailyPay,
+            )
             currentAttackerEconomy = context.requireExistingState(attackerStateId).economy
         }
 

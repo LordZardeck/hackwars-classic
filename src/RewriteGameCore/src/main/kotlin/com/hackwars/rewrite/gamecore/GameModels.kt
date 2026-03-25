@@ -1576,15 +1576,30 @@ data class ProgramUpdate(
 sealed interface GameUiEvent
 
 @Serializable
+enum class PopupUiStyle {
+    MESSAGE,
+    ERROR,
+}
+
+@Serializable
 @SerialName("popup")
 data class PopupUiEvent(
     val message: String,
+    val style: PopupUiStyle = PopupUiStyle.MESSAGE,
 ) : GameUiEvent
 
 @Serializable
 @SerialName("message")
 data class TextMessageUiEvent(
     val message: String,
+) : GameUiEvent
+
+@Serializable
+@SerialName("attack_message")
+data class AttackMessageUiEvent(
+    val message: String,
+    val port: Int,
+    val ip: String,
 ) : GameUiEvent
 
 @Serializable

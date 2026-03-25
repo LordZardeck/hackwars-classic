@@ -2,9 +2,11 @@ package com.hackwars.rewrite.gameserver
 
 import com.hackwars.rewrite.gamecore.ApplicationKind
 import com.hackwars.rewrite.gamecore.AttackCancelResponse
+import com.hackwars.rewrite.gamecore.AttackMessageUiEvent
 import com.hackwars.rewrite.gamecore.AttackSessionState
 import com.hackwars.rewrite.gamecore.AttackStartResponse
 import com.hackwars.rewrite.gamecore.ChangeDailyPayPayload
+import com.hackwars.rewrite.gamecore.ChangeDailyPayOutcome
 import com.hackwars.rewrite.gamecore.ChangeDailyPayResponse
 import com.hackwars.rewrite.gamecore.CompiledBinaryMetadata
 import com.hackwars.rewrite.gamecore.CombatState
@@ -29,6 +31,8 @@ import com.hackwars.rewrite.gamecore.InstalledFirewall
 import com.hackwars.rewrite.gamecore.InstalledWatch
 import com.hackwars.rewrite.gamecore.LogState
 import com.hackwars.rewrite.gamecore.PortState
+import com.hackwars.rewrite.gamecore.PopupUiEvent
+import com.hackwars.rewrite.gamecore.PopupUiStyle
 import com.hackwars.rewrite.gamecore.ProgramScriptBundle
 import com.hackwars.rewrite.gamecore.ProgramScriptSlot
 import com.hackwars.rewrite.gamecore.ProgramLifecycleStatus
@@ -56,6 +60,7 @@ import com.hackwars.rewrite.testkit.InMemoryRewriteServiceHarness
 import com.hackwars.rewrite.testkit.RewriteServiceAdapter
 import hackwars.rewrite.v1.FrameEnvelope
 import hackwars.rewrite.v1.ProgramStatus
+import hackwars.rewrite.v1.CommandResponseStatus
 import java.time.Instant
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.TestScope
@@ -218,7 +223,7 @@ class RewriteGameAttackProtocolAdapterTest {
     }
 
     @Test
-    fun changeDailyPayPublishesDeltasBeforeItsCorrelatedResponse() = runTest {
+    fun changeDailyPayPublishesDeltasThenUiEventsBeforeItsCorrelatedResponse() = runTest {
         val fixture = createFixture(
             targetState = targetState(
                 GameStateId("TARGET-IP"),
@@ -251,7 +256,17 @@ class RewriteGameAttackProtocolAdapterTest {
 
         val actorDelta = attacker.awaitFrame()
         val targetDelta = target.awaitFrame()
+        val attackMessageFrame = attacker.awaitFrame()
+        val textMessageFrame = attacker.awaitFrame()
         val responseFrame = attacker.awaitFrame()
+        val attackMessage = RewriteGameJson.decode(
+            serializer = GameUiEvent.serializer(),
+            payload = attackMessageFrame.game_ui_event!!.payload.toByteArray(),
+        )
+        val textMessage = RewriteGameJson.decode(
+            serializer = GameUiEvent.serializer(),
+            payload = textMessageFrame.game_ui_event!!.payload.toByteArray(),
+        )
         val response = RewriteGameJson.decode(
             serializer = ChangeDailyPayResponse.serializer(),
             payload = responseFrame.command_response!!.payload.toByteArray(),
@@ -259,9 +274,105 @@ class RewriteGameAttackProtocolAdapterTest {
 
         assertEquals(setOf("stats"), actorDelta.delta?.delta_keys?.toSet())
         assertEquals(setOf("dailyPay"), targetDelta.delta?.delta_keys?.toSet())
+        val attackUi = assertIs<AttackMessageUiEvent>(attackMessage)
+        assertEquals("attack_message", attackMessageFrame.game_ui_event?.event_type)
+        assertEquals("Daily pay successfully changed.", attackUi.message)
+        assertEquals(25, attackUi.port)
+        assertEquals("TARGET-IP", attackUi.ip)
+        assertEquals("message", textMessageFrame.game_ui_event?.event_type)
+        assertEquals("Daily pay successfully changed.", assertIs<TextMessageUiEvent>(textMessage).message)
         assertTrue(response.accepted)
+        assertEquals(ChangeDailyPayOutcome.SUCCESS, response.outcome)
         assertEquals(GameStateId("REV-IP"), response.revenueTargetStateIdAfter)
         assertEquals(20.0, response.requesterHttpExperienceAfter)
+        assertTrue(target.drainFrames().isEmpty())
+    }
+
+    @Test
+    fun changeDailyPayFirewallNoopPublishesPopupMessageBeforeItsCorrelatedResponse() = runTest {
+        val fixture = createFixture(
+            targetState = targetState(
+                GameStateId("TARGET-IP"),
+                installedApplication = InstalledApplication(
+                    name = "site.bin",
+                    kind = ApplicationKind.HTTP,
+                ),
+                firewallActionProfile = FirewallActionProfile(
+                    changeDailyPayFailChance = 1.0,
+                ),
+            ),
+        )
+        val attacker = fixture.authenticatedConnection("LOCAL-IP")
+        val target = fixture.authenticatedConnection("TARGET-IP")
+
+        attacker.send(
+            RewriteFrames.command(
+                commandId = "changedailypay-firewall-1",
+                commandName = "changedailypay",
+                payload = RewriteGameJson.encode(
+                    serializer = ChangeDailyPayPayload.serializer(),
+                    value = ChangeDailyPayPayload(
+                        ip = "TARGET-IP",
+                        port = 25,
+                        change = "REV-IP",
+                        finalizeIp = "LOCAL-IP",
+                        attackPort = 0,
+                    ),
+                ),
+                expectsResponse = true,
+            ),
+        )
+
+        val popupFrame = attacker.awaitFrame()
+        val responseFrame = attacker.awaitFrame()
+        val popup = RewriteGameJson.decode(
+            serializer = GameUiEvent.serializer(),
+            payload = popupFrame.game_ui_event!!.payload.toByteArray(),
+        )
+        val response = RewriteGameJson.decode(
+            serializer = ChangeDailyPayResponse.serializer(),
+            payload = responseFrame.command_response!!.payload.toByteArray(),
+        )
+
+        assertEquals("popup", popupFrame.game_ui_event?.event_type)
+        val popupEvent = assertIs<PopupUiEvent>(popup)
+        assertEquals("TARGET-IP's firewall has caused the change daily pay to fail.", popupEvent.message)
+        assertEquals(PopupUiStyle.MESSAGE, popupEvent.style)
+        assertTrue(response.accepted)
+        assertEquals(ChangeDailyPayOutcome.FIREWALL_NOOP, response.outcome)
+        assertTrue(attacker.drainFrames().isEmpty())
+        assertTrue(target.drainFrames().isEmpty())
+    }
+
+    @Test
+    fun changeDailyPayInvalidTargetPortReturnsAnErrorWithoutUiEvents() = runTest {
+        val fixture = createFixture()
+        val attacker = fixture.authenticatedConnection("LOCAL-IP")
+        val target = fixture.authenticatedConnection("TARGET-IP")
+
+        attacker.send(
+            RewriteFrames.command(
+                commandId = "changedailypay-invalid-port-1",
+                commandName = "changedailypay",
+                payload = RewriteGameJson.encode(
+                    serializer = ChangeDailyPayPayload.serializer(),
+                    value = ChangeDailyPayPayload(
+                        ip = "TARGET-IP",
+                        port = 999,
+                        change = "REV-IP",
+                        finalizeIp = "LOCAL-IP",
+                        attackPort = 0,
+                    ),
+                ),
+                expectsResponse = true,
+            ),
+        )
+
+        val responseFrame = attacker.awaitFrame()
+
+        assertEquals(CommandResponseStatus.COMMAND_RESPONSE_STATUS_ERROR, responseFrame.command_response?.status)
+        assertTrue(attacker.drainFrames().isEmpty())
+        assertTrue(target.drainFrames().isEmpty())
     }
 
     @Test
@@ -340,6 +451,163 @@ class RewriteGameAttackProtocolAdapterTest {
         assertEquals(setOf("ports"), targetDelta.delta?.delta_keys?.toSet())
         assertEquals(setOf("combat", "stats"), attackerDelta.delta?.delta_keys?.toSet())
         assertEquals(ProgramStatus.PROGRAM_STATUS_RUNNING, updateFrame.program_update?.status)
+        assertTrue(target.drainFrames().isEmpty())
+    }
+
+    @Test
+    fun continueChangeDailyPayPublishesUiEventsAfterTickDeltasAndBeforeCancelledUpdate() = runTest {
+        val fixture = createFixture(
+            localState = attackerState(
+                GameStateId("LOCAL-IP"),
+                attackScriptBundle = attackScriptBundle(
+                    continueScript = """int main() { changeDailyPay("REV-IP"); return 0; }""",
+                ),
+            ),
+            targetState = targetState(
+                GameStateId("TARGET-IP"),
+                installedApplication = InstalledApplication(
+                    name = "site.bin",
+                    kind = ApplicationKind.HTTP,
+                ),
+                firewallActionProfile = FirewallActionProfile(
+                    changeDailyPayReductionMultiplier = 0.3,
+                ),
+            ),
+        )
+        val attacker = fixture.authenticatedConnection("LOCAL-IP")
+        val target = fixture.authenticatedConnection("TARGET-IP")
+
+        attacker.send(
+            RewriteFrames.command(
+                commandId = "attack-continue-change-pay-start",
+                commandName = "requestattack",
+                payload = RewriteGameJson.encode(
+                    serializer = RequestAttackPayload.serializer(),
+                    value = RequestAttackPayload(
+                        targetIp = "TARGET-IP",
+                        targetPort = 25,
+                        sourceIp = "LOCAL-IP",
+                        sourcePort = 12,
+                    ),
+                ),
+                expectsResponse = true,
+            ),
+        )
+        attacker.awaitFrame()
+        target.awaitFrame()
+        attacker.awaitFrame()
+        runCurrent()
+        attacker.awaitFrame()
+
+        advanceTimeBy(180_100)
+        runCurrent()
+
+        val targetDelta = target.awaitFrame()
+        val attackerDelta = attacker.awaitFrame()
+        val attackMessageFrame = attacker.awaitFrame()
+        val textMessageFrame = attacker.awaitFrame()
+        val cancelledFrame = attacker.awaitFrame()
+        val attackMessage = RewriteGameJson.decode(
+            serializer = GameUiEvent.serializer(),
+            payload = attackMessageFrame.game_ui_event!!.payload.toByteArray(),
+        )
+        val textMessage = RewriteGameJson.decode(
+            serializer = GameUiEvent.serializer(),
+            payload = textMessageFrame.game_ui_event!!.payload.toByteArray(),
+        )
+
+        assertEquals("TARGET-IP", targetDelta.delta?.game_state_id)
+        assertEquals("LOCAL-IP", attackerDelta.delta?.game_state_id)
+        assertEquals("attack_message", attackMessageFrame.game_ui_event?.event_type)
+        assertEquals(
+            "Daily pay successfully changed.",
+            assertIs<AttackMessageUiEvent>(attackMessage).message,
+        )
+        assertEquals("message", textMessageFrame.game_ui_event?.event_type)
+        assertEquals(
+            "Daily pay successfully changed.",
+            assertIs<TextMessageUiEvent>(textMessage).message,
+        )
+        assertEquals(ProgramStatus.PROGRAM_STATUS_CANCELLED, cancelledFrame.program_update?.status)
+        assertTrue(target.drainFrames().isEmpty())
+    }
+
+    @Test
+    fun finalizeChangeDailyPayPublishesUiEventsAfterCompletionDeltasAndBeforeCompletedUpdate() = runTest {
+        val fixture = createFixture(
+            localState = attackerState(
+                GameStateId("LOCAL-IP"),
+                attackScriptBundle = attackScriptBundle(
+                    finalize = """int main() { changeDailyPay("REV-IP"); return 0; }""",
+                ),
+            ),
+            targetState = targetState(
+                GameStateId("TARGET-IP"),
+                health = 1.5,
+                installedApplication = InstalledApplication(
+                    name = "site.bin",
+                    kind = ApplicationKind.HTTP,
+                ),
+                firewallActionProfile = FirewallActionProfile(
+                    changeDailyPayReductionMultiplier = 0.3,
+                ),
+            ),
+        )
+        val attacker = fixture.authenticatedConnection("LOCAL-IP")
+        val target = fixture.authenticatedConnection("TARGET-IP")
+
+        attacker.send(
+            RewriteFrames.command(
+                commandId = "attack-finalize-change-pay-start",
+                commandName = "requestattack",
+                payload = RewriteGameJson.encode(
+                    serializer = RequestAttackPayload.serializer(),
+                    value = RequestAttackPayload(
+                        targetIp = "TARGET-IP",
+                        targetPort = 25,
+                        sourceIp = "LOCAL-IP",
+                        sourcePort = 12,
+                    ),
+                ),
+                expectsResponse = true,
+            ),
+        )
+        attacker.awaitFrame()
+        target.awaitFrame()
+        attacker.awaitFrame()
+        runCurrent()
+        attacker.awaitFrame()
+
+        advanceTimeBy(180_100)
+        runCurrent()
+
+        val targetDelta = target.awaitFrame()
+        val attackerDelta = attacker.awaitFrame()
+        val attackMessageFrame = attacker.awaitFrame()
+        val textMessageFrame = attacker.awaitFrame()
+        val completedFrame = attacker.awaitFrame()
+        val attackMessage = RewriteGameJson.decode(
+            serializer = GameUiEvent.serializer(),
+            payload = attackMessageFrame.game_ui_event!!.payload.toByteArray(),
+        )
+        val textMessage = RewriteGameJson.decode(
+            serializer = GameUiEvent.serializer(),
+            payload = textMessageFrame.game_ui_event!!.payload.toByteArray(),
+        )
+
+        assertEquals("TARGET-IP", targetDelta.delta?.game_state_id)
+        assertEquals("LOCAL-IP", attackerDelta.delta?.game_state_id)
+        assertEquals("attack_message", attackMessageFrame.game_ui_event?.event_type)
+        assertEquals(
+            "Daily pay successfully changed.",
+            assertIs<AttackMessageUiEvent>(attackMessage).message,
+        )
+        assertEquals("message", textMessageFrame.game_ui_event?.event_type)
+        assertEquals(
+            "Daily pay successfully changed.",
+            assertIs<TextMessageUiEvent>(textMessage).message,
+        )
+        assertEquals(ProgramStatus.PROGRAM_STATUS_COMPLETED, completedFrame.program_update?.status)
         assertTrue(target.drainFrames().isEmpty())
     }
 

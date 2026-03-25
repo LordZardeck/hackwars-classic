@@ -359,54 +359,63 @@ internal suspend fun performChangeDailyPay(
 ): ChangeDailyPayResponse {
     val currentRevenueTargetStateId = targetState.dailyPay.resolvedRevenueTargetStateId(targetState.id)
     if (!targetPortState.isHttpApplication()) {
-        return ChangeDailyPayResponse(
-            actorStateId = actorState.id,
-            targetStateId = targetState.id,
-            targetPort = targetPortState.number,
-            requestedRevenueTargetStateId = requestedRevenueTargetStateId,
-            accepted = true,
-            outcome = ChangeDailyPayOutcome.WRONG_PORT_TYPE,
-            message = "change-daily-pay-wrong-port-type",
-            reductionMultiplierAfter = targetState.dailyPay.reductionMultiplier,
-            revenueTargetStateIdAfter = currentRevenueTargetStateId,
-            requesterHttpExperienceAfter = actorState.stats.skillExperience(ScriptFamily.HTTP),
-            actorVersion = actorState.version,
-            targetVersion = targetState.version,
+        return publishChangeDailyPayUiEvents(
+            context = context,
+            response = ChangeDailyPayResponse(
+                actorStateId = actorState.id,
+                targetStateId = targetState.id,
+                targetPort = targetPortState.number,
+                requestedRevenueTargetStateId = requestedRevenueTargetStateId,
+                accepted = true,
+                outcome = ChangeDailyPayOutcome.WRONG_PORT_TYPE,
+                message = "change-daily-pay-wrong-port-type",
+                reductionMultiplierAfter = targetState.dailyPay.reductionMultiplier,
+                revenueTargetStateIdAfter = currentRevenueTargetStateId,
+                requesterHttpExperienceAfter = actorState.stats.skillExperience(ScriptFamily.HTTP),
+                actorVersion = actorState.version,
+                targetVersion = targetState.version,
+            ),
         )
     }
 
     val actionProfile = targetPortState.installedFirewall?.actionProfile ?: FirewallActionProfile()
     if (actionProfile.changeDailyPayFailChance > 0.0) {
-        return ChangeDailyPayResponse(
-            actorStateId = actorState.id,
-            targetStateId = targetState.id,
-            targetPort = targetPortState.number,
-            requestedRevenueTargetStateId = requestedRevenueTargetStateId,
-            accepted = true,
-            outcome = ChangeDailyPayOutcome.FIREWALL_NOOP,
-            message = "change-daily-pay-firewall-noop",
-            reductionMultiplierAfter = targetState.dailyPay.reductionMultiplier,
-            revenueTargetStateIdAfter = currentRevenueTargetStateId,
-            requesterHttpExperienceAfter = actorState.stats.skillExperience(ScriptFamily.HTTP),
-            actorVersion = actorState.version,
-            targetVersion = targetState.version,
+        return publishChangeDailyPayUiEvents(
+            context = context,
+            response = ChangeDailyPayResponse(
+                actorStateId = actorState.id,
+                targetStateId = targetState.id,
+                targetPort = targetPortState.number,
+                requestedRevenueTargetStateId = requestedRevenueTargetStateId,
+                accepted = true,
+                outcome = ChangeDailyPayOutcome.FIREWALL_NOOP,
+                message = "change-daily-pay-firewall-noop",
+                reductionMultiplierAfter = targetState.dailyPay.reductionMultiplier,
+                revenueTargetStateIdAfter = currentRevenueTargetStateId,
+                requesterHttpExperienceAfter = actorState.stats.skillExperience(ScriptFamily.HTTP),
+                actorVersion = actorState.version,
+                targetVersion = targetState.version,
+            ),
         )
     }
 
     if (targetState.dailyPay.lastBountyHttpStateId == actorState.id) {
-        return ChangeDailyPayResponse(
-            actorStateId = actorState.id,
-            targetStateId = targetState.id,
-            targetPort = targetPortState.number,
-            requestedRevenueTargetStateId = requestedRevenueTargetStateId,
-            accepted = true,
-            outcome = ChangeDailyPayOutcome.BOUNTY_GUARD,
-            message = "change-daily-pay-bounty-guard",
-            reductionMultiplierAfter = targetState.dailyPay.reductionMultiplier,
-            revenueTargetStateIdAfter = currentRevenueTargetStateId,
-            requesterHttpExperienceAfter = actorState.stats.skillExperience(ScriptFamily.HTTP),
-            actorVersion = actorState.version,
-            targetVersion = targetState.version,
+        return publishChangeDailyPayUiEvents(
+            context = context,
+            response = ChangeDailyPayResponse(
+                actorStateId = actorState.id,
+                targetStateId = targetState.id,
+                targetPort = targetPortState.number,
+                requestedRevenueTargetStateId = requestedRevenueTargetStateId,
+                accepted = true,
+                outcome = ChangeDailyPayOutcome.BOUNTY_GUARD,
+                message = "change-daily-pay-bounty-guard",
+                reductionMultiplierAfter = targetState.dailyPay.reductionMultiplier,
+                revenueTargetStateIdAfter = currentRevenueTargetStateId,
+                requesterHttpExperienceAfter = actorState.stats.skillExperience(ScriptFamily.HTTP),
+                actorVersion = actorState.version,
+                targetVersion = targetState.version,
+            ),
         )
     }
 
@@ -423,19 +432,22 @@ internal suspend fun performChangeDailyPay(
                 next = nextDailyPay,
             )
         }
-        return ChangeDailyPayResponse(
-            actorStateId = actorState.id,
-            targetStateId = targetState.id,
-            targetPort = targetPortState.number,
-            requestedRevenueTargetStateId = requestedRevenueTargetStateId,
-            accepted = true,
-            outcome = ChangeDailyPayOutcome.ALREADY_CONTROLLED,
-            message = "change-daily-pay-already-controlled",
-            reductionMultiplierAfter = nextDailyPay.reductionMultiplier,
-            revenueTargetStateIdAfter = nextDailyPay.resolvedRevenueTargetStateId(targetState.id),
-            requesterHttpExperienceAfter = actorState.stats.skillExperience(ScriptFamily.HTTP),
-            actorVersion = actorState.version,
-            targetVersion = updatedTarget.version,
+        return publishChangeDailyPayUiEvents(
+            context = context,
+            response = ChangeDailyPayResponse(
+                actorStateId = actorState.id,
+                targetStateId = targetState.id,
+                targetPort = targetPortState.number,
+                requestedRevenueTargetStateId = requestedRevenueTargetStateId,
+                accepted = true,
+                outcome = ChangeDailyPayOutcome.ALREADY_CONTROLLED,
+                message = "change-daily-pay-already-controlled",
+                reductionMultiplierAfter = nextDailyPay.reductionMultiplier,
+                revenueTargetStateIdAfter = nextDailyPay.resolvedRevenueTargetStateId(targetState.id),
+                requesterHttpExperienceAfter = actorState.stats.skillExperience(ScriptFamily.HTTP),
+                actorVersion = actorState.version,
+                targetVersion = updatedTarget.version,
+            ),
         )
     }
 
@@ -471,20 +483,75 @@ internal suspend fun performChangeDailyPay(
         previous = targetState.dailyPay,
         next = nextDailyPay,
     )
-    return ChangeDailyPayResponse(
-        actorStateId = actorState.id,
-        targetStateId = targetState.id,
-        targetPort = targetPortState.number,
-        requestedRevenueTargetStateId = requestedRevenueTargetStateId,
-        accepted = true,
-        outcome = ChangeDailyPayOutcome.SUCCESS,
-        message = "change-daily-pay-success",
-        reductionMultiplierAfter = nextDailyPay.reductionMultiplier,
-        revenueTargetStateIdAfter = nextDailyPay.resolvedRevenueTargetStateId(targetState.id),
-        requesterHttpExperienceAfter = updatedActor.stats.skillExperience(ScriptFamily.HTTP),
-        actorVersion = updatedActor.version,
-        targetVersion = updatedTarget.version,
+    return publishChangeDailyPayUiEvents(
+        context = context,
+        response = ChangeDailyPayResponse(
+            actorStateId = actorState.id,
+            targetStateId = targetState.id,
+            targetPort = targetPortState.number,
+            requestedRevenueTargetStateId = requestedRevenueTargetStateId,
+            accepted = true,
+            outcome = ChangeDailyPayOutcome.SUCCESS,
+            message = "change-daily-pay-success",
+            reductionMultiplierAfter = nextDailyPay.reductionMultiplier,
+            revenueTargetStateIdAfter = nextDailyPay.resolvedRevenueTargetStateId(targetState.id),
+            requesterHttpExperienceAfter = updatedActor.stats.skillExperience(ScriptFamily.HTTP),
+            actorVersion = updatedActor.version,
+            targetVersion = updatedTarget.version,
+        ),
     )
+}
+
+private suspend fun publishChangeDailyPayUiEvents(
+    context: CommandContext,
+    response: ChangeDailyPayResponse,
+): ChangeDailyPayResponse {
+    val events = when (response.outcome) {
+        ChangeDailyPayOutcome.SUCCESS -> listOf(
+            AttackMessageUiEvent(
+                message = "Daily pay successfully changed.",
+                port = response.targetPort,
+                ip = response.targetStateId.value,
+            ),
+            TextMessageUiEvent("Daily pay successfully changed."),
+        )
+
+        ChangeDailyPayOutcome.ALREADY_CONTROLLED -> listOf(
+            AttackMessageUiEvent(
+                message = "You already controlled this HTTP.",
+                port = response.targetPort,
+                ip = response.targetStateId.value,
+            ),
+        )
+
+        ChangeDailyPayOutcome.WRONG_PORT_TYPE -> listOf(
+            PopupUiEvent(
+                message = "You can only change daily pay on an HTTP port.",
+                style = PopupUiStyle.ERROR,
+            ),
+        )
+
+        ChangeDailyPayOutcome.BOUNTY_GUARD -> listOf(
+            PopupUiEvent(
+                message = "You cannot immediately take back over an HTTP attacked as part of a bounty.",
+                style = PopupUiStyle.ERROR,
+            ),
+        )
+
+        ChangeDailyPayOutcome.FIREWALL_NOOP -> listOf(
+            PopupUiEvent(
+                message = "${response.targetStateId.value}'s firewall has caused the change daily pay to fail.",
+                style = PopupUiStyle.MESSAGE,
+            ),
+        )
+    }
+    events.forEach { event ->
+        context.publishUiEvent(
+            targetStateIds = setOf(response.actorStateId),
+            event = event,
+        )
+    }
+    return response
 }
 
 private suspend fun updateDailyPayState(

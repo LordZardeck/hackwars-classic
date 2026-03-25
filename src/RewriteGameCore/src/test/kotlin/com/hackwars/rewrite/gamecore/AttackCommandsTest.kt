@@ -3365,8 +3365,89 @@ class AttackCommandsTest {
         assertEquals(0.3, updatedTarget.dailyPay.reductionMultiplier)
         assertEquals(100.0, updatedTarget.port(25)?.health)
         assertEquals(97.8, updatedTarget.port(26)?.health)
-        assertEquals(setOf("dailyPay", "ports"), publisher.deltas.single { it.first == setOf("target-conn") }.second.deltaKeys)
+        assertEquals(setOf("dailyPay", "ports", "combat"), publisher.deltas.single { it.first == setOf("target-conn") }.second.deltaKeys)
+        assertEquals(listOf(setOf("attacker-conn"), setOf("attacker-conn")), publisher.uiEvents.map { it.first })
+        val retargetMessage = assertIs<AttackMessageUiEvent>(publisher.uiEvents[0].second)
+        assertEquals("Daily pay successfully changed.", retargetMessage.message)
+        assertEquals(26, retargetMessage.port)
+        assertEquals(targetId.value, retargetMessage.ip)
+        assertEquals(
+            "Daily pay successfully changed.",
+            assertIs<TextMessageUiEvent>(publisher.uiEvents[1].second).message,
+        )
         assertEquals(ProgramLifecycleStatus.CANCELLED, publisher.programUpdates.single().second.status)
+    }
+
+    @Test
+    fun finalizeChangeDailyPayPublishesDailyPayUiEventsBeforeCompletionCleanup() = runTest {
+        val attackerId = GameStateId("ATTACKER-IP")
+        val targetId = GameStateId("TARGET-IP")
+        val repository = InMemoryComputerStateRepository(
+            seededStates = mapOf(
+                attackerId to attackerState(
+                    attackerId,
+                    attackScriptBundle = attackScriptBundle(
+                        finalize = """int main() { changeDailyPay("REV-IP"); return 0; }""",
+                    ),
+                ),
+                targetId to targetState(
+                    targetId,
+                    health = 1.5,
+                    installedApplication = InstalledApplication(
+                        name = "site.bin",
+                        kind = ApplicationKind.HTTP,
+                    ),
+                    portType = "http",
+                    firewallActionProfile = FirewallActionProfile(
+                        changeDailyPayReductionMultiplier = 0.3,
+                    ),
+                ),
+            ),
+        )
+        val interests = InMemoryInterestRegistry().apply {
+            register("attacker-conn", attackerId)
+            register("target-conn", targetId)
+        }
+        val publisher = RecordingGameStatePublisher()
+        val registry = InMemoryAttackProgramRegistry()
+        val dispatcher = dispatcher(repository, interests)
+
+        dispatcher.request(
+            command = RequestAttackCommand(
+                attackerStateId = attackerId,
+                targetStateId = targetId,
+                sourceIp = attackerId.value,
+                sourcePort = 12,
+                targetPort = 25,
+                loadout = AttackLoadout(),
+                attackProgramRegistry = registry,
+            ),
+            metadata = CommandMetadata(connectionId = "attacker-conn", requestId = "attack-finalize-change-pay"),
+            publisher = publisher,
+        )
+        runCurrent()
+        publisher.deltas.clear()
+        publisher.programUpdates.clear()
+        publisher.uiEvents.clear()
+
+        advanceTimeBy(180_100)
+        runCurrent()
+
+        val updatedTarget = requireNotNull(repository.load(targetId))
+
+        assertEquals(0.0, updatedTarget.port(25)?.health)
+        assertEquals(GameStateId("REV-IP"), updatedTarget.dailyPay.revenueTargetStateId)
+        assertEquals(0.3, updatedTarget.dailyPay.reductionMultiplier)
+        assertEquals(listOf(setOf("attacker-conn"), setOf("attacker-conn")), publisher.uiEvents.map { it.first })
+        val completionMessage = assertIs<AttackMessageUiEvent>(publisher.uiEvents[0].second)
+        assertEquals("Daily pay successfully changed.", completionMessage.message)
+        assertEquals(25, completionMessage.port)
+        assertEquals(targetId.value, completionMessage.ip)
+        assertEquals(
+            "Daily pay successfully changed.",
+            assertIs<TextMessageUiEvent>(publisher.uiEvents[1].second).message,
+        )
+        assertEquals(ProgramLifecycleStatus.COMPLETED, publisher.programUpdates.single().second.status)
     }
 
     @Test
