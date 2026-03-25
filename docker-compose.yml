@@ -1,0 +1,28 @@
+services:
+  mysql:
+    platform: linux/amd64
+    build:
+      context: .
+      dockerfile: docker/mysql/Dockerfile
+    container_name: hackwars-mysql
+    ports:
+      - "${MYSQL_PORT:-3306}:3306"
+    environment:
+      MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
+      MYSQL_ROOT_HOST: "%"
+    command:
+      - --character-set-server=latin1
+      - --collation-server=latin1_swedish_ci
+      - --max_allowed_packet=128M
+      - --sql-mode=
+    volumes:
+      - hackwars-mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+volumes:
+  hackwars-mysql-data:
