@@ -128,6 +128,10 @@ data class AttackSendMessageEffect(
 ) : AttackRuntimeEffect
 
 @Serializable
+@SerialName("attack_show_choices")
+data object AttackShowChoicesEffect : AttackRuntimeEffect
+
+@Serializable
 @SerialName("attack_authorize_zombie")
 data class AttackAuthorizeZombieEffect(
     val targetIp: String,
@@ -387,6 +391,23 @@ private class AttackScriptHost(
                             state.messageSent = true
                         }
                     }
+                }
+                HackValue.IntValue(0)
+            }
+
+            "showChoices" -> {
+                if (arguments.isNotEmpty()) {
+                    state.diagnostics += HackScriptDiagnostic(
+                        code = "BAD_ARGUMENT_COUNT",
+                        message = "showChoices expects 0 arguments.",
+                    )
+                } else if (state.input.phase !in setOf(AttackExecutionPhase.CONTINUE, AttackExecutionPhase.FINALIZE)) {
+                    state.diagnostics += HackScriptDiagnostic(
+                        code = "UNSUPPORTED_PHASE",
+                        message = "showChoices is only supported during CONTINUE and FINALIZE.",
+                    )
+                } else {
+                    state.effects += AttackShowChoicesEffect
                 }
                 HackValue.IntValue(0)
             }

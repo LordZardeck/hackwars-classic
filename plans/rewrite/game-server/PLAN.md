@@ -474,8 +474,8 @@
   - Zombie-session `ProgramUpdate` frames are now controller-scoped only, while zombie-host subscribers still receive their own normal state deltas.
 
 ### RW-GS-S5B2B2B3B2C3B - public zombie attack or cancel transport and UI
-- Status: `in_progress`
-- Owner: `unassigned`
+- Status: `done`
+- Owner: `codex`
 - Depends on: `RW-GS-S5B2B2B3B2C3A`
 - Allowed write scope: `:RewriteHackScript`, `:RewriteGameCore`, `:RewriteGameServer`, `:RewritePersistence`
 - Verification command: `./gradlew :RewriteHackScript:test :RewriteGameCore:test :RewritePersistence:test :RewriteGameServer:test :RewriteTestKit:integrationTest`
@@ -488,8 +488,8 @@
   - Keeps watch-side zombie compatibility and broader zombie UX polish deferred to the next slice.
 
 ### RW-GS-S5B2B2B3B2C3C - watch-side zombie compatibility and zombie UX polish
-- Status: `todo`
-- Owner: `unassigned`
+- Status: `in_progress`
+- Owner: `codex`
 - Depends on: `RW-GS-S5B2B2B3B2C3B`
 - Allowed write scope: `:RewriteHackScript`, `:RewriteGameCore`, `:RewriteGameServer`, `:RewritePersistence`
 - Verification command: `./gradlew :RewriteHackScript:test :RewriteGameCore:test :RewritePersistence:test :RewriteGameServer:test :RewriteTestKit:integrationTest`
@@ -497,6 +497,8 @@
 - Commit rule: `single green commit only`
 - Notes:
   - Owns watch-side `zombieAttack(...)` compatibility and the remaining zombie-specific UX polish after the controller runtime foundation and public wires are stable.
+  - Adds typed `show_choices` UI delivery for direct and zombie attack sessions, including controller-only routing for zombie sessions and persisted once-per-session prompt state.
+  - Watch-triggered `zombieAttack(...)` now reuses the same internal zombie-session admission, charge, CPU reservation, and failure-UI mapping as the public zombie transport without adding a correlated response surface.
   - Keeps `launchnetworkattack` plus redirecting or shipping-port semantics deferred until the rewrite has the needed typed port and network models.
 
 ### RW-GS-S5C - Redirect, zombie, and combat cleanup

@@ -43,6 +43,8 @@ import com.hackwars.rewrite.gamecore.RequestZombieCancelAttackPayload
 import com.hackwars.rewrite.gamecore.RewriteGameJson
 import com.hackwars.rewrite.gamecore.RuntimeState
 import com.hackwars.rewrite.gamecore.ScriptFamily
+import com.hackwars.rewrite.gamecore.ShowChoicesType
+import com.hackwars.rewrite.gamecore.ShowChoicesUiEvent
 import com.hackwars.rewrite.gamecore.StoredFile
 import com.hackwars.rewrite.gamecore.TextMessageUiEvent
 import com.hackwars.rewrite.gamecore.WatchKind
@@ -772,6 +774,73 @@ class RewriteGameAttackProtocolAdapterTest {
         assertEquals("retreat", assertIs<TextMessageUiEvent>(message).message)
         assertEquals(ProgramStatus.PROGRAM_STATUS_CANCELLED, updateFrame.program_update?.status)
         assertTrue(target.drainFrames().none { it.program_update != null })
+    }
+
+    @Test
+    fun continueShowChoicesSerializesTypedUiEventBeforeCancelledUpdate() = runTest {
+        val fixture = createFixture(
+            localState = attackerState(
+                GameStateId("LOCAL-IP"),
+                attackScriptBundle = attackScriptBundle(
+                    continueScript = """int main() { showChoices(); cancelAttack(); return 0; }""",
+                ),
+            ),
+            targetState = targetState(
+                GameStateId("TARGET-IP"),
+                installedApplication = InstalledApplication(
+                    name = "target-http.bin",
+                    kind = ApplicationKind.HTTP,
+                    cpuCost = 2.0,
+                ),
+            ),
+        )
+        val attacker = fixture.authenticatedConnection("LOCAL-IP")
+        val target = fixture.authenticatedConnection("TARGET-IP")
+
+        attacker.send(
+            RewriteFrames.command(
+                commandId = "attack-continue-show-choices-start",
+                commandName = "requestattack",
+                payload = RewriteGameJson.encode(
+                    serializer = RequestAttackPayload.serializer(),
+                    value = RequestAttackPayload(
+                        targetIp = "TARGET-IP",
+                        targetPort = 25,
+                        sourceIp = "LOCAL-IP",
+                        sourcePort = 12,
+                    ),
+                ),
+                expectsResponse = true,
+            ),
+        )
+        attacker.awaitFrame()
+        target.awaitFrame()
+        attacker.awaitFrame()
+        runCurrent()
+        attacker.awaitFrame()
+
+        advanceTimeBy(180_100)
+        runCurrent()
+
+        val targetDelta = target.awaitFrame()
+        val attackerDelta = attacker.awaitFrame()
+        val showChoicesFrame = attacker.awaitFrame()
+        val showChoices = RewriteGameJson.decode(
+            serializer = GameUiEvent.serializer(),
+            payload = showChoicesFrame.game_ui_event!!.payload.toByteArray(),
+        )
+        val updateFrame = attacker.awaitFrame()
+
+        assertEquals(setOf("ports", "combat"), targetDelta.delta?.delta_keys?.toSet())
+        assertEquals(setOf("combat", "ports", "runtime", "stats"), attackerDelta.delta?.delta_keys?.toSet())
+        assertEquals("show_choices", showChoicesFrame.game_ui_event?.event_type)
+        val event = assertIs<ShowChoicesUiEvent>(showChoices)
+        assertEquals("TARGET-IP", event.targetIp)
+        assertEquals(25, event.targetPort)
+        assertEquals(ShowChoicesType.HTTP, event.choiceType)
+        assertEquals(0, event.windowHandle)
+        assertEquals(ProgramStatus.PROGRAM_STATUS_CANCELLED, updateFrame.program_update?.status)
+        assertTrue(target.drainFrames().none { it.game_ui_event != null || it.program_update != null })
     }
 
     @Test
@@ -2341,6 +2410,81 @@ class RewriteGameAttackProtocolAdapterTest {
     }
 
     @Test
+    fun zombieContinueShowChoicesRoutesOnlyToControllerListeners() = runTest {
+        val zombieId = GameStateId("ZOMBIE-IP")
+        val fixture = createFixture(
+            targetState = targetState(
+                GameStateId("TARGET-IP"),
+                installedApplication = InstalledApplication(
+                    name = "target-http.bin",
+                    kind = ApplicationKind.HTTP,
+                    cpuCost = 2.0,
+                ),
+            ),
+            extraStates = mapOf(
+                zombieId to attackerState(
+                    zombieId,
+                    attackScriptBundle = zombieAuthorizedBundle(
+                        "LOCAL-IP",
+                        continueScript = """int main() { showChoices(); cancelAttack(); return 0; }""",
+                    ),
+                ),
+            ),
+        )
+        val controller = fixture.authenticatedConnection("LOCAL-IP")
+        val zombie = fixture.authenticatedConnection("ZOMBIE-IP")
+        val target = fixture.authenticatedConnection("TARGET-IP")
+
+        controller.send(
+            RewriteFrames.command(
+                commandId = "zombie-show-choices-start",
+                commandName = "requestzombieattack",
+                payload = RewriteGameJson.encode(
+                    serializer = RequestZombieAttackPayload.serializer(),
+                    value = RequestZombieAttackPayload(
+                        targetIp = "TARGET-IP",
+                        targetPort = 25,
+                        sourceIp = "ZOMBIE-IP",
+                        sourcePort = 12,
+                        parentIp = "LOCAL-IP",
+                    ),
+                ),
+                expectsResponse = true,
+            ),
+        )
+        controller.awaitFrame()
+        zombie.awaitFrame()
+        target.awaitFrame()
+        controller.awaitFrame()
+        runCurrent()
+        controller.awaitFrame()
+
+        advanceTimeBy(180_100)
+        runCurrent()
+
+        zombie.awaitFrame()
+        target.awaitFrame()
+        val controllerDelta = controller.awaitFrame()
+        val showChoicesFrame = controller.awaitFrame()
+        val showChoices = RewriteGameJson.decode(
+            serializer = GameUiEvent.serializer(),
+            payload = showChoicesFrame.game_ui_event!!.payload.toByteArray(),
+        )
+        val updateFrame = controller.awaitFrame()
+
+        assertEquals(setOf("stats"), controllerDelta.delta?.delta_keys?.toSet())
+        assertEquals("show_choices", showChoicesFrame.game_ui_event?.event_type)
+        val event = assertIs<ShowChoicesUiEvent>(showChoices)
+        assertEquals("TARGET-IP", event.targetIp)
+        assertEquals(25, event.targetPort)
+        assertEquals(ShowChoicesType.HTTP, event.choiceType)
+        assertEquals(0, event.windowHandle)
+        assertEquals(ProgramStatus.PROGRAM_STATUS_CANCELLED, updateFrame.program_update?.status)
+        assertTrue(zombie.drainFrames().none { it.game_ui_event != null || it.program_update != null })
+        assertTrue(target.drainFrames().none { it.game_ui_event != null || it.program_update != null })
+    }
+
+    @Test
     fun requestZombieCancelAttackPublishesCleanupAndCancelledUpdateBeforeResponse() = runTest {
         val zombieId = GameStateId("ZOMBIE-IP")
         val fixture = createFixture(
@@ -2546,6 +2690,7 @@ class RewriteGameAttackProtocolAdapterTest {
             dispatcher = DefaultCommandDispatcher(
                 repository = repository,
                 interestRegistry = interests,
+                attackProgramRegistry = registry,
                 programScheduler = CoroutineProgramScheduler(
                     dispatcher = null,
                     interestRegistry = interests,
@@ -2823,9 +2968,15 @@ class RewriteGameAttackProtocolAdapterTest {
         )
     }
 
-    private fun zombieAuthorizedBundle(controllerIp: String): ProgramScriptBundle {
+    private fun zombieAuthorizedBundle(
+        controllerIp: String,
+        continueScript: String? = null,
+        finalize: String? = null,
+    ): ProgramScriptBundle {
         return attackScriptBundle(
             initialize = """int main() { zombie("$controllerIp"); return 0; }""",
+            continueScript = continueScript,
+            finalize = finalize,
         )
     }
 }

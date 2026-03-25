@@ -68,6 +68,15 @@ data class DepositPettyCashEffect(
     val amount: Double? = null,
 ) : WatchRuntimeEffect
 
+@Serializable
+@SerialName("watch_zombie_attack")
+data class WatchZombieAttackEffect(
+    val parentIp: String,
+    val sourcePort: Int,
+    val targetIp: String,
+    val targetPort: Int,
+) : WatchRuntimeEffect
+
 data class WatchExecutionResult(
     val effects: List<WatchRuntimeEffect> = emptyList(),
 )
@@ -118,6 +127,44 @@ private class WatchScriptHost(
                     )
                 }
                 state.effects += DepositPettyCashEffect(arguments.singleOrNull()?.asDouble())
+                HackValue.IntValue(0)
+            }
+
+            "zombieAttack" -> {
+                when {
+                    arguments.size != 4 -> {
+                        state.diagnostics += HackScriptDiagnostic(
+                            code = "BAD_ARGUMENT_COUNT",
+                            message = "zombieAttack expects 4 arguments.",
+                        )
+                    }
+
+                    arguments[0] !is HackValue.StringValue ||
+                        arguments[1] !is HackValue.IntValue ||
+                        arguments[2] !is HackValue.StringValue ||
+                        arguments[3] !is HackValue.IntValue -> {
+                        state.diagnostics += HackScriptDiagnostic(
+                            code = "BAD_ARGUMENT_TYPE",
+                            message = "zombieAttack expects (string, int, string, int).",
+                        )
+                    }
+
+                    !state.input.external -> {
+                        state.diagnostics += HackScriptDiagnostic(
+                            code = "UNSUPPORTED_TRIGGER_SOURCE",
+                            message = "zombieAttack only works during external trigger watch execution.",
+                        )
+                    }
+
+                    else -> {
+                        state.effects += WatchZombieAttackEffect(
+                            parentIp = (arguments[0] as HackValue.StringValue).value,
+                            sourcePort = (arguments[1] as HackValue.IntValue).value,
+                            targetIp = (arguments[2] as HackValue.StringValue).value,
+                            targetPort = (arguments[3] as HackValue.IntValue).value,
+                        )
+                    }
+                }
                 HackValue.IntValue(0)
             }
 

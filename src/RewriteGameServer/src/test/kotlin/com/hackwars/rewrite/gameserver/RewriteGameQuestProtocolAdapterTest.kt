@@ -9,7 +9,9 @@ import com.hackwars.rewrite.gamecore.ComputerState
 import com.hackwars.rewrite.gamecore.DeltaProjection
 import com.hackwars.rewrite.gamecore.EconomyState
 import com.hackwars.rewrite.gamecore.GameStateId
+import com.hackwars.rewrite.gamecore.HardwareState
 import com.hackwars.rewrite.gamecore.HookSideEffectSink
+import com.hackwars.rewrite.gamecore.InMemoryAttackProgramRegistry
 import com.hackwars.rewrite.gamecore.InMemoryComputerStateRepository
 import com.hackwars.rewrite.gamecore.InMemoryInterestRegistry
 import com.hackwars.rewrite.gamecore.InMemoryNetworkDirectoryRepository
@@ -259,24 +261,80 @@ class RewriteGameQuestProtocolAdapterTest {
         assertTrue(local.drainFrames().isEmpty())
     }
 
-    private fun TestScope.createFixture(): Fixture {
-        val repository = InMemoryComputerStateRepository(
-            seededStates = mapOf(
-                GameStateId("LOCAL-IP") to localState(),
-                GameStateId("TARGET-IP") to targetState(),
-                GameStateId("store1") to storeState(),
+    @Test
+    fun requestTriggerCanStartZombieAttackWithoutANewCorrelatedZombieResponse() = runTest {
+        val victimId = GameStateId("VICTIM-IP")
+        val fixture = createFixture(
+            targetState = watchZombieControllerState(),
+            extraStates = mapOf(victimId to zombieVictimState(victimId)),
+        )
+        val local = fixture.authenticatedConnection("LOCAL-IP")
+        val watchHost = fixture.authenticatedConnection("TARGET-IP")
+        val victim = fixture.authenticatedConnection("VICTIM-IP")
+
+        local.send(
+            RewriteFrames.command(
+                commandId = "trigger-zombie-1",
+                commandName = "requesttrigger",
+                payload = RewriteGameJson.encode(
+                    serializer = RequestTriggerPayload.serializer(),
+                    value = RequestTriggerPayload(
+                        selector = TriggerSelector.ByIndex(0),
+                        triggerParameters = emptyMap(),
+                        sourceIp = "LOCAL-IP",
+                        targetIp = "TARGET-IP",
+                    ),
+                ),
+                expectsResponse = true,
             ),
         )
+
+        val watchDelta = watchHost.awaitFrame()
+        val victimDelta = victim.awaitFrame()
+        val triggerResponseFrame = local.awaitFrame()
+        val triggerResponse = RewriteGameJson.decode(
+            serializer = TriggerRequestResponse.serializer(),
+            payload = triggerResponseFrame.command_response!!.payload.toByteArray(),
+        )
+
+        assertTrue(triggerResponse.accepted)
+        assertTrue(triggerResponse.executed)
+        assertEquals("TARGET-IP", watchDelta.delta?.game_state_id)
+        assertTrue(
+            watchDelta.delta?.delta_keys?.toSet()?.containsAll(setOf("economy", "ports", "combat", "runtime")) == true,
+        )
+        assertEquals("VICTIM-IP", victimDelta.delta?.game_state_id)
+        assertEquals(setOf("combat"), victimDelta.delta?.delta_keys?.toSet())
+        assertNull(watchHost.drainFrames().firstOrNull { it.command_response != null })
+        assertNull(victim.drainFrames().firstOrNull { it.command_response != null })
+    }
+
+    private fun TestScope.createFixture(
+        localState: ComputerState = localState(),
+        targetState: ComputerState = targetState(),
+        extraStates: Map<GameStateId, ComputerState> = emptyMap(),
+    ): Fixture {
+        val seededStates = linkedMapOf(
+            GameStateId("LOCAL-IP") to localState,
+            GameStateId("TARGET-IP") to targetState,
+            GameStateId("store1") to storeState(),
+        ).apply {
+            putAll(extraStates)
+        }
+        val repository = InMemoryComputerStateRepository(seededStates = seededStates)
         val interests = InMemoryInterestRegistry()
         val sink = RecordingHookSideEffectSink()
+        val registry = InMemoryAttackProgramRegistry()
         val adapter = RewriteGameProtocolAdapter(
             dispatcher = DefaultCommandDispatcher(
                 repository = repository,
                 interestRegistry = interests,
+                attackProgramRegistry = registry,
                 watchTriggerIntentSink = sink,
             ),
             interestRegistry = interests,
             serverId = "1",
+            attackProgramRegistry = registry,
             hookSideEffectSink = sink,
             networkDirectoryRepository = InMemoryNetworkDirectoryRepository.defaultWorld("1"),
         )
@@ -285,11 +343,13 @@ class RewriteGameQuestProtocolAdapterTest {
             adapter = harnessAdapter,
             verifier = FakeSessionTicketVerifier(
                 catalog = FakeSessionCatalog(
-                    accounts = listOf(
-                        FakePlayerAccount("PF-LOCALUSER", "LOCAL-IP", "SESSION-LOCALUSER"),
-                        FakePlayerAccount("PF-TARGETUSER", "TARGET-IP", "SESSION-TARGETUSER"),
-                        FakePlayerAccount("PF-STOREUSER", "store1", "SESSION-STOREUSER"),
-                    ),
+                    accounts = seededStates.values.map { state ->
+                        FakePlayerAccount(
+                            playFabId = state.identity.playFabId.ifBlank { "PF-${state.id.value}" },
+                            playerIp = state.id.value,
+                            sessionTicket = "SESSION-${state.id.value}",
+                        )
+                    },
                 ),
                 clock = { Instant.ofEpochMilli(testScheduler.currentTime) },
             ),
@@ -301,7 +361,16 @@ class RewriteGameQuestProtocolAdapterTest {
             clock = { Instant.ofEpochMilli(testScheduler.currentTime) },
         )
         harnessAdapter.attachHarness(harness)
-        return Fixture(harness, sink)
+        return Fixture(
+            harness = harness,
+            sink = sink,
+            sessionTicketsByIp = seededStates.values.associate { state ->
+                state.id.value to "SESSION-${state.id.value}"
+            },
+            playFabIdsByIp = seededStates.values.associate { state ->
+                state.id.value to state.identity.playFabId.ifBlank { "PF-${state.id.value}" }
+            },
+        )
     }
 
     private suspend fun Fixture.authenticatedConnection(requestedIp: String): InMemoryClientConnection {
@@ -309,9 +378,9 @@ class RewriteGameQuestProtocolAdapterTest {
         connection.send(
             RewriteFrames.authRequest(
                 service = RewriteService.GAME,
-                sessionTicket = sessionTicketFor(requestedIp),
+                sessionTicket = sessionTicketsByIp[requestedIp] ?: error("No session ticket for $requestedIp"),
                 clientBuild = "rewrite-it",
-                playFabIdHint = playFabIdFor(requestedIp),
+                playFabIdHint = playFabIdsByIp[requestedIp] ?: error("No PlayFab id for $requestedIp"),
                 requestedIp = requestedIp,
             ),
         )
@@ -407,6 +476,96 @@ class RewriteGameQuestProtocolAdapterTest {
         )
     }
 
+    private fun watchZombieControllerState(): ComputerState {
+        return ComputerState.empty(GameStateId("TARGET-IP"), playFabId = "PF-TARGETUSER").copy(
+            hardware = HardwareState(cpuMax = 100.0),
+            economy = EconomyState(
+                pettyCash = 60.0,
+                bankMoney = 10.0,
+                defaultBankPort = 6,
+            ),
+            ports = listOf(
+                PortState(
+                    number = 6,
+                    type = "banking",
+                    enabled = true,
+                    defaultPort = true,
+                    installedApplication = InstalledApplication(
+                        name = "bank.bin",
+                        kind = ApplicationKind.BANKING,
+                        binaryPath = "/Public/bank.bin",
+                        banking = true,
+                    ),
+                ),
+                PortState(
+                    number = 12,
+                    type = "attack",
+                    enabled = true,
+                    defaultPort = false,
+                    installedApplication = InstalledApplication(
+                        name = "attack.bin",
+                        kind = ApplicationKind.ATTACK,
+                        binaryPath = "/Public/attack.bin",
+                        scriptBundle = com.hackwars.rewrite.gamecore.ProgramScriptBundle(
+                            family = ScriptFamily.ATTACK,
+                            scriptsBySlot = linkedMapOf(
+                                com.hackwars.rewrite.gamecore.ProgramScriptSlot.INITIALIZE to """
+                                    int main() {
+                                        zombie("TARGET-IP");
+                                        return 0;
+                                    }
+                                """.trimIndent(),
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+            watches = WatchManagerState(
+                watches = listOf(
+                    InstalledWatch(
+                        kind = WatchKind.PETTY_CASH,
+                        enabled = true,
+                        note = "zombie-step",
+                        cpuCost = 5.0,
+                        quantityThreshold = 0.0,
+                        baselineQuantity = 0.0,
+                        installPort = 6,
+                        searchFirewallType = 0,
+                        observedPorts = listOf(6),
+                        contents = """
+                            int main() {
+                                zombieAttack("LOCAL-IP", 12, "VICTIM-IP", 25);
+                                return 0;
+                            }
+                        """.trimIndent(),
+                        compiledBinary = CompiledBinaryMetadata(
+                            scriptFamily = ScriptFamily.WATCH,
+                            applicationKind = ApplicationKind.WATCH,
+                            outputName = "zombie-watch.bin",
+                        ),
+                    ),
+                ),
+            ),
+        )
+    }
+
+    private fun zombieVictimState(stateId: GameStateId): ComputerState {
+        return ComputerState.empty(stateId, playFabId = "PF-${stateId.value}").copy(
+            ports = listOf(
+                PortState(
+                    number = 25,
+                    type = "http",
+                    enabled = true,
+                    installedApplication = InstalledApplication(
+                        name = "victim-http.bin",
+                        kind = ApplicationKind.HTTP,
+                        binaryPath = "/Public/http.bin",
+                    ),
+                ),
+            ),
+        )
+    }
+
     private fun storeState(): ComputerState {
         return ComputerState.empty(GameStateId("store1"), playFabId = "PF-STOREUSER").copy(
             filesystem = ComputerState.empty(GameStateId("store1"), playerIp = "store1").filesystem.ensureDirectory("/Store"),
@@ -416,6 +575,8 @@ class RewriteGameQuestProtocolAdapterTest {
     private data class Fixture(
         val harness: InMemoryRewriteServiceHarness,
         val sink: RecordingHookSideEffectSink,
+        val sessionTicketsByIp: Map<String, String>,
+        val playFabIdsByIp: Map<String, String>,
     )
 
     private class RecordingHookSideEffectSink : HookSideEffectSink {
@@ -467,18 +628,4 @@ private fun InMemoryAuthenticatedSession.toQuestGameSession(): AuthenticatedGame
         playFabId = verifiedSession.playFabId,
         playerIp = verifiedSession.playerIp,
     )
-}
-
-private fun sessionTicketFor(requestedIp: String): String = when (requestedIp) {
-    "LOCAL-IP" -> "SESSION-LOCALUSER"
-    "TARGET-IP" -> "SESSION-TARGETUSER"
-    "store1" -> "SESSION-STOREUSER"
-    else -> "SESSION-LOCALUSER"
-}
-
-private fun playFabIdFor(requestedIp: String): String = when (requestedIp) {
-    "LOCAL-IP" -> "PF-LOCALUSER"
-    "TARGET-IP" -> "PF-TARGETUSER"
-    "store1" -> "PF-STOREUSER"
-    else -> "PF-LOCALUSER"
 }

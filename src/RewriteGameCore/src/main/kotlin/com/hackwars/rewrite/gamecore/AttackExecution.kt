@@ -11,6 +11,7 @@ import com.hackwars.rewrite.hackscript.AttackInstallTargetScriptEffect
 import com.hackwars.rewrite.hackscript.AttackAppendHostLogEffect
 import com.hackwars.rewrite.hackscript.AttackChangeDailyPayEffect
 import com.hackwars.rewrite.hackscript.AttackSendMessageEffect
+import com.hackwars.rewrite.hackscript.AttackShowChoicesEffect
 import com.hackwars.rewrite.hackscript.AttackStealTargetFileEffect
 import com.hackwars.rewrite.hackscript.AttackAuthorizeZombieEffect
 import com.hackwars.rewrite.hackscript.AttackExecutionInput
@@ -209,6 +210,7 @@ internal class AttackRuntimeExecutor(
             is AttackStealTargetFileEffect -> return AttackRuntimeApplyResult()
             is AttackInstallTargetScriptEffect -> return AttackRuntimeApplyResult()
             is AttackChangeDailyPayEffect -> return AttackRuntimeApplyResult()
+            is AttackShowChoicesEffect -> return AttackRuntimeApplyResult()
             is AttackSendMessageEffect -> {
                 context.publishUiEvent(
                     targetStateIds = setOf(GameStateId(effect.targetIp)),

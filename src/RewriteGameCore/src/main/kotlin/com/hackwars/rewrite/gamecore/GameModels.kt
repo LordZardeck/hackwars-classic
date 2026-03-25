@@ -421,6 +421,7 @@ data class AttackSessionState(
     val targetView: AttackTargetView = AttackTargetView(),
     val targetCyclePorts: List<Int> = emptyList(),
     val targetCycleCursor: Int = 0,
+    val choicesShown: Boolean = false,
     val windowHandle: Int = 0,
     val secondaryPorts: List<Int> = emptyList(),
     val maliciousScripts: List<AttackScriptReference?> = emptyList(),
@@ -1617,6 +1618,24 @@ data class ZombieAttackUiEvent(
     val message: String,
     val zombieIp: String,
     val sourcePort: Int,
+) : GameUiEvent
+
+@Serializable
+enum class ShowChoicesType {
+    BANK,
+    FTP,
+    ATTACK,
+    HTTP,
+    SHIPPING,
+}
+
+@Serializable
+@SerialName("show_choices")
+data class ShowChoicesUiEvent(
+    val targetIp: String,
+    val targetPort: Int,
+    val choiceType: ShowChoicesType,
+    val windowHandle: Int,
 ) : GameUiEvent
 
 @Serializable

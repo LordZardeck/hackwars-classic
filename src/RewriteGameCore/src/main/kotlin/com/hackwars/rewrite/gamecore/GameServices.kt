@@ -172,7 +172,10 @@ class InMemoryDailyIncomeProgramRegistry : DailyIncomeProgramRegistry {
 class DefaultCommandDispatcher(
     private val repository: ComputerStateRepository,
     private val interestRegistry: InterestRegistry,
-    private val watchExecutionCoordinator: WatchExecutionCoordinator = DefaultWatchExecutionCoordinator(),
+    private val attackProgramRegistry: AttackProgramRegistry = NoOpAttackProgramRegistry,
+    private val watchExecutionCoordinator: WatchExecutionCoordinator = DefaultWatchExecutionCoordinator(
+        attackProgramRegistry = attackProgramRegistry,
+    ),
     private val watchTriggerIntentSink: WatchTriggerIntentSink = NoOpWatchTriggerIntentSink,
     private val passiveWatchTriggerSink: PassiveWatchTriggerSink = DefaultPassiveWatchCoordinator,
     private val programScheduler: ProgramScheduler = CoroutineProgramScheduler(

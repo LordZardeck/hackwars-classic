@@ -5,9 +5,181 @@ import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertIs
 import kotlin.test.assertTrue
 
 class WatchExecutionCommandsTest {
+    @Test
+    fun externalTriggerWatchCanStartZombieAttackAndChargeTheWatchedHost() = runTest {
+        val sourceId = GameStateId("LOCAL-IP")
+        val watchHostId = GameStateId("WATCH-IP")
+        val victimId = GameStateId("VICTIM-IP")
+        val repository = InMemoryComputerStateRepository(
+            seededStates = mapOf(
+                sourceId to sourceState(sourceId),
+                watchHostId to watchHostState(
+                    stateId = watchHostId,
+                    pettyCash = 60.0,
+                    watches = listOf(
+                        installedWatch(
+                            contents = """
+                                int main() {
+                                    zombieAttack("legacy-parent", 12, "VICTIM-IP", 25);
+                                    return 0;
+                                }
+                            """.trimIndent(),
+                        ),
+                    ),
+                    additionalPorts = listOf(
+                        attackPort(
+                            scriptBundle = ProgramScriptBundle(
+                                family = ScriptFamily.ATTACK,
+                                scriptsBySlot = linkedMapOf(
+                                    ProgramScriptSlot.INITIALIZE to """int main() { zombie("WATCH-IP"); return 0; }""",
+                                ),
+                            ),
+                        ),
+                    ),
+                ),
+                victimId to zombieTargetState(victimId),
+            ),
+        )
+        val interests = InMemoryInterestRegistry().apply {
+            register("watch-conn", watchHostId)
+            register("victim-conn", victimId)
+        }
+        val publisher = RecordingGameStatePublisher()
+        val registry = InMemoryAttackProgramRegistry()
+        val dispatcher = DefaultCommandDispatcher(
+            repository = repository,
+            interestRegistry = interests,
+            attackProgramRegistry = registry,
+            programScheduler = CoroutineProgramScheduler(
+                dispatcher = null,
+                interestRegistry = interests,
+                coroutineScope = backgroundScope,
+            ),
+        )
+
+        val response = dispatcher.request(
+            command = RequestTriggerCommand(
+                stateId = sourceId,
+                targetStateId = watchHostId,
+                selector = TriggerSelector.ByIndex(0),
+                sourceIp = sourceId.value,
+                triggerParameters = emptyMap(),
+            ),
+            metadata = CommandMetadata(connectionId = "source-conn", requestId = "watch-zombie-start"),
+            publisher = publisher,
+        )
+
+        val updatedWatchHost = requireNotNull(repository.load(watchHostId))
+        val updatedVictim = requireNotNull(repository.load(victimId))
+        val session = updatedWatchHost.combat.activeAttacksBySourcePort[12]
+
+        assertTrue(response.accepted)
+        assertTrue(response.executed)
+        assertTrue(
+            session != null,
+            "watchHost=$updatedWatchHost victim=$updatedVictim uiEvents=${publisher.uiEvents}",
+        )
+        val activeSession = requireNotNull(session)
+        assertEquals(40.0, updatedWatchHost.economy.pettyCash)
+        assertEquals(8.0, updatedWatchHost.runtime.currentCpuLoad)
+        assertEquals(AttackMode.ZOMBIE, activeSession.attackMode)
+        assertEquals(watchHostId, activeSession.controllerStateId)
+        assertEquals(watchHostId, activeSession.authorizedZombieStateId)
+        assertEquals(victimId, activeSession.targetStateId)
+        assertEquals(watchHostId, updatedVictim.combat.incomingAttacksByTargetPort.getValue(25).attackerStateId)
+        assertTrue(
+            publisher.deltas.any { recipientsAndDelta ->
+                recipientsAndDelta.first == setOf("watch-conn") &&
+                    recipientsAndDelta.second.deltaKeys.containsAll(setOf("economy", "ports", "combat", "runtime"))
+            },
+        )
+        assertTrue(
+            publisher.deltas.any { recipientsAndDelta ->
+                recipientsAndDelta.first == setOf("victim-conn") &&
+                    recipientsAndDelta.second.deltaKeys == setOf("combat")
+            },
+        )
+        assertTrue(publisher.uiEvents.isEmpty())
+    }
+
+    @Test
+    fun watchTriggeredZombieStartFailuresReuseZombieUiMappingWithoutCorrelatedZombieResponse() = runTest {
+        val sourceId = GameStateId("LOCAL-IP")
+        val watchHostId = GameStateId("WATCH-IP")
+        val victimId = GameStateId("VICTIM-IP")
+        val repository = InMemoryComputerStateRepository(
+            seededStates = mapOf(
+                sourceId to sourceState(sourceId),
+                watchHostId to watchHostState(
+                    stateId = watchHostId,
+                    pettyCash = 10.0,
+                    watches = listOf(
+                        installedWatch(
+                            contents = """
+                                int main() {
+                                    zombieAttack("legacy-parent", 12, "VICTIM-IP", 25);
+                                    return 0;
+                                }
+                            """.trimIndent(),
+                        ),
+                    ),
+                    additionalPorts = listOf(
+                        attackPort(
+                            scriptBundle = ProgramScriptBundle(
+                                family = ScriptFamily.ATTACK,
+                                scriptsBySlot = linkedMapOf(
+                                    ProgramScriptSlot.INITIALIZE to """int main() { zombie("WATCH-IP"); return 0; }""",
+                                ),
+                            ),
+                        ),
+                    ),
+                ),
+                victimId to zombieTargetState(victimId),
+            ),
+        )
+        val interests = InMemoryInterestRegistry().apply {
+            register("watch-conn", watchHostId)
+            register("victim-conn", victimId)
+        }
+        val publisher = RecordingGameStatePublisher()
+        val dispatcher = DefaultCommandDispatcher(
+            repository = repository,
+            interestRegistry = interests,
+            attackProgramRegistry = InMemoryAttackProgramRegistry(),
+            programScheduler = CoroutineProgramScheduler(
+                dispatcher = null,
+                interestRegistry = interests,
+                coroutineScope = backgroundScope,
+            ),
+        )
+
+        val response = dispatcher.request(
+            command = RequestTriggerCommand(
+                stateId = sourceId,
+                targetStateId = watchHostId,
+                selector = TriggerSelector.ByIndex(0),
+                sourceIp = sourceId.value,
+                triggerParameters = emptyMap(),
+            ),
+            metadata = CommandMetadata(connectionId = "source-conn", requestId = "watch-zombie-fail"),
+            publisher = publisher,
+        )
+
+        assertTrue(response.accepted)
+        assertTrue(response.executed)
+        assertTrue(requireNotNull(repository.load(watchHostId)).combat.activeAttacksBySourcePort.isEmpty())
+        assertTrue(publisher.deltas.isEmpty())
+        assertEquals(setOf("watch-conn"), publisher.uiEvents.single().first)
+        assertEquals(
+            "It costs \$20 to attempt an attack from a zombie port.",
+            assertIs<PopupUiEvent>(publisher.uiEvents.single().second).message,
+        )
+    }
+
     @Test
     fun requestTriggerByNoteExecutesEnabledWatchAndPrefersFireSlotScript() = runTest {
         val sourceId = GameStateId("LOCAL-IP")
@@ -352,6 +524,7 @@ private fun watchHostState(
     isNpc: Boolean = false,
     pettyCash: Double = 100.0,
     bankMoney: Double = 10.0,
+    additionalPorts: List<PortState> = emptyList(),
 ): ComputerState {
     return ComputerState.empty(
         id = stateId,
@@ -363,6 +536,7 @@ private fun watchHostState(
             title = stateId.value,
             body = websiteBody,
         ),
+        hardware = HardwareState(cpuMax = 100.0),
         economy = EconomyState(
             pettyCash = pettyCash,
             bankMoney = bankMoney,
@@ -381,8 +555,30 @@ private fun watchHostState(
                     ),
                 ),
             ),
-        ),
+        ) + additionalPorts,
         watches = WatchManagerState(watches = watches),
+    )
+}
+
+private fun zombieTargetState(stateId: GameStateId): ComputerState {
+    return ComputerState.empty(
+        id = stateId,
+        playFabId = "PF-${stateId.value}",
+        playerIp = stateId.value,
+    ).copy(
+        ports = listOf(
+            PortState(
+                number = 25,
+                type = "http",
+                enabled = true,
+                health = 100.0,
+                installedApplication = InstalledApplication(
+                    name = "victim-http.bin",
+                    kind = ApplicationKind.HTTP,
+                    binaryPath = "/system/http.bin",
+                ),
+            ),
+        ),
     )
 }
 
@@ -454,6 +650,24 @@ private fun httpPort(
             name = "http.bin",
             kind = ApplicationKind.HTTP,
             binaryPath = "/system/http.bin",
+            scriptBundle = scriptBundle,
+        ),
+    )
+}
+
+private fun attackPort(
+    scriptBundle: ProgramScriptBundle? = null,
+): PortState {
+    return PortState(
+        number = 12,
+        type = "attack",
+        enabled = true,
+        defaultPort = true,
+        installedApplication = InstalledApplication(
+            name = "attack.bin",
+            kind = ApplicationKind.ATTACK,
+            binaryPath = "/system/attack.bin",
+            cpuCost = 8.0,
             scriptBundle = scriptBundle,
         ),
     )

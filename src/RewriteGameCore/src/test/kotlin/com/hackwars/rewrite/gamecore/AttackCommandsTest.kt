@@ -4699,6 +4699,272 @@ class AttackCommandsTest {
         assertTrue(publisher.deltas.any { it.first == setOf("target-conn") && it.second.deltaKeys == setOf("filesystem", "ports", "combat") })
     }
 
+    @Test
+    fun showChoicesPublishesOncePerDirectSessionAndPersistsWhileRunning() = runTest {
+        val attackerId = GameStateId("ATTACKER-IP")
+        val targetId = GameStateId("TARGET-IP")
+        val repository = InMemoryComputerStateRepository(
+            seededStates = mapOf(
+                attackerId to attackerState(
+                    attackerId,
+                    attackScriptBundle = attackScriptBundle(
+                        continueScript = """int main() { showChoices(); return 0; }""",
+                    ),
+                ),
+                targetId to targetState(
+                    targetId,
+                    installedApplication = InstalledApplication(
+                        name = "target-http.bin",
+                        kind = ApplicationKind.HTTP,
+                        cpuCost = 2.0,
+                    ),
+                ),
+            ),
+        )
+        val interests = InMemoryInterestRegistry().apply {
+            register("attacker-conn", attackerId)
+            register("target-conn", targetId)
+        }
+        val publisher = RecordingGameStatePublisher()
+        val registry = InMemoryAttackProgramRegistry()
+        val dispatcher = dispatcher(repository, interests)
+
+        dispatcher.request(
+            command = RequestAttackCommand(
+                attackerStateId = attackerId,
+                targetStateId = targetId,
+                sourceIp = attackerId.value,
+                sourcePort = 12,
+                targetPort = 25,
+                loadout = AttackLoadout(),
+                attackProgramRegistry = registry,
+            ),
+            metadata = CommandMetadata(connectionId = "attacker-conn", requestId = "show-choices-start"),
+            publisher = publisher,
+        )
+        runCurrent()
+        publisher.deltas.clear()
+        publisher.uiEvents.clear()
+        publisher.programUpdates.clear()
+
+        advanceTimeBy(180_100)
+        runCurrent()
+
+        assertEquals(1, publisher.uiEvents.size)
+        assertEquals(setOf("attacker-conn"), publisher.uiEvents.single().first)
+        val choiceEvent = assertIs<ShowChoicesUiEvent>(publisher.uiEvents.single().second)
+        assertEquals(targetId.value, choiceEvent.targetIp)
+        assertEquals(25, choiceEvent.targetPort)
+        assertEquals(ShowChoicesType.HTTP, choiceEvent.choiceType)
+        assertEquals(0, choiceEvent.windowHandle)
+        assertTrue(requireNotNull(repository.load(attackerId)).combat.activeAttacksBySourcePort.getValue(12).choicesShown)
+
+        publisher.deltas.clear()
+        publisher.uiEvents.clear()
+        publisher.programUpdates.clear()
+
+        advanceTimeBy(180_100)
+        runCurrent()
+
+        assertTrue(publisher.uiEvents.isEmpty())
+        assertTrue(requireNotNull(repository.load(attackerId)).combat.activeAttacksBySourcePort.getValue(12).choicesShown)
+    }
+
+    @Test
+    fun switchAttackShowChoicesAndCancelUsesTheRetargetedPort() = runTest {
+        val attackerId = GameStateId("ATTACKER-IP")
+        val targetId = GameStateId("TARGET-IP")
+        val repository = InMemoryComputerStateRepository(
+            seededStates = mapOf(
+                attackerId to attackerState(
+                    attackerId,
+                    attackScriptBundle = attackScriptBundle(
+                        continueScript = """int main() { switchAttack(); showChoices(); cancelAttack(); return 0; }""",
+                    ),
+                ),
+                targetId to targetState(
+                    targetId,
+                    installedApplication = InstalledApplication(
+                        name = "target-http.bin",
+                        kind = ApplicationKind.HTTP,
+                        cpuCost = 2.0,
+                    ),
+                    additionalPorts = listOf(
+                        PortState(
+                            number = 26,
+                            type = "ftp",
+                            enabled = true,
+                            health = 100.0,
+                            installedApplication = InstalledApplication(
+                                name = "alt-ftp.bin",
+                                kind = ApplicationKind.FTP,
+                                cpuCost = 2.0,
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+        )
+        val interests = InMemoryInterestRegistry().apply {
+            register("attacker-conn", attackerId)
+            register("target-conn", targetId)
+        }
+        val publisher = RecordingGameStatePublisher()
+        val registry = InMemoryAttackProgramRegistry()
+        val dispatcher = dispatcher(repository, interests)
+
+        dispatcher.request(
+            command = RequestAttackCommand(
+                attackerStateId = attackerId,
+                targetStateId = targetId,
+                sourceIp = attackerId.value,
+                sourcePort = 12,
+                targetPort = 25,
+                loadout = AttackLoadout(secondaryPorts = listOf(26)),
+                attackProgramRegistry = registry,
+            ),
+            metadata = CommandMetadata(connectionId = "attacker-conn", requestId = "switch-show-choices-start"),
+            publisher = publisher,
+        )
+        runCurrent()
+        publisher.deltas.clear()
+        publisher.uiEvents.clear()
+        publisher.programUpdates.clear()
+
+        advanceTimeBy(180_100)
+        runCurrent()
+
+        assertEquals(1, publisher.uiEvents.size)
+        assertEquals(setOf("attacker-conn"), publisher.uiEvents.single().first)
+        val choiceEvent = assertIs<ShowChoicesUiEvent>(publisher.uiEvents.single().second)
+        assertEquals(targetId.value, choiceEvent.targetIp)
+        assertEquals(26, choiceEvent.targetPort)
+        assertEquals(ShowChoicesType.FTP, choiceEvent.choiceType)
+        assertEquals(ProgramLifecycleStatus.CANCELLED, publisher.programUpdates.single().second.status)
+        assertTrue(requireNotNull(repository.load(attackerId)).combat.activeAttacksBySourcePort.isEmpty())
+    }
+
+    @Test
+    fun showChoicesRoutesToZombieControllerListenersOnly() = runTest {
+        val controllerId = GameStateId("CONTROLLER-IP")
+        val zombieId = GameStateId("ZOMBIE-IP")
+        val targetId = GameStateId("TARGET-IP")
+        val repository = InMemoryComputerStateRepository(
+            seededStates = mapOf(
+                controllerId to attackerState(controllerId),
+                zombieId to attackerState(
+                    zombieId,
+                    attackScriptBundle = zombieAuthorizedBundle(
+                        controllerIp = controllerId.value,
+                        continueScript = """int main() { showChoices(); return 0; }""",
+                    ),
+                ),
+                targetId to targetState(
+                    targetId,
+                    installedApplication = InstalledApplication(
+                        name = "target-http.bin",
+                        kind = ApplicationKind.HTTP,
+                        cpuCost = 2.0,
+                    ),
+                ),
+            ),
+        )
+        val interests = InMemoryInterestRegistry().apply {
+            register("controller-conn", controllerId)
+            register("zombie-conn", zombieId)
+            register("target-conn", targetId)
+        }
+        val publisher = RecordingGameStatePublisher()
+        val registry = InMemoryAttackProgramRegistry()
+        val dispatcher = dispatcher(repository, interests)
+
+        dispatcher.request(
+            command = StartZombieAttackSessionCommand(
+                controllerStateId = controllerId,
+                zombieStateId = zombieId,
+                targetStateId = targetId,
+                sourcePort = 12,
+                targetPort = 25,
+                loadout = AttackLoadout(),
+                attackProgramRegistry = registry,
+            ),
+            metadata = CommandMetadata(connectionId = "controller-conn", requestId = "zombie-show-choices-start"),
+            publisher = publisher,
+        )
+        runCurrent()
+        publisher.deltas.clear()
+        publisher.uiEvents.clear()
+        publisher.programUpdates.clear()
+
+        advanceTimeBy(180_100)
+        runCurrent()
+
+        assertEquals(1, publisher.uiEvents.size)
+        assertEquals(setOf("controller-conn"), publisher.uiEvents.single().first)
+        val choiceEvent = assertIs<ShowChoicesUiEvent>(publisher.uiEvents.single().second)
+        assertEquals(targetId.value, choiceEvent.targetIp)
+        assertEquals(25, choiceEvent.targetPort)
+        assertEquals(ShowChoicesType.HTTP, choiceEvent.choiceType)
+        assertTrue(publisher.uiEvents.none { it.first == setOf("zombie-conn") || it.first == setOf("target-conn") })
+        assertEquals(ProgramLifecycleStatus.RUNNING, publisher.programUpdates.single().second.status)
+        assertEquals(setOf("controller-conn"), publisher.programUpdates.single().first)
+    }
+
+    @Test
+    fun showChoicesIgnoresUnsupportedTargetKindsWithoutConsumingSessionState() = runTest {
+        val attackerId = GameStateId("ATTACKER-IP")
+        val targetId = GameStateId("TARGET-IP")
+        val repository = InMemoryComputerStateRepository(
+            seededStates = mapOf(
+                attackerId to attackerState(
+                    attackerId,
+                    attackScriptBundle = attackScriptBundle(
+                        continueScript = """int main() { showChoices(); return 0; }""",
+                    ),
+                ),
+                targetId to targetState(
+                    targetId,
+                    installedApplication = InstalledApplication(
+                        name = "target-generic.bin",
+                        kind = ApplicationKind.GENERIC,
+                        cpuCost = 2.0,
+                    ),
+                ),
+            ),
+        )
+        val interests = InMemoryInterestRegistry().apply {
+            register("attacker-conn", attackerId)
+            register("target-conn", targetId)
+        }
+        val publisher = RecordingGameStatePublisher()
+        val registry = InMemoryAttackProgramRegistry()
+        val dispatcher = dispatcher(repository, interests)
+
+        dispatcher.request(
+            command = RequestAttackCommand(
+                attackerStateId = attackerId,
+                targetStateId = targetId,
+                sourceIp = attackerId.value,
+                sourcePort = 12,
+                targetPort = 25,
+                loadout = AttackLoadout(),
+                attackProgramRegistry = registry,
+            ),
+            metadata = CommandMetadata(connectionId = "attacker-conn", requestId = "show-choices-generic-start"),
+            publisher = publisher,
+        )
+        runCurrent()
+        publisher.deltas.clear()
+        publisher.uiEvents.clear()
+        publisher.programUpdates.clear()
+
+        advanceTimeBy(180_100)
+        runCurrent()
+
+        assertTrue(publisher.uiEvents.isEmpty())
+        assertFalse(requireNotNull(repository.load(attackerId)).combat.activeAttacksBySourcePort.getValue(12).choicesShown)
+    }
+
     private suspend fun TestScope.requestAttack(
         attackerState: ComputerState,
         targetState: ComputerState,

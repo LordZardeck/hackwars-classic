@@ -521,6 +521,7 @@ class JdbcComputerStateRepositoryTest {
             ),
             targetCyclePorts = listOf(25, 7, 8),
             targetCycleCursor = 0,
+            choicesShown = true,
             windowHandle = 4,
             secondaryPorts = listOf(7, 8),
             maliciousScripts = listOf(AttackScriptReference("/Public", "worm.bin")),
@@ -595,6 +596,7 @@ class JdbcComputerStateRepositoryTest {
         assertEquals(AttackMode.ZOMBIE, reloaded.combat.activeAttacksBySourcePort.getValue(12).attackMode)
         assertEquals(GameStateId("CONTROLLER-IP"), reloaded.combat.activeAttacksBySourcePort.getValue(12).controllerStateId)
         assertEquals(GameStateId("CONTROLLER-IP"), reloaded.combat.activeAttacksBySourcePort.getValue(12).authorizedZombieStateId)
+        assertTrue(reloaded.combat.activeAttacksBySourcePort.getValue(12).choicesShown)
         assertEquals(listOf(25, 7, 8), reloaded.combat.activeAttacksBySourcePort.getValue(12).targetCyclePorts)
         assertEquals(0, reloaded.combat.activeAttacksBySourcePort.getValue(12).targetCycleCursor)
         assertEquals(97.8, reloaded.combat.activeAttacksBySourcePort.getValue(12).targetView.health)

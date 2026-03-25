@@ -2,9 +2,12 @@ package com.hackwars.rewrite.gamecore
 
 import com.hackwars.rewrite.hackscript.AppendHostLogEffect
 import com.hackwars.rewrite.hackscript.DepositPettyCashEffect
+import com.hackwars.rewrite.hackscript.FloatHookValue
 import com.hackwars.rewrite.hackscript.WatchExecutionInput
 import com.hackwars.rewrite.hackscript.WatchRuntimeEffect
 import com.hackwars.rewrite.hackscript.WatchScriptEngine
+import com.hackwars.rewrite.hackscript.WatchZombieAttackEffect
+import com.hackwars.rewrite.hackscript.StringHookValue
 import org.slf4j.LoggerFactory
 
 data class WatchExecutionResult(
@@ -24,9 +27,14 @@ object NoOpWatchExecutionCoordinator : WatchExecutionCoordinator {
 
 class DefaultWatchExecutionCoordinator(
     private val engine: WatchScriptEngine = WatchScriptEngine(),
+    private val attackProgramRegistry: AttackProgramRegistry = NoOpAttackProgramRegistry,
     private val clock: () -> Long = { System.currentTimeMillis() },
 ) : WatchExecutionCoordinator {
-    private val runtimeExecutor = WatchRuntimeExecutor(engine = engine, clock = clock)
+    private val runtimeExecutor = WatchRuntimeExecutor(
+        engine = engine,
+        attackProgramRegistry = attackProgramRegistry,
+        clock = clock,
+    )
 
     override suspend fun execute(context: CommandContext, intent: WatchTriggerIntent): WatchExecutionResult {
         val targetState = context.loadState(intent.targetStateId) ?: return WatchExecutionResult()
@@ -73,6 +81,7 @@ class DefaultWatchExecutionCoordinator(
 
 internal class WatchRuntimeExecutor(
     private val engine: WatchScriptEngine = WatchScriptEngine(),
+    private val attackProgramRegistry: AttackProgramRegistry = NoOpAttackProgramRegistry,
     private val clock: () -> Long = { System.currentTimeMillis() },
 ) {
     suspend fun execute(
@@ -182,12 +191,61 @@ internal class WatchRuntimeExecutor(
                     }
                 }
             }
+
+            is WatchZombieAttackEffect -> {
+                StartZombieAttackSessionCommand(
+                    controllerStateId = targetStateId,
+                    zombieStateId = targetStateId,
+                    targetStateId = GameStateId(effect.targetIp),
+                    sourcePort = effect.sourcePort,
+                    targetPort = effect.targetPort,
+                    loadout = legacyWatchZombieAttackLoadout(),
+                    attackProgramRegistry = attackProgramRegistry,
+                    clock = clock,
+                ).execute(context).also { result ->
+                    val updatedHost = context.loadState(targetStateId) ?: currentState
+                    publishZombieAttackUiEvents(
+                        context = context,
+                        response = ZombieAttackStartResponse(
+                            controllerStateId = targetStateId,
+                            zombieStateId = targetStateId,
+                            sourcePort = effect.sourcePort,
+                            targetStateId = GameStateId(effect.targetIp),
+                            targetPort = effect.targetPort,
+                            accepted = result.accepted,
+                            failureCode = result.failureCode,
+                            message = result.message,
+                            chargedAmount = if (result.accepted) 20.0 else 0.0,
+                            controllerPettyCashAfter = updatedHost.economy.pettyCash,
+                            zombieCpuLoadAfter = updatedHost.runtime.currentCpuLoad,
+                            session = result.session,
+                            controllerVersion = updatedHost.version,
+                            zombieVersion = updatedHost.version,
+                        ),
+                    )
+                }
+                context.loadState(targetStateId) ?: currentState
+            }
         }
     }
 
     private companion object {
         private val logger = LoggerFactory.getLogger(WatchRuntimeExecutor::class.java)
     }
+}
+
+private fun legacyWatchZombieAttackLoadout(): AttackLoadout {
+    return AttackLoadout(
+        secondaryPorts = emptyList(),
+        maliciousScripts = emptyList(),
+        extraInfo = listOf(
+            StringHookValue(""),
+            FloatHookValue(0.0),
+            StringHookValue(""),
+            FloatHookValue(0.0),
+            StringHookValue(""),
+        ),
+    )
 }
 
 internal fun ComputerState.matchWatch(selector: TriggerSelector): Pair<Int, InstalledWatch>? {

@@ -82,6 +82,38 @@ class WatchScriptEngineTest {
     }
 
     @Test
+    fun zombieAttackEmitsTypedEffectOnlyForExternalTriggerExecution() {
+        val valid = engine.execute(
+            script = """int main() { zombieAttack("PARENT-IP", 12, "TARGET-IP", 25); return 0; }""",
+            input = defaultInput(external = true),
+        )
+        val nonExternal = engine.execute(
+            script = """int main() { zombieAttack("PARENT-IP", 12, "TARGET-IP", 25); return 0; }""",
+            input = defaultInput(external = false),
+        )
+        val wrongCount = engine.execute(
+            script = """int main() { zombieAttack("PARENT-IP", 12, "TARGET-IP"); return 0; }""",
+            input = defaultInput(external = true),
+        )
+        val wrongTypes = engine.execute(
+            script = """int main() { zombieAttack("PARENT-IP", "12", "TARGET-IP", 25); return 0; }""",
+            input = defaultInput(external = true),
+        )
+
+        assertEquals(
+            listOf(WatchZombieAttackEffect("PARENT-IP", 12, "TARGET-IP", 25)),
+            assertNotNull(valid.result).effects,
+        )
+        assertTrue(valid.diagnostics.isEmpty())
+        assertEquals("UNSUPPORTED_TRIGGER_SOURCE", nonExternal.diagnostics.single().code)
+        assertTrue(assertNotNull(nonExternal.result).effects.isEmpty())
+        assertEquals("BAD_ARGUMENT_COUNT", wrongCount.diagnostics.single().code)
+        assertTrue(assertNotNull(wrongCount.result).effects.isEmpty())
+        assertEquals("BAD_ARGUMENT_TYPE", wrongTypes.diagnostics.single().code)
+        assertTrue(assertNotNull(wrongTypes.result).effects.isEmpty())
+    }
+
+    @Test
     fun unsupportedHelpersProduceStructuredFailureWithoutCrashing() {
         val outcome = engine.execute(
             script = """
@@ -108,7 +140,7 @@ class WatchScriptEngineTest {
         assertEquals("PARSE_ERROR", outcome.diagnostics.single().code)
     }
 
-    private fun defaultInput(): WatchExecutionInput {
+    private fun defaultInput(external: Boolean = true): WatchExecutionInput {
         return WatchExecutionInput(
             hostIp = "HOST-IP",
             targetIp = "SOURCE-IP",
@@ -121,7 +153,7 @@ class WatchScriptEngineTest {
             currentCpuLoad = 5.0,
             maximumCpuLoad = 100.0,
             triggered = true,
-            external = true,
+            external = external,
         )
     }
 }

@@ -1108,6 +1108,7 @@ private fun GameUiEvent.protocolEventType(): String = when (this) {
     is com.hackwars.rewrite.gamecore.TextMessageUiEvent -> "message"
     is com.hackwars.rewrite.gamecore.AttackMessageUiEvent -> "attack_message"
     is com.hackwars.rewrite.gamecore.ZombieAttackUiEvent -> "zombie_attack"
+    is com.hackwars.rewrite.gamecore.ShowChoicesUiEvent -> "show_choices"
 }
 
 private fun ProgramLifecycleStatus.toProtocolStatus(): ProgramStatus = when (this) {

@@ -13,6 +13,7 @@ import com.hackwars.rewrite.hackscript.AttackEditTargetLogsEffect
 import com.hackwars.rewrite.hackscript.AttackFreezeTargetPortEffect
 import com.hackwars.rewrite.hackscript.AttackInstallTargetScriptEffect
 import com.hackwars.rewrite.hackscript.AttackSendMessageEffect
+import com.hackwars.rewrite.hackscript.AttackShowChoicesEffect
 import com.hackwars.rewrite.hackscript.AttackStealTargetFileEffect
 import com.hackwars.rewrite.hackscript.AttackSwitchTargetEffect
 import com.hackwars.rewrite.hackscript.FloatHookValue
@@ -788,26 +789,24 @@ internal class StartZombieAttackSessionCommand(
         }
 
         val programId = "attack-${zombieStateId.value}-$sourcePort-${UUID.randomUUID()}"
-        val initializeResult = context.request(
-            AttackInitializeCommand(
-                attackerStateId = zombieStateId,
-                actorStateId = controllerStateId,
-                targetStateId = targetStateId,
-                sourcePort = sourcePort,
-                targetPort = targetPort,
-                programId = programId,
-                loadout = loadout,
-                windowHandle = windowHandle,
-                reservedCpu = reservedCpu,
-                chargedAmount = ZOMBIE_ATTACK_START_COST,
-                attackMode = AttackMode.ZOMBIE,
-                controllerStateId = controllerStateId,
-                authorizedZombieStateId = controllerStateId,
-                runInitializeScript = false,
-                attackRuntimeExecutor = attackRuntimeExecutor,
-                clock = clock,
-            ),
-        )
+        val initializeResult = AttackInitializeCommand(
+            attackerStateId = zombieStateId,
+            actorStateId = controllerStateId,
+            targetStateId = targetStateId,
+            sourcePort = sourcePort,
+            targetPort = targetPort,
+            programId = programId,
+            loadout = loadout,
+            windowHandle = windowHandle,
+            reservedCpu = reservedCpu,
+            chargedAmount = ZOMBIE_ATTACK_START_COST,
+            attackMode = AttackMode.ZOMBIE,
+            controllerStateId = controllerStateId,
+            authorizedZombieStateId = controllerStateId,
+            runInitializeScript = false,
+            attackRuntimeExecutor = attackRuntimeExecutor,
+            clock = clock,
+        ).execute(context)
 
         val handle = context.schedule(
             AttackProgramCommand(
@@ -1267,6 +1266,23 @@ internal class AttackTickCommand(
             )
         }
 
+        suspend fun publishShowChoicesIfNeeded() {
+            if (currentSession.choicesShown) {
+                return
+            }
+            val choiceType = currentTargetPortState.showChoicesType() ?: return
+            context.publishUiEvent(
+                targetStateIds = setOf(actorStateId),
+                event = ShowChoicesUiEvent(
+                    targetIp = currentTargetState.id.value,
+                    targetPort = currentSession.targetPort,
+                    choiceType = choiceType,
+                    windowHandle = currentSession.windowHandle,
+                ),
+            )
+            currentSession = currentSession.copy(choicesShown = true)
+        }
+
         suspend fun destroyCurrentTargetWatches() {
             if (currentTargetState.identity.isNpc || currentTargetState.isDestroyWatchesImmune()) {
                 return
@@ -1602,6 +1618,10 @@ internal class AttackTickCommand(
                         publishAttackMessage(effect.targetIp, effect.message)
                     }
 
+                    is AttackShowChoicesEffect -> {
+                        publishShowChoicesIfNeeded()
+                    }
+
                     is com.hackwars.rewrite.hackscript.AttackAuthorizeZombieEffect -> Unit
 
                     is AttackCancelCurrentAttackEffect -> {
@@ -1777,6 +1797,10 @@ internal class AttackTickCommand(
 
                         is AttackSendMessageEffect -> {
                             publishAttackMessage(effect.targetIp, effect.message)
+                        }
+
+                        is AttackShowChoicesEffect -> {
+                            publishShowChoicesIfNeeded()
                         }
 
                         is com.hackwars.rewrite.hackscript.AttackAuthorizeZombieEffect -> Unit
@@ -2186,7 +2210,7 @@ private fun zombieAttackStartFailure(
     )
 }
 
-private suspend fun publishZombieAttackUiEvents(
+internal suspend fun publishZombieAttackUiEvents(
     context: CommandContext,
     response: ZombieAttackStartResponse,
 ) {
@@ -2363,6 +2387,16 @@ private fun PortState.resolveEmptyPettyCashAmount(targetPettyCash: Double): Doub
 private fun PortState.shouldFailStealFile(): Boolean {
     val actionProfile = installedFirewall?.actionProfile ?: FirewallActionProfile()
     return actionProfile.stealFileFailChance > 0.0
+}
+
+private fun PortState.showChoicesType(): ShowChoicesType? {
+    return when (installedApplication?.kind) {
+        ApplicationKind.BANKING -> ShowChoicesType.BANK
+        ApplicationKind.FTP -> ShowChoicesType.FTP
+        ApplicationKind.ATTACK -> ShowChoicesType.ATTACK
+        ApplicationKind.HTTP -> ShowChoicesType.HTTP
+        else -> null
+    }
 }
 
 private fun ComputerState.hasWatchOnPort(portNumber: Int): Boolean {

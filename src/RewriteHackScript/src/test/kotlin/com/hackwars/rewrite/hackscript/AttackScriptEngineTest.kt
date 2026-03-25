@@ -103,6 +103,7 @@ class AttackScriptEngineTest {
         val continueOutcome = engine.execute(
             script = """
                 int main() {
+                    showChoices();
                     message("TARGET-IP", "hello");
                     editLogs("old", "new");
                     deleteLogs("REMOTE-IP");
@@ -139,6 +140,7 @@ class AttackScriptEngineTest {
         assertTrue(continueOutcome.diagnostics.isEmpty())
         assertEquals(
             listOf(
+                AttackShowChoicesEffect,
                 AttackSendMessageEffect("TARGET-IP", "hello"),
                 AttackEditTargetLogsEffect("old", "new"),
                 AttackDeleteTargetLogsEffect("REMOTE-IP"),
@@ -167,6 +169,35 @@ class AttackScriptEngineTest {
             ),
             assertNotNull(finalizeOutcome.result).effects,
         )
+    }
+
+    @Test
+    fun showChoicesProducesTypedEffectsInContinueAndFinalizeOnly() {
+        val continuePhase = engine.execute(
+            script = """int main() { showChoices(); return 0; }""",
+            input = input(phase = AttackExecutionPhase.CONTINUE),
+        )
+        val finalizePhase = engine.execute(
+            script = """int main() { showChoices(); return 0; }""",
+            input = input(phase = AttackExecutionPhase.FINALIZE),
+        )
+        val initializePhase = engine.execute(
+            script = """int main() { showChoices(); return 0; }""",
+            input = input(phase = AttackExecutionPhase.INITIALIZE),
+        )
+        val wrongCount = engine.execute(
+            script = """int main() { showChoices(1); return 0; }""",
+            input = input(phase = AttackExecutionPhase.CONTINUE),
+        )
+
+        assertEquals(listOf(AttackShowChoicesEffect), assertNotNull(continuePhase.result).effects)
+        assertTrue(continuePhase.diagnostics.isEmpty())
+        assertEquals(listOf(AttackShowChoicesEffect), assertNotNull(finalizePhase.result).effects)
+        assertTrue(finalizePhase.diagnostics.isEmpty())
+        assertEquals("UNSUPPORTED_PHASE", initializePhase.diagnostics.single().code)
+        assertTrue(assertNotNull(initializePhase.result).effects.isEmpty())
+        assertEquals("BAD_ARGUMENT_COUNT", wrongCount.diagnostics.single().code)
+        assertTrue(assertNotNull(wrongCount.result).effects.isEmpty())
     }
 
     @Test
@@ -211,6 +242,10 @@ class AttackScriptEngineTest {
             script = """int main() { changeDailyPay("REV-IP"); return 0; }""",
             input = input(phase = AttackExecutionPhase.INITIALIZE),
         )
+        val initializeShowChoices = engine.execute(
+            script = """int main() { showChoices(); return 0; }""",
+            input = input(phase = AttackExecutionPhase.INITIALIZE),
+        )
 
         assertEquals("UNSUPPORTED_PHASE", initializeDelete.diagnostics.single().code)
         assertEquals(emptyList(), assertNotNull(initializeDelete.result).effects)
@@ -232,6 +267,8 @@ class AttackScriptEngineTest {
         assertEquals(emptyList(), assertNotNull(initializeInstallScript.result).effects)
         assertEquals("UNSUPPORTED_PHASE", initializeChangeDailyPay.diagnostics.single().code)
         assertEquals(emptyList(), assertNotNull(initializeChangeDailyPay.result).effects)
+        assertEquals("UNSUPPORTED_PHASE", initializeShowChoices.diagnostics.single().code)
+        assertEquals(emptyList(), assertNotNull(initializeShowChoices.result).effects)
     }
 
     @Test
