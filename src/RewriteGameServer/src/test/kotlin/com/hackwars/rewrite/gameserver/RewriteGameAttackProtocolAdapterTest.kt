@@ -4,6 +4,7 @@ import com.hackwars.rewrite.gamecore.ApplicationKind
 import com.hackwars.rewrite.gamecore.AttackCancelResponse
 import com.hackwars.rewrite.gamecore.AttackSessionState
 import com.hackwars.rewrite.gamecore.AttackStartResponse
+import com.hackwars.rewrite.gamecore.CompiledBinaryMetadata
 import com.hackwars.rewrite.gamecore.CombatState
 import com.hackwars.rewrite.gamecore.ComputerState
 import com.hackwars.rewrite.gamecore.CoroutineProgramScheduler
@@ -16,12 +17,16 @@ import com.hackwars.rewrite.gamecore.InMemoryComputerStateRepository
 import com.hackwars.rewrite.gamecore.InMemoryInterestRegistry
 import com.hackwars.rewrite.gamecore.InMemoryNetworkDirectoryRepository
 import com.hackwars.rewrite.gamecore.InstalledApplication
+import com.hackwars.rewrite.gamecore.InstalledWatch
 import com.hackwars.rewrite.gamecore.PortState
 import com.hackwars.rewrite.gamecore.ProgramLifecycleStatus
 import com.hackwars.rewrite.gamecore.RequestAttackPayload
 import com.hackwars.rewrite.gamecore.RequestCancelAttackPayload
 import com.hackwars.rewrite.gamecore.RewriteGameJson
 import com.hackwars.rewrite.gamecore.RuntimeState
+import com.hackwars.rewrite.gamecore.ScriptFamily
+import com.hackwars.rewrite.gamecore.WatchKind
+import com.hackwars.rewrite.gamecore.WatchManagerState
 import com.hackwars.rewrite.protocol.ProtocolTimeoutPolicy
 import com.hackwars.rewrite.protocol.RewriteFrames
 import com.hackwars.rewrite.protocol.RewriteService
@@ -176,6 +181,100 @@ class RewriteGameAttackProtocolAdapterTest {
         val updateFrame = attacker.awaitFrame()
 
         assertEquals(setOf("ports", "combat"), targetDelta.delta?.delta_keys?.toSet())
+        assertEquals(setOf("combat", "ports", "runtime", "stats"), attackerDelta.delta?.delta_keys?.toSet())
+        assertEquals(ProgramStatus.PROGRAM_STATUS_COMPLETED, updateFrame.program_update?.status)
+        assertTrue(target.drainFrames().isEmpty())
+    }
+
+    @Test
+    fun attackTicksThatTriggerHealthWatchesFlushCombinedTargetDeltaBeforeRunningUpdate() = runTest {
+        val fixture = createFixture(
+            targetState = targetState(GameStateId("TARGET-IP")).copy(
+                watches = WatchManagerState(
+                    watches = listOf(healthWatch(threshold = 99.0)),
+                ),
+            ),
+        )
+        val attacker = fixture.authenticatedConnection("LOCAL-IP")
+        val target = fixture.authenticatedConnection("TARGET-IP")
+
+        attacker.send(
+            RewriteFrames.command(
+                commandId = "attack-health-running-start",
+                commandName = "requestattack",
+                payload = RewriteGameJson.encode(
+                    serializer = RequestAttackPayload.serializer(),
+                    value = RequestAttackPayload(
+                        targetIp = "TARGET-IP",
+                        targetPort = 25,
+                        sourceIp = "LOCAL-IP",
+                        sourcePort = 12,
+                    ),
+                ),
+                expectsResponse = true,
+            ),
+        )
+        attacker.awaitFrame()
+        target.awaitFrame()
+        attacker.awaitFrame()
+        runCurrent()
+        attacker.awaitFrame()
+
+        advanceTimeBy(180_100)
+        runCurrent()
+
+        val targetDelta = target.awaitFrame()
+        val attackerDelta = attacker.awaitFrame()
+        val updateFrame = attacker.awaitFrame()
+
+        assertEquals(setOf("ports", "logs", "watches", "stats"), targetDelta.delta?.delta_keys?.toSet())
+        assertEquals(setOf("combat", "stats"), attackerDelta.delta?.delta_keys?.toSet())
+        assertEquals(ProgramStatus.PROGRAM_STATUS_RUNNING, updateFrame.program_update?.status)
+        assertTrue(target.drainFrames().isEmpty())
+    }
+
+    @Test
+    fun completedAttackCanStillFlushHealthWatchSideEffectsBeforeCompletedUpdate() = runTest {
+        val fixture = createFixture(
+            targetState = targetState(GameStateId("TARGET-IP"), health = 1.5).copy(
+                watches = WatchManagerState(
+                    watches = listOf(healthWatch()),
+                ),
+            ),
+        )
+        val attacker = fixture.authenticatedConnection("LOCAL-IP")
+        val target = fixture.authenticatedConnection("TARGET-IP")
+
+        attacker.send(
+            RewriteFrames.command(
+                commandId = "attack-health-complete-start",
+                commandName = "requestattack",
+                payload = RewriteGameJson.encode(
+                    serializer = RequestAttackPayload.serializer(),
+                    value = RequestAttackPayload(
+                        targetIp = "TARGET-IP",
+                        targetPort = 25,
+                        sourceIp = "LOCAL-IP",
+                        sourcePort = 12,
+                    ),
+                ),
+                expectsResponse = true,
+            ),
+        )
+        attacker.awaitFrame()
+        target.awaitFrame()
+        attacker.awaitFrame()
+        runCurrent()
+        attacker.awaitFrame()
+
+        advanceTimeBy(180_100)
+        runCurrent()
+
+        val targetDelta = target.awaitFrame()
+        val attackerDelta = attacker.awaitFrame()
+        val updateFrame = attacker.awaitFrame()
+
+        assertEquals(setOf("ports", "combat", "logs", "watches", "stats"), targetDelta.delta?.delta_keys?.toSet())
         assertEquals(setOf("combat", "ports", "runtime", "stats"), attackerDelta.delta?.delta_keys?.toSet())
         assertEquals(ProgramStatus.PROGRAM_STATUS_COMPLETED, updateFrame.program_update?.status)
         assertTrue(target.drainFrames().isEmpty())
@@ -459,6 +558,26 @@ class RewriteGameAttackProtocolAdapterTest {
                     enabled = true,
                     health = health,
                 ),
+            ),
+        )
+    }
+
+    private fun healthWatch(threshold: Double = 50.0): InstalledWatch {
+        return InstalledWatch(
+            kind = WatchKind.HEALTH,
+            enabled = true,
+            note = "health-watch",
+            cpuCost = 5.0,
+            quantityThreshold = threshold,
+            baselineQuantity = 100.0,
+            installPort = 25,
+            searchFirewallType = 0,
+            observedPorts = listOf(25),
+            contents = """int main() { logMessage("health"); return 0; }""",
+            compiledBinary = CompiledBinaryMetadata(
+                scriptFamily = ScriptFamily.WATCH,
+                applicationKind = ApplicationKind.WATCH,
+                outputName = "watch.bin",
             ),
         )
     }

@@ -26,6 +26,7 @@ sealed interface PassiveWatchTrigger {
         override val sourceIp: String,
         override val external: Boolean,
         val portNumber: Int,
+        val sourcePort: Int,
         val previousHealth: Double,
         val newHealth: Double,
     ) : PassiveWatchTrigger
@@ -41,7 +42,7 @@ internal class PassiveWatchCoordinator(
         when (trigger) {
             is PassiveWatchTrigger.PettyCashChanged -> evaluatePettyCashChanged(context, trigger)
             is PassiveWatchTrigger.ScanSucceeded -> evaluateScanSucceeded(context, trigger)
-            is PassiveWatchTrigger.HealthChanged -> Unit
+            is PassiveWatchTrigger.HealthChanged -> evaluateHealthChanged(context, trigger)
         }
     }
 
@@ -147,6 +148,62 @@ internal class PassiveWatchCoordinator(
         }
     }
 
+    private suspend fun evaluateHealthChanged(
+        context: CommandContext,
+        trigger: PassiveWatchTrigger.HealthChanged,
+    ) {
+        val state = context.loadState(trigger.targetStateId) ?: return
+        val updatedWatches = state.watches.watches.toMutableList()
+        var watchesChanged = false
+        var firedExecution = false
+
+        state.watches.watches.withIndex().forEach { (index, watch) ->
+            if (!watch.enabled || watch.kind != WatchKind.HEALTH || watch.installPort != trigger.portNumber) {
+                return@forEach
+            }
+
+            val port = state.port(watch.installPort) ?: return@forEach
+            if (port.isInstallPortOverheated(state)) {
+                return@forEach
+            }
+
+            val crossedThreshold =
+                watch.baselineQuantity >= watch.quantityThreshold &&
+                    trigger.newHealth < watch.quantityThreshold
+            if (crossedThreshold) {
+                val execution = runtimeExecutor.execute(
+                    context = context,
+                    targetStateId = trigger.targetStateId,
+                    sourceIp = trigger.sourceIp,
+                    matchedIndex = index,
+                    watch = watch,
+                    input = state.toWatchExecutionInput(
+                        watch = watch,
+                        targetIp = trigger.sourceIp,
+                        targetPort = trigger.sourcePort,
+                        transactionAmount = 0.0,
+                        external = trigger.external,
+                    ),
+                )
+                firedExecution = firedExecution || execution.executed
+            }
+
+            if (watch.baselineQuantity != trigger.newHealth) {
+                updatedWatches[index] = watch.copy(baselineQuantity = trigger.newHealth)
+                watchesChanged = true
+            }
+        }
+
+        persistPassiveWatchUpdates(
+            context = context,
+            targetStateId = trigger.targetStateId,
+            state = state,
+            updatedWatches = updatedWatches,
+            watchesChanged = watchesChanged,
+            xpAward = state.stats.watchLevel().toDouble().takeIf { firedExecution },
+        )
+    }
+
     private suspend fun persistPassiveWatchUpdates(
         context: CommandContext,
         targetStateId: GameStateId,
@@ -224,6 +281,7 @@ internal suspend fun CommandContext.emitPassiveHealthChange(
     targetStateId: GameStateId,
     sourceIp: String,
     portNumber: Int,
+    sourcePort: Int,
     previousHealth: Double,
     newHealth: Double,
     external: Boolean = sourceIp != targetStateId.value,
@@ -237,6 +295,7 @@ internal suspend fun CommandContext.emitPassiveHealthChange(
             sourceIp = sourceIp,
             external = external,
             portNumber = portNumber,
+            sourcePort = sourcePort,
             previousHealth = previousHealth,
             newHealth = newHealth,
         ),

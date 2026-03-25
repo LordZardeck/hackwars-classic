@@ -278,16 +278,17 @@
   - Preserves the locked legacy petty-cash threshold and overheat gates, and keeps health-watch auto-fire deferred to `RW-GS-S5A3B`.
 
 ### RW-GS-S5A3B - Passive health-watch auto-fire
-- Status: `todo`
-- Owner: `unassigned`
+- Status: `in_progress`
+- Owner: `codex`
 - Depends on: `RW-GS-S5A3A`, `RW-GS-S5B2A`
 - Allowed write scope: `:RewriteGameCore`, `:RewriteGameServer`
 - Verification command: `./gradlew :RewriteGameCore:test :RewriteGameServer:test`
 - Artifacts: `build/reports/tests/test`
 - Commit rule: `single green commit only`
 - Notes:
-  - Owns passive `WatchKind.HEALTH` auto-fire once real damage and combat/port-health plumbing exists in the rewrite.
-  - Remains blocked on combat-side state transitions and must not regress the explicit and passive petty-cash/scan behavior from earlier watch slices.
+  - Owns passive `WatchKind.HEALTH` auto-fire on combat-driven port-health loss using the same installed-watch runtime and single-pass evaluation model as the earlier watch slices.
+  - Health watchers now execute only from typed combat damage, refresh baselines on non-overheated matching ports, and keep heal or recovery-driven baseline resets deferred to a later runtime or heal slice.
+  - Must not regress the explicit and passive petty-cash or scan behavior from earlier watch slices while `RW-GS-S5B2B` remains deferred for richer combat runtime and attack-script behavior.
 
 ### RW-GS-S5B1 - Attack start/cancel program foundation
 - Status: `done`

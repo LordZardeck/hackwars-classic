@@ -604,6 +604,7 @@ internal class AttackTickCommand(
             targetStateId = targetStateId,
             sourceIp = attackerStateId.value,
             portNumber = session.targetPort,
+            sourcePort = sourcePort,
             previousHealth = previousHealth,
             newHealth = newHealth,
         )

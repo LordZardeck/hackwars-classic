@@ -271,6 +271,7 @@ class AttackCommandsTest {
                     sourceIp = attackerId.value,
                     external = true,
                     portNumber = 25,
+                    sourcePort = 12,
                     previousHealth = 100.0,
                     newHealth = 97.8,
                 ),

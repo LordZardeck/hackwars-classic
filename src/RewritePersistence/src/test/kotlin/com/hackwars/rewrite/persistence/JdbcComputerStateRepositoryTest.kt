@@ -654,6 +654,98 @@ class JdbcComputerStateRepositoryTest {
     }
 
     @Test
+    fun replaysHealthWatchBaselineAndWatchXpAfterCombatDamage() {
+        resetDatabase()
+        val stateId = GameStateId("TARGET-IP")
+        val installedWatch = InstalledWatch(
+            kind = WatchKind.HEALTH,
+            enabled = true,
+            note = "health-watch",
+            cpuCost = 5.0,
+            quantityThreshold = 50.0,
+            baselineQuantity = 100.0,
+            installPort = 25,
+            searchFirewallType = 0,
+            observedPorts = listOf(25),
+            contents = """int main() { logMessage("health"); return 0; }""",
+            compiledBinary = CompiledBinaryMetadata(
+                scriptFamily = ScriptFamily.WATCH,
+                applicationKind = ApplicationKind.WATCH,
+                outputName = "watch.bin",
+            ),
+        )
+        seedPlayerAndComputer(
+            stateId = stateId,
+            state = ComputerState.empty(id = stateId, playFabId = "PF-TARGET").copy(
+                ports = listOf(
+                    PortState(
+                        number = 25,
+                        type = "http",
+                        enabled = true,
+                        health = 100.0,
+                    ),
+                ),
+                watches = WatchManagerState(watches = listOf(installedWatch)),
+            ),
+        )
+        val repository = JdbcComputerStateRepository(
+            connectionFactory = ::newConnection,
+            serializer = serializer,
+        )
+
+        runBlockingAppend(
+            repository,
+            stateId,
+            listOf(
+                CombatStateUpdatedEvent(
+                    changedPathList = setOf("ports.25.health"),
+                    deltaKeyList = setOf("ports"),
+                    combat = CombatState(),
+                    ports = listOf(
+                        PortState(
+                            number = 25,
+                            type = "http",
+                            enabled = true,
+                            health = 0.0,
+                        ),
+                    ),
+                    currentCpuLoad = 0.0,
+                    includePorts = true,
+                ),
+                HostLogAppendedEvent(
+                    ComputerLogEntry(
+                        createdAtEpochMillis = 1_000L,
+                        renderedLine = "1-Jan-1970 (12:00:01 AM) health",
+                        sourceIp = "ATTACKER-IP",
+                    ),
+                ),
+                WatchManagerUpdatedEvent(
+                    changedPathList = setOf("watches.watches"),
+                    deltaKeyList = setOf("watches"),
+                    watches = WatchManagerState(
+                        watches = listOf(installedWatch.copy(baselineQuantity = 0.0)),
+                    ),
+                    currentCpuLoad = 0.0,
+                    includeRuntime = false,
+                ),
+                SkillExperienceAdjustedEvent(
+                    family = ScriptFamily.WATCH,
+                    delta = 1.0,
+                ),
+            ),
+        )
+
+        val reloaded = runBlockingLoad(repository, stateId)
+
+        requireNotNull(reloaded)
+        assertEquals(0.0, reloaded.ports.first { it.number == 25 }.health)
+        assertEquals(0.0, reloaded.watches.watches.single().baselineQuantity)
+        assertEquals(1.0, reloaded.stats.experienceByFamily[ScriptFamily.WATCH])
+        assertEquals(1, reloaded.logs.entries.size)
+        assertEquals("ATTACKER-IP", reloaded.logs.entries.single().sourceIp)
+    }
+
+    @Test
     fun replaysEconomyAndStoreEventsAcrossBuyerSellerRevenueAndShardStore() {
         resetDatabase()
         val buyerId = GameStateId("BUYER-IP")
