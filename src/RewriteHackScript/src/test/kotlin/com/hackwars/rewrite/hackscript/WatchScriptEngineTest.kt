@@ -30,6 +30,8 @@ class WatchScriptEngineTest {
                     logMessage("" + getTargetPort());
                     logMessage("" + getDefaultBank());
                     logMessage("" + checkPettyCash());
+                    logMessage("" + getTransactionAmount());
+                    logMessage(getSearchFireWall());
                     logMessage("" + getCPULoad());
                     logMessage("" + getMaximumCPULoad());
                     depositPettyCash();
@@ -45,6 +47,8 @@ class WatchScriptEngineTest {
                 installPort = 6,
                 defaultBankPort = 21,
                 pettyCash = 42.5,
+                transactionAmount = 17.5,
+                searchFirewallName = "DataShield",
                 currentCpuLoad = 15.0,
                 maximumCpuLoad = 100.0,
                 triggered = true,
@@ -66,13 +70,15 @@ class WatchScriptEngineTest {
                 "0",
                 "21",
                 "42.5",
+                "17.5",
+                "DataShield",
                 "15",
                 "100",
             ),
             result.effects.filterIsInstance<AppendHostLogEffect>().map { it.message },
         )
-        assertEquals(null, assertIs<DepositPettyCashEffect>(result.effects[11]).amount)
-        assertEquals(25.0, assertIs<DepositPettyCashEffect>(result.effects[12]).amount)
+        assertEquals(null, assertIs<DepositPettyCashEffect>(result.effects[13]).amount)
+        assertEquals(25.0, assertIs<DepositPettyCashEffect>(result.effects[14]).amount)
     }
 
     @Test
@@ -110,6 +116,8 @@ class WatchScriptEngineTest {
             installPort = 6,
             defaultBankPort = 21,
             pettyCash = 10.0,
+            transactionAmount = 0.0,
+            searchFirewallName = "",
             currentCpuLoad = 5.0,
             maximumCpuLoad = 100.0,
             triggered = true,

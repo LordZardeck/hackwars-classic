@@ -274,7 +274,7 @@ class VoteForWebsiteCommand(
             id = targetStateId,
             events = listOf(
                 WebsiteVoteCountAdjustedEvent(delta = 1),
-                HttpExperienceAdjustedEvent(delta = 500),
+                HttpExperienceAdjustedEvent(delta = 500.0),
             ),
         )
 
@@ -283,7 +283,7 @@ class VoteForWebsiteCommand(
             targetStateId = targetStateId,
             votesAvailableAfter = updatedVoter.website.votesAvailable,
             targetVoteCountAfter = updatedTarget.website.voteCount,
-            targetHttpExperienceAfter = updatedTarget.stats.experienceByFamily[ScriptFamily.HTTP] ?: 0,
+            targetHttpExperienceAfter = updatedTarget.stats.experienceByFamily[ScriptFamily.HTTP] ?: 0.0,
             voterVersion = updatedVoter.version,
             targetVersion = updatedTarget.version,
         )

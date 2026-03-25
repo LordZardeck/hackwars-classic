@@ -455,7 +455,7 @@ class WebsiteBrowserCommandsTest {
 
         assertEquals(1, response.votesAvailableAfter)
         assertEquals(8, response.targetVoteCountAfter)
-        assertEquals(500, response.targetHttpExperienceAfter)
+        assertEquals(500.0, response.targetHttpExperienceAfter)
         assertEquals(listOf(setOf("website"), setOf("website", "stats")), publisher.deltas.map { it.second.deltaKeys })
         val targetProjection = assertIs<StateSectionsDeltaProjection>(publisher.deltas.last().second.projection)
         assertNotNull(targetProjection.website)

@@ -458,7 +458,7 @@ class RewriteGameWebsiteProtocolAdapterTest {
         assertEquals(listOf("website", "stats"), targetDelta.delta?.delta_keys)
         assertEquals(1, response.votesAvailableAfter)
         assertEquals(8, response.targetVoteCountAfter)
-        assertEquals(500, response.targetHttpExperienceAfter)
+        assertEquals(500.0, response.targetHttpExperienceAfter)
         assertIs<StateSectionsDeltaProjection>(targetProjection)
     }
 

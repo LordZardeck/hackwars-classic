@@ -228,6 +228,11 @@ class MakeBountyCommand(
             id = creatorStateId,
             events = listOf(EconomyBalanceAdjustedEvent(pettyCashDelta = -reward)),
         )
+        context.evaluatePassivePettyCashChange(
+            targetStateId = creatorStateId,
+            previousPettyCash = creatorState.economy.pettyCash,
+            newPettyCash = updatedCreator.economy.pettyCash,
+        )
 
         return BountyCreatedResponse(
             creatorStateId = creatorStateId,

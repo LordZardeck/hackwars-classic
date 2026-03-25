@@ -308,7 +308,7 @@ data class CompiledBinaryMetadata(
     val equipmentSlot: EquipmentSlot? = null,
     val bankingApplication: Boolean = false,
     val strength: Int = 0,
-    val experienceAward: Int = 1,
+    val experienceAward: Double = 1.0,
 )
 
 @Serializable
@@ -445,7 +445,7 @@ data class LogState(
 
 @Serializable
 data class PlayerStatsState(
-    val experienceByFamily: Map<ScriptFamily, Int> = emptyMap(),
+    val experienceByFamily: Map<ScriptFamily, Double> = emptyMap(),
     val totalLevel: Int = 0,
     val noobProtectionLevel: Int = 0,
 )
@@ -586,7 +586,7 @@ data class WebsiteVoteCountAdjustedEvent(
 @Serializable
 @SerialName("http_experience_adjusted")
 data class HttpExperienceAdjustedEvent(
-    val delta: Int,
+    val delta: Double,
 ) : ComputerEvent {
     override val changedPaths: Set<String> = setOf("stats.experienceByFamily.${ScriptFamily.HTTP}")
     override val deltaKeys: Set<String> = setOf("stats")
@@ -757,7 +757,7 @@ data class WatchManagerUpdatedEvent(
 @SerialName("skill_experience_adjusted")
 data class SkillExperienceAdjustedEvent(
     val family: ScriptFamily,
-    val delta: Int,
+    val delta: Double,
 ) : ComputerEvent {
     override val changedPaths: Set<String> = setOf("stats.experienceByFamily.$family")
     override val deltaKeys: Set<String> = setOf("stats")
@@ -1114,7 +1114,7 @@ data class FileCompiledEvent(
     val compiledFile: StoredFile,
     val pettyCashDelta: Double,
     val scriptFamily: ScriptFamily,
-    val experienceDelta: Int,
+    val experienceDelta: Double,
 ) : ComputerEvent {
     override val changedPaths: Set<String> = linkedSetOf<String>().apply {
         add("filesystem.filesByPath.$sourceFilePath")
@@ -1158,7 +1158,7 @@ data class FileDecompiledEvent(
     val decompiledFile: StoredFile,
     val pettyCashDelta: Double,
     val scriptFamily: ScriptFamily,
-    val experienceDelta: Int,
+    val experienceDelta: Double,
 ) : ComputerEvent {
     override val changedPaths: Set<String> = linkedSetOf<String>().apply {
         add("filesystem.filesByPath.$sourceFilePath")
@@ -1500,9 +1500,9 @@ data class ScanResponse(
     val failureCode: ScanFailureCode? = null,
     val failureMessage: String? = null,
     val chargedAmount: Double = 0.0,
-    val experienceAwarded: Int = 0,
+    val experienceAwarded: Double = 0.0,
     val pettyCashAfter: Double? = null,
-    val scanningExperienceAfter: Int? = null,
+    val scanningExperienceAfter: Double? = null,
     val ports: List<ScannedPortView> = emptyList(),
     val requesterVersion: Long,
 )
@@ -1651,7 +1651,7 @@ data class CompileFileResponse(
     val stateId: GameStateId,
     val compiledFile: StoredFile,
     val pettyCashAfter: Double,
-    val experienceAfter: Int,
+    val experienceAfter: Double,
     val version: Long,
 )
 
@@ -1660,7 +1660,7 @@ data class DecompileFileResponse(
     val stateId: GameStateId,
     val decompiledFile: StoredFile,
     val pettyCashAfter: Double,
-    val experienceAfter: Int,
+    val experienceAfter: Double,
     val version: Long,
 )
 
@@ -1776,7 +1776,7 @@ data class VoteResponse(
     val targetStateId: GameStateId,
     val votesAvailableAfter: Int,
     val targetVoteCountAfter: Int,
-    val targetHttpExperienceAfter: Int,
+    val targetHttpExperienceAfter: Double,
     val voterVersion: Long,
     val targetVersion: Long,
 )
@@ -2005,16 +2005,16 @@ fun List<PortState>.upsertPort(
 
 fun PlayerStatsState.adjustSkillExperience(
     family: ScriptFamily,
-    delta: Int,
+    delta: Double,
 ): PlayerStatsState {
-    val current = experienceByFamily[family] ?: 0
-    val next = max(0, current + delta)
+    val current = experienceByFamily[family] ?: 0.0
+    val next = max(0.0, current + delta)
     return copy(experienceByFamily = experienceByFamily + (family to next))
 }
 
-fun PlayerStatsState.skillExperience(family: ScriptFamily): Int = experienceByFamily[family] ?: 0
+fun PlayerStatsState.skillExperience(family: ScriptFamily): Double = experienceByFamily[family] ?: 0.0
 
-fun legacyLevelForXp(experience: Int): Int {
+fun legacyLevelForXp(experience: Double): Int {
     var level = 0
     while (level < LEGACY_XP_TABLE.lastIndex && experience > LEGACY_XP_TABLE[level]) {
         level++

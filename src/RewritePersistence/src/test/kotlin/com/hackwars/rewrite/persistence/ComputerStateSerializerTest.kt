@@ -94,12 +94,29 @@ class ComputerStateSerializerTest {
             ),
             pettyCashDelta = -75.0,
             scriptFamily = ScriptFamily.BANKING,
-            experienceDelta = 3,
+            experienceDelta = 3.0,
         )
 
         val reloaded = serializer.decodeEvent(serializer.encodeEvent(event))
 
         assertIs<FileCompiledEvent>(reloaded)
         assertEquals(event, reloaded)
+    }
+
+    @Test
+    fun decodesLegacyIntegerXpValuesIntoFractionalRewriteState() {
+        val state = serializer.decodeStateJson(
+            """
+            {
+              "id":"LOCAL-IP",
+              "identity":{"playerIp":"LOCAL-IP"},
+              "stats":{"experienceByFamily":{"WATCH":12,"SCANNING":240}},
+              "runtime":{"currentCpuLoad":0.0}
+            }
+            """.trimIndent(),
+        )
+
+        assertEquals(12.0, state.stats.experienceByFamily[ScriptFamily.WATCH])
+        assertEquals(240.0, state.stats.experienceByFamily[ScriptFamily.SCANNING])
     }
 }

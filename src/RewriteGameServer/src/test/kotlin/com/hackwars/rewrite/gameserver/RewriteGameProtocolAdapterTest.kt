@@ -293,7 +293,7 @@ class RewriteGameProtocolAdapterTest {
         assertEquals(listOf("filesystem", "economy", "stats"), compileDelta.delta?.delta_keys)
         assertIs<StateSectionsDeltaProjection>(compileProjection)
         assertEquals(425.0, compileResponse.pettyCashAfter)
-        assertEquals(4, compileResponse.experienceAfter)
+        assertEquals(4.0, compileResponse.experienceAfter)
         assertEquals("bank.bin", compileResponse.compiledFile.name)
 
         connection.send(
@@ -317,7 +317,7 @@ class RewriteGameProtocolAdapterTest {
 
         assertEquals(listOf("filesystem", "economy", "stats"), decompileDelta.delta?.delta_keys)
         assertEquals(500.0, decompileResponse.pettyCashAfter)
-        assertEquals(0, decompileResponse.experienceAfter)
+        assertEquals(0.0, decompileResponse.experienceAfter)
         assertEquals("bank", decompileResponse.decompiledFile.name)
     }
 
@@ -458,7 +458,7 @@ class RewriteGameProtocolAdapterTest {
                         applicationKind = ApplicationKind.BANKING,
                         bankingApplication = true,
                         outputName = "bank.bin",
-                        experienceAward = 4,
+                        experienceAward = 4.0,
                     ),
                 ),
             )
@@ -473,7 +473,7 @@ class RewriteGameProtocolAdapterTest {
                         applicationKind = ApplicationKind.BANKING,
                         bankingApplication = true,
                         outputName = "bank.bin",
-                        experienceAward = 4,
+                        experienceAward = 4.0,
                     ),
                 ),
             )

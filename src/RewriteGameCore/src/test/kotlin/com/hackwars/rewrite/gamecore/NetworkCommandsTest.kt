@@ -318,12 +318,12 @@ class NetworkCommandsTest {
             seededStates = mapOf(
                 requesterId to localPlayerState(requesterId).copy(
                     stats = PlayerStatsState(
-                        experienceByFamily = mapOf(ScriptFamily.SCANNING to 10_000_000),
+                        experienceByFamily = mapOf(ScriptFamily.SCANNING to 10_000_000.0),
                     ),
                 ),
                 targetId to scanTargetState(targetId).copy(
                     stats = PlayerStatsState(
-                        experienceByFamily = mapOf(ScriptFamily.FIREWALL to 0),
+                        experienceByFamily = mapOf(ScriptFamily.FIREWALL to 0.0),
                     ),
                 ),
             ),
@@ -336,7 +336,7 @@ class NetworkCommandsTest {
 
         assertTrue(highReveal.accepted)
         assertEquals(10.0, highReveal.chargedAmount)
-        assertEquals(60, highReveal.experienceAwarded)
+        assertEquals(60.0, highReveal.experienceAwarded)
         assertEquals(setOf("economy", "stats"), publisher.deltas.single().second.deltaKeys)
         assertEquals(DefaultPortVisibility.YES, highReveal.ports.first().defaultVisibility)
         assertEquals("LOCAL-IP", highReveal.ports.first().note)
@@ -348,7 +348,7 @@ class NetworkCommandsTest {
                 requesterId to localPlayerState(requesterId),
                 targetId to scanTargetState(targetId).copy(
                     stats = PlayerStatsState(
-                        experienceByFamily = mapOf(ScriptFamily.FIREWALL to 10_000_000),
+                        experienceByFamily = mapOf(ScriptFamily.FIREWALL to 10_000_000.0),
                     ),
                 ),
             ),
@@ -359,7 +359,7 @@ class NetworkCommandsTest {
         )
 
         assertTrue(lowReveal.accepted)
-        assertEquals(20, lowReveal.experienceAwarded)
+        assertEquals(20.0, lowReveal.experienceAwarded)
         assertEquals(DefaultPortVisibility.UNKNOWN, lowReveal.ports.first().defaultVisibility)
         assertNull(lowReveal.ports.first().firewall)
         assertEquals("", lowReveal.ports.first().note)

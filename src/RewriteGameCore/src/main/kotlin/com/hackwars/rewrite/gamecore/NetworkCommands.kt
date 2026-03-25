@@ -298,9 +298,9 @@ class RequestScanCommand(
         val firewallLevel = legacyLevelForXp(targetState.stats.skillExperience(ScriptFamily.FIREWALL))
         val revealDelta = scanLevel - firewallLevel
         val experienceAward = when {
-            revealDelta < 15 -> 20
-            revealDelta < 25 -> 40
-            else -> 60
+            revealDelta < 15 -> 20.0
+            revealDelta < 25 -> 40.0
+            else -> 60.0
         }
 
         val updatedRequester = context.appendEvents(
@@ -309,6 +309,16 @@ class RequestScanCommand(
                 EconomyBalanceAdjustedEvent(pettyCashDelta = -SCAN_COST),
                 SkillExperienceAdjustedEvent(family = ScriptFamily.SCANNING, delta = experienceAward),
             ),
+        )
+        context.evaluatePassivePettyCashChange(
+            targetStateId = requesterStateId,
+            previousPettyCash = requesterState.economy.pettyCash,
+            newPettyCash = updatedRequester.economy.pettyCash,
+        )
+        context.evaluatePassiveScanSuccess(
+            targetStateId = requesterStateId,
+            sourceIp = targetStateId.value,
+            external = true,
         )
 
         return ScanResponse(

@@ -152,7 +152,7 @@ class JdbcComputerStateRepositoryTest {
                 outputName = "bank.bin",
                 applicationKind = ApplicationKind.BANKING,
                 bankingApplication = true,
-                experienceAward = 4,
+                experienceAward = 4.0,
             ),
         )
         val compiledFile = sourceFile.copy(
@@ -170,7 +170,7 @@ class JdbcComputerStateRepositoryTest {
                 scriptFamily = ScriptFamily.HTTP,
                 outputName = "site.bin",
                 applicationKind = ApplicationKind.HTTP,
-                experienceAward = 5,
+                experienceAward = 5.0,
             ),
             scriptBundle = ProgramScriptBundle(
                 family = ScriptFamily.HTTP,
@@ -212,7 +212,7 @@ class JdbcComputerStateRepositoryTest {
                     compiledFile = compiledFile,
                     pettyCashDelta = -75.0,
                     scriptFamily = ScriptFamily.BANKING,
-                    experienceDelta = 4,
+                    experienceDelta = 4.0,
                 ),
                 FileCompiledEvent(
                     sourceFilePath = httpSource.path,
@@ -220,7 +220,7 @@ class JdbcComputerStateRepositoryTest {
                     compiledFile = httpBinary,
                     pettyCashDelta = -40.0,
                     scriptFamily = ScriptFamily.HTTP,
-                    experienceDelta = 5,
+                    experienceDelta = 5.0,
                 ),
                 ApplicationInstalledEvent(
                     sourceFilePath = compiledFile.path,
@@ -271,8 +271,8 @@ class JdbcComputerStateRepositoryTest {
         requireNotNull(reloaded)
         assertEquals(6, reloaded.economy.defaultBankPort)
         assertEquals(385.0, reloaded.economy.pettyCash)
-        assertEquals(4, reloaded.stats.experienceByFamily[ScriptFamily.BANKING])
-        assertEquals(5, reloaded.stats.experienceByFamily[ScriptFamily.HTTP])
+        assertEquals(4.0, reloaded.stats.experienceByFamily[ScriptFamily.BANKING])
+        assertEquals(5.0, reloaded.stats.experienceByFamily[ScriptFamily.HTTP])
         assertEquals(1, reloaded.filesystem.directoriesByPath.count { it.key == "/Public" })
         assertEquals("bank.hws", reloaded.filesystem.filesByPath[sourceFile.path]?.name)
         assertEquals("bank.bin", reloaded.ports.single { it.number == 6 }.installedApplication?.name)
@@ -460,7 +460,7 @@ class JdbcComputerStateRepositoryTest {
                     ),
                 ),
                 EconomyBalanceAdjustedEvent(pettyCashDelta = -10.0),
-                SkillExperienceAdjustedEvent(family = ScriptFamily.SCANNING, delta = 60),
+                SkillExperienceAdjustedEvent(family = ScriptFamily.SCANNING, delta = 60.0),
             ),
         )
 
@@ -473,7 +473,7 @@ class JdbcComputerStateRepositoryTest {
         assertEquals(180001L, reloaded.network.lastNetworkSwitchAtEpochMillis)
         assertEquals("Prog Attack", reloaded.network.regularNpcs.single().displayName)
         assertEquals(90.0, reloaded.economy.pettyCash)
-        assertEquals(60, reloaded.stats.experienceByFamily[ScriptFamily.SCANNING])
+        assertEquals(60.0, reloaded.stats.experienceByFamily[ScriptFamily.SCANNING])
     }
 
     @Test
@@ -500,7 +500,7 @@ class JdbcComputerStateRepositoryTest {
                 ),
                 WebsiteVotesAvailableAdjustedEvent(delta = 3),
                 WebsiteVoteCountAdjustedEvent(delta = 5),
-                HttpExperienceAdjustedEvent(delta = 500),
+                HttpExperienceAdjustedEvent(delta = 500.0),
             ),
         )
 
@@ -511,7 +511,7 @@ class JdbcComputerStateRepositoryTest {
         assertEquals("<html>Seeded Body</html>", reloaded.website.body)
         assertEquals(3, reloaded.website.votesAvailable)
         assertEquals(5, reloaded.website.voteCount)
-        assertEquals(500, reloaded.stats.experienceByFamily[ScriptFamily.HTTP])
+        assertEquals(500.0, reloaded.stats.experienceByFamily[ScriptFamily.HTTP])
         assertTrue(countRows("rewrite_state_snapshot") >= 1)
     }
 

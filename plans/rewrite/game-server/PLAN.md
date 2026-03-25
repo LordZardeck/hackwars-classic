@@ -252,7 +252,7 @@
   - `requesttrigger` and HTTP hook `triggerWatch*` remain seam-only in this slice and continue emitting `WatchTriggerIntent` without binding into execution.
 
 ### RW-GS-S5A2 - Explicit watch-trigger execution and binding
-- Status: `in_progress`
+- Status: `done`
 - Owner: `codex`
 - Depends on: `RW-GS-S5A1`, `RW-GS-S3B3A`
 - Allowed write scope: `:RewriteHackScript`, `:RewriteGameCore`, `:RewriteGameServer`, `:RewritePersistence`
@@ -264,17 +264,30 @@
   - Keeps the supported helper surface intentionally narrow in this slice: explicit triggers can append host logs and deposit petty cash, while unsupported helpers fail that watch execution non-fatally.
   - Preserves the manager/config guarantees from `RW-GS-S5A1` and keeps missing or disabled matches as successful no-ops.
 
-### RW-GS-S5A3 - Passive watch auto-fire and watch XP
+### RW-GS-S5A3A - Passive petty-cash and scan watches with fractional XP
+- Status: `in_progress`
+- Owner: `codex`
+- Depends on: `RW-GS-S5A2`
+- Allowed write scope: `:RewriteHackScript`, `:RewriteGameCore`, `:RewriteGameServer`, `:RewritePersistence`
+- Verification command: `./gradlew :RewriteHackScript:test :RewriteGameCore:test :RewritePersistence:test :RewritePersistence:migrationTest :RewriteGameServer:test :RewriteTestKit:integrationTest rewriteCheck`
+- Artifacts: `build/reports/tests/test`
+- Commit rule: `single green commit only`
+- Notes:
+  - Adds single-pass passive petty-cash and scan auto-fire on top of the installed-watch execution path and keeps evaluation synchronous inside the originating command flow.
+  - Migrates rewrite XP storage and response surfaces to fractional `Double` values, including watch XP awarded once per passive trigger pass.
+  - Preserves the locked legacy petty-cash threshold and overheat gates, and keeps health-watch auto-fire deferred to `RW-GS-S5A3B`.
+
+### RW-GS-S5A3B - Passive health-watch auto-fire
 - Status: `todo`
 - Owner: `unassigned`
-- Depends on: `RW-GS-S5A2`
+- Depends on: `RW-GS-S5A3A`, `RW-GS-S5B`
 - Allowed write scope: `:RewriteGameCore`, `:RewriteGameServer`
 - Verification command: `./gradlew :RewriteGameCore:test :RewriteGameServer:test`
 - Artifacts: `build/reports/tests/test`
 - Commit rule: `single green commit only`
 - Notes:
-  - Adds passive auto-fire for health, petty-cash, and scan watches plus watch-side XP and progression behavior.
-  - Remains blocked on preserving legacy passive-threshold semantics and watch-XP rules after the explicit-trigger execution core stabilizes.
+  - Owns passive `WatchKind.HEALTH` auto-fire once real damage and combat/port-health plumbing exists in the rewrite.
+  - Remains blocked on combat-side state transitions and must not regress the explicit and passive petty-cash/scan behavior from earlier watch slices.
 
 ### RW-GS-S5B - Attack-program foundation
 - Status: `todo`

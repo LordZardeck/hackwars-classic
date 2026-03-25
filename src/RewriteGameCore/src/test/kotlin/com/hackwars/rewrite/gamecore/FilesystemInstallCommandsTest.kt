@@ -135,10 +135,10 @@ class FilesystemInstallCommandsTest {
         requireNotNull(finalState)
         assertEquals("bank.bin", compile.compiledFile.name)
         assertEquals(425.0, compile.pettyCashAfter)
-        assertEquals(4, compile.experienceAfter)
+        assertEquals(4.0, compile.experienceAfter)
         assertEquals("bank", decompile.decompiledFile.name)
         assertEquals(500.0, decompile.pettyCashAfter)
-        assertEquals(0, decompile.experienceAfter)
+        assertEquals(0.0, decompile.experienceAfter)
         assertEquals(listOf(setOf("filesystem", "economy", "stats"), setOf("filesystem", "economy", "stats")), publisher.deltas.map { it.second.deltaKeys })
         assertNotNull(finalState.filesystem.filesByPath[buildFilePath("/Public", "bank")])
     }
@@ -167,7 +167,7 @@ class FilesystemInstallCommandsTest {
                         scriptFamily = ScriptFamily.HTTP,
                         outputName = "portal.bin",
                         applicationKind = ApplicationKind.HTTP,
-                        experienceAward = 5,
+                        experienceAward = 5.0,
                     ),
                     scriptBundle = bundle,
                 ),
@@ -332,7 +332,7 @@ class FilesystemInstallCommandsTest {
                         applicationKind = ApplicationKind.BANKING,
                         bankingApplication = true,
                         outputName = "bank.bin",
-                        experienceAward = 4,
+                        experienceAward = 4.0,
                     ),
                 ),
             )
@@ -347,7 +347,7 @@ class FilesystemInstallCommandsTest {
                         applicationKind = ApplicationKind.BANKING,
                         bankingApplication = true,
                         outputName = "bank.bin",
-                        experienceAward = 4,
+                        experienceAward = 4.0,
                     ),
                 ),
             )
@@ -362,7 +362,7 @@ class FilesystemInstallCommandsTest {
                         scriptFamily = ScriptFamily.HTTP,
                         outputName = "site.bin",
                         applicationKind = ApplicationKind.HTTP,
-                        experienceAward = 5,
+                        experienceAward = 5.0,
                     ),
                     scriptBundle = httpScriptBundle(),
                 ),
@@ -378,7 +378,7 @@ class FilesystemInstallCommandsTest {
                         scriptFamily = ScriptFamily.HTTP,
                         outputName = "site.bin",
                         applicationKind = ApplicationKind.HTTP,
-                        experienceAward = 5,
+                        experienceAward = 5.0,
                     ),
                     scriptBundle = httpScriptBundle(),
                 ),

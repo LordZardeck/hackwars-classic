@@ -393,11 +393,16 @@ class CompileFileCommand(
                 ),
             ),
         )
+        context.evaluatePassivePettyCashChange(
+            targetStateId = stateId,
+            previousPettyCash = state.economy.pettyCash,
+            newPettyCash = updated.economy.pettyCash,
+        )
         return CompileFileResponse(
             stateId = stateId,
             compiledFile = compiledFile,
             pettyCashAfter = updated.economy.pettyCash,
-            experienceAfter = updated.stats.experienceByFamily[binaryMetadata.scriptFamily] ?: 0,
+            experienceAfter = updated.stats.experienceByFamily[binaryMetadata.scriptFamily] ?: 0.0,
             version = updated.version,
         )
     }
@@ -458,11 +463,16 @@ class DecompileFileCommand(
                 ),
             ),
         )
+        context.evaluatePassivePettyCashChange(
+            targetStateId = stateId,
+            previousPettyCash = state.economy.pettyCash,
+            newPettyCash = updated.economy.pettyCash,
+        )
         return DecompileFileResponse(
             stateId = stateId,
             decompiledFile = decompiledFile,
             pettyCashAfter = updated.economy.pettyCash,
-            experienceAfter = updated.stats.experienceByFamily[binaryMetadata.scriptFamily] ?: 0,
+            experienceAfter = updated.stats.experienceByFamily[binaryMetadata.scriptFamily] ?: 0.0,
             version = updated.version,
         )
     }
@@ -758,6 +768,11 @@ class DepositCommand(
                 ),
             ),
         )
+        context.evaluatePassivePettyCashChange(
+            targetStateId = stateId,
+            previousPettyCash = state.economy.pettyCash,
+            newPettyCash = updated.economy.pettyCash,
+        )
 
         return BankTransactionResponse(
             stateId = stateId,
@@ -798,6 +813,11 @@ class WithdrawCommand(
                     bankMoneyDelta = -appliedAmount,
                 ),
             ),
+        )
+        context.evaluatePassivePettyCashChange(
+            targetStateId = stateId,
+            previousPettyCash = state.economy.pettyCash,
+            newPettyCash = updated.economy.pettyCash,
         )
 
         return BankTransactionResponse(
@@ -867,6 +887,20 @@ class TransferCommand(
             events = listOf(
                 EconomyBalanceAdjustedEvent(pettyCashDelta = appliedAmount),
             ),
+        )
+        context.evaluatePassivePettyCashChange(
+            targetStateId = sourceStateId,
+            previousPettyCash = sourceState.economy.pettyCash,
+            newPettyCash = updatedSource.economy.pettyCash,
+            sourceIp = sourceStateId.value,
+            external = false,
+        )
+        context.evaluatePassivePettyCashChange(
+            targetStateId = targetStateId,
+            previousPettyCash = targetState.economy.pettyCash,
+            newPettyCash = updatedTarget.economy.pettyCash,
+            sourceIp = sourceStateId.value,
+            external = true,
         )
 
         return TransferResponse(
@@ -984,6 +1018,13 @@ class SellFileMultiCommand(
                 StoreInventoryReceivedEvent(soldItems.map { it.storeCopy }),
             ),
         )
+        context.evaluatePassivePettyCashChange(
+            targetStateId = stateId,
+            previousPettyCash = state.economy.pettyCash,
+            newPettyCash = updatedState.economy.pettyCash,
+            sourceIp = storeStateId.value,
+            external = true,
+        )
 
         return SellFileMultiResponse(
             stateId = stateId,
@@ -1043,6 +1084,13 @@ class RequestPurchaseCommand(
             sellerState = sellerState,
             fallback = revenueTargetHint ?: sellerStateId,
         )
+        val revenueTargetState = if (revenueTargetStateId == sellerStateId) {
+            sellerState
+        } else {
+            requireNotNull(context.loadState(revenueTargetStateId)) {
+                "No revenue target state exists for ${revenueTargetStateId.value}."
+            }
+        }
         val remainingListing = listing.copy(quantity = listing.quantity - fulfilledQuantity).takeIf { it.quantity > 0 }
         val purchasedFile = listing.copy(
             path = purchasedPath,
@@ -1076,6 +1124,30 @@ class RequestPurchaseCommand(
                 events = listOf(
                     EconomyBalanceAdjustedEvent(pettyCashDelta = totalPrice),
                 ),
+            )
+        }
+        context.evaluatePassivePettyCashChange(
+            targetStateId = buyerStateId,
+            previousPettyCash = buyerState.economy.pettyCash,
+            newPettyCash = updatedBuyer.economy.pettyCash,
+            sourceIp = buyerStateId.value,
+            external = false,
+        )
+        if (revenueTargetStateId == sellerStateId) {
+            context.evaluatePassivePettyCashChange(
+                targetStateId = sellerStateId,
+                previousPettyCash = sellerState.economy.pettyCash,
+                newPettyCash = updatedSeller.economy.pettyCash,
+                sourceIp = buyerStateId.value,
+                external = true,
+            )
+        } else {
+            context.evaluatePassivePettyCashChange(
+                targetStateId = revenueTargetStateId,
+                previousPettyCash = revenueTargetState.economy.pettyCash,
+                newPettyCash = updatedRevenueTarget.economy.pettyCash,
+                sourceIp = buyerStateId.value,
+                external = true,
             )
         }
 

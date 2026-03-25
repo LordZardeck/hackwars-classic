@@ -26,6 +26,9 @@ import com.hackwars.rewrite.gamecore.SellFileResponse
 import com.hackwars.rewrite.gamecore.StateSectionsDeltaProjection
 import com.hackwars.rewrite.gamecore.StoredFile
 import com.hackwars.rewrite.gamecore.StoredFileKind
+import com.hackwars.rewrite.gamecore.WatchKind
+import com.hackwars.rewrite.gamecore.WatchManagerState
+import com.hackwars.rewrite.gamecore.InstalledWatch
 import com.hackwars.rewrite.gamecore.TransferPayload
 import com.hackwars.rewrite.gamecore.TransferResponse
 import com.hackwars.rewrite.gamecore.WebsiteState
@@ -187,6 +190,70 @@ class RewriteGameEconomyStoreProtocolAdapterTest {
     }
 
     @Test
+    fun transferCreditTriggersRecipientPassiveWatchWithSenderSourceIp() = runTest {
+        val fixture = createFixture(
+            targetState = targetState().copy(
+                watches = WatchManagerState(
+                    watches = listOf(
+                        InstalledWatch(
+                            kind = WatchKind.PETTY_CASH,
+                            enabled = true,
+                            note = "cash-watch",
+                            cpuCost = 5.0,
+                            quantityThreshold = 100.0,
+                            baselineQuantity = 50.0,
+                            installPort = 9,
+                            contents = """
+                                int main() {
+                                    logMessage(getTargetIP());
+                                    logMessage("" + getTransactionAmount());
+                                    return 0;
+                                }
+                            """.trimIndent(),
+                            compiledBinary = CompiledBinaryMetadata(
+                                scriptFamily = com.hackwars.rewrite.gamecore.ScriptFamily.WATCH,
+                                applicationKind = ApplicationKind.WATCH,
+                                outputName = "watch.bin",
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+        )
+        val source = fixture.authenticatedConnection("LOCAL-IP")
+        val target = fixture.authenticatedConnection("TARGET-IP")
+
+        source.send(
+            RewriteFrames.command(
+                commandId = "transfer-watch-1",
+                commandName = "transfer",
+                payload = RewriteGameJson.encode(
+                    serializer = TransferPayload.serializer(),
+                    value = TransferPayload(
+                        amount = 125.0,
+                        ip = "LOCAL-IP",
+                        targetIp = "TARGET-IP",
+                        port = 6,
+                    ),
+                ),
+                expectsResponse = true,
+            ),
+        )
+
+        source.awaitFrame()
+        val targetDelta = target.awaitFrame()
+        source.awaitFrame()
+        val targetProjection = RewriteGameJson.decode(
+            serializer = DeltaProjection.serializer(),
+            payload = targetDelta.delta!!.payload.toByteArray(),
+        )
+
+        assertEquals(listOf("economy", "logs", "watches", "stats"), targetDelta.delta?.delta_keys)
+        assertIs<StateSectionsDeltaProjection>(targetProjection)
+        assertEquals(listOf("LOCAL-IP", "125"), targetProjection.logs?.entries?.map { it.renderedLine.substringAfterLast(' ') })
+    }
+
+    @Test
     fun sellFileAndSellFileMultiProduceFilesystemAndStoreDeltas() = runTest {
         val fixture = createFixture()
         val local = fixture.authenticatedConnection("LOCAL-IP")
@@ -302,13 +369,18 @@ class RewriteGameEconomyStoreProtocolAdapterTest {
         assertIs<StateSectionsDeltaProjection>(buyerProjection)
     }
 
-    private fun TestScope.createFixture(): Fixture {
+    private fun TestScope.createFixture(
+        localState: ComputerState = localState(),
+        targetState: ComputerState = targetState(),
+        revenueState: ComputerState = revenueState(),
+        storeState: ComputerState = storeState(),
+    ): Fixture {
         val repository = InMemoryComputerStateRepository(
             seededStates = mapOf(
-                GameStateId("LOCAL-IP") to localState(),
-                GameStateId("TARGET-IP") to targetState(),
-                GameStateId("REV-IP") to revenueState(),
-                GameStateId("store1") to storeState(),
+                GameStateId("LOCAL-IP") to localState,
+                GameStateId("TARGET-IP") to targetState,
+                GameStateId("REV-IP") to revenueState,
+                GameStateId("store1") to storeState,
             ),
         )
         val interests = InMemoryInterestRegistry()

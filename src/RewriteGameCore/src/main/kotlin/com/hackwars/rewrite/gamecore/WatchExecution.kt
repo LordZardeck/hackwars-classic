@@ -26,6 +26,8 @@ class DefaultWatchExecutionCoordinator(
     private val engine: WatchScriptEngine = WatchScriptEngine(),
     private val clock: () -> Long = { System.currentTimeMillis() },
 ) : WatchExecutionCoordinator {
+    private val runtimeExecutor = WatchRuntimeExecutor(engine = engine, clock = clock)
+
     override suspend fun execute(context: CommandContext, intent: WatchTriggerIntent): WatchExecutionResult {
         val targetState = context.loadState(intent.targetStateId) ?: return WatchExecutionResult()
         val match = targetState.matchWatch(intent.selector) ?: return WatchExecutionResult()
@@ -44,6 +46,8 @@ class DefaultWatchExecutionCoordinator(
                 installPort = watch.installPort,
                 defaultBankPort = targetState.economy.defaultBankPort,
                 pettyCash = targetState.economy.pettyCash,
+                transactionAmount = 0.0,
+                searchFirewallName = "",
                 currentCpuLoad = targetState.runtime.currentCpuLoad,
                 maximumCpuLoad = targetState.hardware.cpuMax,
                 triggered = true,
@@ -51,25 +55,78 @@ class DefaultWatchExecutionCoordinator(
                 triggerParameters = intent.parameters,
             ),
         )
+        return runtimeExecutor.execute(
+            context = context,
+            targetStateId = intent.targetStateId,
+            sourceIp = intent.sourceIp,
+            matchedIndex = matchedIndex,
+            watch = watch,
+            outcome = outcome,
+            selector = intent.selector,
+        )
+    }
+
+    private companion object {
+        private val logger = LoggerFactory.getLogger(DefaultWatchExecutionCoordinator::class.java)
+    }
+}
+
+internal class WatchRuntimeExecutor(
+    private val engine: WatchScriptEngine = WatchScriptEngine(),
+    private val clock: () -> Long = { System.currentTimeMillis() },
+) {
+    suspend fun execute(
+        context: CommandContext,
+        targetStateId: GameStateId,
+        sourceIp: String,
+        matchedIndex: Int,
+        watch: InstalledWatch,
+        input: WatchExecutionInput,
+        selector: TriggerSelector? = null,
+    ): WatchExecutionResult {
+        val outcome = engine.execute(
+            script = watch.executableScript(),
+            input = input,
+        )
+        return execute(
+            context = context,
+            targetStateId = targetStateId,
+            sourceIp = sourceIp,
+            matchedIndex = matchedIndex,
+            watch = watch,
+            outcome = outcome,
+            selector = selector,
+        )
+    }
+
+    suspend fun execute(
+        context: CommandContext,
+        targetStateId: GameStateId,
+        sourceIp: String,
+        matchedIndex: Int,
+        watch: InstalledWatch,
+        outcome: com.hackwars.rewrite.hackscript.WatchScriptOutcome,
+        selector: TriggerSelector? = null,
+    ): WatchExecutionResult {
         val result = outcome.result
         if (result == null) {
             logger.warn(
                 "Rewrite watch trigger failed for target={} selector={} source={}: {}",
-                intent.targetStateId.value,
-                intent.selector,
-                intent.sourceIp,
+                targetStateId.value,
+                selector ?: "passive[$matchedIndex]",
+                sourceIp,
                 outcome.diagnostics.joinToString { "${it.code}:${it.message}" },
             )
             return WatchExecutionResult(matchedWatchIndex = matchedIndex, executed = false)
         }
 
-        var currentState = targetState
+        var currentState = context.loadState(targetStateId) ?: ComputerState.empty(id = targetStateId, playerIp = targetStateId.value)
         result.effects.forEach { effect ->
             currentState = applyEffect(
                 effect = effect,
                 context = context,
-                targetStateId = intent.targetStateId,
-                sourceIp = intent.sourceIp,
+                targetStateId = targetStateId,
+                sourceIp = sourceIp,
                 watch = watch,
                 currentState = currentState,
             )
@@ -128,23 +185,23 @@ class DefaultWatchExecutionCoordinator(
         }
     }
 
-    private fun ComputerState.matchWatch(selector: TriggerSelector): Pair<Int, InstalledWatch>? {
-        return when (selector) {
-            is TriggerSelector.ByIndex -> watches.watches.getOrNull(selector.index)?.let { selector.index to it }
-            is TriggerSelector.ByNote -> watches.watches
-                .withIndex()
-                .firstOrNull { (_, watch) -> watch.note == selector.note }
-                ?.let { it.index to it.value }
-        }
-    }
-
-    private fun InstalledWatch.executableScript(): String {
-        return scriptBundle?.script(ProgramScriptSlot.FIRE)
-            ?.takeUnless { it.isBlank() }
-            ?: contents
-    }
-
     private companion object {
-        private val logger = LoggerFactory.getLogger(DefaultWatchExecutionCoordinator::class.java)
+        private val logger = LoggerFactory.getLogger(WatchRuntimeExecutor::class.java)
     }
+}
+
+internal fun ComputerState.matchWatch(selector: TriggerSelector): Pair<Int, InstalledWatch>? {
+    return when (selector) {
+        is TriggerSelector.ByIndex -> watches.watches.getOrNull(selector.index)?.let { selector.index to it }
+        is TriggerSelector.ByNote -> watches.watches
+            .withIndex()
+            .firstOrNull { (_, watch) -> watch.note == selector.note }
+            ?.let { it.index to it.value }
+    }
+}
+
+internal fun InstalledWatch.executableScript(): String {
+    return scriptBundle?.script(ProgramScriptSlot.FIRE)
+        ?.takeUnless { it.isBlank() }
+        ?: contents
 }

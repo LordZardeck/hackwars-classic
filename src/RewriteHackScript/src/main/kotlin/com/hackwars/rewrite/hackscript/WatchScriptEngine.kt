@@ -44,6 +44,8 @@ data class WatchExecutionInput(
     val installPort: Int,
     val defaultBankPort: Int?,
     val pettyCash: Double,
+    val transactionAmount: Double = 0.0,
+    val searchFirewallName: String = "",
     val currentCpuLoad: Double,
     val maximumCpuLoad: Double,
     val triggered: Boolean,
@@ -97,6 +99,8 @@ private class WatchScriptHost(
             "isTriggerParameterSet" -> HackValue.BooleanValue(triggerParameter(arguments).let(::isTriggerParameterSet))
             "getTriggerParameter" -> triggerParameter(arguments) ?: HackValue.StringValue("")
             "checkPettyCash" -> HackValue.FloatValue(state.input.pettyCash)
+            "getTransactionAmount" -> HackValue.FloatValue(state.input.transactionAmount)
+            "getSearchFireWall" -> HackValue.StringValue(state.input.searchFirewallName)
             "getCPULoad" -> HackValue.FloatValue(state.input.currentCpuLoad)
             "getMaximumCPULoad" -> HackValue.FloatValue(state.input.maximumCpuLoad)
             "logMessage" -> {

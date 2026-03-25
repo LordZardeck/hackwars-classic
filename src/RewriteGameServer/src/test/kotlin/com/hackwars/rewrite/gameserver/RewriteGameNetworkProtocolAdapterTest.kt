@@ -11,6 +11,7 @@ import com.hackwars.rewrite.gamecore.HardwareState
 import com.hackwars.rewrite.gamecore.InMemoryComputerStateRepository
 import com.hackwars.rewrite.gamecore.InMemoryInterestRegistry
 import com.hackwars.rewrite.gamecore.InMemoryNetworkDirectoryRepository
+import com.hackwars.rewrite.gamecore.InstalledWatch
 import com.hackwars.rewrite.gamecore.InstalledApplication
 import com.hackwars.rewrite.gamecore.InstalledFirewall
 import com.hackwars.rewrite.gamecore.NetworkState
@@ -19,6 +20,7 @@ import com.hackwars.rewrite.gamecore.NpcCategory
 import com.hackwars.rewrite.gamecore.NpcDirectoryEntry
 import com.hackwars.rewrite.gamecore.PlayerStatsState
 import com.hackwars.rewrite.gamecore.PortState
+import com.hackwars.rewrite.gamecore.CompiledBinaryMetadata
 import com.hackwars.rewrite.gamecore.RequestScanPayload
 import com.hackwars.rewrite.gamecore.RewriteGameJson
 import com.hackwars.rewrite.gamecore.ROOT_NETWORK_NAME
@@ -28,6 +30,8 @@ import com.hackwars.rewrite.gamecore.StateSectionsDeltaProjection
 import com.hackwars.rewrite.gamecore.FirewallKind
 import com.hackwars.rewrite.gamecore.ChangeNetworkPayload
 import com.hackwars.rewrite.gamecore.NetworkDirectoryDefinition
+import com.hackwars.rewrite.gamecore.WatchKind
+import com.hackwars.rewrite.gamecore.WatchManagerState
 import com.hackwars.rewrite.gamecore.RuntimeState
 import com.hackwars.rewrite.protocol.ProtocolTimeoutPolicy
 import com.hackwars.rewrite.protocol.RewriteFrames
@@ -198,13 +202,83 @@ class RewriteGameNetworkProtocolAdapterTest {
         assertEquals(listOf("economy", "stats"), delta.delta?.delta_keys)
         assertTrue(response.accepted)
         assertEquals(10.0, response.chargedAmount)
-        assertEquals(60, response.experienceAwarded)
+        assertEquals(60.0, response.experienceAwarded)
         assertEquals(DefaultPortVisibility.YES, response.ports.first().defaultVisibility)
         assertEquals("LOCAL-IP", response.ports.first().note)
         assertIs<StateSectionsDeltaProjection>(projection)
         assertEquals(90.0, projection.economy?.pettyCash)
-        assertTrue((projection.stats?.experienceByFamily?.get(ScriptFamily.SCANNING) ?: 0) >= 60)
+        assertTrue((projection.stats?.experienceByFamily?.get(ScriptFamily.SCANNING) ?: 0.0) >= 60.0)
         assertNull(target.drainFrames().firstOrNull())
+    }
+
+    @Test
+    fun requestscanPassiveWatchEffectsFlushBeforeTheCorrelatedResponse() = runTest {
+        val fixture = createFixture(
+            localState = localState().copy(
+                watches = WatchManagerState(
+                    watches = listOf(
+                        InstalledWatch(
+                            kind = WatchKind.SCAN,
+                            enabled = true,
+                            note = "scan-watch",
+                            cpuCost = 5.0,
+                            installPort = 6,
+                            searchFirewallType = 3,
+                            contents = """
+                                int main() {
+                                    logMessage(getSearchFireWall());
+                                    return 0;
+                                }
+                            """.trimIndent(),
+                            compiledBinary = CompiledBinaryMetadata(
+                                scriptFamily = ScriptFamily.WATCH,
+                                applicationKind = ApplicationKind.WATCH,
+                                outputName = "watch.bin",
+                            ),
+                        ),
+                    ),
+                ),
+                stats = PlayerStatsState(
+                    experienceByFamily = mapOf(
+                        ScriptFamily.SCANNING to 10_000_000.0,
+                        ScriptFamily.WATCH to 0.0,
+                    ),
+                ),
+            ),
+        )
+        val local = fixture.authenticatedConnection("LOCAL-IP")
+
+        local.send(
+            RewriteFrames.command(
+                commandId = "scan-watch-1",
+                commandName = "requestscan",
+                payload = RewriteGameJson.encode(
+                    serializer = RequestScanPayload.serializer(),
+                    value = RequestScanPayload(
+                        ip = "LOCAL-IP",
+                        targetIp = "TARGET-IP",
+                    ),
+                ),
+                expectsResponse = true,
+            ),
+        )
+
+        val delta = local.awaitFrame()
+        val responseFrame = local.awaitFrame()
+        val projection = RewriteGameJson.decode(
+            serializer = DeltaProjection.serializer(),
+            payload = delta.delta!!.payload.toByteArray(),
+        )
+        val response = RewriteGameJson.decode(
+            serializer = ScanResponse.serializer(),
+            payload = responseFrame.command_response!!.payload.toByteArray(),
+        )
+
+        assertEquals(listOf("economy", "stats", "logs"), delta.delta?.delta_keys)
+        assertTrue(response.accepted)
+        assertIs<StateSectionsDeltaProjection>(projection)
+        assertEquals("DataShield", projection.logs?.entries?.single()?.renderedLine?.substringAfterLast(' '))
+        assertEquals(0.25, projection.stats?.experienceByFamily?.get(ScriptFamily.WATCH))
     }
 
     @Test
@@ -333,7 +407,7 @@ class RewriteGameNetworkProtocolAdapterTest {
                 allowedNetworks = setOf("ProgNet"),
             ),
             stats = PlayerStatsState(
-                experienceByFamily = mapOf(ScriptFamily.SCANNING to 10_000_000),
+                experienceByFamily = mapOf(ScriptFamily.SCANNING to 10_000_000.0),
             ),
             runtime = RuntimeState(currentCpuLoad = 5.0),
         )

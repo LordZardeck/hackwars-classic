@@ -79,8 +79,8 @@ class JdbcRewriteSeedSinkTest {
                     currentNetworkName = "ProgNet",
                     allowedNetworks = listOf("ProgNet"),
                     lastNetworkSwitchAtEpochMillis = 123_456L,
-                    scanningExperience = 240,
-                    firewallExperience = 80,
+                    scanningExperience = 240.0,
+                    firewallExperience = 80.0,
                     currentCpuLoad = 15.0,
                     cpuMax = 100.0,
                     memoryType = 0,
@@ -251,8 +251,8 @@ class JdbcRewriteSeedSinkTest {
         assertEquals("Prog Mentor", state.network.questNpcs.single().displayName)
         assertEquals("Prog Quarry", state.network.miningNpcs.single().displayName)
         assertEquals("Shard Store", state.network.storeNpcs.single().displayName)
-        assertEquals(240, state.stats.experienceByFamily[ScriptFamily.SCANNING])
-        assertEquals(80, state.stats.experienceByFamily[ScriptFamily.FIREWALL])
+        assertEquals(240.0, state.stats.experienceByFamily[ScriptFamily.SCANNING])
+        assertEquals(80.0, state.stats.experienceByFamily[ScriptFamily.FIREWALL])
         assertEquals(15.0, state.runtime.currentCpuLoad)
         assertEquals(1, state.watches.watches.size)
         assertTrue(!state.watches.watches.single().enabled)
