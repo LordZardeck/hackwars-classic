@@ -4038,6 +4038,383 @@ class AttackCommandsTest {
         assertTrue(repository.load(targetId)?.combat?.incomingAttacksByTargetPort?.isEmpty() == true)
     }
 
+    @Test
+    fun zombieStartRequiresInitializeAuthorizationWithoutMutation() = runTest {
+        val controllerId = GameStateId("CONTROLLER-IP")
+        val zombieId = GameStateId("ZOMBIE-IP")
+        val targetId = GameStateId("TARGET-IP")
+        val repository = InMemoryComputerStateRepository(
+            seededStates = mapOf(
+                controllerId to attackerState(controllerId),
+                zombieId to attackerState(
+                    zombieId,
+                    attackScriptBundle = attackScriptBundle(initialize = """int main() { return 0; }"""),
+                ),
+                targetId to targetState(targetId),
+            ),
+        )
+        val interests = InMemoryInterestRegistry().apply {
+            register("controller-conn", controllerId)
+            register("zombie-conn", zombieId)
+            register("target-conn", targetId)
+        }
+        val publisher = RecordingGameStatePublisher()
+        val registry = InMemoryAttackProgramRegistry()
+        val dispatcher = dispatcher(repository, interests)
+
+        val response = dispatcher.request(
+            command = StartZombieAttackSessionCommand(
+                controllerStateId = controllerId,
+                zombieStateId = zombieId,
+                targetStateId = targetId,
+                sourcePort = 12,
+                targetPort = 25,
+                loadout = AttackLoadout(),
+                attackProgramRegistry = registry,
+            ),
+            metadata = CommandMetadata(connectionId = "controller-conn", requestId = "zombie-attack-denied"),
+            publisher = publisher,
+        )
+
+        val updatedController = requireNotNull(repository.load(controllerId))
+        val updatedZombie = requireNotNull(repository.load(zombieId))
+        val updatedTarget = requireNotNull(repository.load(targetId))
+
+        assertFalse(response.accepted)
+        assertEquals("zombie-not-authorized", response.message)
+        assertEquals(100.0, updatedController.economy.pettyCash)
+        assertFalse(updatedZombie.port(12)?.attacking == true)
+        assertEquals(0.0, updatedZombie.runtime.currentCpuLoad)
+        assertTrue(updatedZombie.combat.activeAttacksBySourcePort.isEmpty())
+        assertTrue(updatedTarget.combat.incomingAttacksByTargetPort.isEmpty())
+        assertTrue(publisher.deltas.isEmpty())
+        assertTrue(publisher.programUpdates.isEmpty())
+    }
+
+    @Test
+    fun zombieStartChargesControllerScopesProgramUpdatesToControllerAndControllerCanCancel() = runTest {
+        val controllerId = GameStateId("CONTROLLER-IP")
+        val zombieId = GameStateId("ZOMBIE-IP")
+        val targetId = GameStateId("TARGET-IP")
+        val repository = InMemoryComputerStateRepository(
+            seededStates = mapOf(
+                controllerId to attackerState(controllerId),
+                zombieId to attackerState(
+                    zombieId,
+                    attackScriptBundle = zombieAuthorizedBundle(controllerId.value),
+                ),
+                targetId to targetState(targetId),
+            ),
+        )
+        val interests = InMemoryInterestRegistry().apply {
+            register("controller-conn", controllerId)
+            register("zombie-conn", zombieId)
+            register("target-conn", targetId)
+        }
+        val publisher = RecordingGameStatePublisher()
+        val registry = InMemoryAttackProgramRegistry()
+        val dispatcher = dispatcher(repository, interests)
+
+        val response = dispatcher.request(
+            command = StartZombieAttackSessionCommand(
+                controllerStateId = controllerId,
+                zombieStateId = zombieId,
+                targetStateId = targetId,
+                sourcePort = 12,
+                targetPort = 25,
+                loadout = AttackLoadout(secondaryPorts = listOf(26)),
+                attackProgramRegistry = registry,
+            ),
+            metadata = CommandMetadata(connectionId = "controller-conn", requestId = "zombie-attack-start"),
+            publisher = publisher,
+        )
+
+        val updatedController = requireNotNull(repository.load(controllerId))
+        val updatedZombie = requireNotNull(repository.load(zombieId))
+        val updatedTarget = requireNotNull(repository.load(targetId))
+        val session = updatedZombie.combat.activeAttacksBySourcePort.getValue(12)
+
+        assertTrue(response.accepted)
+        assertEquals(80.0, updatedController.economy.pettyCash)
+        assertEquals(100.0, updatedZombie.economy.pettyCash)
+        assertTrue(updatedZombie.port(12)?.attacking == true)
+        assertEquals(8.0, updatedZombie.runtime.currentCpuLoad)
+        assertEquals(AttackMode.ZOMBIE, session.attackMode)
+        assertEquals(controllerId, session.controllerStateId)
+        assertEquals(controllerId, session.authorizedZombieStateId)
+        assertEquals(listOf(25, 26), session.targetCyclePorts)
+        assertEquals(controllerId, response.session?.controllerStateId)
+        assertEquals(controllerId, response.session?.authorizedZombieStateId)
+        assertEquals(AttackMode.ZOMBIE, response.session?.attackMode)
+        assertEquals(zombieId, updatedTarget.combat.incomingAttacksByTargetPort.getValue(25).attackerStateId)
+        assertTrue(publisher.deltas.any { it.first == setOf("controller-conn") && it.second.deltaKeys == setOf("economy") })
+        assertTrue(publisher.deltas.any { it.first == setOf("zombie-conn") && it.second.deltaKeys == setOf("ports", "combat", "runtime") })
+        assertTrue(publisher.deltas.any { it.first == setOf("target-conn") && it.second.deltaKeys == setOf("combat") })
+
+        runCurrent()
+
+        assertEquals(ProgramLifecycleStatus.RUNNING, publisher.programUpdates.single().second.status)
+        assertEquals(setOf("controller-conn"), publisher.programUpdates.single().first)
+
+        publisher.deltas.clear()
+        publisher.programUpdates.clear()
+
+        val cancelResponse = dispatcher.request(
+            command = CancelZombieAttackSessionCommand(
+                controllerStateId = controllerId,
+                zombieStateId = zombieId,
+                sourcePort = 12,
+                attackProgramRegistry = registry,
+            ),
+            metadata = CommandMetadata(connectionId = "controller-conn", requestId = "zombie-attack-cancel"),
+            publisher = publisher,
+        )
+        runCurrent()
+
+        val cancelledZombie = requireNotNull(repository.load(zombieId))
+        val cancelledTarget = requireNotNull(repository.load(targetId))
+
+        assertTrue(cancelResponse.accepted)
+        assertTrue(cancelResponse.hadActiveSession)
+        assertTrue(cancelledZombie.combat.activeAttacksBySourcePort.isEmpty())
+        assertTrue(cancelledTarget.combat.incomingAttacksByTargetPort.isEmpty())
+        assertFalse(cancelledZombie.port(12)?.attacking == true)
+        assertEquals(0.0, cancelledZombie.runtime.currentCpuLoad)
+        assertEquals(ProgramLifecycleStatus.CANCELLED, publisher.programUpdates.single().second.status)
+        assertEquals(setOf("controller-conn"), publisher.programUpdates.single().first)
+        assertTrue(publisher.deltas.any { it.first == setOf("zombie-conn") && it.second.deltaKeys == setOf("ports", "combat", "runtime") })
+        assertTrue(publisher.deltas.any { it.first == setOf("target-conn") && it.second.deltaKeys == setOf("combat") })
+    }
+
+    @Test
+    fun zombieBerserkUsesControllerAttackXpAndZombieHostSelfDamageWithControllerAttribution() = runTest {
+        val controllerId = GameStateId("CONTROLLER-IP")
+        val zombieId = GameStateId("ZOMBIE-IP")
+        val targetId = GameStateId("TARGET-IP")
+        val repository = InMemoryComputerStateRepository(
+            seededStates = mapOf(
+                controllerId to attackerState(controllerId),
+                zombieId to attackerState(
+                    zombieId,
+                    attackScriptBundle = zombieAuthorizedBundle(
+                        controllerIp = controllerId.value,
+                        continueScript = """int main() { berserk(); return 0; }""",
+                    ),
+                ),
+                targetId to targetState(targetId),
+            ),
+        )
+        val interests = InMemoryInterestRegistry().apply {
+            register("controller-conn", controllerId)
+            register("zombie-conn", zombieId)
+            register("target-conn", targetId)
+        }
+        val publisher = RecordingGameStatePublisher()
+        val registry = InMemoryAttackProgramRegistry()
+        val passiveWatchSink = RecordingPassiveWatchTriggerSink()
+        val dispatcher = dispatcher(repository, interests, passiveWatchSink = passiveWatchSink)
+
+        dispatcher.request(
+            command = StartZombieAttackSessionCommand(
+                controllerStateId = controllerId,
+                zombieStateId = zombieId,
+                targetStateId = targetId,
+                sourcePort = 12,
+                targetPort = 25,
+                loadout = AttackLoadout(),
+                attackProgramRegistry = registry,
+            ),
+            metadata = CommandMetadata(connectionId = "controller-conn", requestId = "zombie-berserk-start"),
+            publisher = publisher,
+        )
+        runCurrent()
+        publisher.deltas.clear()
+        publisher.programUpdates.clear()
+        passiveWatchSink.triggers.clear()
+
+        advanceTimeBy(180_100)
+        runCurrent()
+
+        val updatedController = requireNotNull(repository.load(controllerId))
+        val updatedZombie = requireNotNull(repository.load(zombieId))
+        val updatedTarget = requireNotNull(repository.load(targetId))
+
+        assertEquals(4.4, updatedController.stats.skillExperience(ScriptFamily.ATTACK))
+        assertEquals(0.0, updatedZombie.stats.skillExperience(ScriptFamily.ATTACK))
+        assertEquals(98.9, updatedZombie.port(12)?.health)
+        assertEquals(95.6, updatedTarget.port(25)?.health)
+        assertTrue(
+            passiveWatchSink.triggers
+                .filterIsInstance<PassiveWatchTrigger.HealthChanged>()
+                .filter { it.targetStateId == targetId }
+                .all { it.sourceIp == controllerId.value },
+        )
+        assertContains(
+            passiveWatchSink.triggers.filterIsInstance<PassiveWatchTrigger.HealthChanged>(),
+            PassiveWatchTrigger.HealthChanged(
+                targetStateId = zombieId,
+                sourceIp = controllerId.value,
+                external = true,
+                portNumber = 12,
+                sourcePort = 12,
+                previousHealth = 100.0,
+                newHealth = 98.9,
+            ),
+        )
+        assertTrue(publisher.deltas.any { it.first == setOf("controller-conn") && it.second.deltaKeys == setOf("stats") })
+        assertTrue(publisher.deltas.any { it.first == setOf("zombie-conn") && it.second.deltaKeys.contains("ports") })
+        assertEquals(ProgramLifecycleStatus.RUNNING, publisher.programUpdates.single().second.status)
+        assertEquals(setOf("controller-conn"), publisher.programUpdates.single().first)
+    }
+
+    @Test
+    fun zombieEmptyPettyCashUsesControllerEconomyNotZombieHost() = runTest {
+        val controllerId = GameStateId("CONTROLLER-IP")
+        val zombieId = GameStateId("ZOMBIE-IP")
+        val targetId = GameStateId("TARGET-IP")
+        val repository = InMemoryComputerStateRepository(
+            seededStates = mapOf(
+                controllerId to attackerState(controllerId),
+                zombieId to attackerState(
+                    zombieId,
+                    attackScriptBundle = zombieAuthorizedBundle(
+                        controllerIp = controllerId.value,
+                        continueScript = """int main() { emptyPettyCash(); return 0; }""",
+                    ),
+                ),
+                targetId to targetState(
+                    targetId,
+                    pettyCash = 80.0,
+                    portType = "bank",
+                    installedApplication = InstalledApplication(
+                        name = "target-bank.bin",
+                        kind = ApplicationKind.BANKING,
+                        banking = true,
+                        cpuCost = 2.0,
+                    ),
+                ),
+            ),
+        )
+        val interests = InMemoryInterestRegistry().apply {
+            register("controller-conn", controllerId)
+            register("zombie-conn", zombieId)
+            register("target-conn", targetId)
+        }
+        val publisher = RecordingGameStatePublisher()
+        val registry = InMemoryAttackProgramRegistry()
+        val dispatcher = dispatcher(repository, interests)
+
+        dispatcher.request(
+            command = StartZombieAttackSessionCommand(
+                controllerStateId = controllerId,
+                zombieStateId = zombieId,
+                targetStateId = targetId,
+                sourcePort = 12,
+                targetPort = 25,
+                loadout = AttackLoadout(),
+                attackProgramRegistry = registry,
+            ),
+            metadata = CommandMetadata(connectionId = "controller-conn", requestId = "zombie-empty-cash-start"),
+            publisher = publisher,
+        )
+        runCurrent()
+        publisher.deltas.clear()
+        publisher.programUpdates.clear()
+
+        advanceTimeBy(180_100)
+        runCurrent()
+
+        val updatedController = requireNotNull(repository.load(controllerId))
+        val updatedZombie = requireNotNull(repository.load(zombieId))
+        val updatedTarget = requireNotNull(repository.load(targetId))
+
+        assertEquals(160.0, updatedController.economy.pettyCash)
+        assertEquals(100.0, updatedZombie.economy.pettyCash)
+        assertEquals(0.0, updatedTarget.economy.pettyCash)
+        assertEquals(2.2, updatedController.stats.skillExperience(ScriptFamily.ATTACK))
+        assertEquals(0.0, updatedZombie.stats.skillExperience(ScriptFamily.ATTACK))
+        assertTrue(updatedZombie.combat.activeAttacksBySourcePort.isEmpty())
+        assertTrue(updatedTarget.combat.incomingAttacksByTargetPort.isEmpty())
+        assertEquals(ProgramLifecycleStatus.CANCELLED, publisher.programUpdates.single().second.status)
+        assertEquals(setOf("controller-conn"), publisher.programUpdates.single().first)
+        assertTrue(publisher.deltas.any { it.first == setOf("controller-conn") && it.second.deltaKeys.containsAll(setOf("economy", "stats")) })
+        assertTrue(publisher.deltas.any { it.first == setOf("zombie-conn") && it.second.deltaKeys == setOf("combat", "ports", "runtime") })
+    }
+
+    @Test
+    fun zombieStealFileUsesControllerFilesystemNotZombieHost() = runTest {
+        val controllerId = GameStateId("CONTROLLER-IP")
+        val zombieId = GameStateId("ZOMBIE-IP")
+        val targetId = GameStateId("TARGET-IP")
+        val repository = InMemoryComputerStateRepository(
+            seededStates = mapOf(
+                controllerId to attackerState(controllerId),
+                zombieId to attackerState(
+                    zombieId,
+                    attackScriptBundle = zombieAuthorizedBundle(
+                        controllerIp = controllerId.value,
+                        continueScript = """int main() { stealFile(); return 0; }""",
+                    ),
+                ),
+                targetId to targetState(
+                    targetId,
+                    portType = "ftp",
+                    installedApplication = InstalledApplication(
+                        name = "target-ftp.bin",
+                        kind = ApplicationKind.FTP,
+                        cpuCost = 2.0,
+                    ),
+                    filesystemFiles = listOf(
+                        storedFile(path = "/Public", name = "loot.txt", quantity = 1),
+                    ),
+                ),
+            ),
+        )
+        val interests = InMemoryInterestRegistry().apply {
+            register("controller-conn", controllerId)
+            register("zombie-conn", zombieId)
+            register("target-conn", targetId)
+        }
+        val publisher = RecordingGameStatePublisher()
+        val registry = InMemoryAttackProgramRegistry()
+        val dispatcher = dispatcher(repository, interests)
+
+        dispatcher.request(
+            command = StartZombieAttackSessionCommand(
+                controllerStateId = controllerId,
+                zombieStateId = zombieId,
+                targetStateId = targetId,
+                sourcePort = 12,
+                targetPort = 25,
+                loadout = AttackLoadout(),
+                attackProgramRegistry = registry,
+            ),
+            metadata = CommandMetadata(connectionId = "controller-conn", requestId = "zombie-steal-file-start"),
+            publisher = publisher,
+        )
+        runCurrent()
+        publisher.deltas.clear()
+        publisher.programUpdates.clear()
+
+        advanceTimeBy(180_100)
+        runCurrent()
+
+        val updatedController = requireNotNull(repository.load(controllerId))
+        val updatedZombie = requireNotNull(repository.load(zombieId))
+        val updatedTarget = requireNotNull(repository.load(targetId))
+
+        assertNotNull(updatedController.filesystem.resolveFile("/", "loot.txt"))
+        assertNull(updatedZombie.filesystem.resolveFile("/", "loot.txt"))
+        assertTrue(updatedTarget.filesystem.listDirectory("/Public").files.isEmpty())
+        assertTrue(updatedZombie.combat.activeAttacksBySourcePort.isEmpty())
+        assertTrue(updatedTarget.combat.incomingAttacksByTargetPort.isEmpty())
+        assertEquals(ProgramLifecycleStatus.CANCELLED, publisher.programUpdates.single().second.status)
+        assertEquals(setOf("controller-conn"), publisher.programUpdates.single().first)
+        assertTrue(publisher.deltas.any { it.first == setOf("controller-conn") && it.second.deltaKeys == setOf("filesystem", "stats") })
+        assertTrue(publisher.deltas.any { it.first == setOf("zombie-conn") && it.second.deltaKeys == setOf("combat", "ports", "runtime") })
+        assertTrue(publisher.deltas.any { it.first == setOf("target-conn") && it.second.deltaKeys == setOf("filesystem", "ports", "combat") })
+    }
+
     private suspend fun TestScope.requestAttack(
         attackerState: ComputerState,
         targetState: ComputerState,
@@ -4331,6 +4708,18 @@ class AttackCommandsTest {
                 continueScript?.let { put(ProgramScriptSlot.CONTINUE, it) }
                 finalize?.let { put(ProgramScriptSlot.FINALIZE, it) }
             },
+        )
+    }
+
+    private fun zombieAuthorizedBundle(
+        controllerIp: String,
+        continueScript: String? = null,
+        finalize: String? = null,
+    ): ProgramScriptBundle {
+        return attackScriptBundle(
+            initialize = """int main() { zombie("$controllerIp"); return 0; }""",
+            continueScript = continueScript,
+            finalize = finalize,
         )
     }
 }

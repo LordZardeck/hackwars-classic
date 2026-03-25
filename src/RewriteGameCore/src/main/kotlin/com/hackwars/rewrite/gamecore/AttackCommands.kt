@@ -27,6 +27,7 @@ import kotlin.math.min
 import kotlin.time.Duration.Companion.seconds
 
 private const val ATTACK_START_COST: Double = 10.0
+private const val ZOMBIE_ATTACK_START_COST: Double = 20.0
 private const val ATTACK_FREEZE_DURATION_MILLIS: Long = 10_000L
 private val ATTACK_PROGRAM_TICK_INTERVAL = 180.seconds
 private val ATTACK_PROGRAM_LIFETIME = 450.seconds
@@ -135,6 +136,18 @@ data class CombatStateUpdatedEvent(
 
 internal data class AttackInitializeResult(
     val session: AttackSessionState,
+)
+
+internal data class ZombieAttackStartResult(
+    val accepted: Boolean,
+    val message: String,
+    val session: AttackSessionState? = null,
+)
+
+internal data class ZombieAttackCancelResult(
+    val accepted: Boolean,
+    val hadActiveSession: Boolean,
+    val message: String,
 )
 
 class RequestAttackCommand(
@@ -253,6 +266,7 @@ class RequestAttackCommand(
         val initializeResult = context.request(
             AttackInitializeCommand(
                 attackerStateId = attackerStateId,
+                actorStateId = attackerStateId,
                 targetStateId = targetStateId,
                 sourcePort = sourcePort,
                 targetPort = targetPort,
@@ -260,6 +274,8 @@ class RequestAttackCommand(
                 loadout = loadout,
                 windowHandle = windowHandle,
                 reservedCpu = reservedCpu,
+                chargedAmount = ATTACK_START_COST,
+                attackMode = AttackMode.DIRECT,
                 attackRuntimeExecutor = DefaultAttackRuntimeExecutor,
                 clock = clock,
             ),
@@ -271,6 +287,7 @@ class RequestAttackCommand(
                 targetStateId = targetStateId,
                 sourcePort = sourcePort,
                 programId = programId,
+                controllerStateId = null,
                 attackProgramRegistry = attackProgramRegistry,
                 clock = clock,
             ),
@@ -434,8 +451,221 @@ class RequestAttackDefaultCommand(
     }
 }
 
+internal class StartZombieAttackSessionCommand(
+    private val controllerStateId: GameStateId,
+    private val zombieStateId: GameStateId,
+    private val targetStateId: GameStateId,
+    private val sourcePort: Int,
+    private val targetPort: Int,
+    private val loadout: AttackLoadout,
+    private val windowHandle: Int = 0,
+    private val attackProgramRegistry: AttackProgramRegistry = NoOpAttackProgramRegistry,
+    private val attackRuntimeExecutor: AttackRuntimeExecutor = DefaultAttackRuntimeExecutor,
+    private val clock: () -> Long = { System.currentTimeMillis() },
+) : RequestCommand<ZombieAttackStartResult> {
+    override val name: String = "startzombieattacksession"
+    override val lifetime: CommandLifetime = CommandLifetime.defaultRequest
+    override val targetStateIds: Set<GameStateId> = setOf(controllerStateId, zombieStateId, targetStateId)
+
+    override suspend fun execute(context: CommandContext): ZombieAttackStartResult {
+        val controllerState = context.requireExistingState(controllerStateId)
+        val zombieState = context.requireExistingState(zombieStateId)
+        if (targetStateId == zombieStateId) {
+            return ZombieAttackStartResult(
+                accepted = false,
+                message = "self-target",
+            )
+        }
+
+        val source = zombieState.port(sourcePort)
+            ?: return ZombieAttackStartResult(
+                accepted = false,
+                message = "source-port-missing",
+            )
+        if (!source.isValidAttackSource()) {
+            return ZombieAttackStartResult(
+                accepted = false,
+                message = "invalid-source-port",
+            )
+        }
+        if (source.attacking || zombieState.combat.activeAttacksBySourcePort.containsKey(sourcePort)) {
+            return ZombieAttackStartResult(
+                accepted = false,
+                message = "source-already-attacking",
+            )
+        }
+
+        val targetState = context.loadState(targetStateId)
+            ?: return ZombieAttackStartResult(
+                accepted = false,
+                message = "target-missing",
+            )
+        val resolvedTargetPort = targetState.port(targetPort)
+            ?: return ZombieAttackStartResult(
+                accepted = false,
+                message = "target-port-missing",
+            )
+        if (!resolvedTargetPort.isValidAttackTarget(now = clock(), allowFrozen = false)) {
+            return ZombieAttackStartResult(
+                accepted = false,
+                message = "invalid-target-port",
+            )
+        }
+        if (targetState.combat.incomingAttacksByTargetPort.containsKey(targetPort)) {
+            return ZombieAttackStartResult(
+                accepted = false,
+                message = "target-already-under-attack",
+            )
+        }
+        if (!controllerState.hasActiveDefaultBankPort()) {
+            return ZombieAttackStartResult(
+                accepted = false,
+                message = "controller-active-bank-required",
+            )
+        }
+        if (controllerState.economy.pettyCash < ZOMBIE_ATTACK_START_COST) {
+            return ZombieAttackStartResult(
+                accepted = false,
+                message = "controller-insufficient-petty-cash",
+            )
+        }
+        if (zombieState.isOverheated()) {
+            return ZombieAttackStartResult(
+                accepted = false,
+                message = "zombie-overheated",
+            )
+        }
+
+        val reservedCpu = source.currentAttackCpuCost()
+        if (zombieState.runtime.currentCpuLoad + reservedCpu > zombieState.hardware.cpuMax) {
+            return ZombieAttackStartResult(
+                accepted = false,
+                message = "cpu-headroom-exceeded",
+            )
+        }
+
+        val admissionResult = attackRuntimeExecutor.execute(
+            context = context,
+            attackerState = zombieState,
+            sourcePort = sourcePort,
+            phase = AttackScriptPhase.INITIALIZE,
+            input = zombieState.toAttackExecutionInput(
+                phase = AttackExecutionPhase.INITIALIZE,
+                sourcePort = sourcePort,
+                targetView = targetState.buildAttackTargetView(targetPort, lastAppliedDamage = 0.0, completed = false),
+                iterations = 0,
+                sourceIpOverride = controllerStateId.value,
+                isZombie = false,
+                allowedZombieIps = setOf(controllerStateId.value),
+            ),
+        )
+        if (admissionResult.authorizedZombieStateId != controllerStateId) {
+            return ZombieAttackStartResult(
+                accepted = false,
+                message = "zombie-not-authorized",
+            )
+        }
+
+        val programId = "attack-${zombieStateId.value}-$sourcePort-${UUID.randomUUID()}"
+        val initializeResult = context.request(
+            AttackInitializeCommand(
+                attackerStateId = zombieStateId,
+                actorStateId = controllerStateId,
+                targetStateId = targetStateId,
+                sourcePort = sourcePort,
+                targetPort = targetPort,
+                programId = programId,
+                loadout = loadout,
+                windowHandle = windowHandle,
+                reservedCpu = reservedCpu,
+                chargedAmount = ZOMBIE_ATTACK_START_COST,
+                attackMode = AttackMode.ZOMBIE,
+                controllerStateId = controllerStateId,
+                authorizedZombieStateId = controllerStateId,
+                runInitializeScript = false,
+                attackRuntimeExecutor = attackRuntimeExecutor,
+                clock = clock,
+            ),
+        )
+
+        val handle = context.schedule(
+            AttackProgramCommand(
+                attackerStateId = zombieStateId,
+                targetStateId = targetStateId,
+                sourcePort = sourcePort,
+                programId = programId,
+                controllerStateId = controllerStateId,
+                attackProgramRegistry = attackProgramRegistry,
+                clock = clock,
+            ),
+        )
+        attackProgramRegistry.register(zombieStateId, sourcePort, programId, handle)
+        return ZombieAttackStartResult(
+            accepted = true,
+            message = "zombie-attack-started",
+            session = initializeResult.session,
+        )
+    }
+}
+
+internal class CancelZombieAttackSessionCommand(
+    private val controllerStateId: GameStateId,
+    private val zombieStateId: GameStateId,
+    private val sourcePort: Int,
+    private val attackProgramRegistry: AttackProgramRegistry = NoOpAttackProgramRegistry,
+) : RequestCommand<ZombieAttackCancelResult> {
+    override val name: String = "cancelzombieattacksession"
+    override val lifetime: CommandLifetime = CommandLifetime.defaultRequest
+    override val targetStateIds: Set<GameStateId> = emptySet()
+
+    override suspend fun execute(context: CommandContext): ZombieAttackCancelResult {
+        val zombieState = context.requireExistingState(zombieStateId)
+        val session = zombieState.combat.activeAttacksBySourcePort[sourcePort]
+        if (session == null || session.attackMode != AttackMode.ZOMBIE || session.controllerStateId != controllerStateId) {
+            return ZombieAttackCancelResult(
+                accepted = true,
+                hadActiveSession = false,
+                message = "zombie-attack-not-running",
+            )
+        }
+
+        val cancelled = attackProgramRegistry.cancel(
+            stateId = zombieStateId,
+            sourcePort = sourcePort,
+            reason = "cancelzombieattacksession",
+        )
+        if (!cancelled) {
+            attackProgramRegistry.unregister(session.programId)
+            context.request(
+                AttackReleaseCommand(
+                    attackerStateId = zombieStateId,
+                    targetStateId = session.targetStateId,
+                    sourcePort = sourcePort,
+                    targetPort = session.targetPort,
+                ),
+            )
+            context.publishProgramUpdate(
+                ProgramUpdate(
+                    programId = session.programId,
+                    programType = "attack",
+                    status = ProgramLifecycleStatus.CANCELLED,
+                    relatedStateIds = setOf(controllerStateId),
+                    progress = ProgramProgress(message = "cancelzombieattacksession"),
+                ),
+            )
+        }
+
+        return ZombieAttackCancelResult(
+            accepted = true,
+            hadActiveSession = true,
+            message = "zombie-attack-cancelled",
+        )
+    }
+}
+
 internal class AttackInitializeCommand(
     private val attackerStateId: GameStateId,
+    private val actorStateId: GameStateId,
     private val targetStateId: GameStateId,
     private val sourcePort: Int,
     private val targetPort: Int,
@@ -443,15 +673,25 @@ internal class AttackInitializeCommand(
     private val loadout: AttackLoadout,
     private val windowHandle: Int,
     private val reservedCpu: Double,
+    private val chargedAmount: Double,
+    private val attackMode: AttackMode,
+    private val controllerStateId: GameStateId? = null,
+    private val authorizedZombieStateId: GameStateId? = null,
+    private val runInitializeScript: Boolean = true,
     private val attackRuntimeExecutor: AttackRuntimeExecutor = DefaultAttackRuntimeExecutor,
     private val clock: () -> Long = { System.currentTimeMillis() },
 ) : RequestCommand<AttackInitializeResult> {
     override val name: String = "attackinitialize"
     override val lifetime: CommandLifetime = CommandLifetime.defaultRequest
-    override val targetStateIds: Set<GameStateId> = setOf(attackerStateId, targetStateId)
+    override val targetStateIds: Set<GameStateId> = setOf(attackerStateId, actorStateId, targetStateId)
 
     override suspend fun execute(context: CommandContext): AttackInitializeResult {
         val attackerState = context.requireExistingState(attackerStateId)
+        val actorState = if (actorStateId == attackerStateId) {
+            attackerState
+        } else {
+            context.requireExistingState(actorStateId)
+        }
         val targetState = context.requireExistingState(targetStateId)
         val startedAt = clock()
         val targetView = targetState.buildAttackTargetView(targetPort, lastAppliedDamage = 0.0, completed = false)
@@ -460,6 +700,9 @@ internal class AttackInitializeCommand(
             sourcePort = sourcePort,
             targetStateId = targetStateId,
             targetPort = targetPort,
+            attackMode = attackMode,
+            controllerStateId = controllerStateId,
+            authorizedZombieStateId = authorizedZombieStateId,
             targetView = targetView,
             targetCyclePorts = buildTargetCyclePorts(
                 initialTargetPort = targetPort,
@@ -473,30 +716,34 @@ internal class AttackInitializeCommand(
             startedAtEpochMillis = startedAt,
             iterationCount = 0,
         )
-        val nextCpuLoad = attackerState.runtime.currentCpuLoad + reservedCpu
+        if (chargedAmount != 0.0) {
+            val updatedActor = context.appendEvents(
+                id = actorStateId,
+                events = listOf(EconomyBalanceAdjustedEvent(pettyCashDelta = -chargedAmount)),
+            )
+            context.evaluatePassivePettyCashChange(
+                targetStateId = actorStateId,
+                previousPettyCash = actorState.economy.pettyCash,
+                newPettyCash = updatedActor.economy.pettyCash,
+            )
+        }
         val updatedAttacker = context.appendEvents(
             id = attackerStateId,
             events = listOf(
-                EconomyBalanceAdjustedEvent(pettyCashDelta = -ATTACK_START_COST),
                 CombatStateUpdatedEvent(
                     changedPathList = setOf(
                         "combat.activeAttacksBySourcePort.$sourcePort",
                         "ports.$sourcePort.attacking",
                         "runtime.currentCpuLoad",
                     ),
-                    deltaKeyList = setOf("economy", "ports", "combat", "runtime"),
+                    deltaKeyList = setOf("ports", "combat", "runtime"),
                     combat = attackerState.combat.withSession(session),
                     ports = attackerState.ports.markAttacking(sourcePort, true),
-                    currentCpuLoad = nextCpuLoad,
+                    currentCpuLoad = attackerState.runtime.currentCpuLoad + reservedCpu,
                     includePorts = true,
                     includeRuntime = true,
                 ),
             ),
-        )
-        context.evaluatePassivePettyCashChange(
-            targetStateId = attackerStateId,
-            previousPettyCash = attackerState.economy.pettyCash,
-            newPettyCash = updatedAttacker.economy.pettyCash,
         )
         context.appendEvents(
             id = targetStateId,
@@ -518,18 +765,23 @@ internal class AttackInitializeCommand(
                 ),
             ),
         )
-        attackRuntimeExecutor.execute(
-            context = context,
-            attackerState = updatedAttacker,
-            sourcePort = sourcePort,
-            phase = AttackScriptPhase.INITIALIZE,
-            input = updatedAttacker.toAttackExecutionInput(
-                phase = AttackExecutionPhase.INITIALIZE,
+        if (runInitializeScript) {
+            attackRuntimeExecutor.execute(
+                context = context,
+                attackerState = updatedAttacker,
                 sourcePort = sourcePort,
-                targetView = session.targetView,
-                iterations = 0,
-            ),
-        )
+                phase = AttackScriptPhase.INITIALIZE,
+                input = updatedAttacker.toAttackExecutionInput(
+                    phase = AttackExecutionPhase.INITIALIZE,
+                    sourcePort = sourcePort,
+                    targetView = session.targetView,
+                    iterations = 0,
+                    sourceIpOverride = actorStateId.value,
+                    isZombie = false,
+                    allowedZombieIps = controllerStateId?.let { setOf(it.value) }.orEmpty(),
+                ),
+            )
+        }
         return AttackInitializeResult(session = session)
     }
 }
@@ -538,15 +790,22 @@ internal class AttackTickCommand(
     private val attackerStateId: GameStateId,
     private val targetStateId: GameStateId,
     private val sourcePort: Int,
+    private val controllerStateId: GameStateId? = null,
     private val attackRuntimeExecutor: AttackRuntimeExecutor = DefaultAttackRuntimeExecutor,
+    private val attackActorResolver: AttackActorResolver = DefaultAttackActorResolver,
     private val firewallCombatResolver: FirewallCombatResolver = DefaultFirewallCombatResolver,
     private val clock: () -> Long = { System.currentTimeMillis() },
 ) : RequestCommand<ProgramExecutionStep> {
     override val name: String = "attackcontinue"
     override val lifetime: CommandLifetime = CommandLifetime.defaultRequest
-    override val targetStateIds: Set<GameStateId> = setOf(attackerStateId, targetStateId)
+    override val targetStateIds: Set<GameStateId> = buildSet {
+        add(attackerStateId)
+        add(targetStateId)
+        controllerStateId?.let(::add)
+    }
 
     override suspend fun execute(context: CommandContext): ProgramExecutionStep {
+        val fallbackProgramUpdateStateIds = controllerStateId?.let { setOf(it) } ?: setOf(attackerStateId)
         val attackerState = context.requireExistingState(attackerStateId)
         val sourcePortState = attackerState.port(sourcePort)
         if (sourcePortState == null) {
@@ -560,7 +819,7 @@ internal class AttackTickCommand(
             return ProgramExecutionStep(
                 status = ProgramLifecycleStatus.CANCELLED,
                 progress = ProgramProgress(message = "source port missing"),
-                relatedStateIds = setOf(attackerStateId),
+                relatedStateIds = fallbackProgramUpdateStateIds,
             )
         }
         val session = attackerState.combat.activeAttacksBySourcePort[sourcePort]?.withResolvedTargetCycle()
@@ -575,7 +834,29 @@ internal class AttackTickCommand(
             return ProgramExecutionStep(
                 status = ProgramLifecycleStatus.CANCELLED,
                 progress = ProgramProgress(message = "attack session missing"),
-                relatedStateIds = setOf(attackerStateId),
+                relatedStateIds = fallbackProgramUpdateStateIds,
+            )
+        }
+        val actorContext = attackActorResolver.resolve(attackerStateId, session)
+        val actorStateId = actorContext.actorStateId
+        val programUpdateStateIds = setOf(actorStateId)
+        val actorState = if (actorStateId == attackerStateId) {
+            attackerState
+        } else {
+            context.loadState(actorStateId)
+        } ?: run {
+            context.request(
+                AttackReleaseCommand(
+                    attackerStateId = attackerStateId,
+                    targetStateId = targetStateId,
+                    sourcePort = sourcePort,
+                    targetPort = session.targetPort,
+                ),
+            )
+            return ProgramExecutionStep(
+                status = ProgramLifecycleStatus.CANCELLED,
+                progress = ProgramProgress(message = "controller missing"),
+                relatedStateIds = programUpdateStateIds,
             )
         }
 
@@ -601,7 +882,7 @@ internal class AttackTickCommand(
             return ProgramExecutionStep(
                 status = ProgramLifecycleStatus.CANCELLED,
                 progress = ProgramProgress(message = "target unavailable"),
-                relatedStateIds = setOf(attackerStateId),
+                relatedStateIds = programUpdateStateIds,
             )
         }
 
@@ -620,7 +901,7 @@ internal class AttackTickCommand(
                     message = "completed",
                     completedSteps = session.iterationCount,
                 ),
-                relatedStateIds = setOf(attackerStateId),
+                relatedStateIds = programUpdateStateIds,
             )
         }
 
@@ -638,6 +919,9 @@ internal class AttackTickCommand(
             sourcePort = sourcePort,
             targetView = currentTargetView,
             iterations = initialSession.iterationCount + 1,
+            sourceIpOverride = actorStateId.value,
+            isZombie = initialSession.attackMode == AttackMode.ZOMBIE,
+            allowedZombieIps = initialSession.controllerStateId?.let { setOf(it.value) }.orEmpty(),
         )
         val continueOutcome = attackRuntimeExecutor.evaluate(
             attackerState = attackerState,
@@ -645,7 +929,7 @@ internal class AttackTickCommand(
             phase = AttackScriptPhase.CONTINUE,
             input = continueInput,
         )
-        val baseDamage = attackerState.attackBaseDamage()
+        val baseDamage = actorState.attackBaseDamage()
         val nextIteration = initialSession.iterationCount + 1
         var currentSession: AttackSessionState = initialSession
         var currentTargetCombat: CombatState = initialTargetState.combat
@@ -656,8 +940,8 @@ internal class AttackTickCommand(
         var currentTargetRuntimeCpuLoad: Double = initialTargetState.runtime.currentCpuLoad
         var currentTargetState: ComputerState = initialTargetState
         var currentTargetPortState: PortState = initialTargetPortState
-        var currentAttackerEconomy: EconomyState = attackerState.economy
-        var currentAttackerFilesystem: FilesystemState = attackerState.filesystem
+        var currentActorEconomy: EconomyState = actorState.economy
+        var currentActorFilesystem: FilesystemState = actorState.filesystem
         var currentAttackerPorts: List<PortState> = attackerState.ports
         var currentSourcePortState: PortState = sourcePortState
         var cancelRequested = false
@@ -702,13 +986,13 @@ internal class AttackTickCommand(
             refreshTargetState()
         }
 
-        fun replaceAttackerEconomy(economy: EconomyState) {
-            currentAttackerEconomy = economy
+        fun replaceActorEconomy(economy: EconomyState) {
+            currentActorEconomy = economy
         }
 
         fun replaceSourcePort(port: PortState) {
             currentSourcePortState = port
-            currentAttackerPorts = currentAttackerPorts.upsertPort(port, currentAttackerEconomy.defaultBankPort)
+            currentAttackerPorts = currentAttackerPorts.upsertPort(port, currentActorEconomy.defaultBankPort)
         }
 
         suspend fun applyAttackerHealthLoss(
@@ -813,8 +1097,12 @@ internal class AttackTickCommand(
             if (!currentTargetPortState.isBankingApplication()) {
                 return
             }
-            val latestAttackerState = context.loadState(attackerStateId) ?: attackerState
-            if (!latestAttackerState.hasActiveDefaultBankPort()) {
+            val latestActorState = if (actorStateId == attackerStateId) {
+                context.loadState(actorStateId) ?: attackerState
+            } else {
+                context.loadState(actorStateId) ?: actorState
+            }
+            if (!latestActorState.hasActiveDefaultBankPort()) {
                 return
             }
 
@@ -823,7 +1111,7 @@ internal class AttackTickCommand(
                 return
             }
 
-            val attackerPettyCashBefore = currentAttackerEconomy.pettyCash
+            val attackerPettyCashBefore = currentActorEconomy.pettyCash
             val stolenAmount = currentTargetPortState.resolveEmptyPettyCashAmount(targetPettyCashBefore)
             if (stolenAmount == 0.0) {
                 return
@@ -832,12 +1120,12 @@ internal class AttackTickCommand(
             val targetEconomyAfter = currentTargetEconomy.copy(
                 pettyCash = (targetPettyCashBefore - stolenAmount).coerceAtLeast(0.0),
             )
-            val attackerEconomyAfter = currentAttackerEconomy.copy(
+            val attackerEconomyAfter = currentActorEconomy.copy(
                 pettyCash = attackerPettyCashBefore + stolenAmount,
             )
 
             replaceTargetEconomy(targetEconomyAfter)
-            replaceAttackerEconomy(attackerEconomyAfter)
+            replaceActorEconomy(attackerEconomyAfter)
 
             context.appendEvents(
                 id = targetStateId,
@@ -846,20 +1134,20 @@ internal class AttackTickCommand(
                 ),
             )
             context.appendEvents(
-                id = attackerStateId,
+                id = actorStateId,
                 events = listOf(
                     EconomyBalanceAdjustedEvent(pettyCashDelta = stolenAmount),
                 ),
             )
             context.evaluatePassivePettyCashChange(
                 targetStateId = targetStateId,
-                sourceIp = attackerStateId.value,
+                sourceIp = actorStateId.value,
                 previousPettyCash = targetPettyCashBefore,
                 newPettyCash = targetEconomyAfter.pettyCash,
                 external = true,
             )
             context.evaluatePassivePettyCashChange(
-                targetStateId = attackerStateId,
+                targetStateId = actorStateId,
                 sourceIp = targetStateId.value,
                 previousPettyCash = attackerPettyCashBefore,
                 newPettyCash = attackerEconomyAfter.pettyCash,
@@ -881,7 +1169,7 @@ internal class AttackTickCommand(
             } else {
                 stolenSourceFile.copy(quantity = stolenSourceFile.quantity - 1)
             }
-            val attackerExistingFile: StoredFile? = currentAttackerFilesystem.resolveFile("/", stolenSourceFile.name)
+            val attackerExistingFile: StoredFile? = currentActorFilesystem.resolveFile("/", stolenSourceFile.name)
             val attackerReceivedFile: StoredFile = if (attackerExistingFile != null) {
                 attackerExistingFile.copy(quantity = attackerExistingFile.quantity + 1)
             } else {
@@ -897,7 +1185,7 @@ internal class AttackTickCommand(
             }
             refreshTargetState()
 
-            currentAttackerFilesystem = currentAttackerFilesystem.saveFile(attackerReceivedFile)
+            currentActorFilesystem = currentActorFilesystem.saveFile(attackerReceivedFile)
 
             context.appendEvents(
                 id = targetStateId,
@@ -909,7 +1197,7 @@ internal class AttackTickCommand(
                 },
             )
             context.appendEvents(
-                id = attackerStateId,
+                id = actorStateId,
                 events = listOf(FileSavedEvent(attackerReceivedFile)),
             )
         }
@@ -917,7 +1205,7 @@ internal class AttackTickCommand(
         suspend fun installCurrentTargetScript() {
             val targetApplication = currentTargetPortState.installedApplication ?: return
             val sourceReference = currentSession.maliciousScripts.firstOrNull { it != null } ?: return
-            val sourceFile = currentAttackerFilesystem.resolveFile(sourceReference.folder, sourceReference.name) ?: return
+            val sourceFile = currentActorFilesystem.resolveFile(sourceReference.folder, sourceReference.name) ?: return
             val sourceMetadata = sourceFile.compiledBinary ?: return
             if (sourceFile.kind != StoredFileKind.APPLICATION_BINARY) {
                 return
@@ -934,12 +1222,12 @@ internal class AttackTickCommand(
             } else {
                 sourceFile.copy(quantity = sourceFile.quantity - 1)
             }
-            currentAttackerFilesystem = currentAttackerFilesystem.deleteFileByPath(sourceFile.path)
+            currentActorFilesystem = currentActorFilesystem.deleteFileByPath(sourceFile.path)
             if (remainingSourceFile != null) {
-                currentAttackerFilesystem = currentAttackerFilesystem.saveFile(remainingSourceFile)
+                currentActorFilesystem = currentActorFilesystem.saveFile(remainingSourceFile)
             }
             context.appendEvents(
-                id = attackerStateId,
+                id = actorStateId,
                 events = buildList {
                     add(FileDeletedEvent(sourceFile.path))
                     if (remainingSourceFile != null) {
@@ -967,10 +1255,10 @@ internal class AttackTickCommand(
         }
 
         suspend fun changeCurrentTargetDailyPay(requestedRevenueTargetIp: String) {
-            val updatedAttackerState = context.requireExistingState(attackerStateId)
+            val updatedActorState = context.requireExistingState(actorStateId)
             performChangeDailyPay(
                 context = context,
-                actorState = updatedAttackerState,
+                actorState = updatedActorState,
                 targetState = currentTargetState,
                 targetPortState = currentTargetPortState,
                 requestedRevenueTargetStateId = GameStateId(requestedRevenueTargetIp),
@@ -980,7 +1268,7 @@ internal class AttackTickCommand(
                 version = persistedTargetState.version,
                 dailyPay = persistedTargetState.dailyPay,
             )
-            currentAttackerEconomy = context.requireExistingState(attackerStateId).economy
+            currentActorEconomy = context.requireExistingState(actorStateId).economy
         }
 
         suspend fun applyDamagePass(
@@ -995,7 +1283,7 @@ internal class AttackTickCommand(
                 replaceTargetPort(currentTargetPortState.copy(health = newHealth))
                 context.emitPassiveHealthChange(
                     targetStateId = targetStateId,
-                    sourceIp = attackerStateId.value,
+                    sourceIp = actorStateId.value,
                     portNumber = currentSession.targetPort,
                     sourcePort = sourcePort,
                     previousHealth = previousHealth,
@@ -1015,7 +1303,7 @@ internal class AttackTickCommand(
             }
             if (directSelfDamage > 0.0) {
                 applyAttackerHealthLoss(
-                    sourceIpForTrigger = attackerStateId.value,
+                    sourceIpForTrigger = actorStateId.value,
                     sourcePortForTrigger = sourcePort,
                     amount = directSelfDamage,
                 )
@@ -1086,6 +1374,8 @@ internal class AttackTickCommand(
                     is AttackSendMessageEffect -> {
                         publishAttackMessage(effect.targetIp, effect.message)
                     }
+
+                    is com.hackwars.rewrite.hackscript.AttackAuthorizeZombieEffect -> Unit
 
                     is AttackCancelCurrentAttackEffect -> {
                         cancelRequested = true
@@ -1196,6 +1486,9 @@ internal class AttackTickCommand(
                 sourcePort = sourcePort,
                 targetView = finalizeTargetView,
                 iterations = nextIteration,
+                sourceIpOverride = actorStateId.value,
+                isZombie = currentSession.attackMode == AttackMode.ZOMBIE,
+                allowedZombieIps = currentSession.controllerStateId?.let { setOf(it.value) }.orEmpty(),
             )
             val finalizeOutcome = attackRuntimeExecutor.evaluate(
                 attackerState = attackerState,
@@ -1258,6 +1551,8 @@ internal class AttackTickCommand(
                         is AttackSendMessageEffect -> {
                             publishAttackMessage(effect.targetIp, effect.message)
                         }
+
+                        is com.hackwars.rewrite.hackscript.AttackAuthorizeZombieEffect -> Unit
 
                         else -> Unit
                     }
@@ -1329,55 +1624,51 @@ internal class AttackTickCommand(
         val attackerPortsChangedPaths = finalAttackerPorts.combatChangedPaths(attackerState.ports)
         val attackerCombatChanged = finalAttackerCombat != attackerState.combat
         val runtimeChanged = finalCpuLoad != attackerState.runtime.currentCpuLoad
-        context.appendEvents(
-            id = attackerStateId,
-            events = buildList {
-                if (attackXpDelta > 0.0) {
-                    add(
-                        SkillExperienceAdjustedEvent(
-                            family = ScriptFamily.ATTACK,
-                            delta = attackXpDelta,
-                        ),
-                    )
-                }
-                if (attackerCombatChanged || attackerPortsChangedPaths.isNotEmpty() || runtimeChanged) {
-                    add(
-                        CombatStateUpdatedEvent(
-                            changedPathList = buildSet {
-                                if (attackerCombatChanged) {
-                                    add("combat.activeAttacksBySourcePort.$sourcePort")
-                                }
-                                addAll(attackerPortsChangedPaths)
-                                if (runtimeChanged) {
-                                    add("runtime.currentCpuLoad")
-                                }
-                            }.ifEmpty { setOf("combat") },
-                            deltaKeyList = buildSet {
-                                if (attackerCombatChanged) {
-                                    add("combat")
-                                }
-                                if (attackerPortsChangedPaths.isNotEmpty()) {
-                                    add("ports")
-                                }
-                                if (runtimeChanged) {
-                                    add("runtime")
-                                }
-                                if (attackXpDelta > 0.0) {
-                                    add("stats")
-                                }
-                            }.ifEmpty {
-                                if (attackXpDelta > 0.0) setOf("stats") else setOf("combat")
-                            },
-                            combat = finalAttackerCombat,
-                            ports = finalAttackerPorts,
-                            currentCpuLoad = finalCpuLoad,
-                            includePorts = attackerPortsChangedPaths.isNotEmpty(),
-                            includeRuntime = runtimeChanged,
-                        ),
-                    )
-                }
-            },
-        )
+        if (attackXpDelta > 0.0) {
+            context.appendEvents(
+                id = actorStateId,
+                events = listOf(
+                    SkillExperienceAdjustedEvent(
+                        family = ScriptFamily.ATTACK,
+                        delta = attackXpDelta,
+                    ),
+                ),
+            )
+        }
+        if (attackerCombatChanged || attackerPortsChangedPaths.isNotEmpty() || runtimeChanged) {
+            context.appendEvents(
+                id = attackerStateId,
+                events = listOf(
+                    CombatStateUpdatedEvent(
+                        changedPathList = buildSet {
+                            if (attackerCombatChanged) {
+                                add("combat.activeAttacksBySourcePort.$sourcePort")
+                            }
+                            addAll(attackerPortsChangedPaths)
+                            if (runtimeChanged) {
+                                add("runtime.currentCpuLoad")
+                            }
+                        }.ifEmpty { setOf("combat") },
+                        deltaKeyList = buildSet {
+                            if (attackerCombatChanged) {
+                                add("combat")
+                            }
+                            if (attackerPortsChangedPaths.isNotEmpty()) {
+                                add("ports")
+                            }
+                            if (runtimeChanged) {
+                                add("runtime")
+                            }
+                        }.ifEmpty { setOf("combat") },
+                        combat = finalAttackerCombat,
+                        ports = finalAttackerPorts,
+                        currentCpuLoad = finalCpuLoad,
+                        includePorts = attackerPortsChangedPaths.isNotEmpty(),
+                        includeRuntime = runtimeChanged,
+                    ),
+                ),
+            )
+        }
 
         return ProgramExecutionStep(
             status = when {
@@ -1393,7 +1684,7 @@ internal class AttackTickCommand(
                 },
                 completedSteps = nextIteration,
             ),
-            relatedStateIds = setOf(attackerStateId),
+            relatedStateIds = programUpdateStateIds,
         )
     }
 
@@ -1583,13 +1874,18 @@ internal class AttackProgramCommand(
     private val targetStateId: GameStateId,
     private val sourcePort: Int,
     override val programId: String,
+    private val controllerStateId: GameStateId? = null,
     private val attackProgramRegistry: AttackProgramRegistry = NoOpAttackProgramRegistry,
     private val clock: () -> Long = { System.currentTimeMillis() },
 ) : ProgramCommand {
     override val name: String = "attack-program"
     override val lifetime: CommandLifetime = CommandLifetime(ATTACK_PROGRAM_LIFETIME)
-    override val targetStateIds: Set<GameStateId> = setOf(attackerStateId, targetStateId)
-    override val programUpdateStateIds: Set<GameStateId> = setOf(attackerStateId)
+    override val targetStateIds: Set<GameStateId> = buildSet {
+        add(attackerStateId)
+        add(targetStateId)
+        controllerStateId?.let(::add)
+    }
+    override val programUpdateStateIds: Set<GameStateId> = setOf(controllerStateId ?: attackerStateId)
     override val programType: String = "attack"
     override val tickInterval = ATTACK_PROGRAM_TICK_INTERVAL
 
@@ -1618,6 +1914,7 @@ internal class AttackProgramCommand(
                 attackerStateId = attackerStateId,
                 targetStateId = targetStateId,
                 sourcePort = sourcePort,
+                controllerStateId = controllerStateId,
                 clock = clock,
             ),
         )
@@ -1890,10 +2187,13 @@ private fun ComputerState.toAttackExecutionInput(
     sourcePort: Int,
     targetView: AttackTargetView,
     iterations: Int,
+    sourceIpOverride: String = id.value,
+    isZombie: Boolean = false,
+    allowedZombieIps: Set<String> = emptySet(),
 ): AttackExecutionInput {
     return AttackExecutionInput(
         phase = phase,
-        sourceIp = id.value,
+        sourceIp = sourceIpOverride,
         sourcePort = sourcePort,
         targetIp = targetView.targetStateId.value,
         targetPort = targetView.targetPort,
@@ -1905,6 +2205,8 @@ private fun ComputerState.toAttackExecutionInput(
         currentCpuLoad = runtime.currentCpuLoad,
         maximumCpuLoad = hardware.cpuMax,
         iterations = iterations,
+        isZombie = isZombie,
+        allowedZombieIps = allowedZombieIps,
     )
 }
 

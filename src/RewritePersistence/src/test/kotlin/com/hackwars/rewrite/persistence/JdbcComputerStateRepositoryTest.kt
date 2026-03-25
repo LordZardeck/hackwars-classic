@@ -3,6 +3,7 @@ package com.hackwars.rewrite.persistence
 import com.hackwars.rewrite.gamecore.ComputerState
 import com.hackwars.rewrite.gamecore.ComputerEvent
 import com.hackwars.rewrite.gamecore.AttackScriptReference
+import com.hackwars.rewrite.gamecore.AttackMode
 import com.hackwars.rewrite.gamecore.AttackSessionState
 import com.hackwars.rewrite.gamecore.AttackTargetView
 import com.hackwars.rewrite.gamecore.CompiledBinaryMetadata
@@ -504,6 +505,9 @@ class JdbcComputerStateRepositoryTest {
             sourcePort = 12,
             targetStateId = GameStateId("TARGET-IP"),
             targetPort = 25,
+            attackMode = AttackMode.ZOMBIE,
+            controllerStateId = GameStateId("CONTROLLER-IP"),
+            authorizedZombieStateId = GameStateId("CONTROLLER-IP"),
             targetView = AttackTargetView(
                 targetStateId = GameStateId("TARGET-IP"),
                 targetPort = 25,
@@ -588,6 +592,9 @@ class JdbcComputerStateRepositoryTest {
         assertEquals(8.0, reloaded.runtime.currentCpuLoad)
         assertEquals(2.2, reloaded.stats.experienceByFamily[ScriptFamily.ATTACK])
         assertEquals("attack-session-1", reloaded.combat.activeAttacksBySourcePort.getValue(12).programId)
+        assertEquals(AttackMode.ZOMBIE, reloaded.combat.activeAttacksBySourcePort.getValue(12).attackMode)
+        assertEquals(GameStateId("CONTROLLER-IP"), reloaded.combat.activeAttacksBySourcePort.getValue(12).controllerStateId)
+        assertEquals(GameStateId("CONTROLLER-IP"), reloaded.combat.activeAttacksBySourcePort.getValue(12).authorizedZombieStateId)
         assertEquals(listOf(25, 7, 8), reloaded.combat.activeAttacksBySourcePort.getValue(12).targetCyclePorts)
         assertEquals(0, reloaded.combat.activeAttacksBySourcePort.getValue(12).targetCycleCursor)
         assertEquals(97.8, reloaded.combat.activeAttacksBySourcePort.getValue(12).targetView.health)

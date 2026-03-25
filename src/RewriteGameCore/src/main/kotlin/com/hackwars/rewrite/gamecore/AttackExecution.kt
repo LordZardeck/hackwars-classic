@@ -12,6 +12,7 @@ import com.hackwars.rewrite.hackscript.AttackAppendHostLogEffect
 import com.hackwars.rewrite.hackscript.AttackChangeDailyPayEffect
 import com.hackwars.rewrite.hackscript.AttackSendMessageEffect
 import com.hackwars.rewrite.hackscript.AttackStealTargetFileEffect
+import com.hackwars.rewrite.hackscript.AttackAuthorizeZombieEffect
 import com.hackwars.rewrite.hackscript.AttackExecutionInput
 import com.hackwars.rewrite.hackscript.AttackRuntimeEffect
 import com.hackwars.rewrite.hackscript.AttackScriptEngine
@@ -33,6 +34,7 @@ internal data class AttackRuntimeApplyResult(
     val freezeRequested: Boolean = false,
     val berserkRequested: Boolean = false,
     val switchTargetRequested: Boolean = false,
+    val authorizedZombieStateId: GameStateId? = null,
 )
 
 internal class AttackRuntimeExecutor(
@@ -76,6 +78,7 @@ internal class AttackRuntimeExecutor(
         var freezeRequested = false
         var berserkRequested = false
         var switchTargetRequested = false
+        var authorizedZombieStateId: GameStateId? = null
         result.effects.forEach { effect ->
             val helperCancelsAttack = phase == AttackScriptPhase.CONTINUE && (
                 effect is AttackEditTargetLogsEffect ||
@@ -92,6 +95,7 @@ internal class AttackRuntimeExecutor(
             freezeRequested = effectResult.freezeRequested || freezeRequested
             berserkRequested = effectResult.berserkRequested || berserkRequested
             switchTargetRequested = effectResult.switchTargetRequested || switchTargetRequested
+            authorizedZombieStateId = effectResult.authorizedZombieStateId ?: authorizedZombieStateId
         }
         return AttackRuntimeApplyResult(
             cancelRequested = cancelRequested,
@@ -99,6 +103,7 @@ internal class AttackRuntimeExecutor(
             freezeRequested = freezeRequested,
             berserkRequested = berserkRequested,
             switchTargetRequested = switchTargetRequested,
+            authorizedZombieStateId = authorizedZombieStateId,
         )
     }
 
@@ -210,6 +215,11 @@ internal class AttackRuntimeExecutor(
                     event = TextMessageUiEvent(effect.message),
                 )
                 return AttackRuntimeApplyResult()
+            }
+            is AttackAuthorizeZombieEffect -> {
+                return AttackRuntimeApplyResult(
+                    authorizedZombieStateId = GameStateId(effect.targetIp),
+                )
             }
         }
     }

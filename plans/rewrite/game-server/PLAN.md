@@ -110,9 +110,9 @@
 - Artifacts: `build/reports/tests/test`
 - Commit rule: `single green commit only`
 - Notes:
-  - Covers deposit, withdraw, transfer, Facebook banking aliases, single-file pricing, multi-file liquidation, and request-purchase.
+  - Covers deposit, withdraw, transfer, single-file pricing, multi-file liquidation, and request-purchase.
   - Store inventory remains inside typed filesystem state, with canonical shard-store routing through `store$serverId`.
-  - Rewrite tests now prove canonical and Facebook banking wires, shard-store delta fanout, explicit revenue-target credits, and typed JDBC replay for economy/store events.
+  - Rewrite tests now prove canonical banking wires, shard-store delta fanout, explicit revenue-target credits, and typed JDBC replay for economy/store events.
 
 ### RW-GS-S3B1 - Static website editor, browser core, fallback pages, and vote
 - Status: `done`
@@ -141,7 +141,7 @@
   - Static page serving, fallback handling, and vote behavior are already covered and must not regress.
   - The rewrite now preserves three-slot HTTP script bundles across save/request/compile/decompile/install, persists them through snapshots/events/import seeds, and executes them through the Kotlin-only `:RewriteHackScript` module.
   - `submit` now runs `submit` then `enter` against a shared mutable body/include-store state, while parse/runtime failures fall back to the static `RW-GS-S3B1` render path.
-  - Daily pay, empty-petty-cash, and social/Facebook stubs remain outside this slice.
+  - Daily pay, empty-petty-cash, and later zombie-adjacent helper work remain outside this slice.
 
 ### RW-GS-S3B3A - HTTP hook side-effect seams
 - Status: `done`
@@ -457,18 +457,45 @@
 - Notes:
   - Adds attacker-scoped rewrite UI parity for public `changedailypay` and the attack-script `changeDailyPay(targetIp)` helper using typed popup, text-message, and attack-message events.
   - Preserves delta-first ordering before correlated responses or attacker-scoped program updates and keeps hidden daily-income runtime behavior unchanged.
-  - Keeps Facebook-style social polish and zombie-linked behavior deferred to the next slice.
+  - Keeps zombie-linked behavior deferred to the next slice.
 
-### RW-GS-S5B2B2B3B2C3 - zombie-linked social helpers and transport
+### RW-GS-S5B2B2B3B2C3A - zombie controller runtime foundation
+- Status: `done`
+- Owner: `codex`
+- Depends on: `RW-GS-S5B2B2B3B2C2B`
+- Allowed write scope: `:RewriteHackScript`, `:RewriteGameCore`, `:RewritePersistence`
+- Verification command: `./gradlew :RewriteHackScript:test :RewriteGameCore:test :RewritePersistence:test :RewritePersistence:migrationTest`
+- Artifacts: `build/reports/tests/test`
+- Commit rule: `single green commit only`
+- Notes:
+  - Adds typed zombie attack-session ownership with `AttackMode`, controller authorization state, and internal zombie start or cancel commands without exposing new public wires yet.
+  - Zombie admission now runs the host ATTACK initialize slot in a restricted authorization pass where `zombie(ip)` must approve the controller before the runtime session is admitted.
+  - Running zombie sessions keep CPU reservation, self-damage, overheat, and source-port lifecycle on the zombie host while routing target-facing helper effects, attack XP, and downstream target-side source attribution through the controller.
+  - Zombie-session `ProgramUpdate` frames are now controller-scoped only, while zombie-host subscribers still receive their own normal state deltas.
+
+### RW-GS-S5B2B2B3B2C3B - public zombie attack or cancel transport and UI
 - Status: `todo`
 - Owner: `unassigned`
-- Depends on: `RW-GS-S5B2B2B3B2C2B`
+- Depends on: `RW-GS-S5B2B2B3B2C3A`
 - Allowed write scope: `:RewriteHackScript`, `:RewriteGameCore`, `:RewriteGameServer`, `:RewritePersistence`
 - Verification command: `./gradlew :RewriteHackScript:test :RewriteGameCore:test :RewritePersistence:test :RewriteGameServer:test :RewriteTestKit:integrationTest`
 - Artifacts: `build/reports/tests/test`
 - Commit rule: `single green commit only`
 - Notes:
-  - Owns the remaining deferred attack-script helpers that mutate social state or zombie-linked behavior after the deterministic filesystem, install, and targeted-message slices are stable.
+  - Owns public `requestzombieattack` and `requestzombiecancelattack` transport, correlated responses, listener scoping, and zombie-specific UI now that controller identity and runtime source attribution are stable.
+  - Reuses the internal zombie runtime commands introduced in `RW-GS-S5B2B2B3B2C3A` instead of adding a second combat path.
+  - Keeps watch-side zombie compatibility and broader zombie UX polish deferred to the next slice.
+
+### RW-GS-S5B2B2B3B2C3C - watch-side zombie compatibility and zombie UX polish
+- Status: `todo`
+- Owner: `unassigned`
+- Depends on: `RW-GS-S5B2B2B3B2C3B`
+- Allowed write scope: `:RewriteHackScript`, `:RewriteGameCore`, `:RewriteGameServer`, `:RewritePersistence`
+- Verification command: `./gradlew :RewriteHackScript:test :RewriteGameCore:test :RewritePersistence:test :RewriteGameServer:test :RewriteTestKit:integrationTest`
+- Artifacts: `build/reports/tests/test`
+- Commit rule: `single green commit only`
+- Notes:
+  - Owns watch-side `zombieAttack(...)` compatibility and the remaining zombie-specific UX polish after the controller runtime foundation and public wires are stable.
   - Keeps `launchnetworkattack` plus redirecting or shipping-port semantics deferred until the rewrite has the needed typed port and network models.
 
 ### RW-GS-S5C - Redirect, zombie, and combat cleanup

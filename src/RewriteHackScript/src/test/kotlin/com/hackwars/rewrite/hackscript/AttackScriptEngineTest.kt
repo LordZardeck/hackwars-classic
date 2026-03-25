@@ -326,6 +326,84 @@ class AttackScriptEngineTest {
     }
 
     @Test
+    fun zombieAuthorizationAndIsZombieFollowLockedSemantics() {
+        val initialize = engine.execute(
+            script = """int main() { logMessage("" + isZombie()); zombie("CONTROLLER-IP"); return 0; }""",
+            input = input(
+                phase = AttackExecutionPhase.INITIALIZE,
+                allowedZombieIps = setOf("CONTROLLER-IP"),
+            ),
+        )
+        val continuePhase = engine.execute(
+            script = """int main() { logMessage("" + isZombie()); zombie("CONTROLLER-IP"); return 0; }""",
+            input = input(
+                phase = AttackExecutionPhase.CONTINUE,
+                isZombie = true,
+                allowedZombieIps = setOf("CONTROLLER-IP"),
+            ),
+        )
+        val finalize = engine.execute(
+            script = """int main() { logMessage("" + isZombie()); zombie("CONTROLLER-IP"); return 0; }""",
+            input = input(
+                phase = AttackExecutionPhase.FINALIZE,
+                isZombie = true,
+                allowedZombieIps = setOf("CONTROLLER-IP"),
+            ),
+        )
+
+        assertEquals(
+            listOf(
+                AttackAppendHostLogEffect("false"),
+                AttackAuthorizeZombieEffect("CONTROLLER-IP"),
+            ),
+            assertNotNull(initialize.result).effects,
+        )
+        assertEquals(
+            listOf(
+                AttackAppendHostLogEffect("true"),
+                AttackAuthorizeZombieEffect("CONTROLLER-IP"),
+            ),
+            assertNotNull(continuePhase.result).effects,
+        )
+        assertEquals(
+            listOf(
+                AttackAppendHostLogEffect("true"),
+                AttackAuthorizeZombieEffect("CONTROLLER-IP"),
+            ),
+            assertNotNull(finalize.result).effects,
+        )
+        assertTrue(initialize.diagnostics.isEmpty())
+        assertTrue(continuePhase.diagnostics.isEmpty())
+        assertTrue(finalize.diagnostics.isEmpty())
+    }
+
+    @Test
+    fun invalidZombieArgumentsProduceDiagnosticsWithoutCrashing() {
+        val invalidTarget = engine.execute(
+            script = """int main() { zombie("OTHER-IP"); return 0; }""",
+            input = input(
+                phase = AttackExecutionPhase.CONTINUE,
+                allowedZombieIps = setOf("CONTROLLER-IP"),
+            ),
+        )
+        val wrongCount = engine.execute(
+            script = """int main() { zombie(); return 0; }""",
+            input = input(phase = AttackExecutionPhase.CONTINUE),
+        )
+        val wrongTypes = engine.execute(
+            script = """int main() { zombie(1); return 0; }""",
+            input = input(phase = AttackExecutionPhase.CONTINUE),
+        )
+
+        assertEquals("INVALID_TARGET_IP", invalidTarget.diagnostics.single().code)
+        assertTrue(assertNotNull(invalidTarget.result).effects.isEmpty())
+        assertEquals("BAD_ARGUMENT_COUNT", wrongCount.diagnostics.single().code)
+        assertTrue(assertNotNull(wrongCount.result).effects.isEmpty())
+        assertEquals("BAD_ARGUMENT_TYPE", wrongTypes.diagnostics.single().code)
+        assertTrue(assertNotNull(wrongTypes.result).effects.isEmpty())
+    }
+
+    @Test
     fun unsupportedHelpersProduceStructuredFailureWithoutCrashing() {
         val outcome = engine.execute(
             script = """int main() { totallyUnsupported(); return 0; }""",
@@ -351,6 +429,8 @@ class AttackScriptEngineTest {
         phase: AttackExecutionPhase,
         targetHealth: Double = 100.0,
         iterations: Int = 0,
+        isZombie: Boolean = false,
+        allowedZombieIps: Set<String> = emptySet(),
     ): AttackExecutionInput {
         return AttackExecutionInput(
             phase = phase,
@@ -366,6 +446,8 @@ class AttackScriptEngineTest {
             currentCpuLoad = 14.0,
             maximumCpuLoad = 100.0,
             iterations = iterations,
+            isZombie = isZombie,
+            allowedZombieIps = allowedZombieIps,
         )
     }
 }

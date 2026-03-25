@@ -404,11 +404,20 @@ data class AttackLoadout(
 )
 
 @Serializable
+enum class AttackMode {
+    DIRECT,
+    ZOMBIE,
+}
+
+@Serializable
 data class AttackSessionState(
     val programId: String,
     val sourcePort: Int,
     val targetStateId: GameStateId,
     val targetPort: Int,
+    val attackMode: AttackMode = AttackMode.DIRECT,
+    val controllerStateId: GameStateId? = null,
+    val authorizedZombieStateId: GameStateId? = null,
     val targetView: AttackTargetView = AttackTargetView(),
     val targetCyclePorts: List<Int> = emptyList(),
     val targetCycleCursor: Int = 0,

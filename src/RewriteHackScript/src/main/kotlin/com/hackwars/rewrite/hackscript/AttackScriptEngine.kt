@@ -56,6 +56,8 @@ data class AttackExecutionInput(
     val currentCpuLoad: Double,
     val maximumCpuLoad: Double,
     val iterations: Int,
+    val isZombie: Boolean = false,
+    val allowedZombieIps: Set<String> = emptySet(),
 )
 
 @Serializable
@@ -125,6 +127,12 @@ data class AttackSendMessageEffect(
     val message: String,
 ) : AttackRuntimeEffect
 
+@Serializable
+@SerialName("attack_authorize_zombie")
+data class AttackAuthorizeZombieEffect(
+    val targetIp: String,
+) : AttackRuntimeEffect
+
 data class AttackExecutionResult(
     val effects: List<AttackRuntimeEffect> = emptyList(),
 )
@@ -161,6 +169,7 @@ private class AttackScriptHost(
             "getCPULoad" -> HackValue.FloatValue(state.input.currentCpuLoad)
             "getMaximumCPULoad" -> HackValue.FloatValue(state.input.maximumCpuLoad)
             "getIterations" -> HackValue.IntValue(state.input.iterations)
+            "isZombie" -> HackValue.BooleanValue(state.input.isZombie)
             "logMessage" -> {
                 ensure(arguments.size == 1, "BAD_ARGUMENT_COUNT", "logMessage expects 1 argument.")
                 state.effects += AttackAppendHostLogEffect(arguments[0].asString())
@@ -377,6 +386,31 @@ private class AttackScriptHost(
                             )
                             state.messageSent = true
                         }
+                    }
+                }
+                HackValue.IntValue(0)
+            }
+
+            "zombie" -> {
+                if (arguments.size != 1) {
+                    state.diagnostics += HackScriptDiagnostic(
+                        code = "BAD_ARGUMENT_COUNT",
+                        message = "zombie expects 1 string argument.",
+                    )
+                } else if (arguments.single() !is HackValue.StringValue) {
+                    state.diagnostics += HackScriptDiagnostic(
+                        code = "BAD_ARGUMENT_TYPE",
+                        message = "zombie expects 1 string argument.",
+                    )
+                } else {
+                    val targetIp = (arguments.single() as HackValue.StringValue).value
+                    if (targetIp.isBlank() || targetIp !in state.input.allowedZombieIps) {
+                        state.diagnostics += HackScriptDiagnostic(
+                            code = "INVALID_TARGET_IP",
+                            message = "zombie target must match an allowed controller ip.",
+                        )
+                    } else {
+                        state.effects += AttackAuthorizeZombieEffect(targetIp)
                     }
                 }
                 HackValue.IntValue(0)
