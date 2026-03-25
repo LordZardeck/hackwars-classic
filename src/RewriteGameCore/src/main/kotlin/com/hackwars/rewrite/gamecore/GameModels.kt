@@ -20,6 +20,7 @@ data class ComputerState(
     val hardware: HardwareState = HardwareState(),
     val ports: List<PortState> = emptyList(),
     val network: NetworkState = NetworkState(),
+    val watches: WatchManagerState = WatchManagerState(),
     val filesystem: FilesystemState = FilesystemState(),
     val website: WebsiteState = WebsiteState(),
     val combat: CombatState = CombatState(),
@@ -95,6 +96,7 @@ data class InstalledEquipment(
     val cpuBoost: Double = 0.0,
     val memoryBoost: Int = 0,
     val storageBoost: Int = 0,
+    val watchCapacityBoost: Int = 0,
 )
 
 @Serializable
@@ -177,6 +179,38 @@ data class NetworkState(
     val questNpcs: List<NpcDirectoryEntry> = emptyList(),
     val miningNpcs: List<NpcDirectoryEntry> = emptyList(),
     val storeNpcs: List<NpcDirectoryEntry> = emptyList(),
+)
+
+@Serializable
+data class WatchManagerState(
+    val watches: List<InstalledWatch> = emptyList(),
+)
+
+@Serializable
+enum class WatchKind(val legacyCode: Int) {
+    HEALTH(0),
+    PETTY_CASH(1),
+    SCAN(2);
+
+    companion object {
+        fun fromLegacyCode(code: Int): WatchKind? = entries.firstOrNull { it.legacyCode == code }
+    }
+}
+
+@Serializable
+data class InstalledWatch(
+    val kind: WatchKind,
+    val enabled: Boolean = false,
+    val note: String = "",
+    val cpuCost: Double = 0.0,
+    val quantityThreshold: Double = 0.0,
+    val baselineQuantity: Double = 0.0,
+    val installPort: Int = 0,
+    val searchFirewallType: Int = 0,
+    val observedPorts: List<Int> = emptyList(),
+    val contents: String = "",
+    val scriptBundle: ProgramScriptBundle? = null,
+    val compiledBinary: CompiledBinaryMetadata? = null,
 )
 
 @Serializable
@@ -653,6 +687,69 @@ data class NetworkStateChangedEvent(
 
     override fun toProjection(state: ComputerState): DeltaProjection {
         return StateSectionsDeltaProjection(network = state.network)
+    }
+}
+
+@Serializable
+@SerialName("watch_installed")
+data class WatchInstalledEvent(
+    val sourceFilePath: String,
+    val remainingSourceFile: StoredFile?,
+    val installedWatch: InstalledWatch,
+) : ComputerEvent {
+    override val changedPaths: Set<String> = buildSet {
+        add("filesystem.filesByPath.$sourceFilePath")
+        remainingSourceFile?.let { add("filesystem.filesByPath.${it.path}") }
+        add("watches.watches")
+    }
+    override val deltaKeys: Set<String> = setOf("filesystem", "watches")
+
+    override fun applyTo(state: ComputerState, nextVersion: Long): ComputerState {
+        var filesystem = state.filesystem.deleteFileByPath(sourceFilePath)
+        if (remainingSourceFile != null) {
+            filesystem = filesystem.saveFile(remainingSourceFile)
+        }
+        return state.copy(
+            version = nextVersion,
+            filesystem = filesystem,
+            watches = state.watches.copy(watches = state.watches.watches + installedWatch),
+            runtime = state.runtime.withMutationVersion(nextVersion),
+        )
+    }
+
+    override fun toProjection(state: ComputerState): DeltaProjection {
+        return StateSectionsDeltaProjection(
+            filesystem = state.filesystem,
+            watches = state.watches,
+        )
+    }
+}
+
+@Serializable
+@SerialName("watch_manager_updated")
+data class WatchManagerUpdatedEvent(
+    private val changedPathList: Set<String>,
+    private val deltaKeyList: Set<String>,
+    val watches: WatchManagerState,
+    val currentCpuLoad: Double,
+    val includeRuntime: Boolean = false,
+) : ComputerEvent {
+    override val changedPaths: Set<String> = changedPathList
+    override val deltaKeys: Set<String> = deltaKeyList
+
+    override fun applyTo(state: ComputerState, nextVersion: Long): ComputerState {
+        return state.copy(
+            version = nextVersion,
+            watches = watches,
+            runtime = state.runtime.copy(currentCpuLoad = currentCpuLoad).withMutationVersion(nextVersion),
+        )
+    }
+
+    override fun toProjection(state: ComputerState): DeltaProjection {
+        return StateSectionsDeltaProjection(
+            watches = state.watches,
+            runtime = state.runtime.takeIf { includeRuntime },
+        )
     }
 }
 
@@ -1237,6 +1334,7 @@ sealed interface DeltaProjection
 data class StateSectionsDeltaProjection(
     val identity: ComputerIdentity? = null,
     val network: NetworkState? = null,
+    val watches: WatchManagerState? = null,
     val filesystem: FilesystemState? = null,
     val economy: EconomyState? = null,
     val hardware: HardwareState? = null,
@@ -1246,6 +1344,7 @@ data class StateSectionsDeltaProjection(
     val preferences: PreferenceState? = null,
     val stats: PlayerStatsState? = null,
     val logs: LogState? = null,
+    val runtime: RuntimeState? = null,
 ) : DeltaProjection
 
 @Serializable
@@ -1421,6 +1520,43 @@ data class SearchResultsResponse(
     val startIndex: Int,
     val totalSize: Int,
     val results: List<SearchResultEntry>,
+)
+
+@Serializable
+enum class WatchMutationFailureCode {
+    WATCH_NOT_FOUND,
+    PORT_NOT_FOUND,
+    MISSING_FILE,
+    INVALID_FILE_TYPE,
+    INVALID_WATCH_KIND,
+    INSTALLED_LIMIT_REACHED,
+    ACTIVE_LIMIT_REACHED,
+    CPU_HEADROOM_EXCEEDED,
+    OVERHEATED,
+    INVALID_OBSERVED_PORTS,
+}
+
+@Serializable
+data class WatchListResponse(
+    val stateId: GameStateId,
+    val watches: List<InstalledWatch>,
+    val installedCount: Int,
+    val maximumInstalledCount: Int,
+    val activeCount: Int,
+    val maximumActiveCount: Int,
+    val currentCpuLoad: Double,
+    val maximumCpuLoad: Double,
+)
+
+@Serializable
+data class WatchMutationResponse(
+    val stateId: GameStateId,
+    val operation: String,
+    val accepted: Boolean,
+    val failureCode: WatchMutationFailureCode? = null,
+    val message: String,
+    val affectedWatchIndex: Int? = null,
+    val snapshot: WatchListResponse,
 )
 
 @Serializable
@@ -1713,6 +1849,7 @@ private fun mergeStateSectionsProjection(
     return StateSectionsDeltaProjection(
         identity = latest { it.identity },
         network = latest { it.network },
+        watches = latest { it.watches },
         filesystem = latest { it.filesystem },
         economy = latest { it.economy },
         hardware = latest { it.hardware },
@@ -1722,6 +1859,7 @@ private fun mergeStateSectionsProjection(
         preferences = latest { it.preferences },
         stats = latest { it.stats },
         logs = latest { it.logs },
+        runtime = latest { it.runtime },
     )
 }
 
@@ -1898,4 +2036,8 @@ const val NETWORK_SWITCH_COOLDOWN_MS: Long = 180000L
 
 internal fun RuntimeState.withMutationVersion(version: Long): RuntimeState {
     return copy(lastMutationVersion = version)
+}
+
+internal fun RuntimeState.withCpuLoad(currentCpuLoad: Double): RuntimeState {
+    return copy(currentCpuLoad = currentCpuLoad)
 }

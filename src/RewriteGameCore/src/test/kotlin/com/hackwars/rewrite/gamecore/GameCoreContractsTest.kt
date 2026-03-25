@@ -62,6 +62,28 @@ class GameCoreContractsTest {
                     searchCatalogRepository = InMemorySearchCatalogRepository(emptyList()),
                 )
             }
+            .register("fetchwatches") { input ->
+                val payload = RewriteGameJson.codec.decodeFromString(
+                    deserializer = FetchWatchesPayload.serializer(),
+                    string = input.payloadJson ?: error("Expected fetch watches payload json."),
+                )
+                FetchWatchesCommand(
+                    stateId = input.metadata.authenticatedStateId ?: GameStateId(payload.ip),
+                )
+            }
+            .register("installwatch") { input ->
+                val payload = RewriteGameJson.codec.decodeFromString(
+                    deserializer = InstallWatchPayload.serializer(),
+                    string = input.payloadJson ?: error("Expected install watch payload json."),
+                )
+                InstallWatchCommand(
+                    stateId = input.metadata.authenticatedStateId ?: GameStateId(payload.ip),
+                    path = payload.path,
+                    fileName = payload.name ?: error("Expected watch file name."),
+                    typeCode = payload.type ?: error("Expected watch type."),
+                    portNumber = payload.port ?: error("Expected watch port."),
+                )
+            }
             .register("setpreferences") { input ->
                 val payload = RewriteGameJson.codec.decodeFromString(
                     deserializer = SetPreferencePayload.serializer(),
@@ -122,6 +144,38 @@ class GameCoreContractsTest {
                 metadata = CommandMetadata(authenticatedStateId = GameStateId("LOCAL-IP")),
             ),
         )
+        val fetchWatches = registry.requireCreate(
+            CommandEnvelopeInput(
+                commandId = "watch-1",
+                commandName = "fetchwatches",
+                targetStateIds = setOf(GameStateId("LOCAL-IP")),
+                payloadJson = RewriteGameJson.codec.encodeToString(
+                    serializer = FetchWatchesPayload.serializer(),
+                    value = FetchWatchesPayload(ip = "LOCAL-IP"),
+                ),
+                expectsResponse = true,
+                metadata = CommandMetadata(authenticatedStateId = GameStateId("LOCAL-IP")),
+            ),
+        )
+        val installWatch = registry.requireCreate(
+            CommandEnvelopeInput(
+                commandId = "watch-2",
+                commandName = "installwatch",
+                targetStateIds = setOf(GameStateId("LOCAL-IP")),
+                payloadJson = RewriteGameJson.codec.encodeToString(
+                    serializer = InstallWatchPayload.serializer(),
+                    value = InstallWatchPayload(
+                        ip = "LOCAL-IP",
+                        path = "/Public",
+                        name = "watch.bin",
+                        type = WatchKind.PETTY_CASH.legacyCode,
+                        port = 6,
+                    ),
+                ),
+                expectsResponse = true,
+                metadata = CommandMetadata(authenticatedStateId = GameStateId("LOCAL-IP")),
+            ),
+        )
         val setPreference = registry.requireCreate(
             CommandEnvelopeInput(
                 commandId = "pref-1",
@@ -139,10 +193,15 @@ class GameCoreContractsTest {
             ),
         )
 
-        assertEquals(setOf("requestscan", "changenetwork", "requestsearch", "setpreferences"), registry.registeredNames())
+        assertEquals(
+            setOf("requestscan", "changenetwork", "requestsearch", "fetchwatches", "installwatch", "setpreferences"),
+            registry.registeredNames(),
+        )
         assertIs<RequestScanCommand>(scan)
         assertIs<ChangeNetworkCommand>(changeNetwork)
         assertIs<RequestSearchCommand>(search)
+        assertIs<FetchWatchesCommand>(fetchWatches)
+        assertIs<InstallWatchCommand>(installWatch)
         assertIs<SetPreferenceCommand>(setPreference)
     }
 }

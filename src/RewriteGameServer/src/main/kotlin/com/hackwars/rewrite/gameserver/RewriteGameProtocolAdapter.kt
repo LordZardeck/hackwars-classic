@@ -117,9 +117,31 @@ import com.hackwars.rewrite.gamecore.TransferPayload
 import com.hackwars.rewrite.gamecore.TransferResponse
 import com.hackwars.rewrite.gamecore.TaskProgressResponse
 import com.hackwars.rewrite.gamecore.TriggerRequestResponse
+import com.hackwars.rewrite.gamecore.ChangeWatchPortCommand
+import com.hackwars.rewrite.gamecore.ChangeWatchPortPayload
+import com.hackwars.rewrite.gamecore.ChangeWatchTypeCommand
+import com.hackwars.rewrite.gamecore.ChangeWatchTypePayload
+import com.hackwars.rewrite.gamecore.DeleteWatchCommand
+import com.hackwars.rewrite.gamecore.DeleteWatchPayload
+import com.hackwars.rewrite.gamecore.FetchWatchesCommand
+import com.hackwars.rewrite.gamecore.FetchWatchesPayload
+import com.hackwars.rewrite.gamecore.InstallWatchCommand
+import com.hackwars.rewrite.gamecore.InstallWatchPayload
+import com.hackwars.rewrite.gamecore.SetWatchNoteCommand
+import com.hackwars.rewrite.gamecore.SetWatchNotePayload
+import com.hackwars.rewrite.gamecore.SetWatchOnOffCommand
+import com.hackwars.rewrite.gamecore.SetWatchOnOffPayload
+import com.hackwars.rewrite.gamecore.SetWatchObservedPortsCommand
+import com.hackwars.rewrite.gamecore.SetWatchObservedPortsPayload
+import com.hackwars.rewrite.gamecore.SetWatchQuantityCommand
+import com.hackwars.rewrite.gamecore.SetWatchQuantityPayload
+import com.hackwars.rewrite.gamecore.SetWatchSearchFirewallCommand
+import com.hackwars.rewrite.gamecore.SetWatchSearchFirewallPayload
 import com.hackwars.rewrite.gamecore.VoteForWebsiteCommand
 import com.hackwars.rewrite.gamecore.VotePayload
 import com.hackwars.rewrite.gamecore.VoteResponse
+import com.hackwars.rewrite.gamecore.WatchListResponse
+import com.hackwars.rewrite.gamecore.WatchMutationResponse
 import com.hackwars.rewrite.gamecore.WebsiteRenderResponse
 import com.hackwars.rewrite.gamecore.WithdrawCommand
 import com.hackwars.rewrite.gamecore.WithdrawPayload
@@ -366,6 +388,8 @@ class RewriteGameProtocolAdapter(
             is NetworkSwitchResponse -> RewriteGameJson.encode(NetworkSwitchResponse.serializer(), result)
             is ScanResponse -> RewriteGameJson.encode(ScanResponse.serializer(), result)
             is SearchResultsResponse -> RewriteGameJson.encode(SearchResultsResponse.serializer(), result)
+            is WatchListResponse -> RewriteGameJson.encode(WatchListResponse.serializer(), result)
+            is WatchMutationResponse -> RewriteGameJson.encode(WatchMutationResponse.serializer(), result)
             is SetPreferenceCommandResponse -> RewriteGameJson.encode(SetPreferenceCommandResponse.serializer(), result)
             is PageEditorResponse -> RewriteGameJson.encode(PageEditorResponse.serializer(), result)
             is SavePageResponse -> RewriteGameJson.encode(SavePageResponse.serializer(), result)
@@ -547,6 +571,104 @@ class RewriteGameProtocolAdapter(
                         startIndex = payload.startIndex,
                         searchCatalogRepository = searchCatalogRepository,
                         clock = clock,
+                    )
+                }
+                .register("fetchwatches") { input ->
+                    val payload = decodePayload(input, FetchWatchesPayload.serializer())
+                    val authenticatedStateId = requireAuthenticatedStateId(input)
+                    requirePayloadIpMatches(authenticatedStateId, payload.ip, input.commandName)
+                    FetchWatchesCommand(stateId = authenticatedStateId)
+                }
+                .register("installwatch") { input ->
+                    val payload = decodePayload(input, InstallWatchPayload.serializer())
+                    val authenticatedStateId = requireAuthenticatedStateId(input)
+                    requirePayloadIpMatches(authenticatedStateId, payload.ip, input.commandName)
+                    InstallWatchCommand(
+                        stateId = authenticatedStateId,
+                        path = payload.path,
+                        fileName = payload.name ?: error("Watch file name is required for ${input.commandName}."),
+                        typeCode = payload.type ?: error("Watch type is required for ${input.commandName}."),
+                        portNumber = payload.port ?: error("Watch port is required for ${input.commandName}."),
+                    )
+                }
+                .register("setwatchnote") { input ->
+                    val payload = decodePayload(input, SetWatchNotePayload.serializer())
+                    val authenticatedStateId = requireAuthenticatedStateId(input)
+                    requirePayloadIpMatches(authenticatedStateId, payload.ip, input.commandName)
+                    SetWatchNoteCommand(
+                        stateId = authenticatedStateId,
+                        watchIndex = payload.watchId ?: error("Watch index is required for ${input.commandName}."),
+                        note = payload.note.orEmpty(),
+                    )
+                }
+                .register("setwatchonoff") { input ->
+                    val payload = decodePayload(input, SetWatchOnOffPayload.serializer())
+                    val authenticatedStateId = requireAuthenticatedStateId(input)
+                    requirePayloadIpMatches(authenticatedStateId, payload.ip, input.commandName)
+                    SetWatchOnOffCommand(
+                        stateId = authenticatedStateId,
+                        watchIndex = payload.watchId ?: error("Watch index is required for ${input.commandName}."),
+                        enabled = payload.state ?: error("Watch state is required for ${input.commandName}."),
+                    )
+                }
+                .register("setwatchquantity") { input ->
+                    val payload = decodePayload(input, SetWatchQuantityPayload.serializer())
+                    val authenticatedStateId = requireAuthenticatedStateId(input)
+                    requirePayloadIpMatches(authenticatedStateId, payload.ip, input.commandName)
+                    SetWatchQuantityCommand(
+                        stateId = authenticatedStateId,
+                        watchIndex = payload.watchId ?: error("Watch index is required for ${input.commandName}."),
+                        quantity = payload.quantity ?: error("Watch quantity is required for ${input.commandName}."),
+                    )
+                }
+                .register("setwatchobservedports") { input ->
+                    val payload = decodePayload(input, SetWatchObservedPortsPayload.serializer())
+                    val authenticatedStateId = requireAuthenticatedStateId(input)
+                    requirePayloadIpMatches(authenticatedStateId, payload.ip, input.commandName)
+                    SetWatchObservedPortsCommand(
+                        stateId = authenticatedStateId,
+                        watchIndex = payload.watchId ?: error("Watch index is required for ${input.commandName}."),
+                        observedPorts = payload.observedPorts,
+                    )
+                }
+                .register("setwatchsearchfirewall") { input ->
+                    val payload = decodePayload(input, SetWatchSearchFirewallPayload.serializer())
+                    val authenticatedStateId = requireAuthenticatedStateId(input)
+                    requirePayloadIpMatches(authenticatedStateId, payload.ip, input.commandName)
+                    SetWatchSearchFirewallCommand(
+                        stateId = authenticatedStateId,
+                        watchIndex = payload.watchId ?: error("Watch index is required for ${input.commandName}."),
+                        searchFirewallType = payload.searchFirewall
+                            ?: error("Search firewall type is required for ${input.commandName}."),
+                    )
+                }
+                .register("changewatchport") { input ->
+                    val payload = decodePayload(input, ChangeWatchPortPayload.serializer())
+                    val authenticatedStateId = requireAuthenticatedStateId(input)
+                    requirePayloadIpMatches(authenticatedStateId, payload.ip, input.commandName)
+                    ChangeWatchPortCommand(
+                        stateId = authenticatedStateId,
+                        watchIndex = payload.watchId ?: error("Watch index is required for ${input.commandName}."),
+                        portNumber = payload.portId ?: error("Port id is required for ${input.commandName}."),
+                    )
+                }
+                .register("changewatchtype") { input ->
+                    val payload = decodePayload(input, ChangeWatchTypePayload.serializer())
+                    val authenticatedStateId = requireAuthenticatedStateId(input)
+                    requirePayloadIpMatches(authenticatedStateId, payload.ip, input.commandName)
+                    ChangeWatchTypeCommand(
+                        stateId = authenticatedStateId,
+                        watchIndex = payload.watchId ?: error("Watch index is required for ${input.commandName}."),
+                        typeCode = payload.newType ?: error("Watch type is required for ${input.commandName}."),
+                    )
+                }
+                .register("deletewatch") { input ->
+                    val payload = decodePayload(input, DeleteWatchPayload.serializer())
+                    val authenticatedStateId = requireAuthenticatedStateId(input)
+                    requirePayloadIpMatches(authenticatedStateId, payload.ip, input.commandName)
+                    DeleteWatchCommand(
+                        stateId = authenticatedStateId,
+                        watchIndex = payload.watchId ?: error("Watch index is required for ${input.commandName}."),
                     )
                 }
                 .register("setpreferences") { input ->

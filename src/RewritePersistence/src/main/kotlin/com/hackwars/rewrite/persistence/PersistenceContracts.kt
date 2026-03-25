@@ -94,11 +94,18 @@ data class SeedInventorySnapshot(
     val scanningExperience: Int = 0,
     val firewallExperience: Int = 0,
     val currentCpuLoad: Double = 0.0,
+    val cpuMax: Double = 100.0,
+    val memoryType: Int = 0,
+    val watchCapacityBoost: Int = 0,
     val activeQuestLabelsById: Map<String, String> = emptyMap(),
     val seedSaveFileName: String? = null,
     val enableBanking: Boolean = true,
     val enableFtp: Boolean = true,
     val enableHttp: Boolean = true,
+    val enableWatchBinary: Boolean = false,
+    val seedInstalledWatchCount: Int = 0,
+    val seedEnabledWatchCount: Int = 0,
+    val seedWatchCpuCost: Double = 5.0,
 ) : SeedPayload
 
 data class SeedWorldDirectory(

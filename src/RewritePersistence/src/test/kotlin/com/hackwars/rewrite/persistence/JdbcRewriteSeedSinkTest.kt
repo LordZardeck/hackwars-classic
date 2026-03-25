@@ -82,8 +82,14 @@ class JdbcRewriteSeedSinkTest {
                     scanningExperience = 240,
                     firewallExperience = 80,
                     currentCpuLoad = 15.0,
+                    cpuMax = 100.0,
+                    memoryType = 0,
                     activeQuestLabelsById = mapOf("quest-1" to "Starter Quest"),
                     seedSaveFileName = "migration",
+                    enableWatchBinary = true,
+                    seedInstalledWatchCount = 1,
+                    seedEnabledWatchCount = 0,
+                    seedWatchCpuCost = 5.0,
                 ),
                 createdAt = Instant.EPOCH,
             ),
@@ -122,6 +128,7 @@ class JdbcRewriteSeedSinkTest {
                     websiteTitle = "Canonical Store",
                     websiteBody = "<html>Store Body</html>",
                     voteCount = 9,
+                    seedInstalledWatchCount = 21,
                 ),
                 createdAt = Instant.EPOCH,
             ),
@@ -161,7 +168,11 @@ class JdbcRewriteSeedSinkTest {
                     websiteBody = "<html>Offline Body</html>",
                     currentNetworkName = JAIL_NETWORK_NAME,
                     lastNetworkSwitchAtEpochMillis = 999L,
+                    currentCpuLoad = 20.0,
                     enableHttp = false,
+                    seedInstalledWatchCount = 4,
+                    seedEnabledWatchCount = 4,
+                    seedWatchCpuCost = 5.0,
                 ),
                 createdAt = Instant.EPOCH,
             ),
@@ -222,6 +233,7 @@ class JdbcRewriteSeedSinkTest {
         assertTrue(state.filesystem.filesByPath.containsKey("/readme.txt"))
         assertTrue(state.filesystem.filesByPath.containsKey("/Store/catalog.txt"))
         assertTrue(state.filesystem.filesByPath["/Public/bank.bin"]?.compiledBinary?.bankingApplication == true)
+        assertEquals(ScriptFamily.WATCH, state.filesystem.filesByPath["/Public/watch.bin"]?.compiledBinary?.scriptFamily)
         assertTrue(state.filesystem.filesByPath["/Public/http"]?.scriptBundle?.scriptsBySlot?.isNotEmpty() == true)
         assertTrue(state.filesystem.filesByPath["/Public/http.bin"]?.scriptBundle?.scriptsBySlot?.isNotEmpty() == true)
         assertTrue(state.filesystem.filesByPath["/Public/http"]?.scriptBundle?.script(ProgramScriptSlot.ENTER)?.contains("logMessage") == true)
@@ -242,6 +254,8 @@ class JdbcRewriteSeedSinkTest {
         assertEquals(240, state.stats.experienceByFamily[ScriptFamily.SCANNING])
         assertEquals(80, state.stats.experienceByFamily[ScriptFamily.FIREWALL])
         assertEquals(15.0, state.runtime.currentCpuLoad)
+        assertEquals(1, state.watches.watches.size)
+        assertTrue(!state.watches.watches.single().enabled)
         assertEquals("Starter Quest", state.quests.activeQuestsById["quest-1"]?.label)
         assertEquals(StoredFileKind.SAVE_DATA, state.filesystem.filesByPath["/migration.save"]?.kind)
         assertTrue(state.filesystem.filesByPath["/migration.save"]?.saveMetadata?.valuesByKey?.isNotEmpty() == true)
@@ -255,11 +269,14 @@ class JdbcRewriteSeedSinkTest {
         assertEquals(9, storeState.website.voteCount)
         assertEquals(ROOT_NETWORK_NAME, storeState.network.currentNetworkName)
         assertEquals(GameStateId("store1"), storeState.network.storeStateId)
+        assertEquals(21, storeState.watches.watches.size)
         assertTrue(offlineState.ports.none { it.installedApplication?.kind?.name == "HTTP" })
         assertEquals("Offline Page", offlineState.website.title)
         assertEquals(JAIL_NETWORK_NAME, offlineState.network.currentNetworkName)
         assertEquals(999L, offlineState.network.lastNetworkSwitchAtEpochMillis)
         assertEquals(6, offlineState.economy.defaultBankPort)
+        assertEquals(4, offlineState.watches.watches.count { it.enabled })
+        assertEquals(20.0, offlineState.runtime.currentCpuLoad)
         assertTrue(npcState.identity.isNpc)
         assertEquals(ROOT_NETWORK_NAME, npcState.network.currentNetworkName)
         assertTrue(npcState.filesystem.filesByPath["/Public/http"]?.scriptBundle?.script(ProgramScriptSlot.ENTER)?.contains("triggerWatchRemote") == true)

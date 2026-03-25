@@ -44,11 +44,17 @@ import com.hackwars.rewrite.gamecore.NpcCategory
 import com.hackwars.rewrite.gamecore.NpcDirectoryEntry
 import com.hackwars.rewrite.gamecore.ROOT_NETWORK_NAME
 import com.hackwars.rewrite.gamecore.SkillExperienceAdjustedEvent
+import com.hackwars.rewrite.gamecore.WatchInstalledEvent
+import com.hackwars.rewrite.gamecore.WatchKind
+import com.hackwars.rewrite.gamecore.WatchManagerState
+import com.hackwars.rewrite.gamecore.WatchManagerUpdatedEvent
 import com.hackwars.rewrite.gamecore.WebsiteSavedEvent
 import com.hackwars.rewrite.gamecore.WebsiteVoteCountAdjustedEvent
 import com.hackwars.rewrite.gamecore.WebsiteVotesAvailableAdjustedEvent
 import com.hackwars.rewrite.gamecore.buildFilePath
 import com.hackwars.rewrite.gamecore.ensureDirectory
+import com.hackwars.rewrite.gamecore.InstalledWatch
+import com.hackwars.rewrite.gamecore.saveFile
 import com.hackwars.rewrite.hackscript.BooleanHookValue
 import com.hackwars.rewrite.hackscript.IntHookValue
 import com.hackwars.rewrite.hackscript.StringHookValue
@@ -272,6 +278,106 @@ class JdbcComputerStateRepositoryTest {
         assertEquals("bank.bin", reloaded.ports.single { it.number == 6 }.installedApplication?.name)
         assertEquals(httpBinary.scriptBundle, reloaded.ports.single { it.number == 80 }.installedApplication?.scriptBundle)
         assertEquals("cpu-card.bin", reloaded.hardware.equipmentSlots[EquipmentSlot.CPU]?.name)
+        assertTrue(countRows("rewrite_state_snapshot") >= 1)
+    }
+
+    @Test
+    fun replaysWatchManagerStateCpuLoadAndCapacityBoostDeterministically() {
+        resetDatabase()
+        val stateId = GameStateId("LOCAL-IP")
+        val watchBinary = StoredFile(
+            path = buildFilePath("/Public", "watch.bin"),
+            name = "watch.bin",
+            kind = StoredFileKind.APPLICATION_BINARY,
+            contents = "watch script",
+            cpuCost = 5.0,
+            compiledBinary = CompiledBinaryMetadata(
+                scriptFamily = ScriptFamily.WATCH,
+                applicationKind = ApplicationKind.WATCH,
+                outputName = "watch.bin",
+            ),
+        )
+        seedPlayerAndComputer(
+            stateId = stateId,
+            state = ComputerState.empty(id = stateId, playFabId = "PF-LOCALUSER").copy(
+                hardware = ComputerState.empty(id = stateId).hardware.copy(
+                    cpuMax = 75.0,
+                    memoryType = 1,
+                    equipmentSlots = mapOf(
+                        EquipmentSlot.PCI to InstalledEquipment(
+                            slot = EquipmentSlot.PCI,
+                            name = "watch-booster.bin",
+                            watchCapacityBoost = 3,
+                        ),
+                    ),
+                ),
+                filesystem = ComputerState.empty(id = stateId).filesystem
+                    .ensureDirectory("/Public")
+                    .saveFile(watchBinary),
+            ),
+        )
+        val repository = JdbcComputerStateRepository(
+            connectionFactory = ::newConnection,
+            serializer = serializer,
+            snapshotCoordinator = SnapshotCoordinator(eventThreshold = 1, timeThreshold = 5.seconds),
+        )
+
+        val installedWatch = InstalledWatch(
+            kind = WatchKind.PETTY_CASH,
+            enabled = false,
+            note = "watch.bin",
+            cpuCost = 5.0,
+            quantityThreshold = 25.0,
+            baselineQuantity = 100.0,
+            installPort = 6,
+            searchFirewallType = 0,
+            observedPorts = listOf(6),
+            contents = "watch script",
+            compiledBinary = watchBinary.compiledBinary,
+        )
+
+        runBlockingAppend(
+            repository,
+            stateId,
+            listOf(
+                WatchInstalledEvent(
+                    sourceFilePath = watchBinary.path,
+                    remainingSourceFile = null,
+                    installedWatch = installedWatch,
+                ),
+                WatchManagerUpdatedEvent(
+                    changedPathList = setOf(
+                        "watches.watches.0.enabled",
+                        "watches.watches.0.searchFirewallType",
+                        "watches.watches.0.observedPorts",
+                        "runtime.currentCpuLoad",
+                    ),
+                    deltaKeyList = setOf("watches", "runtime"),
+                    watches = WatchManagerState(
+                        watches = listOf(
+                            installedWatch.copy(
+                                enabled = true,
+                                searchFirewallType = 4,
+                                observedPorts = listOf(80, 21, 6),
+                            ),
+                        ),
+                    ),
+                    currentCpuLoad = 5.0,
+                    includeRuntime = true,
+                ),
+            ),
+        )
+
+        val reloaded = runBlockingLoad(repository, stateId)
+
+        requireNotNull(reloaded)
+        assertEquals(1, reloaded.watches.watches.size)
+        assertTrue(reloaded.watches.watches.single().enabled)
+        assertEquals(listOf(80, 21, 6), reloaded.watches.watches.single().observedPorts)
+        assertEquals(4, reloaded.watches.watches.single().searchFirewallType)
+        assertEquals(ScriptFamily.WATCH, reloaded.watches.watches.single().compiledBinary?.scriptFamily)
+        assertEquals(3, reloaded.hardware.equipmentSlots[EquipmentSlot.PCI]?.watchCapacityBoost)
+        assertEquals(5.0, reloaded.runtime.currentCpuLoad)
         assertTrue(countRows("rewrite_state_snapshot") >= 1)
     }
 

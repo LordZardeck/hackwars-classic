@@ -5,9 +5,12 @@ import com.hackwars.rewrite.gamecore.ActiveQuestProgress
 import com.hackwars.rewrite.gamecore.CompiledBinaryMetadata
 import com.hackwars.rewrite.gamecore.ComputerState
 import com.hackwars.rewrite.gamecore.EconomyState
+import com.hackwars.rewrite.gamecore.EquipmentSlot
 import com.hackwars.rewrite.gamecore.GameStateId
 import com.hackwars.rewrite.gamecore.InstalledApplication
+import com.hackwars.rewrite.gamecore.InstalledEquipment
 import com.hackwars.rewrite.gamecore.InstalledFirewall
+import com.hackwars.rewrite.gamecore.InstalledWatch
 import com.hackwars.rewrite.gamecore.NetworkDirectoryDefinition
 import com.hackwars.rewrite.gamecore.NetworkState
 import com.hackwars.rewrite.gamecore.PlayerStatsState
@@ -20,6 +23,8 @@ import com.hackwars.rewrite.gamecore.SaveFileMetadata
 import com.hackwars.rewrite.gamecore.ScriptFamily
 import com.hackwars.rewrite.gamecore.StoredFile
 import com.hackwars.rewrite.gamecore.StoredFileKind
+import com.hackwars.rewrite.gamecore.WatchKind
+import com.hackwars.rewrite.gamecore.WatchManagerState
 import com.hackwars.rewrite.gamecore.WebsiteState
 import com.hackwars.rewrite.gamecore.FirewallKind
 import com.hackwars.rewrite.gamecore.buildFilePath
@@ -343,6 +348,26 @@ class JdbcRewriteSeedSink(
                     ),
                 )
         }
+        if (payload.enableWatchBinary) {
+            filesystem = filesystem.saveFile(
+                StoredFile(
+                    path = buildFilePath("/Public", "watch.bin"),
+                    name = "watch.bin",
+                    kind = StoredFileKind.APPLICATION_BINARY,
+                    contents = "seeded watch script",
+                    description = "Seeded installable watch binary",
+                    maker = "rewrite-import",
+                    compileCost = 60.0,
+                    cpuCost = payload.seedWatchCpuCost,
+                    quantity = 1,
+                    compiledBinary = CompiledBinaryMetadata(
+                        scriptFamily = ScriptFamily.WATCH,
+                        applicationKind = ApplicationKind.WATCH,
+                        outputName = "watch.bin",
+                    ),
+                ),
+            )
+        }
         payload.notes.forEachIndexed { index, note ->
             filesystem = filesystem.saveFile(
                 StoredFile(
@@ -441,6 +466,40 @@ class JdbcRewriteSeedSink(
         val networkDefinition = JdbcNetworkDirectoryRepository.loadNetwork(connection, payload.currentNetworkName)
             ?: JdbcNetworkDirectoryRepository.loadNetwork(connection, ROOT_NETWORK_NAME)
             ?: NetworkDirectoryDefinition(name = ROOT_NETWORK_NAME)
+        val equipmentSlots = current.hardware.equipmentSlots.toMutableMap().apply {
+            if (payload.watchCapacityBoost > 0) {
+                put(
+                    EquipmentSlot.PCI,
+                    InstalledEquipment(
+                        slot = EquipmentSlot.PCI,
+                        name = "watch-capacity-card.bin",
+                        maker = "rewrite-import",
+                        binaryPath = "/system/watch-capacity-card.bin",
+                        watchCapacityBoost = payload.watchCapacityBoost,
+                    ),
+                )
+            }
+        }
+        val enabledWatchCount = payload.seedEnabledWatchCount.coerceIn(0, payload.seedInstalledWatchCount)
+        val seededWatches = List(payload.seedInstalledWatchCount) { index ->
+            InstalledWatch(
+                kind = WatchKind.PETTY_CASH,
+                enabled = index < enabledWatchCount,
+                note = "seeded-watch-${index + 1}",
+                cpuCost = payload.seedWatchCpuCost,
+                quantityThreshold = 0.0,
+                baselineQuantity = payload.pettyCash,
+                installPort = 6,
+                searchFirewallType = 0,
+                observedPorts = listOf(6),
+                contents = "seeded watch script",
+                compiledBinary = CompiledBinaryMetadata(
+                    scriptFamily = ScriptFamily.WATCH,
+                    applicationKind = ApplicationKind.WATCH,
+                    outputName = "watch.bin",
+                ),
+            )
+        }
         val updated = current.copy(
             identity = current.identity.copy(
                 lastLoginAtEpochMillis = payload.lastLoginAtEpochMillis,
@@ -462,6 +521,12 @@ class JdbcRewriteSeedSink(
                 miningNpcs = networkDefinition.miningNpcs,
                 storeNpcs = networkDefinition.storeNpcs,
             ),
+            hardware = current.hardware.copy(
+                cpuMax = payload.cpuMax,
+                memoryType = payload.memoryType,
+                equipmentSlots = equipmentSlots,
+            ),
+            watches = WatchManagerState(watches = seededWatches),
             quests = QuestState(
                 activeQuestsById = payload.activeQuestLabelsById.mapValues { (questId, label) ->
                     ActiveQuestProgress(
@@ -525,7 +590,7 @@ class JdbcRewriteSeedSink(
                 val activeQuestsJson = payload.activeQuestLabelsById.entries.joinToString(prefix = "{", postfix = "}") {
                     "\"${it.key}\":\"${it.value}\""
                 }
-                """{"type":"inventory","computerId":"${payload.computerId}","notes":$notesJson,"websiteTitle":"${payload.websiteTitle}","websiteBody":"${payload.websiteBody}","lastLoginAtEpochMillis":${payload.lastLoginAtEpochMillis ?: "null"},"votesAvailable":${payload.votesAvailable},"voteCount":${payload.voteCount},"totalLevel":${payload.totalLevel},"noobProtectionLevel":${payload.noobProtectionLevel},"pettyCash":${payload.pettyCash},"bankMoney":${payload.bankMoney},"currentNetworkName":"${payload.currentNetworkName}","allowedNetworks":$allowedNetworksJson,"lastNetworkSwitchAtEpochMillis":${payload.lastNetworkSwitchAtEpochMillis},"scanningExperience":${payload.scanningExperience},"firewallExperience":${payload.firewallExperience},"currentCpuLoad":${payload.currentCpuLoad},"activeQuestLabelsById":$activeQuestsJson,"seedSaveFileName":"${payload.seedSaveFileName.orEmpty()}","enableBanking":${payload.enableBanking},"enableFtp":${payload.enableFtp},"enableHttp":${payload.enableHttp}}"""
+                """{"type":"inventory","computerId":"${payload.computerId}","notes":$notesJson,"websiteTitle":"${payload.websiteTitle}","websiteBody":"${payload.websiteBody}","lastLoginAtEpochMillis":${payload.lastLoginAtEpochMillis ?: "null"},"votesAvailable":${payload.votesAvailable},"voteCount":${payload.voteCount},"totalLevel":${payload.totalLevel},"noobProtectionLevel":${payload.noobProtectionLevel},"pettyCash":${payload.pettyCash},"bankMoney":${payload.bankMoney},"currentNetworkName":"${payload.currentNetworkName}","allowedNetworks":$allowedNetworksJson,"lastNetworkSwitchAtEpochMillis":${payload.lastNetworkSwitchAtEpochMillis},"scanningExperience":${payload.scanningExperience},"firewallExperience":${payload.firewallExperience},"currentCpuLoad":${payload.currentCpuLoad},"cpuMax":${payload.cpuMax},"memoryType":${payload.memoryType},"watchCapacityBoost":${payload.watchCapacityBoost},"activeQuestLabelsById":$activeQuestsJson,"seedSaveFileName":"${payload.seedSaveFileName.orEmpty()}","enableBanking":${payload.enableBanking},"enableFtp":${payload.enableFtp},"enableHttp":${payload.enableHttp},"enableWatchBinary":${payload.enableWatchBinary},"seedInstalledWatchCount":${payload.seedInstalledWatchCount},"seedEnabledWatchCount":${payload.seedEnabledWatchCount},"seedWatchCpuCost":${payload.seedWatchCpuCost}}"""
             }
         }
     }

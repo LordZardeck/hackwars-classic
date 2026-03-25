@@ -161,7 +161,7 @@
 ### RW-GS-S3B3B - Bind HTTP watch-trigger intents into the real watch engine
 - Status: `todo`
 - Owner: `unassigned`
-- Depends on: `RW-GS-S3B3A`, `RW-GS-S5`
+- Depends on: `RW-GS-S3B3A`, `RW-GS-S5A2`
 - Allowed write scope: `:RewriteGameCore`, `:RewriteGameServer`
 - Verification command: `./gradlew :RewriteGameCore:test :RewriteGameServer:test`
 - Artifacts: `build/reports/tests/test`
@@ -237,7 +237,45 @@
   - Preserves the legacy visibility gate: searchable sites must have active HTTP and belong to NPCs or players inactive for at least 14 days.
   - Keeps browser lookup narrow in this slice: `requestsearch` returns normalized site addresses for later `requestwebpage`, while remote domain lookup and broader world discovery remain deferred.
 
-### RW-GS-S5 - Combat, redirect, zombie attack, watches, long-running programs
+### RW-GS-S5A1 - Watch manager core
+- Status: `done`
+- Owner: `codex`
+- Depends on: `RW-GS-005`, `RW-GS-S4A`, `RW-GS-S2`
+- Allowed write scope: `:RewriteGameCore`, `:RewriteGameServer`, `:RewritePersistence`
+- Verification command: `./gradlew :RewriteGameCore:test :RewritePersistence:test :RewritePersistence:migrationTest :RewriteGameServer:test :RewriteTestKit:integrationTest rewriteCheck`
+- Artifacts: `build/reports/tests/test`
+- Commit rule: `single green commit only`
+- Notes:
+  - Covers `fetchwatches`, `installwatch`, `setwatchnote`, `setwatchonoff`, `setwatchquantity`, `setwatchobservedports`, `setwatchsearchfirewall`, `changewatchport`, `changewatchtype`, and `deletewatch`.
+  - Adds typed `WatchManagerState`, `InstalledWatch`, legacy-capacity rules, and CPU-load bookkeeping without executing installed watch programs yet.
+  - Public watch commands now persist first, publish typed `watches` and `runtime` deltas where required, and return correlated typed list/mutation responses on the rewrite game socket.
+  - `requesttrigger` and HTTP hook `triggerWatch*` remain seam-only in this slice and continue emitting `WatchTriggerIntent` without binding into execution.
+
+### RW-GS-S5A2 - Explicit watch-trigger execution and binding
+- Status: `todo`
+- Owner: `unassigned`
+- Depends on: `RW-GS-S5A1`, `RW-GS-S3B3A`
+- Allowed write scope: `:RewriteGameCore`, `:RewriteGameServer`
+- Verification command: `./gradlew :RewriteGameCore:test :RewriteGameServer:test`
+- Artifacts: `build/reports/tests/test`
+- Commit rule: `single green commit only`
+- Notes:
+  - Binds existing `WatchTriggerIntent` from explicit trigger commands and HTTP hook seams into real installed-watch execution rules.
+  - Must preserve the manager/config guarantees from `RW-GS-S5A1` while still keeping watch execution deterministic and typed.
+
+### RW-GS-S5A3 - Passive watch auto-fire and watch XP
+- Status: `todo`
+- Owner: `unassigned`
+- Depends on: `RW-GS-S5A2`
+- Allowed write scope: `:RewriteGameCore`, `:RewriteGameServer`
+- Verification command: `./gradlew :RewriteGameCore:test :RewriteGameServer:test`
+- Artifacts: `build/reports/tests/test`
+- Commit rule: `single green commit only`
+- Notes:
+  - Adds passive auto-fire for health, petty-cash, and scan watches plus watch-side XP and progression behavior.
+  - Must preserve legacy threshold semantics and CPU/runtime interactions established in `RW-GS-S5A1`.
+
+### RW-GS-S5B - Attack-program foundation
 - Status: `todo`
 - Owner: `unassigned`
 - Depends on: `RW-GS-005`
@@ -248,6 +286,17 @@
 - Notes:
   - Programs publish periodic attack updates.
   - Resulting state changes fan out to all interested subscribers.
+
+### RW-GS-S5C - Redirect, zombie, and combat cleanup
+- Status: `todo`
+- Owner: `unassigned`
+- Depends on: `RW-GS-S5B`
+- Allowed write scope: `:RewriteGameCore`, `:RewriteGameServer`
+- Verification command: `./gradlew :RewriteGameCore:test :RewriteGameServer:test`
+- Artifacts: `build/reports/tests/test`
+- Commit rule: `single green commit only`
+- Notes:
+  - Owns redirect, zombie-attack, heal-port, finalize-cancelled, and the remaining combat cleanup flows once the base attack-program runtime exists.
 
 ### RW-GS-S6 - Hacktendo-specific server behavior
 - Status: `todo`
