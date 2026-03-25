@@ -652,6 +652,7 @@ class InstallFirewallCommand(
             strength = metadata.strength,
             cpuCost = source.cpuCost,
             combatProfile = metadata.firewallCombatProfile ?: FirewallCombatProfile(),
+            actionProfile = metadata.firewallActionProfile ?: FirewallActionProfile(),
         )
         val updatedPort = (existingPort ?: PortState(number = portNumber)).copy(
             installedFirewall = installedFirewall,
@@ -1343,6 +1344,7 @@ private fun InstalledFirewall.toStoredFile(): StoredFile {
         compiledBinary = CompiledBinaryMetadata(
             firewallKind = kind,
             firewallCombatProfile = combatProfile,
+            firewallActionProfile = actionProfile,
             strength = strength,
         ),
     )

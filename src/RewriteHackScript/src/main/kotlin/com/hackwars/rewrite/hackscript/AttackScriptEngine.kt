@@ -100,6 +100,10 @@ data object AttackSwitchTargetEffect : AttackRuntimeEffect
 @SerialName("attack_destroy_target_watches")
 data object AttackDestroyTargetWatchesEffect : AttackRuntimeEffect
 
+@Serializable
+@SerialName("attack_empty_target_petty_cash")
+data object AttackEmptyTargetPettyCashEffect : AttackRuntimeEffect
+
 data class AttackExecutionResult(
     val effects: List<AttackRuntimeEffect> = emptyList(),
 )
@@ -237,6 +241,19 @@ private class AttackScriptHost(
                     )
                 } else {
                     state.effects += AttackDestroyTargetWatchesEffect
+                }
+                HackValue.IntValue(0)
+            }
+
+            "emptyPettyCash" -> {
+                ensure(arguments.isEmpty(), "BAD_ARGUMENT_COUNT", "emptyPettyCash expects 0 arguments.")
+                if (state.input.phase !in setOf(AttackExecutionPhase.CONTINUE, AttackExecutionPhase.FINALIZE)) {
+                    state.diagnostics += HackScriptDiagnostic(
+                        code = "UNSUPPORTED_PHASE",
+                        message = "emptyPettyCash is only supported during CONTINUE and FINALIZE.",
+                    )
+                } else {
+                    state.effects += AttackEmptyTargetPettyCashEffect
                 }
                 HackValue.IntValue(0)
             }

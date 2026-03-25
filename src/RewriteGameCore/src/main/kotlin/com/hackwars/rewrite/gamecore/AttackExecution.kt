@@ -4,6 +4,7 @@ import com.hackwars.rewrite.hackscript.AttackCancelCurrentAttackEffect
 import com.hackwars.rewrite.hackscript.AttackBerserkEffect
 import com.hackwars.rewrite.hackscript.AttackDeleteTargetLogsEffect
 import com.hackwars.rewrite.hackscript.AttackDestroyTargetWatchesEffect
+import com.hackwars.rewrite.hackscript.AttackEmptyTargetPettyCashEffect
 import com.hackwars.rewrite.hackscript.AttackEditTargetLogsEffect
 import com.hackwars.rewrite.hackscript.AttackFreezeTargetPortEffect
 import com.hackwars.rewrite.hackscript.AttackAppendHostLogEffect
@@ -195,6 +196,7 @@ internal class AttackRuntimeExecutor(
             is AttackBerserkEffect -> return AttackRuntimeApplyResult(berserkRequested = true)
             is AttackSwitchTargetEffect -> return AttackRuntimeApplyResult(switchTargetRequested = true)
             is AttackDestroyTargetWatchesEffect -> return AttackRuntimeApplyResult()
+            is AttackEmptyTargetPettyCashEffect -> return AttackRuntimeApplyResult()
         }
     }
 

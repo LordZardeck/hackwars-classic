@@ -381,22 +381,35 @@
   - Removes only enabled non-scan watches on the current target port, respects NPC and installed-equipment immunity, updates target watch/runtime state, and preserves same-tick deterministic damage before cleanup.
   - Keeps the broader target-side economy, file, social, and redirect or zombie-linked helper work deferred to follow-on sub-slices.
 
-### RW-GS-S5B2B2B3B - Target-side economy, file, and social attack helpers
-- Status: `todo`
-- Owner: `unassigned`
+### RW-GS-S5B2B2B3B1 - emptyPettyCash target-side economy finalizer
+- Status: `in_progress`
+- Owner: `codex`
 - Depends on: `RW-GS-S5B2B2B3A`
 - Allowed write scope: `:RewriteHackScript`, `:RewriteGameCore`, `:RewriteGameServer`, `:RewritePersistence`
 - Verification command: `./gradlew :RewriteHackScript:test :RewriteGameCore:test :RewritePersistence:test :RewriteGameServer:test :RewriteTestKit:integrationTest`
 - Artifacts: `build/reports/tests/test`
 - Commit rule: `single green commit only`
 - Notes:
-  - Owns the remaining deferred attack-script helpers that mutate target economy, files, or social or message state after the narrow watch finalizer is stable.
+  - Adds the installed attack-script `emptyPettyCash()` helper as a deterministic target-side economy finalizer in `CONTINUE` and `FINALIZE`.
+  - Uses typed firewall action profiles to resolve legacy petty-cash failure into a deterministic zero-amount steal, otherwise transfers a reduction-adjusted petty-cash amount from target to attacker and evaluates passive petty-cash watches on both sides before cleanup.
+  - Keeps file, social, message, zombie-linked, and redirect or shipping-port helper work deferred to follow-on sub-slices.
+
+### RW-GS-S5B2B2B3B2 - Remaining target-side file and social attack helpers
+- Status: `todo`
+- Owner: `unassigned`
+- Depends on: `RW-GS-S5B2B2B3B1`
+- Allowed write scope: `:RewriteHackScript`, `:RewriteGameCore`, `:RewriteGameServer`, `:RewritePersistence`
+- Verification command: `./gradlew :RewriteHackScript:test :RewriteGameCore:test :RewritePersistence:test :RewriteGameServer:test :RewriteTestKit:integrationTest`
+- Artifacts: `build/reports/tests/test`
+- Commit rule: `single green commit only`
+- Notes:
+  - Owns the remaining deferred attack-script helpers that mutate target files or social or message state after the deterministic watch and economy finalizers are stable.
   - Keeps `launchnetworkattack`, redirecting or shipping-port semantics, and zombie-linked behavior deferred until the rewrite has the needed typed port and network models.
 
 ### RW-GS-S5C - Redirect, zombie, and combat cleanup
 - Status: `todo`
 - Owner: `unassigned`
-- Depends on: `RW-GS-S5B2B2B3B`
+- Depends on: `RW-GS-S5B2B2B3B2`
 - Allowed write scope: `:RewriteGameCore`, `:RewriteGameServer`
 - Verification command: `./gradlew :RewriteGameCore:test :RewriteGameServer:test`
 - Artifacts: `build/reports/tests/test`

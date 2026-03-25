@@ -106,6 +106,7 @@ class AttackScriptEngineTest {
                     editLogs("old", "new");
                     deleteLogs("REMOTE-IP");
                     destroyWatches();
+                    emptyPettyCash();
                     switchAttack();
                     cancelAttack();
                     freeze();
@@ -120,6 +121,7 @@ class AttackScriptEngineTest {
                     editLogs("finish", "done");
                     deleteLogs("OTHER-IP");
                     destroyWatches();
+                    emptyPettyCash();
                     return 0;
                 }
             """.trimIndent(),
@@ -132,6 +134,7 @@ class AttackScriptEngineTest {
                 AttackEditTargetLogsEffect("old", "new"),
                 AttackDeleteTargetLogsEffect("REMOTE-IP"),
                 AttackDestroyTargetWatchesEffect,
+                AttackEmptyTargetPettyCashEffect,
                 AttackSwitchTargetEffect,
                 AttackCancelCurrentAttackEffect,
                 AttackFreezeTargetPortEffect,
@@ -144,6 +147,7 @@ class AttackScriptEngineTest {
                 AttackEditTargetLogsEffect("finish", "done"),
                 AttackDeleteTargetLogsEffect("OTHER-IP"),
                 AttackDestroyTargetWatchesEffect,
+                AttackEmptyTargetPettyCashEffect,
             ),
             assertNotNull(finalizeOutcome.result).effects,
         )
@@ -175,6 +179,10 @@ class AttackScriptEngineTest {
             script = """int main() { destroyWatches(); return 0; }""",
             input = input(phase = AttackExecutionPhase.INITIALIZE),
         )
+        val initializeEmptyPettyCash = engine.execute(
+            script = """int main() { emptyPettyCash(); return 0; }""",
+            input = input(phase = AttackExecutionPhase.INITIALIZE),
+        )
 
         assertEquals("UNSUPPORTED_PHASE", initializeDelete.diagnostics.single().code)
         assertEquals(emptyList(), assertNotNull(initializeDelete.result).effects)
@@ -188,6 +196,8 @@ class AttackScriptEngineTest {
         assertEquals(emptyList(), assertNotNull(initializeBerserk.result).effects)
         assertEquals("UNSUPPORTED_PHASE", initializeDestroyWatches.diagnostics.single().code)
         assertEquals(emptyList(), assertNotNull(initializeDestroyWatches.result).effects)
+        assertEquals("UNSUPPORTED_PHASE", initializeEmptyPettyCash.diagnostics.single().code)
+        assertEquals(emptyList(), assertNotNull(initializeEmptyPettyCash.result).effects)
     }
 
     @Test
@@ -204,7 +214,7 @@ class AttackScriptEngineTest {
     @Test
     fun unsupportedHelpersProduceStructuredFailureWithoutCrashing() {
         val outcome = engine.execute(
-            script = """int main() { emptyPettyCash(); return 0; }""",
+            script = """int main() { stealFile(); return 0; }""",
             input = input(phase = AttackExecutionPhase.CONTINUE),
         )
 

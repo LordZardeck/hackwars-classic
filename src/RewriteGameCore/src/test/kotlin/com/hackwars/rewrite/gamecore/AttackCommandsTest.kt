@@ -709,6 +709,453 @@ class AttackCommandsTest {
     }
 
     @Test
+    fun continueEmptyPettyCashTransfersAdjustedAmountTriggersPassiveWatchesStillDamagesAndCancelsAttack() = runTest {
+        val attackerId = GameStateId("ATTACKER-IP")
+        val targetId = GameStateId("TARGET-IP")
+        val repository = InMemoryComputerStateRepository(
+            seededStates = mapOf(
+                attackerId to attackerState(
+                    attackerId,
+                    attackScriptBundle = attackScriptBundle(
+                        continueScript = """int main() { emptyPettyCash(); return 0; }""",
+                    ),
+                ).copy(
+                    watches = WatchManagerState(
+                        watches = listOf(
+                            targetWatch(
+                                note = "attacker-cash",
+                                kind = WatchKind.PETTY_CASH,
+                                installPort = 6,
+                                cpuCost = 1.0,
+                                quantityThreshold = 120.0,
+                                baselineQuantity = 100.0,
+                                fireScript = """int main() { logMessage("cash-fired"); return 0; }""",
+                            ),
+                        ),
+                    ),
+                ),
+                targetId to targetState(
+                    targetId,
+                    pettyCash = 80.0,
+                    portType = "bank",
+                    installedApplication = InstalledApplication(
+                        name = "target-bank.bin",
+                        kind = ApplicationKind.BANKING,
+                        banking = true,
+                        cpuCost = 2.0,
+                    ),
+                    firewallActionProfile = FirewallActionProfile(
+                        emptyPettyCashReductionMultiplier = 0.5,
+                    ),
+                    watches = WatchManagerState(
+                        watches = listOf(
+                            targetWatch(
+                                note = "target-cash",
+                                kind = WatchKind.PETTY_CASH,
+                                installPort = 25,
+                                cpuCost = 1.0,
+                                quantityThreshold = 100.0,
+                                baselineQuantity = 80.0,
+                                fireScript = """int main() { logMessage("should-not-run"); return 0; }""",
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+        )
+        val interests = InMemoryInterestRegistry().apply {
+            register("attacker-conn", attackerId)
+            register("target-conn", targetId)
+        }
+        val publisher = RecordingGameStatePublisher()
+        val registry = InMemoryAttackProgramRegistry()
+        val dispatcher = dispatcher(repository, interests, passiveWatchSink = DefaultPassiveWatchCoordinator)
+
+        dispatcher.request(
+            command = RequestAttackCommand(
+                attackerStateId = attackerId,
+                targetStateId = targetId,
+                sourceIp = attackerId.value,
+                sourcePort = 12,
+                targetPort = 25,
+                loadout = AttackLoadout(),
+                attackProgramRegistry = registry,
+            ),
+            metadata = CommandMetadata(connectionId = "attacker-conn", requestId = "attack-empty-petty-cash"),
+            publisher = publisher,
+        )
+        runCurrent()
+        publisher.deltas.clear()
+        publisher.programUpdates.clear()
+
+        advanceTimeBy(180_100)
+        runCurrent()
+
+        val updatedAttacker = requireNotNull(repository.load(attackerId))
+        val updatedTarget = requireNotNull(repository.load(targetId))
+
+        assertEquals(130.0, updatedAttacker.economy.pettyCash)
+        assertEquals(40.0, updatedTarget.economy.pettyCash)
+        assertEquals(97.8, updatedTarget.port(25)?.health)
+        assertContains(updatedAttacker.logs.entries.single().renderedLine, "cash-fired")
+        assertTrue(updatedTarget.logs.entries.isEmpty())
+        assertEquals(130.0, updatedAttacker.watches.watches.single().baselineQuantity)
+        assertEquals(40.0, updatedTarget.watches.watches.single().baselineQuantity)
+        assertEquals(0.8, updatedAttacker.stats.skillExperience(ScriptFamily.WATCH))
+        assertEquals(2.2, updatedAttacker.stats.skillExperience(ScriptFamily.ATTACK))
+        assertTrue(updatedAttacker.combat.activeAttacksBySourcePort.isEmpty())
+        assertTrue(updatedTarget.combat.incomingAttacksByTargetPort.isEmpty())
+        val targetDelta = publisher.deltas.single { it.first == setOf("target-conn") }.second
+        val attackerDelta = publisher.deltas.single { it.first == setOf("attacker-conn") }.second
+        assertEquals(setOf("economy", "watches", "ports", "combat"), targetDelta.deltaKeys)
+        assertEquals(setOf("economy", "logs", "watches", "stats", "combat", "ports", "runtime"), attackerDelta.deltaKeys)
+        assertEquals(ProgramLifecycleStatus.CANCELLED, publisher.programUpdates.single().second.status)
+    }
+
+    @Test
+    fun continueEmptyPettyCashWithFirewallFailResolvesToZeroAmountStillDamagesAndCancelsAttack() = runTest {
+        val attackerId = GameStateId("ATTACKER-IP")
+        val targetId = GameStateId("TARGET-IP")
+        val repository = InMemoryComputerStateRepository(
+            seededStates = mapOf(
+                attackerId to attackerState(
+                    attackerId,
+                    attackScriptBundle = attackScriptBundle(
+                        continueScript = """int main() { emptyPettyCash(); return 0; }""",
+                    ),
+                ),
+                targetId to targetState(
+                    targetId,
+                    pettyCash = 80.0,
+                    portType = "bank",
+                    installedApplication = InstalledApplication(
+                        name = "target-bank.bin",
+                        kind = ApplicationKind.BANKING,
+                        banking = true,
+                        cpuCost = 2.0,
+                    ),
+                    firewallActionProfile = FirewallActionProfile(
+                        emptyPettyCashFailChance = 0.4,
+                        emptyPettyCashReductionMultiplier = 0.5,
+                    ),
+                ),
+            ),
+        )
+        val interests = InMemoryInterestRegistry().apply {
+            register("attacker-conn", attackerId)
+            register("target-conn", targetId)
+        }
+        val publisher = RecordingGameStatePublisher()
+        val registry = InMemoryAttackProgramRegistry()
+        val dispatcher = dispatcher(repository, interests)
+
+        dispatcher.request(
+            command = RequestAttackCommand(
+                attackerStateId = attackerId,
+                targetStateId = targetId,
+                sourceIp = attackerId.value,
+                sourcePort = 12,
+                targetPort = 25,
+                loadout = AttackLoadout(),
+                attackProgramRegistry = registry,
+            ),
+            metadata = CommandMetadata(connectionId = "attacker-conn", requestId = "attack-empty-petty-cash-fail"),
+            publisher = publisher,
+        )
+        runCurrent()
+        publisher.deltas.clear()
+        publisher.programUpdates.clear()
+
+        advanceTimeBy(180_100)
+        runCurrent()
+
+        val updatedAttacker = requireNotNull(repository.load(attackerId))
+        val updatedTarget = requireNotNull(repository.load(targetId))
+
+        assertEquals(90.0, updatedAttacker.economy.pettyCash)
+        assertEquals(80.0, updatedTarget.economy.pettyCash)
+        assertEquals(97.8, updatedTarget.port(25)?.health)
+        assertEquals(setOf("ports", "combat"), publisher.deltas.single { it.first == setOf("target-conn") }.second.deltaKeys)
+        assertEquals(setOf("combat", "ports", "runtime", "stats"), publisher.deltas.single { it.first == setOf("attacker-conn") }.second.deltaKeys)
+        assertEquals(ProgramLifecycleStatus.CANCELLED, publisher.programUpdates.single().second.status)
+    }
+
+    @Test
+    fun continueEmptyPettyCashRequiresBankingTargetAndAttackerDefaultBank() = runTest {
+        val attackerId = GameStateId("ATTACKER-IP")
+        val targetId = GameStateId("TARGET-IP")
+
+        val wrongTargetRepository = InMemoryComputerStateRepository(
+            seededStates = mapOf(
+                attackerId to attackerState(
+                    attackerId,
+                    attackScriptBundle = attackScriptBundle(
+                        continueScript = """int main() { emptyPettyCash(); return 0; }""",
+                    ),
+                ),
+                targetId to targetState(
+                    targetId,
+                    pettyCash = 75.0,
+                    portType = "http",
+                ),
+            ),
+        )
+        val wrongTargetInterests = InMemoryInterestRegistry().apply {
+            register("attacker-conn", attackerId)
+            register("target-conn", targetId)
+        }
+        val wrongTargetPublisher = RecordingGameStatePublisher()
+        val wrongTargetRegistry = InMemoryAttackProgramRegistry()
+        val wrongTargetDispatcher = dispatcher(wrongTargetRepository, wrongTargetInterests)
+
+        wrongTargetDispatcher.request(
+            command = RequestAttackCommand(
+                attackerStateId = attackerId,
+                targetStateId = targetId,
+                sourceIp = attackerId.value,
+                sourcePort = 12,
+                targetPort = 25,
+                loadout = AttackLoadout(),
+                attackProgramRegistry = wrongTargetRegistry,
+            ),
+            metadata = CommandMetadata(connectionId = "attacker-conn", requestId = "attack-empty-petty-cash-wrong-target"),
+            publisher = wrongTargetPublisher,
+        )
+        runCurrent()
+        wrongTargetPublisher.deltas.clear()
+        wrongTargetPublisher.programUpdates.clear()
+        advanceTimeBy(180_100)
+        runCurrent()
+
+        val disabledBankRepository = InMemoryComputerStateRepository(
+            seededStates = mapOf(
+                attackerId to attackerState(
+                    attackerId,
+                    attackScriptBundle = attackScriptBundle(
+                        continueScript = """int main() { emptyPettyCash(); return 0; }""",
+                    ),
+                ),
+                targetId to targetState(
+                    targetId,
+                    pettyCash = 75.0,
+                    portType = "bank",
+                    installedApplication = InstalledApplication(
+                        name = "target-bank.bin",
+                        kind = ApplicationKind.BANKING,
+                        banking = true,
+                        cpuCost = 2.0,
+                    ),
+                ),
+            ),
+        )
+        val disabledBankInterests = InMemoryInterestRegistry().apply {
+            register("attacker-conn", attackerId)
+            register("target-conn", targetId)
+        }
+        val disabledBankPublisher = RecordingGameStatePublisher()
+        val disabledBankRegistry = InMemoryAttackProgramRegistry()
+        val disabledBankDispatcher = dispatcher(disabledBankRepository, disabledBankInterests)
+
+        disabledBankDispatcher.request(
+            command = RequestAttackCommand(
+                attackerStateId = attackerId,
+                targetStateId = targetId,
+                sourceIp = attackerId.value,
+                sourcePort = 12,
+                targetPort = 25,
+                loadout = AttackLoadout(),
+                attackProgramRegistry = disabledBankRegistry,
+            ),
+            metadata = CommandMetadata(connectionId = "attacker-conn", requestId = "attack-empty-petty-cash-missing-bank"),
+            publisher = disabledBankPublisher,
+        )
+        runCurrent()
+        disabledBankPublisher.deltas.clear()
+        disabledBankPublisher.programUpdates.clear()
+        val disabledBankAttacker = requireNotNull(disabledBankRepository.load(attackerId))
+        disabledBankRepository.appendEvents(
+            attackerId,
+            listOf(
+                CombatStateUpdatedEvent(
+                    changedPathList = setOf("ports.6.enabled"),
+                    deltaKeyList = setOf("ports"),
+                    combat = disabledBankAttacker.combat,
+                    ports = disabledBankAttacker.ports.map { port ->
+                        if (port.number == 6) {
+                            port.copy(enabled = false)
+                        } else {
+                            port
+                        }
+                    },
+                    currentCpuLoad = disabledBankAttacker.runtime.currentCpuLoad,
+                    includePorts = true,
+                ),
+            ),
+        )
+        advanceTimeBy(180_100)
+        runCurrent()
+
+        assertEquals(90.0, requireNotNull(wrongTargetRepository.load(attackerId)).economy.pettyCash)
+        assertEquals(75.0, requireNotNull(wrongTargetRepository.load(targetId)).economy.pettyCash)
+        assertEquals(97.8, wrongTargetRepository.load(targetId)?.port(25)?.health)
+        assertEquals(setOf("ports", "combat"), wrongTargetPublisher.deltas.single { it.first == setOf("target-conn") }.second.deltaKeys)
+        assertEquals(setOf("combat", "ports", "runtime", "stats"), wrongTargetPublisher.deltas.single { it.first == setOf("attacker-conn") }.second.deltaKeys)
+        assertEquals(ProgramLifecycleStatus.CANCELLED, wrongTargetPublisher.programUpdates.single().second.status)
+
+        assertEquals(90.0, requireNotNull(disabledBankRepository.load(attackerId)).economy.pettyCash)
+        assertEquals(75.0, requireNotNull(disabledBankRepository.load(targetId)).economy.pettyCash)
+        assertEquals(97.8, disabledBankRepository.load(targetId)?.port(25)?.health)
+        assertEquals(setOf("ports", "combat"), disabledBankPublisher.deltas.single { it.first == setOf("target-conn") }.second.deltaKeys)
+        assertEquals(setOf("combat", "ports", "runtime", "stats"), disabledBankPublisher.deltas.single { it.first == setOf("attacker-conn") }.second.deltaKeys)
+        assertEquals(ProgramLifecycleStatus.CANCELLED, disabledBankPublisher.programUpdates.single().second.status)
+    }
+
+    @Test
+    fun finalizeEmptyPettyCashMutatesEconomyBeforeCompletionCleanup() = runTest {
+        val attackerId = GameStateId("ATTACKER-IP")
+        val targetId = GameStateId("TARGET-IP")
+        val repository = InMemoryComputerStateRepository(
+            seededStates = mapOf(
+                attackerId to attackerState(
+                    attackerId,
+                    attackScriptBundle = attackScriptBundle(
+                        finalize = """int main() { emptyPettyCash(); return 0; }""",
+                    ),
+                ),
+                targetId to targetState(
+                    targetId,
+                    health = 1.5,
+                    pettyCash = 50.0,
+                    portType = "bank",
+                    installedApplication = InstalledApplication(
+                        name = "target-bank.bin",
+                        kind = ApplicationKind.BANKING,
+                        banking = true,
+                        cpuCost = 2.0,
+                    ),
+                ),
+            ),
+        )
+        val interests = InMemoryInterestRegistry().apply {
+            register("attacker-conn", attackerId)
+            register("target-conn", targetId)
+        }
+        val publisher = RecordingGameStatePublisher()
+        val registry = InMemoryAttackProgramRegistry()
+        val dispatcher = dispatcher(repository, interests)
+
+        dispatcher.request(
+            command = RequestAttackCommand(
+                attackerStateId = attackerId,
+                targetStateId = targetId,
+                sourceIp = attackerId.value,
+                sourcePort = 12,
+                targetPort = 25,
+                loadout = AttackLoadout(),
+                attackProgramRegistry = registry,
+            ),
+            metadata = CommandMetadata(connectionId = "attacker-conn", requestId = "attack-finalize-empty-petty-cash"),
+            publisher = publisher,
+        )
+        runCurrent()
+        publisher.deltas.clear()
+        publisher.programUpdates.clear()
+
+        advanceTimeBy(180_100)
+        runCurrent()
+
+        val updatedAttacker = requireNotNull(repository.load(attackerId))
+        val updatedTarget = requireNotNull(repository.load(targetId))
+
+        assertEquals(140.0, updatedAttacker.economy.pettyCash)
+        assertEquals(0.0, updatedTarget.economy.pettyCash)
+        assertEquals(0.0, updatedTarget.port(25)?.health)
+        assertTrue(updatedAttacker.combat.activeAttacksBySourcePort.isEmpty())
+        assertTrue(updatedTarget.combat.incomingAttacksByTargetPort.isEmpty())
+        assertEquals(setOf("economy", "ports", "combat"), publisher.deltas.single { it.first == setOf("target-conn") }.second.deltaKeys)
+        assertEquals(setOf("economy", "combat", "ports", "runtime", "stats"), publisher.deltas.single { it.first == setOf("attacker-conn") }.second.deltaKeys)
+        assertEquals(ProgramLifecycleStatus.COMPLETED, publisher.programUpdates.single().second.status)
+    }
+
+    @Test
+    fun switchAttackThenEmptyPettyCashActsOnTheRetargetedBankingPort() = runTest {
+        val attackerId = GameStateId("ATTACKER-IP")
+        val targetId = GameStateId("TARGET-IP")
+        val repository = InMemoryComputerStateRepository(
+            seededStates = mapOf(
+                attackerId to attackerState(
+                    attackerId,
+                    attackScriptBundle = attackScriptBundle(
+                        continueScript = """int main() { switchAttack(); emptyPettyCash(); return 0; }""",
+                    ),
+                ),
+                targetId to targetState(
+                    targetId,
+                    pettyCash = 80.0,
+                    additionalPorts = listOf(
+                        PortState(
+                            number = 26,
+                            type = "bank",
+                            enabled = true,
+                            health = 100.0,
+                            installedApplication = InstalledApplication(
+                                name = "bank.bin",
+                                kind = ApplicationKind.BANKING,
+                                banking = true,
+                                cpuCost = 2.0,
+                            ),
+                            installedFirewall = InstalledFirewall(
+                                name = "target-bank-wall.bin",
+                                actionProfile = FirewallActionProfile(
+                                    emptyPettyCashReductionMultiplier = 0.25,
+                                ),
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+        )
+        val interests = InMemoryInterestRegistry().apply {
+            register("attacker-conn", attackerId)
+            register("target-conn", targetId)
+        }
+        val publisher = RecordingGameStatePublisher()
+        val registry = InMemoryAttackProgramRegistry()
+        val dispatcher = dispatcher(repository, interests)
+
+        dispatcher.request(
+            command = RequestAttackCommand(
+                attackerStateId = attackerId,
+                targetStateId = targetId,
+                sourceIp = attackerId.value,
+                sourcePort = 12,
+                targetPort = 25,
+                loadout = AttackLoadout(secondaryPorts = listOf(26)),
+                attackProgramRegistry = registry,
+            ),
+            metadata = CommandMetadata(connectionId = "attacker-conn", requestId = "attack-switch-empty-petty-cash"),
+            publisher = publisher,
+        )
+        runCurrent()
+        publisher.deltas.clear()
+        publisher.programUpdates.clear()
+
+        advanceTimeBy(180_100)
+        runCurrent()
+
+        val updatedAttacker = requireNotNull(repository.load(attackerId))
+        val updatedTarget = requireNotNull(repository.load(targetId))
+
+        assertEquals(110.0, updatedAttacker.economy.pettyCash)
+        assertEquals(60.0, updatedTarget.economy.pettyCash)
+        assertEquals(100.0, updatedTarget.port(25)?.health)
+        assertEquals(97.8, updatedTarget.port(26)?.health)
+        assertEquals(setOf("economy", "ports", "combat"), publisher.deltas.single { it.first == setOf("target-conn") }.second.deltaKeys)
+        assertEquals(setOf("economy", "combat", "ports", "runtime", "stats"), publisher.deltas.single { it.first == setOf("attacker-conn") }.second.deltaKeys)
+        assertEquals(ProgramLifecycleStatus.CANCELLED, publisher.programUpdates.single().second.status)
+    }
+
+    @Test
     fun attackCompletionRunsFinalizeScriptBeforeCleanupFlush() = runTest {
         val attackerId = GameStateId("ATTACKER-IP")
         val targetId = GameStateId("TARGET-IP")
@@ -1021,7 +1468,7 @@ class AttackCommandsTest {
             seededStates = mapOf(
                 attackerId to attackerState(
                     attackerId,
-                    attackScriptBundle = attackScriptBundle(continueScript = """int main() { emptyPettyCash(); return 0; }"""),
+                    attackScriptBundle = attackScriptBundle(continueScript = """int main() { stealFile(); return 0; }"""),
                 ),
                 targetId to targetState(targetId),
             ),
@@ -2097,17 +2544,24 @@ class AttackCommandsTest {
     private fun targetState(
         stateId: GameStateId,
         health: Double = 100.0,
+        pettyCash: Double = 0.0,
         logs: List<ComputerLogEntry> = emptyList(),
         freezeExpiresAtEpochMillis: Long? = null,
         freezeImmune: Boolean = false,
         destroyWatchesImmune: Boolean = false,
         firewallCombatProfile: FirewallCombatProfile = FirewallCombatProfile(),
+        firewallActionProfile: FirewallActionProfile = FirewallActionProfile(),
+        portType: String = "http",
+        installedApplication: InstalledApplication? = null,
         additionalPorts: List<PortState> = emptyList(),
         watches: WatchManagerState = WatchManagerState(),
         currentCpuLoad: Double = 0.0,
         isNpc: Boolean = false,
     ): ComputerState {
         return ComputerState.empty(id = stateId, playFabId = "PF-${stateId.value}", isNpc = isNpc).copy(
+            economy = EconomyState(
+                pettyCash = pettyCash,
+            ),
             logs = LogState(logs),
             watches = watches,
             runtime = RuntimeState(currentCpuLoad = currentCpuLoad),
@@ -2139,13 +2593,15 @@ class AttackCommandsTest {
                 add(
                     PortState(
                         number = 25,
-                        type = "http",
+                        type = portType,
                         enabled = true,
                         health = health,
+                        installedApplication = installedApplication,
                         freezeExpiresAtEpochMillis = freezeExpiresAtEpochMillis,
                         installedFirewall = InstalledFirewall(
                             name = "target-wall.bin",
                             combatProfile = firewallCombatProfile,
+                            actionProfile = firewallActionProfile,
                         ),
                     ),
                 )

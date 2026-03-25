@@ -7,6 +7,7 @@ import com.hackwars.rewrite.hackscript.AttackBerserkEffect
 import com.hackwars.rewrite.hackscript.AttackCancelCurrentAttackEffect
 import com.hackwars.rewrite.hackscript.AttackDeleteTargetLogsEffect
 import com.hackwars.rewrite.hackscript.AttackDestroyTargetWatchesEffect
+import com.hackwars.rewrite.hackscript.AttackEmptyTargetPettyCashEffect
 import com.hackwars.rewrite.hackscript.AttackEditTargetLogsEffect
 import com.hackwars.rewrite.hackscript.AttackFreezeTargetPortEffect
 import com.hackwars.rewrite.hackscript.AttackSwitchTargetEffect
@@ -641,11 +642,13 @@ internal class AttackTickCommand(
         val nextIteration = initialSession.iterationCount + 1
         var currentSession: AttackSessionState = initialSession
         var currentTargetCombat: CombatState = initialTargetState.combat
+        var currentTargetEconomy: EconomyState = initialTargetState.economy
         var currentTargetPorts: List<PortState> = initialTargetState.ports
         var currentTargetWatches: WatchManagerState = initialTargetState.watches
         var currentTargetRuntimeCpuLoad: Double = initialTargetState.runtime.currentCpuLoad
         var currentTargetState: ComputerState = initialTargetState
         var currentTargetPortState: PortState = initialTargetPortState
+        var currentAttackerEconomy: EconomyState = attackerState.economy
         var currentAttackerPorts: List<PortState> = attackerState.ports
         var currentSourcePortState: PortState = sourcePortState
         var cancelRequested = false
@@ -657,6 +660,7 @@ internal class AttackTickCommand(
         fun refreshTargetState() {
             currentTargetState = targetState.copy(
                 combat = currentTargetCombat,
+                economy = currentTargetEconomy,
                 ports = currentTargetPorts,
                 watches = currentTargetWatches,
                 runtime = targetState.runtime.copy(currentCpuLoad = currentTargetRuntimeCpuLoad),
@@ -670,7 +674,7 @@ internal class AttackTickCommand(
 
         fun replaceTargetPort(port: PortState) {
             currentTargetPortState = port
-            currentTargetPorts = currentTargetPorts.upsertPort(port, targetState.economy.defaultBankPort)
+            currentTargetPorts = currentTargetPorts.upsertPort(port, currentTargetEconomy.defaultBankPort)
             refreshTargetState()
         }
 
@@ -683,9 +687,18 @@ internal class AttackTickCommand(
             refreshTargetState()
         }
 
+        fun replaceTargetEconomy(economy: EconomyState) {
+            currentTargetEconomy = economy
+            refreshTargetState()
+        }
+
+        fun replaceAttackerEconomy(economy: EconomyState) {
+            currentAttackerEconomy = economy
+        }
+
         fun replaceSourcePort(port: PortState) {
             currentSourcePortState = port
-            currentAttackerPorts = currentAttackerPorts.upsertPort(port, attackerState.economy.defaultBankPort)
+            currentAttackerPorts = currentAttackerPorts.upsertPort(port, currentAttackerEconomy.defaultBankPort)
         }
 
         suspend fun applyAttackerHealthLoss(
@@ -779,6 +792,64 @@ internal class AttackTickCommand(
             )
         }
 
+        suspend fun emptyCurrentTargetPettyCash() {
+            if (!currentTargetPortState.isBankingApplication()) {
+                return
+            }
+            val latestAttackerState = context.loadState(attackerStateId) ?: attackerState
+            if (!latestAttackerState.hasActiveDefaultBankPort()) {
+                return
+            }
+
+            val targetPettyCashBefore = currentTargetEconomy.pettyCash
+            if (targetPettyCashBefore <= 0.0) {
+                return
+            }
+
+            val attackerPettyCashBefore = currentAttackerEconomy.pettyCash
+            val stolenAmount = currentTargetPortState.resolveEmptyPettyCashAmount(targetPettyCashBefore)
+            if (stolenAmount == 0.0) {
+                return
+            }
+
+            val targetEconomyAfter = currentTargetEconomy.copy(
+                pettyCash = (targetPettyCashBefore - stolenAmount).coerceAtLeast(0.0),
+            )
+            val attackerEconomyAfter = currentAttackerEconomy.copy(
+                pettyCash = attackerPettyCashBefore + stolenAmount,
+            )
+
+            replaceTargetEconomy(targetEconomyAfter)
+            replaceAttackerEconomy(attackerEconomyAfter)
+
+            context.appendEvents(
+                id = targetStateId,
+                events = listOf(
+                    EconomyBalanceAdjustedEvent(pettyCashDelta = -stolenAmount),
+                ),
+            )
+            context.appendEvents(
+                id = attackerStateId,
+                events = listOf(
+                    EconomyBalanceAdjustedEvent(pettyCashDelta = stolenAmount),
+                ),
+            )
+            context.evaluatePassivePettyCashChange(
+                targetStateId = targetStateId,
+                sourceIp = attackerStateId.value,
+                previousPettyCash = targetPettyCashBefore,
+                newPettyCash = targetEconomyAfter.pettyCash,
+                external = true,
+            )
+            context.evaluatePassivePettyCashChange(
+                targetStateId = attackerStateId,
+                sourceIp = targetStateId.value,
+                previousPettyCash = attackerPettyCashBefore,
+                newPettyCash = attackerEconomyAfter.pettyCash,
+                external = true,
+            )
+        }
+
         suspend fun applyDamagePass(
             resolution: FirewallCombatResolution,
             awardAttackXp: Boolean,
@@ -856,6 +927,11 @@ internal class AttackTickCommand(
 
                     is AttackDestroyTargetWatchesEffect -> {
                         destroyCurrentTargetWatches()
+                        cancelRequested = true
+                    }
+
+                    is AttackEmptyTargetPettyCashEffect -> {
+                        emptyCurrentTargetPettyCash()
                         cancelRequested = true
                     }
 
@@ -1009,6 +1085,10 @@ internal class AttackTickCommand(
 
                         is AttackDestroyTargetWatchesEffect -> {
                             destroyCurrentTargetWatches()
+                        }
+
+                        is AttackEmptyTargetPettyCashEffect -> {
+                            emptyCurrentTargetPettyCash()
                         }
 
                         else -> Unit
@@ -1494,6 +1574,21 @@ private fun ComputerState.isFreezeImmune(): Boolean {
 
 private fun ComputerState.isDestroyWatchesImmune(): Boolean {
     return hardware.equipmentSlots.values.any { it.destroyWatchesImmune }
+}
+
+private fun PortState.isBankingApplication(): Boolean {
+    return installedApplication?.banking == true ||
+        installedApplication?.kind == ApplicationKind.BANKING ||
+        type.equals("bank", ignoreCase = true) ||
+        type.equals("banking", ignoreCase = true)
+}
+
+private fun PortState.resolveEmptyPettyCashAmount(targetPettyCash: Double): Double {
+    val actionProfile = installedFirewall?.actionProfile ?: FirewallActionProfile()
+    if (actionProfile.emptyPettyCashFailChance > 0.0) {
+        return 0.0
+    }
+    return (targetPettyCash * actionProfile.emptyPettyCashReductionMultiplier).coerceIn(0.0, targetPettyCash)
 }
 
 private fun ComputerState.hasWatchOnPort(portNumber: Int): Boolean {

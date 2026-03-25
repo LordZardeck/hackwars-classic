@@ -129,6 +129,12 @@ data class FirewallCombatProfile(
 )
 
 @Serializable
+data class FirewallActionProfile(
+    val emptyPettyCashFailChance: Double = 0.0,
+    val emptyPettyCashReductionMultiplier: Double = 1.0,
+)
+
+@Serializable
 data class InstalledApplication(
     val name: String,
     val kind: ApplicationKind = ApplicationKind.GENERIC,
@@ -148,6 +154,7 @@ data class InstalledFirewall(
     val strength: Int = 0,
     val cpuCost: Double = 0.0,
     val combatProfile: FirewallCombatProfile = FirewallCombatProfile(),
+    val actionProfile: FirewallActionProfile = FirewallActionProfile(),
 )
 
 @Serializable
@@ -320,6 +327,7 @@ data class CompiledBinaryMetadata(
     val applicationKind: ApplicationKind? = null,
     val firewallKind: FirewallKind? = null,
     val firewallCombatProfile: FirewallCombatProfile? = null,
+    val firewallActionProfile: FirewallActionProfile? = null,
     val equipmentSlot: EquipmentSlot? = null,
     val bankingApplication: Boolean = false,
     val strength: Int = 0,

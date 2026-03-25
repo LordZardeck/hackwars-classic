@@ -272,7 +272,7 @@ class FilesystemInstallCommandsTest {
     }
 
     @Test
-    fun firewallBinaryDecompileAndInstallPreserveCombatProfile() = runTest {
+    fun firewallBinaryDecompileAndInstallPreserveCombatAndActionProfiles() = runTest {
         val stateId = GameStateId("LOCAL-IP")
         val decompileRepository = InMemoryComputerStateRepository(seededStates = mapOf(stateId to localState(stateId)))
         val decompileInterests = InMemoryInterestRegistry()
@@ -300,8 +300,12 @@ class FilesystemInstallCommandsTest {
         assertEquals(0.9, decompile.decompiledFile.compiledBinary?.firewallCombatProfile?.bankDamageModifier)
         assertEquals(0.75, decompile.decompiledFile.compiledBinary?.firewallCombatProfile?.httpDamageModifier)
         assertEquals(1.25, decompile.decompiledFile.compiledBinary?.firewallCombatProfile?.attackBackDamage)
+        assertEquals(0.35, decompile.decompiledFile.compiledBinary?.firewallActionProfile?.emptyPettyCashFailChance)
+        assertEquals(0.6, decompile.decompiledFile.compiledBinary?.firewallActionProfile?.emptyPettyCashReductionMultiplier)
         assertEquals(0.75, install.installedFirewall.combatProfile.httpDamageModifier)
         assertEquals(1.25, install.installedFirewall.combatProfile.attackBackDamage)
+        assertEquals(0.35, install.installedFirewall.actionProfile.emptyPettyCashFailChance)
+        assertEquals(0.6, install.installedFirewall.actionProfile.emptyPettyCashReductionMultiplier)
     }
 
     @Test
@@ -437,6 +441,10 @@ class FilesystemInstallCommandsTest {
                             redirectDamageModifier = 0.95,
                             attackBackDamage = 1.25,
                         ),
+                        firewallActionProfile = FirewallActionProfile(
+                            emptyPettyCashFailChance = 0.35,
+                            emptyPettyCashReductionMultiplier = 0.6,
+                        ),
                     ),
                 ),
             )
@@ -460,7 +468,17 @@ class FilesystemInstallCommandsTest {
             economy = ComputerState.empty(id = stateId).economy.copy(pettyCash = 500.0),
             filesystem = filesystem,
             ports = listOf(
-                PortState(number = 19, type = "ssh", installedFirewall = InstalledFirewall(name = "OldWall")),
+                PortState(
+                    number = 19,
+                    type = "ssh",
+                    installedFirewall = InstalledFirewall(
+                        name = "OldWall",
+                        actionProfile = FirewallActionProfile(
+                            emptyPettyCashFailChance = 0.1,
+                            emptyPettyCashReductionMultiplier = 0.8,
+                        ),
+                    ),
+                ),
                 PortState(number = 22, type = "ssh"),
                 PortState(number = 80, type = "http"),
                 PortState(number = 443, type = "https"),

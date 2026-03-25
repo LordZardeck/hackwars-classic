@@ -12,6 +12,7 @@ import com.hackwars.rewrite.gamecore.CoroutineProgramScheduler
 import com.hackwars.rewrite.gamecore.DefaultCommandDispatcher
 import com.hackwars.rewrite.gamecore.EconomyState
 import com.hackwars.rewrite.gamecore.FirewallCombatProfile
+import com.hackwars.rewrite.gamecore.FirewallActionProfile
 import com.hackwars.rewrite.gamecore.GameStateId
 import com.hackwars.rewrite.gamecore.HardwareState
 import com.hackwars.rewrite.gamecore.InMemoryAttackProgramRegistry
@@ -239,6 +240,191 @@ class RewriteGameAttackProtocolAdapterTest {
         assertEquals(setOf("ports"), targetDelta.delta?.delta_keys?.toSet())
         assertEquals(setOf("combat", "stats", "logs"), attackerDelta.delta?.delta_keys?.toSet())
         assertEquals(ProgramStatus.PROGRAM_STATUS_RUNNING, updateFrame.program_update?.status)
+    }
+
+    @Test
+    fun emptyPettyCashContinueFlushesAttackerAndTargetEconomyDeltasBeforeCancelledUpdate() = runTest {
+        val fixture = createFixture(
+            localState = attackerState(
+                GameStateId("LOCAL-IP"),
+                attackScriptBundle = attackScriptBundle(
+                    continueScript = """int main() { emptyPettyCash(); return 0; }""",
+                ),
+            ),
+            targetState = targetState(
+                GameStateId("TARGET-IP"),
+                pettyCash = 80.0,
+                portType = "bank",
+                installedApplication = InstalledApplication(
+                    name = "target-bank.bin",
+                    kind = ApplicationKind.BANKING,
+                    banking = true,
+                    cpuCost = 2.0,
+                ),
+                firewallActionProfile = FirewallActionProfile(
+                    emptyPettyCashReductionMultiplier = 0.5,
+                ),
+            ),
+        )
+        val attacker = fixture.authenticatedConnection("LOCAL-IP")
+        val target = fixture.authenticatedConnection("TARGET-IP")
+
+        attacker.send(
+            RewriteFrames.command(
+                commandId = "attack-empty-petty-cash-start",
+                commandName = "requestattack",
+                payload = RewriteGameJson.encode(
+                    serializer = RequestAttackPayload.serializer(),
+                    value = RequestAttackPayload(
+                        targetIp = "TARGET-IP",
+                        targetPort = 25,
+                        sourceIp = "LOCAL-IP",
+                        sourcePort = 12,
+                    ),
+                ),
+                expectsResponse = true,
+            ),
+        )
+        attacker.awaitFrame()
+        target.awaitFrame()
+        attacker.awaitFrame()
+        runCurrent()
+        attacker.awaitFrame()
+
+        advanceTimeBy(180_100)
+        runCurrent()
+
+        val targetDelta = target.awaitFrame()
+        val attackerDelta = attacker.awaitFrame()
+        val updateFrame = attacker.awaitFrame()
+
+        assertEquals(setOf("economy", "ports", "combat"), targetDelta.delta?.delta_keys?.toSet())
+        assertEquals(setOf("economy", "combat", "ports", "runtime", "stats"), attackerDelta.delta?.delta_keys?.toSet())
+        assertEquals(ProgramStatus.PROGRAM_STATUS_CANCELLED, updateFrame.program_update?.status)
+        assertTrue(target.drainFrames().isEmpty())
+    }
+
+    @Test
+    fun emptyPettyCashFirewallFailStaysZeroAmountAndStillCancelsWithoutEconomyDeltas() = runTest {
+        val fixture = createFixture(
+            localState = attackerState(
+                GameStateId("LOCAL-IP"),
+                attackScriptBundle = attackScriptBundle(
+                    continueScript = """int main() { emptyPettyCash(); return 0; }""",
+                ),
+            ),
+            targetState = targetState(
+                GameStateId("TARGET-IP"),
+                pettyCash = 80.0,
+                portType = "bank",
+                installedApplication = InstalledApplication(
+                    name = "target-bank.bin",
+                    kind = ApplicationKind.BANKING,
+                    banking = true,
+                    cpuCost = 2.0,
+                ),
+                firewallActionProfile = FirewallActionProfile(
+                    emptyPettyCashFailChance = 0.25,
+                    emptyPettyCashReductionMultiplier = 0.5,
+                ),
+            ),
+        )
+        val attacker = fixture.authenticatedConnection("LOCAL-IP")
+        val target = fixture.authenticatedConnection("TARGET-IP")
+
+        attacker.send(
+            RewriteFrames.command(
+                commandId = "attack-empty-petty-cash-fail-start",
+                commandName = "requestattack",
+                payload = RewriteGameJson.encode(
+                    serializer = RequestAttackPayload.serializer(),
+                    value = RequestAttackPayload(
+                        targetIp = "TARGET-IP",
+                        targetPort = 25,
+                        sourceIp = "LOCAL-IP",
+                        sourcePort = 12,
+                    ),
+                ),
+                expectsResponse = true,
+            ),
+        )
+        attacker.awaitFrame()
+        target.awaitFrame()
+        attacker.awaitFrame()
+        runCurrent()
+        attacker.awaitFrame()
+
+        advanceTimeBy(180_100)
+        runCurrent()
+
+        val targetDelta = target.awaitFrame()
+        val attackerDelta = attacker.awaitFrame()
+        val updateFrame = attacker.awaitFrame()
+
+        assertEquals(setOf("ports", "combat"), targetDelta.delta?.delta_keys?.toSet())
+        assertEquals(setOf("combat", "ports", "runtime", "stats"), attackerDelta.delta?.delta_keys?.toSet())
+        assertEquals(ProgramStatus.PROGRAM_STATUS_CANCELLED, updateFrame.program_update?.status)
+        assertTrue(target.drainFrames().isEmpty())
+    }
+
+    @Test
+    fun finalizeEmptyPettyCashFlushesEconomyDeltasBeforeCompletedUpdate() = runTest {
+        val fixture = createFixture(
+            localState = attackerState(
+                GameStateId("LOCAL-IP"),
+                attackScriptBundle = attackScriptBundle(
+                    finalize = """int main() { emptyPettyCash(); return 0; }""",
+                ),
+            ),
+            targetState = targetState(
+                GameStateId("TARGET-IP"),
+                health = 1.5,
+                pettyCash = 50.0,
+                portType = "bank",
+                installedApplication = InstalledApplication(
+                    name = "target-bank.bin",
+                    kind = ApplicationKind.BANKING,
+                    banking = true,
+                    cpuCost = 2.0,
+                ),
+            ),
+        )
+        val attacker = fixture.authenticatedConnection("LOCAL-IP")
+        val target = fixture.authenticatedConnection("TARGET-IP")
+
+        attacker.send(
+            RewriteFrames.command(
+                commandId = "attack-finalize-empty-petty-cash-start",
+                commandName = "requestattack",
+                payload = RewriteGameJson.encode(
+                    serializer = RequestAttackPayload.serializer(),
+                    value = RequestAttackPayload(
+                        targetIp = "TARGET-IP",
+                        targetPort = 25,
+                        sourceIp = "LOCAL-IP",
+                        sourcePort = 12,
+                    ),
+                ),
+                expectsResponse = true,
+            ),
+        )
+        attacker.awaitFrame()
+        target.awaitFrame()
+        attacker.awaitFrame()
+        runCurrent()
+        attacker.awaitFrame()
+
+        advanceTimeBy(180_100)
+        runCurrent()
+
+        val targetDelta = target.awaitFrame()
+        val attackerDelta = attacker.awaitFrame()
+        val updateFrame = attacker.awaitFrame()
+
+        assertEquals(setOf("economy", "ports", "combat"), targetDelta.delta?.delta_keys?.toSet())
+        assertEquals(setOf("economy", "combat", "ports", "runtime", "stats"), attackerDelta.delta?.delta_keys?.toSet())
+        assertEquals(ProgramStatus.PROGRAM_STATUS_COMPLETED, updateFrame.program_update?.status)
+        assertTrue(target.drainFrames().isEmpty())
     }
 
     @Test
@@ -1191,22 +1377,31 @@ class RewriteGameAttackProtocolAdapterTest {
     private fun targetState(
         stateId: GameStateId,
         health: Double = 100.0,
+        pettyCash: Double = 0.0,
         logs: List<ComputerLogEntry> = emptyList(),
         firewallCombatProfile: FirewallCombatProfile = FirewallCombatProfile(),
+        firewallActionProfile: FirewallActionProfile = FirewallActionProfile(),
+        portType: String = "http",
+        installedApplication: InstalledApplication? = null,
         additionalPorts: List<PortState> = emptyList(),
     ): ComputerState {
         return ComputerState.empty(id = stateId, playFabId = "PF-${stateId.value}").copy(
+            economy = EconomyState(
+                pettyCash = pettyCash,
+            ),
             logs = LogState(logs),
             ports = buildList {
                 add(
                     PortState(
                         number = 25,
-                        type = "http",
+                        type = portType,
                         enabled = true,
                         health = health,
+                        installedApplication = installedApplication,
                         installedFirewall = InstalledFirewall(
                             name = "target-wall.bin",
                             combatProfile = firewallCombatProfile,
+                            actionProfile = firewallActionProfile,
                         ),
                     ),
                 )

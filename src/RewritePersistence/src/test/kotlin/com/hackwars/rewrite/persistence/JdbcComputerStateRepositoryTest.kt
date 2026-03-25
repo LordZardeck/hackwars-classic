@@ -15,6 +15,7 @@ import com.hackwars.rewrite.gamecore.EquipmentSlot
 import com.hackwars.rewrite.gamecore.FileCompiledEvent
 import com.hackwars.rewrite.gamecore.FileSavedEvent
 import com.hackwars.rewrite.gamecore.FirewallCombatProfile
+import com.hackwars.rewrite.gamecore.FirewallActionProfile
 import com.hackwars.rewrite.gamecore.FirewallInstalledEvent
 import com.hackwars.rewrite.gamecore.GameStateId
 import com.hackwars.rewrite.gamecore.ComputerLogEntry
@@ -264,6 +265,10 @@ class JdbcComputerStateRepositoryTest {
             redirectDamageModifier = 0.95,
             attackBackDamage = 1.25,
         )
+        val firewallActionProfile = FirewallActionProfile(
+            emptyPettyCashFailChance = 0.4,
+            emptyPettyCashReductionMultiplier = 0.65,
+        )
         val firewallBinary = StoredFile(
             path = buildFilePath("/Public", "wall.bin"),
             name = "wall.bin",
@@ -274,6 +279,7 @@ class JdbcComputerStateRepositoryTest {
                 scriptFamily = ScriptFamily.FIREWALL,
                 outputName = "wall.bin",
                 firewallCombatProfile = firewallProfile,
+                firewallActionProfile = firewallActionProfile,
             ),
         )
 
@@ -360,6 +366,7 @@ class JdbcComputerStateRepositoryTest {
                             name = "wall.bin",
                             binaryPath = firewallBinary.path,
                             combatProfile = firewallProfile,
+                            actionProfile = firewallActionProfile,
                         ),
                     ),
                 ),
@@ -378,7 +385,9 @@ class JdbcComputerStateRepositoryTest {
         assertEquals("bank.bin", reloaded.ports.single { it.number == 6 }.installedApplication?.name)
         assertEquals(httpBinary.scriptBundle, reloaded.ports.single { it.number == 80 }.installedApplication?.scriptBundle)
         assertEquals(firewallProfile, reloaded.filesystem.filesByPath[firewallBinary.path]?.compiledBinary?.firewallCombatProfile)
+        assertEquals(firewallActionProfile, reloaded.filesystem.filesByPath[firewallBinary.path]?.compiledBinary?.firewallActionProfile)
         assertEquals(firewallProfile, reloaded.ports.single { it.number == 80 }.installedFirewall?.combatProfile)
+        assertEquals(firewallActionProfile, reloaded.ports.single { it.number == 80 }.installedFirewall?.actionProfile)
         assertEquals("cpu-card.bin", reloaded.hardware.equipmentSlots[EquipmentSlot.CPU]?.name)
         assertTrue(countRows("rewrite_state_snapshot") >= 1)
     }
