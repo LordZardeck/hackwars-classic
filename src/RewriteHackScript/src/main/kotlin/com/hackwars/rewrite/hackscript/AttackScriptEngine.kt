@@ -104,6 +104,10 @@ data object AttackDestroyTargetWatchesEffect : AttackRuntimeEffect
 @SerialName("attack_empty_target_petty_cash")
 data object AttackEmptyTargetPettyCashEffect : AttackRuntimeEffect
 
+@Serializable
+@SerialName("attack_steal_target_file")
+data object AttackStealTargetFileEffect : AttackRuntimeEffect
+
 data class AttackExecutionResult(
     val effects: List<AttackRuntimeEffect> = emptyList(),
 )
@@ -254,6 +258,19 @@ private class AttackScriptHost(
                     )
                 } else {
                     state.effects += AttackEmptyTargetPettyCashEffect
+                }
+                HackValue.IntValue(0)
+            }
+
+            "stealFile" -> {
+                ensure(arguments.isEmpty(), "BAD_ARGUMENT_COUNT", "stealFile expects 0 arguments.")
+                if (state.input.phase !in setOf(AttackExecutionPhase.CONTINUE, AttackExecutionPhase.FINALIZE)) {
+                    state.diagnostics += HackScriptDiagnostic(
+                        code = "UNSUPPORTED_PHASE",
+                        message = "stealFile is only supported during CONTINUE and FINALIZE.",
+                    )
+                } else {
+                    state.effects += AttackStealTargetFileEffect
                 }
                 HackValue.IntValue(0)
             }

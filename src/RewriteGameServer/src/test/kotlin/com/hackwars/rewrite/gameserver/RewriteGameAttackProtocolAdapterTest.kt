@@ -11,6 +11,7 @@ import com.hackwars.rewrite.gamecore.ComputerLogEntry
 import com.hackwars.rewrite.gamecore.CoroutineProgramScheduler
 import com.hackwars.rewrite.gamecore.DefaultCommandDispatcher
 import com.hackwars.rewrite.gamecore.EconomyState
+import com.hackwars.rewrite.gamecore.FilesystemState
 import com.hackwars.rewrite.gamecore.FirewallCombatProfile
 import com.hackwars.rewrite.gamecore.FirewallActionProfile
 import com.hackwars.rewrite.gamecore.GameStateId
@@ -32,8 +33,11 @@ import com.hackwars.rewrite.gamecore.RequestCancelAttackPayload
 import com.hackwars.rewrite.gamecore.RewriteGameJson
 import com.hackwars.rewrite.gamecore.RuntimeState
 import com.hackwars.rewrite.gamecore.ScriptFamily
+import com.hackwars.rewrite.gamecore.StoredFile
 import com.hackwars.rewrite.gamecore.WatchKind
 import com.hackwars.rewrite.gamecore.WatchManagerState
+import com.hackwars.rewrite.gamecore.buildFilePath
+import com.hackwars.rewrite.gamecore.saveFile
 import com.hackwars.rewrite.protocol.ProtocolTimeoutPolicy
 import com.hackwars.rewrite.protocol.RewriteFrames
 import com.hackwars.rewrite.protocol.RewriteService
@@ -423,6 +427,190 @@ class RewriteGameAttackProtocolAdapterTest {
 
         assertEquals(setOf("economy", "ports", "combat"), targetDelta.delta?.delta_keys?.toSet())
         assertEquals(setOf("economy", "combat", "ports", "runtime", "stats"), attackerDelta.delta?.delta_keys?.toSet())
+        assertEquals(ProgramStatus.PROGRAM_STATUS_COMPLETED, updateFrame.program_update?.status)
+        assertTrue(target.drainFrames().isEmpty())
+    }
+
+    @Test
+    fun stealFileContinueFlushesAttackerAndTargetFilesystemDeltasBeforeCancelledUpdate() = runTest {
+        val fixture = createFixture(
+            localState = attackerState(
+                GameStateId("LOCAL-IP"),
+                attackScriptBundle = attackScriptBundle(
+                    continueScript = """int main() { stealFile(); return 0; }""",
+                ),
+            ),
+            targetState = targetState(
+                GameStateId("TARGET-IP"),
+                portType = "ftp",
+                installedApplication = InstalledApplication(
+                    name = "target-ftp.bin",
+                    kind = ApplicationKind.FTP,
+                    cpuCost = 2.0,
+                ),
+                filesystemFiles = listOf(
+                    storedFile("/Public", "loot.txt"),
+                ),
+            ),
+        )
+        val attacker = fixture.authenticatedConnection("LOCAL-IP")
+        val target = fixture.authenticatedConnection("TARGET-IP")
+
+        attacker.send(
+            RewriteFrames.command(
+                commandId = "attack-steal-file-start",
+                commandName = "requestattack",
+                payload = RewriteGameJson.encode(
+                    serializer = RequestAttackPayload.serializer(),
+                    value = RequestAttackPayload(
+                        targetIp = "TARGET-IP",
+                        targetPort = 25,
+                        sourceIp = "LOCAL-IP",
+                        sourcePort = 12,
+                    ),
+                ),
+                expectsResponse = true,
+            ),
+        )
+        attacker.awaitFrame()
+        target.awaitFrame()
+        attacker.awaitFrame()
+        runCurrent()
+        attacker.awaitFrame()
+
+        advanceTimeBy(180_100)
+        runCurrent()
+
+        val targetDelta = target.awaitFrame()
+        val attackerDelta = attacker.awaitFrame()
+        val updateFrame = attacker.awaitFrame()
+
+        assertEquals(setOf("filesystem", "ports", "combat"), targetDelta.delta?.delta_keys?.toSet())
+        assertEquals(setOf("filesystem", "combat", "ports", "runtime", "stats"), attackerDelta.delta?.delta_keys?.toSet())
+        assertEquals(ProgramStatus.PROGRAM_STATUS_CANCELLED, updateFrame.program_update?.status)
+        assertTrue(target.drainFrames().isEmpty())
+    }
+
+    @Test
+    fun stealFileFirewallFailStaysNoTransferAndStillCancelsWithoutFilesystemDeltas() = runTest {
+        val fixture = createFixture(
+            localState = attackerState(
+                GameStateId("LOCAL-IP"),
+                attackScriptBundle = attackScriptBundle(
+                    continueScript = """int main() { stealFile(); return 0; }""",
+                ),
+            ),
+            targetState = targetState(
+                GameStateId("TARGET-IP"),
+                portType = "ftp",
+                installedApplication = InstalledApplication(
+                    name = "target-ftp.bin",
+                    kind = ApplicationKind.FTP,
+                    cpuCost = 2.0,
+                ),
+                firewallActionProfile = FirewallActionProfile(
+                    stealFileFailChance = 0.25,
+                ),
+                filesystemFiles = listOf(
+                    storedFile("/Public", "loot.txt"),
+                ),
+            ),
+        )
+        val attacker = fixture.authenticatedConnection("LOCAL-IP")
+        val target = fixture.authenticatedConnection("TARGET-IP")
+
+        attacker.send(
+            RewriteFrames.command(
+                commandId = "attack-steal-file-fail-start",
+                commandName = "requestattack",
+                payload = RewriteGameJson.encode(
+                    serializer = RequestAttackPayload.serializer(),
+                    value = RequestAttackPayload(
+                        targetIp = "TARGET-IP",
+                        targetPort = 25,
+                        sourceIp = "LOCAL-IP",
+                        sourcePort = 12,
+                    ),
+                ),
+                expectsResponse = true,
+            ),
+        )
+        attacker.awaitFrame()
+        target.awaitFrame()
+        attacker.awaitFrame()
+        runCurrent()
+        attacker.awaitFrame()
+
+        advanceTimeBy(180_100)
+        runCurrent()
+
+        val targetDelta = target.awaitFrame()
+        val attackerDelta = attacker.awaitFrame()
+        val updateFrame = attacker.awaitFrame()
+
+        assertEquals(setOf("ports", "combat"), targetDelta.delta?.delta_keys?.toSet())
+        assertEquals(setOf("combat", "ports", "runtime", "stats"), attackerDelta.delta?.delta_keys?.toSet())
+        assertEquals(ProgramStatus.PROGRAM_STATUS_CANCELLED, updateFrame.program_update?.status)
+        assertTrue(target.drainFrames().isEmpty())
+    }
+
+    @Test
+    fun finalizeStealFileFlushesFilesystemDeltasBeforeCompletedUpdate() = runTest {
+        val fixture = createFixture(
+            localState = attackerState(
+                GameStateId("LOCAL-IP"),
+                attackScriptBundle = attackScriptBundle(
+                    finalize = """int main() { stealFile(); return 0; }""",
+                ),
+            ),
+            targetState = targetState(
+                GameStateId("TARGET-IP"),
+                health = 1.5,
+                portType = "ftp",
+                installedApplication = InstalledApplication(
+                    name = "target-ftp.bin",
+                    kind = ApplicationKind.FTP,
+                    cpuCost = 2.0,
+                ),
+                filesystemFiles = listOf(
+                    storedFile("/Public", "loot.txt"),
+                ),
+            ),
+        )
+        val attacker = fixture.authenticatedConnection("LOCAL-IP")
+        val target = fixture.authenticatedConnection("TARGET-IP")
+
+        attacker.send(
+            RewriteFrames.command(
+                commandId = "attack-finalize-steal-file-start",
+                commandName = "requestattack",
+                payload = RewriteGameJson.encode(
+                    serializer = RequestAttackPayload.serializer(),
+                    value = RequestAttackPayload(
+                        targetIp = "TARGET-IP",
+                        targetPort = 25,
+                        sourceIp = "LOCAL-IP",
+                        sourcePort = 12,
+                    ),
+                ),
+                expectsResponse = true,
+            ),
+        )
+        attacker.awaitFrame()
+        target.awaitFrame()
+        attacker.awaitFrame()
+        runCurrent()
+        attacker.awaitFrame()
+
+        advanceTimeBy(180_100)
+        runCurrent()
+
+        val targetDelta = target.awaitFrame()
+        val attackerDelta = attacker.awaitFrame()
+        val updateFrame = attacker.awaitFrame()
+
+        assertEquals(setOf("filesystem", "ports", "combat"), targetDelta.delta?.delta_keys?.toSet())
+        assertEquals(setOf("filesystem", "combat", "ports", "runtime", "stats"), attackerDelta.delta?.delta_keys?.toSet())
         assertEquals(ProgramStatus.PROGRAM_STATUS_COMPLETED, updateFrame.program_update?.status)
         assertTrue(target.drainFrames().isEmpty())
     }
@@ -1338,6 +1526,7 @@ class RewriteGameAttackProtocolAdapterTest {
     private fun attackerState(
         stateId: GameStateId,
         attackScriptBundle: ProgramScriptBundle? = null,
+        filesystemFiles: List<StoredFile> = emptyList(),
     ): ComputerState {
         return ComputerState.empty(id = stateId, playFabId = "PF-${stateId.value}").copy(
             economy = EconomyState(
@@ -1371,6 +1560,9 @@ class RewriteGameAttackProtocolAdapterTest {
                     ),
                 ),
             ),
+            filesystem = filesystemFiles.fold(FilesystemState()) { filesystem, file ->
+                filesystem.saveFile(file)
+            },
         )
     }
 
@@ -1384,12 +1576,16 @@ class RewriteGameAttackProtocolAdapterTest {
         portType: String = "http",
         installedApplication: InstalledApplication? = null,
         additionalPorts: List<PortState> = emptyList(),
+        filesystemFiles: List<StoredFile> = emptyList(),
     ): ComputerState {
         return ComputerState.empty(id = stateId, playFabId = "PF-${stateId.value}").copy(
             economy = EconomyState(
                 pettyCash = pettyCash,
             ),
             logs = LogState(logs),
+            filesystem = filesystemFiles.fold(FilesystemState()) { filesystem, file ->
+                filesystem.saveFile(file)
+            },
             ports = buildList {
                 add(
                     PortState(
@@ -1427,6 +1623,19 @@ class RewriteGameAttackProtocolAdapterTest {
                 applicationKind = ApplicationKind.WATCH,
                 outputName = "watch.bin",
             ),
+        )
+    }
+
+    private fun storedFile(
+        path: String,
+        name: String,
+        quantity: Int = 1,
+    ): StoredFile {
+        return StoredFile(
+            path = buildFilePath(path, name),
+            name = name,
+            contents = name,
+            quantity = quantity,
         )
     }
 

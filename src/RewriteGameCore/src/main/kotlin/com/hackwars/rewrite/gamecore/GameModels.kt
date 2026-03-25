@@ -132,6 +132,7 @@ data class FirewallCombatProfile(
 data class FirewallActionProfile(
     val emptyPettyCashFailChance: Double = 0.0,
     val emptyPettyCashReductionMultiplier: Double = 1.0,
+    val stealFileFailChance: Double = 0.0,
 )
 
 @Serializable

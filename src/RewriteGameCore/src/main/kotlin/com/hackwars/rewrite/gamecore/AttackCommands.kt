@@ -10,6 +10,7 @@ import com.hackwars.rewrite.hackscript.AttackDestroyTargetWatchesEffect
 import com.hackwars.rewrite.hackscript.AttackEmptyTargetPettyCashEffect
 import com.hackwars.rewrite.hackscript.AttackEditTargetLogsEffect
 import com.hackwars.rewrite.hackscript.AttackFreezeTargetPortEffect
+import com.hackwars.rewrite.hackscript.AttackStealTargetFileEffect
 import com.hackwars.rewrite.hackscript.AttackSwitchTargetEffect
 import com.hackwars.rewrite.hackscript.HookValue
 import java.util.UUID
@@ -643,12 +644,14 @@ internal class AttackTickCommand(
         var currentSession: AttackSessionState = initialSession
         var currentTargetCombat: CombatState = initialTargetState.combat
         var currentTargetEconomy: EconomyState = initialTargetState.economy
+        var currentTargetFilesystem: FilesystemState = initialTargetState.filesystem
         var currentTargetPorts: List<PortState> = initialTargetState.ports
         var currentTargetWatches: WatchManagerState = initialTargetState.watches
         var currentTargetRuntimeCpuLoad: Double = initialTargetState.runtime.currentCpuLoad
         var currentTargetState: ComputerState = initialTargetState
         var currentTargetPortState: PortState = initialTargetPortState
         var currentAttackerEconomy: EconomyState = attackerState.economy
+        var currentAttackerFilesystem: FilesystemState = attackerState.filesystem
         var currentAttackerPorts: List<PortState> = attackerState.ports
         var currentSourcePortState: PortState = sourcePortState
         var cancelRequested = false
@@ -661,6 +664,7 @@ internal class AttackTickCommand(
             currentTargetState = targetState.copy(
                 combat = currentTargetCombat,
                 economy = currentTargetEconomy,
+                filesystem = currentTargetFilesystem,
                 ports = currentTargetPorts,
                 watches = currentTargetWatches,
                 runtime = targetState.runtime.copy(currentCpuLoad = currentTargetRuntimeCpuLoad),
@@ -850,6 +854,53 @@ internal class AttackTickCommand(
             )
         }
 
+        suspend fun stealCurrentTargetFile() {
+            if (!currentTargetPortState.isFtpApplication()) {
+                return
+            }
+            if (currentTargetPortState.shouldFailStealFile()) {
+                return
+            }
+
+            val stolenSourceFile: StoredFile = currentTargetFilesystem.listDirectory("/Public").files.firstOrNull() ?: return
+            val remainingTargetFile: StoredFile? = if (stolenSourceFile.quantity <= 1) {
+                null
+            } else {
+                stolenSourceFile.copy(quantity = stolenSourceFile.quantity - 1)
+            }
+            val attackerExistingFile: StoredFile? = currentAttackerFilesystem.resolveFile("/", stolenSourceFile.name)
+            val attackerReceivedFile: StoredFile = if (attackerExistingFile != null) {
+                attackerExistingFile.copy(quantity = attackerExistingFile.quantity + 1)
+            } else {
+                stolenSourceFile.copy(
+                    path = buildFilePath("/", stolenSourceFile.name),
+                    quantity = 1,
+                )
+            }
+
+            currentTargetFilesystem = currentTargetFilesystem.deleteFileByPath(stolenSourceFile.path)
+            if (remainingTargetFile != null) {
+                currentTargetFilesystem = currentTargetFilesystem.saveFile(remainingTargetFile)
+            }
+            refreshTargetState()
+
+            currentAttackerFilesystem = currentAttackerFilesystem.saveFile(attackerReceivedFile)
+
+            context.appendEvents(
+                id = targetStateId,
+                events = buildList {
+                    add(FileDeletedEvent(stolenSourceFile.path))
+                    if (remainingTargetFile != null) {
+                        add(FileSavedEvent(remainingTargetFile))
+                    }
+                },
+            )
+            context.appendEvents(
+                id = attackerStateId,
+                events = listOf(FileSavedEvent(attackerReceivedFile)),
+            )
+        }
+
         suspend fun applyDamagePass(
             resolution: FirewallCombatResolution,
             awardAttackXp: Boolean,
@@ -932,6 +983,11 @@ internal class AttackTickCommand(
 
                     is AttackEmptyTargetPettyCashEffect -> {
                         emptyCurrentTargetPettyCash()
+                        cancelRequested = true
+                    }
+
+                    is AttackStealTargetFileEffect -> {
+                        stealCurrentTargetFile()
                         cancelRequested = true
                     }
 
@@ -1089,6 +1145,10 @@ internal class AttackTickCommand(
 
                         is AttackEmptyTargetPettyCashEffect -> {
                             emptyCurrentTargetPettyCash()
+                        }
+
+                        is AttackStealTargetFileEffect -> {
+                            stealCurrentTargetFile()
                         }
 
                         else -> Unit
@@ -1583,12 +1643,22 @@ private fun PortState.isBankingApplication(): Boolean {
         type.equals("banking", ignoreCase = true)
 }
 
+private fun PortState.isFtpApplication(): Boolean {
+    return installedApplication?.kind == ApplicationKind.FTP ||
+        type.equals("ftp", ignoreCase = true)
+}
+
 private fun PortState.resolveEmptyPettyCashAmount(targetPettyCash: Double): Double {
     val actionProfile = installedFirewall?.actionProfile ?: FirewallActionProfile()
     if (actionProfile.emptyPettyCashFailChance > 0.0) {
         return 0.0
     }
     return (targetPettyCash * actionProfile.emptyPettyCashReductionMultiplier).coerceIn(0.0, targetPettyCash)
+}
+
+private fun PortState.shouldFailStealFile(): Boolean {
+    val actionProfile = installedFirewall?.actionProfile ?: FirewallActionProfile()
+    return actionProfile.stealFileFailChance > 0.0
 }
 
 private fun ComputerState.hasWatchOnPort(portNumber: Int): Boolean {

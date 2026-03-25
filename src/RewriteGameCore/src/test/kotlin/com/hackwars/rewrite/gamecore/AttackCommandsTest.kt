@@ -10,6 +10,7 @@ import kotlin.test.Test
 import kotlin.test.assertContains
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -1156,6 +1157,496 @@ class AttackCommandsTest {
     }
 
     @Test
+    fun continueStealFileTransfersFirstDeterministicPublicFileStillDamagesAndCancelsAttack() = runTest {
+        val attackerId = GameStateId("ATTACKER-IP")
+        val targetId = GameStateId("TARGET-IP")
+        val stolenBundle = ProgramScriptBundle(
+            family = ScriptFamily.HTTP,
+            scriptsBySlot = linkedMapOf(ProgramScriptSlot.ENTER to "enter"),
+        )
+        val stolenBinary = CompiledBinaryMetadata(
+            scriptFamily = ScriptFamily.HTTP,
+            applicationKind = ApplicationKind.HTTP,
+            outputName = "alpha.bin",
+        )
+        val repository = InMemoryComputerStateRepository(
+            seededStates = mapOf(
+                attackerId to attackerState(
+                    attackerId,
+                    attackScriptBundle = attackScriptBundle(
+                        continueScript = """int main() { stealFile(); return 0; }""",
+                    ),
+                ),
+                targetId to targetState(
+                    targetId,
+                    portType = "ftp",
+                    installedApplication = InstalledApplication(
+                        name = "target-ftp.bin",
+                        kind = ApplicationKind.FTP,
+                        cpuCost = 2.0,
+                    ),
+                    filesystemFiles = listOf(
+                        storedFile("/Public", "zeta.txt", contents = "zeta"),
+                        storedFile(
+                            "/Public",
+                            "alpha.txt",
+                            contents = "alpha",
+                            description = "loot",
+                            maker = "npc",
+                            compileCost = 7.0,
+                            cpuCost = 8.0,
+                            price = 9.0,
+                            compiledBinary = stolenBinary,
+                            scriptBundle = stolenBundle,
+                        ),
+                    ),
+                ),
+            ),
+        )
+        val interests = InMemoryInterestRegistry().apply {
+            register("attacker-conn", attackerId)
+            register("target-conn", targetId)
+        }
+        val publisher = RecordingGameStatePublisher()
+        val registry = InMemoryAttackProgramRegistry()
+        val dispatcher = dispatcher(repository, interests)
+
+        dispatcher.request(
+            command = RequestAttackCommand(
+                attackerStateId = attackerId,
+                targetStateId = targetId,
+                sourceIp = attackerId.value,
+                sourcePort = 12,
+                targetPort = 25,
+                loadout = AttackLoadout(),
+                attackProgramRegistry = registry,
+            ),
+            metadata = CommandMetadata(connectionId = "attacker-conn", requestId = "attack-steal-file"),
+            publisher = publisher,
+        )
+        runCurrent()
+        publisher.deltas.clear()
+        publisher.programUpdates.clear()
+
+        advanceTimeBy(180_100)
+        runCurrent()
+
+        val updatedAttacker = requireNotNull(repository.load(attackerId))
+        val updatedTarget = requireNotNull(repository.load(targetId))
+        val receivedFile = requireNotNull(updatedAttacker.filesystem.resolveFile("/", "alpha.txt"))
+
+        assertEquals(97.8, updatedTarget.port(25)?.health)
+        assertEquals("alpha", receivedFile.contents)
+        assertEquals("loot", receivedFile.description)
+        assertEquals("npc", receivedFile.maker)
+        assertEquals(7.0, receivedFile.compileCost)
+        assertEquals(8.0, receivedFile.cpuCost)
+        assertEquals(9.0, receivedFile.price)
+        assertEquals(stolenBinary, receivedFile.compiledBinary)
+        assertEquals(stolenBundle, receivedFile.scriptBundle)
+        assertNull(updatedTarget.filesystem.resolveFile("/Public", "alpha.txt"))
+        assertNotNull(updatedTarget.filesystem.resolveFile("/Public", "zeta.txt"))
+        assertTrue(updatedAttacker.combat.activeAttacksBySourcePort.isEmpty())
+        assertTrue(updatedTarget.combat.incomingAttacksByTargetPort.isEmpty())
+        assertEquals(setOf("filesystem", "ports", "combat"), publisher.deltas.single { it.first == setOf("target-conn") }.second.deltaKeys)
+        assertEquals(setOf("filesystem", "combat", "ports", "runtime", "stats"), publisher.deltas.single { it.first == setOf("attacker-conn") }.second.deltaKeys)
+        assertEquals(ProgramLifecycleStatus.CANCELLED, publisher.programUpdates.single().second.status)
+    }
+
+    @Test
+    fun continueStealFileDecrementsStackedTargetFileAndIncrementsExistingAttackerCopy() = runTest {
+        val attackerId = GameStateId("ATTACKER-IP")
+        val targetId = GameStateId("TARGET-IP")
+        val repository = InMemoryComputerStateRepository(
+            seededStates = mapOf(
+                attackerId to attackerState(
+                    attackerId,
+                    attackScriptBundle = attackScriptBundle(
+                        continueScript = """int main() { stealFile(); return 0; }""",
+                    ),
+                    filesystemFiles = listOf(
+                        storedFile("/", "loot.txt", quantity = 2, contents = "owned", description = "keep-me"),
+                    ),
+                ),
+                targetId to targetState(
+                    targetId,
+                    portType = "ftp",
+                    installedApplication = InstalledApplication(
+                        name = "target-ftp.bin",
+                        kind = ApplicationKind.FTP,
+                        cpuCost = 2.0,
+                    ),
+                    filesystemFiles = listOf(
+                        storedFile("/Public", "loot.txt", quantity = 3, contents = "target", description = "target-copy"),
+                    ),
+                ),
+            ),
+        )
+        val interests = InMemoryInterestRegistry().apply {
+            register("attacker-conn", attackerId)
+            register("target-conn", targetId)
+        }
+        val publisher = RecordingGameStatePublisher()
+        val registry = InMemoryAttackProgramRegistry()
+        val dispatcher = dispatcher(repository, interests)
+
+        dispatcher.request(
+            command = RequestAttackCommand(
+                attackerStateId = attackerId,
+                targetStateId = targetId,
+                sourceIp = attackerId.value,
+                sourcePort = 12,
+                targetPort = 25,
+                loadout = AttackLoadout(),
+                attackProgramRegistry = registry,
+            ),
+            metadata = CommandMetadata(connectionId = "attacker-conn", requestId = "attack-steal-file-stack"),
+            publisher = publisher,
+        )
+        runCurrent()
+        publisher.deltas.clear()
+        publisher.programUpdates.clear()
+
+        advanceTimeBy(180_100)
+        runCurrent()
+
+        val updatedAttacker = requireNotNull(repository.load(attackerId))
+        val updatedTarget = requireNotNull(repository.load(targetId))
+        val attackerCopy = requireNotNull(updatedAttacker.filesystem.resolveFile("/", "loot.txt"))
+        val targetRemaining = requireNotNull(updatedTarget.filesystem.resolveFile("/Public", "loot.txt"))
+
+        assertEquals(3, attackerCopy.quantity)
+        assertEquals("owned", attackerCopy.contents)
+        assertEquals("keep-me", attackerCopy.description)
+        assertEquals(2, targetRemaining.quantity)
+        assertEquals("target", targetRemaining.contents)
+        assertEquals(97.8, updatedTarget.port(25)?.health)
+        assertEquals(ProgramLifecycleStatus.CANCELLED, publisher.programUpdates.single().second.status)
+    }
+
+    @Test
+    fun continueStealFileFirewallFailProducesNoFilesystemMutationStillDamagesAndCancelsAttack() = runTest {
+        val attackerId = GameStateId("ATTACKER-IP")
+        val targetId = GameStateId("TARGET-IP")
+        val repository = InMemoryComputerStateRepository(
+            seededStates = mapOf(
+                attackerId to attackerState(
+                    attackerId,
+                    attackScriptBundle = attackScriptBundle(
+                        continueScript = """int main() { stealFile(); return 0; }""",
+                    ),
+                ),
+                targetId to targetState(
+                    targetId,
+                    portType = "ftp",
+                    installedApplication = InstalledApplication(
+                        name = "target-ftp.bin",
+                        kind = ApplicationKind.FTP,
+                        cpuCost = 2.0,
+                    ),
+                    firewallActionProfile = FirewallActionProfile(
+                        stealFileFailChance = 0.3,
+                    ),
+                    filesystemFiles = listOf(
+                        storedFile("/Public", "loot.txt"),
+                    ),
+                ),
+            ),
+        )
+        val interests = InMemoryInterestRegistry().apply {
+            register("attacker-conn", attackerId)
+            register("target-conn", targetId)
+        }
+        val publisher = RecordingGameStatePublisher()
+        val registry = InMemoryAttackProgramRegistry()
+        val dispatcher = dispatcher(repository, interests)
+
+        dispatcher.request(
+            command = RequestAttackCommand(
+                attackerStateId = attackerId,
+                targetStateId = targetId,
+                sourceIp = attackerId.value,
+                sourcePort = 12,
+                targetPort = 25,
+                loadout = AttackLoadout(),
+                attackProgramRegistry = registry,
+            ),
+            metadata = CommandMetadata(connectionId = "attacker-conn", requestId = "attack-steal-file-fail"),
+            publisher = publisher,
+        )
+        runCurrent()
+        publisher.deltas.clear()
+        publisher.programUpdates.clear()
+
+        advanceTimeBy(180_100)
+        runCurrent()
+
+        val updatedAttacker = requireNotNull(repository.load(attackerId))
+        val updatedTarget = requireNotNull(repository.load(targetId))
+
+        assertNull(updatedAttacker.filesystem.resolveFile("/", "loot.txt"))
+        assertNotNull(updatedTarget.filesystem.resolveFile("/Public", "loot.txt"))
+        assertEquals(97.8, updatedTarget.port(25)?.health)
+        assertEquals(setOf("ports", "combat"), publisher.deltas.single { it.first == setOf("target-conn") }.second.deltaKeys)
+        assertEquals(setOf("combat", "ports", "runtime", "stats"), publisher.deltas.single { it.first == setOf("attacker-conn") }.second.deltaKeys)
+        assertEquals(ProgramLifecycleStatus.CANCELLED, publisher.programUpdates.single().second.status)
+    }
+
+    @Test
+    fun continueStealFileRequiresFtpTargetAndAvailablePublicFile() = runTest {
+        val attackerId = GameStateId("ATTACKER-IP")
+        val targetId = GameStateId("TARGET-IP")
+
+        val wrongTargetRepository = InMemoryComputerStateRepository(
+            seededStates = mapOf(
+                attackerId to attackerState(
+                    attackerId,
+                    attackScriptBundle = attackScriptBundle(
+                        continueScript = """int main() { stealFile(); return 0; }""",
+                    ),
+                ),
+                targetId to targetState(
+                    targetId,
+                    portType = "http",
+                    filesystemFiles = listOf(
+                        storedFile("/Public", "loot.txt"),
+                    ),
+                ),
+            ),
+        )
+        val wrongTargetInterests = InMemoryInterestRegistry().apply {
+            register("attacker-conn", attackerId)
+            register("target-conn", targetId)
+        }
+        val wrongTargetPublisher = RecordingGameStatePublisher()
+        val wrongTargetRegistry = InMemoryAttackProgramRegistry()
+        val wrongTargetDispatcher = dispatcher(wrongTargetRepository, wrongTargetInterests)
+
+        wrongTargetDispatcher.request(
+            command = RequestAttackCommand(
+                attackerStateId = attackerId,
+                targetStateId = targetId,
+                sourceIp = attackerId.value,
+                sourcePort = 12,
+                targetPort = 25,
+                loadout = AttackLoadout(),
+                attackProgramRegistry = wrongTargetRegistry,
+            ),
+            metadata = CommandMetadata(connectionId = "attacker-conn", requestId = "attack-steal-file-wrong-target"),
+            publisher = wrongTargetPublisher,
+        )
+        runCurrent()
+        wrongTargetPublisher.deltas.clear()
+        wrongTargetPublisher.programUpdates.clear()
+        advanceTimeBy(180_100)
+        runCurrent()
+
+        val noFileRepository = InMemoryComputerStateRepository(
+            seededStates = mapOf(
+                attackerId to attackerState(
+                    attackerId,
+                    attackScriptBundle = attackScriptBundle(
+                        continueScript = """int main() { stealFile(); return 0; }""",
+                    ),
+                ),
+                targetId to targetState(
+                    targetId,
+                    portType = "ftp",
+                    installedApplication = InstalledApplication(
+                        name = "target-ftp.bin",
+                        kind = ApplicationKind.FTP,
+                        cpuCost = 2.0,
+                    ),
+                    filesystemFiles = listOf(
+                        storedFile("/Private", "secret.txt"),
+                    ),
+                ),
+            ),
+        )
+        val noFileInterests = InMemoryInterestRegistry().apply {
+            register("attacker-conn", attackerId)
+            register("target-conn", targetId)
+        }
+        val noFilePublisher = RecordingGameStatePublisher()
+        val noFileRegistry = InMemoryAttackProgramRegistry()
+        val noFileDispatcher = dispatcher(noFileRepository, noFileInterests)
+
+        noFileDispatcher.request(
+            command = RequestAttackCommand(
+                attackerStateId = attackerId,
+                targetStateId = targetId,
+                sourceIp = attackerId.value,
+                sourcePort = 12,
+                targetPort = 25,
+                loadout = AttackLoadout(),
+                attackProgramRegistry = noFileRegistry,
+            ),
+            metadata = CommandMetadata(connectionId = "attacker-conn", requestId = "attack-steal-file-no-public"),
+            publisher = noFilePublisher,
+        )
+        runCurrent()
+        noFilePublisher.deltas.clear()
+        noFilePublisher.programUpdates.clear()
+        advanceTimeBy(180_100)
+        runCurrent()
+
+        assertNull(requireNotNull(wrongTargetRepository.load(attackerId)).filesystem.resolveFile("/", "loot.txt"))
+        assertNotNull(requireNotNull(wrongTargetRepository.load(targetId)).filesystem.resolveFile("/Public", "loot.txt"))
+        assertEquals(97.8, wrongTargetRepository.load(targetId)?.port(25)?.health)
+        assertEquals(setOf("ports", "combat"), wrongTargetPublisher.deltas.single { it.first == setOf("target-conn") }.second.deltaKeys)
+        assertEquals(setOf("combat", "ports", "runtime", "stats"), wrongTargetPublisher.deltas.single { it.first == setOf("attacker-conn") }.second.deltaKeys)
+        assertEquals(ProgramLifecycleStatus.CANCELLED, wrongTargetPublisher.programUpdates.single().second.status)
+
+        assertNull(requireNotNull(noFileRepository.load(attackerId)).filesystem.resolveFile("/", "secret.txt"))
+        assertNotNull(requireNotNull(noFileRepository.load(targetId)).filesystem.resolveFile("/Private", "secret.txt"))
+        assertEquals(97.8, noFileRepository.load(targetId)?.port(25)?.health)
+        assertEquals(setOf("ports", "combat"), noFilePublisher.deltas.single { it.first == setOf("target-conn") }.second.deltaKeys)
+        assertEquals(setOf("combat", "ports", "runtime", "stats"), noFilePublisher.deltas.single { it.first == setOf("attacker-conn") }.second.deltaKeys)
+        assertEquals(ProgramLifecycleStatus.CANCELLED, noFilePublisher.programUpdates.single().second.status)
+    }
+
+    @Test
+    fun finalizeStealFileMutatesFilesystemBeforeCompletionCleanup() = runTest {
+        val attackerId = GameStateId("ATTACKER-IP")
+        val targetId = GameStateId("TARGET-IP")
+        val repository = InMemoryComputerStateRepository(
+            seededStates = mapOf(
+                attackerId to attackerState(
+                    attackerId,
+                    attackScriptBundle = attackScriptBundle(
+                        finalize = """int main() { stealFile(); return 0; }""",
+                    ),
+                ),
+                targetId to targetState(
+                    targetId,
+                    health = 1.5,
+                    portType = "ftp",
+                    installedApplication = InstalledApplication(
+                        name = "target-ftp.bin",
+                        kind = ApplicationKind.FTP,
+                        cpuCost = 2.0,
+                    ),
+                    filesystemFiles = listOf(
+                        storedFile("/Public", "loot.txt"),
+                    ),
+                ),
+            ),
+        )
+        val interests = InMemoryInterestRegistry().apply {
+            register("attacker-conn", attackerId)
+            register("target-conn", targetId)
+        }
+        val publisher = RecordingGameStatePublisher()
+        val registry = InMemoryAttackProgramRegistry()
+        val dispatcher = dispatcher(repository, interests)
+
+        dispatcher.request(
+            command = RequestAttackCommand(
+                attackerStateId = attackerId,
+                targetStateId = targetId,
+                sourceIp = attackerId.value,
+                sourcePort = 12,
+                targetPort = 25,
+                loadout = AttackLoadout(),
+                attackProgramRegistry = registry,
+            ),
+            metadata = CommandMetadata(connectionId = "attacker-conn", requestId = "attack-finalize-steal-file"),
+            publisher = publisher,
+        )
+        runCurrent()
+        publisher.deltas.clear()
+        publisher.programUpdates.clear()
+
+        advanceTimeBy(180_100)
+        runCurrent()
+
+        val updatedAttacker = requireNotNull(repository.load(attackerId))
+        val updatedTarget = requireNotNull(repository.load(targetId))
+
+        assertNotNull(updatedAttacker.filesystem.resolveFile("/", "loot.txt"))
+        assertNull(updatedTarget.filesystem.resolveFile("/Public", "loot.txt"))
+        assertEquals(0.0, updatedTarget.port(25)?.health)
+        assertTrue(updatedAttacker.combat.activeAttacksBySourcePort.isEmpty())
+        assertTrue(updatedTarget.combat.incomingAttacksByTargetPort.isEmpty())
+        assertEquals(setOf("filesystem", "ports", "combat"), publisher.deltas.single { it.first == setOf("target-conn") }.second.deltaKeys)
+        assertEquals(setOf("filesystem", "combat", "ports", "runtime", "stats"), publisher.deltas.single { it.first == setOf("attacker-conn") }.second.deltaKeys)
+        assertEquals(ProgramLifecycleStatus.COMPLETED, publisher.programUpdates.single().second.status)
+    }
+
+    @Test
+    fun switchAttackThenStealFileActsOnTheRetargetedFtpPort() = runTest {
+        val attackerId = GameStateId("ATTACKER-IP")
+        val targetId = GameStateId("TARGET-IP")
+        val repository = InMemoryComputerStateRepository(
+            seededStates = mapOf(
+                attackerId to attackerState(
+                    attackerId,
+                    attackScriptBundle = attackScriptBundle(
+                        continueScript = """int main() { switchAttack(); stealFile(); return 0; }""",
+                    ),
+                ),
+                targetId to targetState(
+                    targetId,
+                    filesystemFiles = listOf(
+                        storedFile("/Public", "loot.txt"),
+                    ),
+                    additionalPorts = listOf(
+                        PortState(
+                            number = 26,
+                            type = "ftp",
+                            enabled = true,
+                            health = 100.0,
+                            installedApplication = InstalledApplication(
+                                name = "ftp.bin",
+                                kind = ApplicationKind.FTP,
+                                cpuCost = 2.0,
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+        )
+        val interests = InMemoryInterestRegistry().apply {
+            register("attacker-conn", attackerId)
+            register("target-conn", targetId)
+        }
+        val publisher = RecordingGameStatePublisher()
+        val registry = InMemoryAttackProgramRegistry()
+        val dispatcher = dispatcher(repository, interests)
+
+        dispatcher.request(
+            command = RequestAttackCommand(
+                attackerStateId = attackerId,
+                targetStateId = targetId,
+                sourceIp = attackerId.value,
+                sourcePort = 12,
+                targetPort = 25,
+                loadout = AttackLoadout(secondaryPorts = listOf(26)),
+                attackProgramRegistry = registry,
+            ),
+            metadata = CommandMetadata(connectionId = "attacker-conn", requestId = "attack-switch-steal-file"),
+            publisher = publisher,
+        )
+        runCurrent()
+        publisher.deltas.clear()
+        publisher.programUpdates.clear()
+
+        advanceTimeBy(180_100)
+        runCurrent()
+
+        val updatedAttacker = requireNotNull(repository.load(attackerId))
+        val updatedTarget = requireNotNull(repository.load(targetId))
+
+        assertNotNull(updatedAttacker.filesystem.resolveFile("/", "loot.txt"))
+        assertNull(updatedTarget.filesystem.resolveFile("/Public", "loot.txt"))
+        assertEquals(100.0, updatedTarget.port(25)?.health)
+        assertEquals(97.8, updatedTarget.port(26)?.health)
+        assertEquals(setOf("filesystem", "ports", "combat"), publisher.deltas.single { it.first == setOf("target-conn") }.second.deltaKeys)
+        assertEquals(setOf("filesystem", "combat", "ports", "runtime", "stats"), publisher.deltas.single { it.first == setOf("attacker-conn") }.second.deltaKeys)
+        assertEquals(ProgramLifecycleStatus.CANCELLED, publisher.programUpdates.single().second.status)
+    }
+
+    @Test
     fun attackCompletionRunsFinalizeScriptBeforeCleanupFlush() = runTest {
         val attackerId = GameStateId("ATTACKER-IP")
         val targetId = GameStateId("TARGET-IP")
@@ -1468,7 +1959,7 @@ class AttackCommandsTest {
             seededStates = mapOf(
                 attackerId to attackerState(
                     attackerId,
-                    attackScriptBundle = attackScriptBundle(continueScript = """int main() { stealFile(); return 0; }"""),
+                    attackScriptBundle = attackScriptBundle(continueScript = """int main() { installScript(); return 0; }"""),
                 ),
                 targetId to targetState(targetId),
             ),
@@ -2500,6 +2991,7 @@ class AttackCommandsTest {
         stateId: GameStateId,
         bankIsAlsoAttack: Boolean = false,
         attackScriptBundle: ProgramScriptBundle? = null,
+        filesystemFiles: List<StoredFile> = emptyList(),
     ): ComputerState {
         val bankApplication = InstalledApplication(
             name = "bank.bin",
@@ -2538,6 +3030,9 @@ class AttackCommandsTest {
                     ),
                 ),
             ),
+            filesystem = filesystemFiles.fold(FilesystemState()) { filesystem, file ->
+                filesystem.saveFile(file)
+            },
         )
     }
 
@@ -2557,12 +3052,16 @@ class AttackCommandsTest {
         watches: WatchManagerState = WatchManagerState(),
         currentCpuLoad: Double = 0.0,
         isNpc: Boolean = false,
+        filesystemFiles: List<StoredFile> = emptyList(),
     ): ComputerState {
         return ComputerState.empty(id = stateId, playFabId = "PF-${stateId.value}", isNpc = isNpc).copy(
             economy = EconomyState(
                 pettyCash = pettyCash,
             ),
             logs = LogState(logs),
+            filesystem = filesystemFiles.fold(FilesystemState()) { filesystem, file ->
+                filesystem.saveFile(file)
+            },
             watches = watches,
             runtime = RuntimeState(currentCpuLoad = currentCpuLoad),
             hardware = HardwareState(
@@ -2642,6 +3141,36 @@ class AttackCommandsTest {
                 applicationKind = ApplicationKind.WATCH,
                 outputName = "watch.bin",
             ),
+        )
+    }
+
+    private fun storedFile(
+        path: String,
+        name: String,
+        quantity: Int = 1,
+        contents: String = "contents",
+        description: String = "description",
+        kind: StoredFileKind = StoredFileKind.TEXT,
+        maker: String = "maker",
+        compileCost: Double = 2.0,
+        cpuCost: Double = 3.0,
+        price: Double = 4.0,
+        compiledBinary: CompiledBinaryMetadata? = null,
+        scriptBundle: ProgramScriptBundle? = null,
+    ): StoredFile {
+        return StoredFile(
+            path = buildFilePath(path, name),
+            name = name,
+            kind = kind,
+            contents = contents,
+            description = description,
+            quantity = quantity,
+            maker = maker,
+            compileCost = compileCost,
+            cpuCost = cpuCost,
+            price = price,
+            compiledBinary = compiledBinary,
+            scriptBundle = scriptBundle,
         )
     }
 

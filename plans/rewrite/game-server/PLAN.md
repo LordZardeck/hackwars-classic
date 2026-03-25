@@ -394,22 +394,47 @@
   - Uses typed firewall action profiles to resolve legacy petty-cash failure into a deterministic zero-amount steal, otherwise transfers a reduction-adjusted petty-cash amount from target to attacker and evaluates passive petty-cash watches on both sides before cleanup.
   - Keeps file, social, message, zombie-linked, and redirect or shipping-port helper work deferred to follow-on sub-slices.
 
-### RW-GS-S5B2B2B3B2 - Remaining target-side file and social attack helpers
+### RW-GS-S5B2B2B3B2A - stealFile target-side filesystem finalizer
+- Status: `in_progress`
+- Owner: `codex`
+- Depends on: `RW-GS-S5B2B2B3B1`
+- Allowed write scope: `:RewriteHackScript`, `:RewriteGameCore`, `:RewriteGameServer`, `:RewritePersistence`
+- Verification command: `./gradlew :RewriteHackScript:test :RewriteGameCore:test :RewritePersistence:test :RewritePersistence:migrationTest :RewriteGameServer:test :RewriteTestKit:integrationTest rewriteCheck`
+- Artifacts: `build/reports/tests/test`
+- Commit rule: `single green commit only`
+- Notes:
+  - Adds the installed attack-script `stealFile()` helper as a deterministic target-side filesystem finalizer in `CONTINUE` and `FINALIZE`.
+  - Steals exactly one file unit from the first eligible `/Public` FTP listing entry in deterministic sorted order, copies it to the attacker root path `/`, preserves typed file metadata, and treats configured firewall steal-file failure as a deterministic no-transfer outcome.
+  - Keeps malicious install, daily-pay, message, zombie-linked, and other social/helper work deferred to follow-on sub-slices.
+
+### RW-GS-S5B2B2B3B2B - installScript malicious installed-program finalizer
 - Status: `todo`
 - Owner: `unassigned`
-- Depends on: `RW-GS-S5B2B2B3B1`
+- Depends on: `RW-GS-S5B2B2B3B2A`
 - Allowed write scope: `:RewriteHackScript`, `:RewriteGameCore`, `:RewriteGameServer`, `:RewritePersistence`
 - Verification command: `./gradlew :RewriteHackScript:test :RewriteGameCore:test :RewritePersistence:test :RewriteGameServer:test :RewriteTestKit:integrationTest`
 - Artifacts: `build/reports/tests/test`
 - Commit rule: `single green commit only`
 - Notes:
-  - Owns the remaining deferred attack-script helpers that mutate target files or social or message state after the deterministic watch and economy finalizers are stable.
-  - Keeps `launchnetworkattack`, redirecting or shipping-port semantics, and zombie-linked behavior deferred until the rewrite has the needed typed port and network models.
+  - Owns the installed attack-script `installScript()` helper once the rewrite is ready to model malicious installed-program side effects on target ports.
+  - Must preserve deterministic attack cleanup and avoid coupling the initial malicious-install work to the remaining social or zombie-linked helpers.
+
+### RW-GS-S5B2B2B3B2C - changeDailyPay, message, and zombie-linked social helpers
+- Status: `todo`
+- Owner: `unassigned`
+- Depends on: `RW-GS-S5B2B2B3B2B`
+- Allowed write scope: `:RewriteHackScript`, `:RewriteGameCore`, `:RewriteGameServer`, `:RewritePersistence`
+- Verification command: `./gradlew :RewriteHackScript:test :RewriteGameCore:test :RewritePersistence:test :RewriteGameServer:test :RewriteTestKit:integrationTest`
+- Artifacts: `build/reports/tests/test`
+- Commit rule: `single green commit only`
+- Notes:
+  - Owns the remaining deferred attack-script helpers that mutate target daily pay, message/social state, or zombie-linked behavior after the deterministic filesystem and malicious-install slices are stable.
+  - Keeps `launchnetworkattack` plus redirecting or shipping-port semantics deferred until the rewrite has the needed typed port and network models.
 
 ### RW-GS-S5C - Redirect, zombie, and combat cleanup
 - Status: `todo`
 - Owner: `unassigned`
-- Depends on: `RW-GS-S5B2B2B3B2`
+- Depends on: `RW-GS-S5B2B2B3B2C`
 - Allowed write scope: `:RewriteGameCore`, `:RewriteGameServer`
 - Verification command: `./gradlew :RewriteGameCore:test :RewriteGameServer:test`
 - Artifacts: `build/reports/tests/test`

@@ -268,6 +268,7 @@ class JdbcComputerStateRepositoryTest {
         val firewallActionProfile = FirewallActionProfile(
             emptyPettyCashFailChance = 0.4,
             emptyPettyCashReductionMultiplier = 0.65,
+            stealFileFailChance = 0.3,
         )
         val firewallBinary = StoredFile(
             path = buildFilePath("/Public", "wall.bin"),
