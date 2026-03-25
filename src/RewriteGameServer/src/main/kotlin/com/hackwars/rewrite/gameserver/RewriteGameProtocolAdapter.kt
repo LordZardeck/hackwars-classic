@@ -1014,6 +1014,7 @@ class RewriteGameProtocolAdapter(
 
 private fun GameUiEvent.protocolEventType(): String = when (this) {
     is com.hackwars.rewrite.gamecore.PopupUiEvent -> "popup"
+    is com.hackwars.rewrite.gamecore.TextMessageUiEvent -> "message"
 }
 
 private fun ProgramLifecycleStatus.toProtocolStatus(): ProgramStatus = when (this) {

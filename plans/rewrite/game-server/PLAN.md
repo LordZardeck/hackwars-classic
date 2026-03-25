@@ -420,22 +420,46 @@
   - Consumes one compatible attacker binary before NPC, weakened, or deterministic firewall-fail gates, and only mutates the target port's existing installed script bundle plus minimal malicious config when the target is non-NPC and weakened.
   - Keeps daily-pay, message, zombie-linked, and broader social/helper behavior deferred to follow-on sub-slices.
 
-### RW-GS-S5B2B2B3B2C - changeDailyPay, message, and zombie-linked social helpers
-- Status: `todo`
-- Owner: `unassigned`
+### RW-GS-S5B2B2B3B2C1 - message targeted UI helper
+- Status: `done`
+- Owner: `codex`
 - Depends on: `RW-GS-S5B2B2B3B2B`
 - Allowed write scope: `:RewriteHackScript`, `:RewriteGameCore`, `:RewriteGameServer`, `:RewritePersistence`
 - Verification command: `./gradlew :RewriteHackScript:test :RewriteGameCore:test :RewritePersistence:test :RewriteGameServer:test :RewriteTestKit:integrationTest`
 - Artifacts: `build/reports/tests/test`
 - Commit rule: `single green commit only`
 - Notes:
-  - Owns the remaining deferred attack-script helpers that mutate target daily pay, message/social state, or zombie-linked behavior after the deterministic filesystem and malicious-install slices are stable.
+  - Adds the installed attack-script `message(ip, text)` helper as a targeted rewrite UI event for attacker or current-target subscribers only.
+  - Keeps `message()` non-finalizing and preserves the current deterministic damage, cleanup, and program-update ordering.
+  - Keeps daily-pay and zombie-linked behavior deferred to follow-on sub-slices.
+
+### RW-GS-S5B2B2B3B2C2 - changeDailyPay daily-pay redirect foundation
+- Status: `todo`
+- Owner: `unassigned`
+- Depends on: `RW-GS-S5B2B2B3B2C1`
+- Allowed write scope: `:RewriteHackScript`, `:RewriteGameCore`, `:RewriteGameServer`, `:RewritePersistence`
+- Verification command: `./gradlew :RewriteHackScript:test :RewriteGameCore:test :RewritePersistence:test :RewriteGameServer:test :RewriteTestKit:integrationTest`
+- Artifacts: `build/reports/tests/test`
+- Commit rule: `single green commit only`
+- Notes:
+  - Owns the deferred attack-script helper that mutates target daily-pay behavior once the rewrite has the needed typed daily-pay runtime model.
+
+### RW-GS-S5B2B2B3B2C3 - zombie-linked social helpers and transport
+- Status: `todo`
+- Owner: `unassigned`
+- Depends on: `RW-GS-S5B2B2B3B2C2`
+- Allowed write scope: `:RewriteHackScript`, `:RewriteGameCore`, `:RewriteGameServer`, `:RewritePersistence`
+- Verification command: `./gradlew :RewriteHackScript:test :RewriteGameCore:test :RewritePersistence:test :RewriteGameServer:test :RewriteTestKit:integrationTest`
+- Artifacts: `build/reports/tests/test`
+- Commit rule: `single green commit only`
+- Notes:
+  - Owns the remaining deferred attack-script helpers that mutate social state or zombie-linked behavior after the deterministic filesystem, install, and targeted-message slices are stable.
   - Keeps `launchnetworkattack` plus redirecting or shipping-port semantics deferred until the rewrite has the needed typed port and network models.
 
 ### RW-GS-S5C - Redirect, zombie, and combat cleanup
 - Status: `todo`
 - Owner: `unassigned`
-- Depends on: `RW-GS-S5B2B2B3B2C`
+- Depends on: `RW-GS-S5B2B2B3B2C3`
 - Allowed write scope: `:RewriteGameCore`, `:RewriteGameServer`
 - Verification command: `./gradlew :RewriteGameCore:test :RewriteGameServer:test`
 - Artifacts: `build/reports/tests/test`

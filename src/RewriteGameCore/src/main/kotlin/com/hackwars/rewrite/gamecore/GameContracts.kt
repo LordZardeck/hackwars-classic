@@ -247,4 +247,5 @@ interface CommandContext {
     suspend fun publishDelta(delta: ComputerDelta)
     suspend fun publishProgramUpdate(update: ProgramUpdate)
     suspend fun publishUiEvent(event: GameUiEvent)
+    suspend fun publishUiEvent(targetStateIds: Set<GameStateId>, event: GameUiEvent)
 }

@@ -11,6 +11,7 @@ import kotlin.test.Test
 import kotlin.test.assertContains
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -334,6 +335,49 @@ class AttackCommandsTest {
     }
 
     @Test
+    fun requestAttackInitializeMessagePublishesSelfTargetedUiEventAndStillStartsNormally() = runTest {
+        val attackerId = GameStateId("ATTACKER-IP")
+        val targetId = GameStateId("TARGET-IP")
+        val repository = InMemoryComputerStateRepository(
+            seededStates = mapOf(
+                attackerId to attackerState(
+                    attackerId,
+                    attackScriptBundle = attackScriptBundle(
+                        initialize = """int main() { message("ATTACKER-IP", "init-message"); return 0; }""",
+                    ),
+                ),
+                targetId to targetState(targetId),
+            ),
+        )
+        val interests = InMemoryInterestRegistry().apply {
+            register("attacker-conn", attackerId)
+            register("target-conn", targetId)
+        }
+        val publisher = RecordingGameStatePublisher()
+        val registry = InMemoryAttackProgramRegistry()
+        val dispatcher = dispatcher(repository, interests)
+
+        val response = dispatcher.request(
+            command = RequestAttackCommand(
+                attackerStateId = attackerId,
+                targetStateId = targetId,
+                sourceIp = attackerId.value,
+                sourcePort = 12,
+                targetPort = 25,
+                loadout = AttackLoadout(),
+                attackProgramRegistry = registry,
+            ),
+            metadata = CommandMetadata(connectionId = "attacker-conn", requestId = "attack-init-message"),
+            publisher = publisher,
+        )
+
+        assertTrue(response.accepted)
+        assertEquals(1, publisher.uiEvents.size)
+        assertEquals(setOf("attacker-conn"), publisher.uiEvents.single().first)
+        assertEquals("init-message", assertIs<TextMessageUiEvent>(publisher.uiEvents.single().second).message)
+    }
+
+    @Test
     fun attackTicksRunContinueScriptBeforeDamageStateFlush() = runTest {
         val attackerId = GameStateId("ATTACKER-IP")
         val targetId = GameStateId("TARGET-IP")
@@ -383,6 +427,58 @@ class AttackCommandsTest {
         val attackerDelta = publisher.deltas.single { it.first == setOf("attacker-conn") }.second
         assertEquals(setOf("ports"), targetDelta.deltaKeys)
         assertEquals(setOf("combat", "stats", "logs"), attackerDelta.deltaKeys)
+        assertEquals(ProgramLifecycleStatus.RUNNING, publisher.programUpdates.single().second.status)
+    }
+
+    @Test
+    fun continueMessagePublishesTargetedUiEventAndStillAppliesNormalDeterministicTick() = runTest {
+        val attackerId = GameStateId("ATTACKER-IP")
+        val targetId = GameStateId("TARGET-IP")
+        val repository = InMemoryComputerStateRepository(
+            seededStates = mapOf(
+                attackerId to attackerState(
+                    attackerId,
+                    attackScriptBundle = attackScriptBundle(
+                        continueScript = """int main() { message("TARGET-IP", "tick-message"); return 0; }""",
+                    ),
+                ),
+                targetId to targetState(targetId),
+            ),
+        )
+        val interests = InMemoryInterestRegistry().apply {
+            register("attacker-conn", attackerId)
+            register("target-conn", targetId)
+        }
+        val publisher = RecordingGameStatePublisher()
+        val registry = InMemoryAttackProgramRegistry()
+        val dispatcher = dispatcher(repository, interests)
+
+        dispatcher.request(
+            command = RequestAttackCommand(
+                attackerStateId = attackerId,
+                targetStateId = targetId,
+                sourceIp = attackerId.value,
+                sourcePort = 12,
+                targetPort = 25,
+                loadout = AttackLoadout(),
+                attackProgramRegistry = registry,
+            ),
+            metadata = CommandMetadata(connectionId = "attacker-conn", requestId = "attack-continue-message"),
+            publisher = publisher,
+        )
+        runCurrent()
+        publisher.deltas.clear()
+        publisher.programUpdates.clear()
+        publisher.uiEvents.clear()
+
+        advanceTimeBy(180_100)
+        runCurrent()
+
+        val updatedTarget = requireNotNull(repository.load(targetId))
+        assertEquals(97.8, updatedTarget.port(25)?.health)
+        assertEquals(1, publisher.uiEvents.size)
+        assertEquals(setOf("target-conn"), publisher.uiEvents.single().first)
+        assertEquals("tick-message", assertIs<TextMessageUiEvent>(publisher.uiEvents.single().second).message)
         assertEquals(ProgramLifecycleStatus.RUNNING, publisher.programUpdates.single().second.status)
     }
 
@@ -708,6 +804,124 @@ class AttackCommandsTest {
         assertEquals(setOf("ports", "combat"), targetDelta.deltaKeys)
         assertEquals(setOf("combat", "ports", "runtime", "stats"), attackerDelta.deltaKeys)
         assertEquals(ProgramLifecycleStatus.CANCELLED, publisher.programUpdates.single().second.status)
+    }
+
+    @Test
+    fun continueMessageThenCancelAttackStillDeliversMessageBeforeCancellation() = runTest {
+        val attackerId = GameStateId("ATTACKER-IP")
+        val targetId = GameStateId("TARGET-IP")
+        val repository = InMemoryComputerStateRepository(
+            seededStates = mapOf(
+                attackerId to attackerState(
+                    attackerId,
+                    attackScriptBundle = attackScriptBundle(
+                        continueScript = """int main() { message("TARGET-IP", "warn"); cancelAttack(); return 0; }""",
+                    ),
+                ),
+                targetId to targetState(targetId),
+            ),
+        )
+        val interests = InMemoryInterestRegistry().apply {
+            register("attacker-conn", attackerId)
+            register("target-conn", targetId)
+        }
+        val publisher = RecordingGameStatePublisher()
+        val registry = InMemoryAttackProgramRegistry()
+        val dispatcher = dispatcher(repository, interests)
+
+        dispatcher.request(
+            command = RequestAttackCommand(
+                attackerStateId = attackerId,
+                targetStateId = targetId,
+                sourceIp = attackerId.value,
+                sourcePort = 12,
+                targetPort = 25,
+                loadout = AttackLoadout(),
+                attackProgramRegistry = registry,
+            ),
+            metadata = CommandMetadata(connectionId = "attacker-conn", requestId = "attack-message-cancel"),
+            publisher = publisher,
+        )
+        runCurrent()
+        publisher.deltas.clear()
+        publisher.programUpdates.clear()
+        publisher.uiEvents.clear()
+
+        advanceTimeBy(180_100)
+        runCurrent()
+
+        val updatedAttacker = requireNotNull(repository.load(attackerId))
+        val updatedTarget = requireNotNull(repository.load(targetId))
+        assertEquals(97.8, updatedTarget.port(25)?.health)
+        assertTrue(updatedAttacker.combat.activeAttacksBySourcePort.isEmpty())
+        assertTrue(updatedTarget.combat.incomingAttacksByTargetPort.isEmpty())
+        assertEquals(1, publisher.uiEvents.size)
+        assertEquals(setOf("target-conn"), publisher.uiEvents.single().first)
+        assertEquals("warn", assertIs<TextMessageUiEvent>(publisher.uiEvents.single().second).message)
+        assertEquals(ProgramLifecycleStatus.CANCELLED, publisher.programUpdates.single().second.status)
+    }
+
+    @Test
+    fun invalidMessageCasesProduceNoUiEventAndDoNotSuppressDamage() = runTest {
+        suspend fun runCase(script: String, requestId: String): Pair<RecordingGameStatePublisher, ComputerState> {
+            val attackerId = GameStateId("ATTACKER-IP")
+            val targetId = GameStateId("TARGET-IP")
+            val repository = InMemoryComputerStateRepository(
+                seededStates = mapOf(
+                    attackerId to attackerState(
+                        attackerId,
+                        attackScriptBundle = attackScriptBundle(continueScript = script),
+                    ),
+                    targetId to targetState(targetId),
+                ),
+            )
+            val interests = InMemoryInterestRegistry().apply {
+                register("attacker-conn", attackerId)
+                register("target-conn", targetId)
+            }
+            val publisher = RecordingGameStatePublisher()
+            val registry = InMemoryAttackProgramRegistry()
+            val dispatcher = dispatcher(repository, interests)
+
+            dispatcher.request(
+                command = RequestAttackCommand(
+                    attackerStateId = attackerId,
+                    targetStateId = targetId,
+                    sourceIp = attackerId.value,
+                    sourcePort = 12,
+                    targetPort = 25,
+                    loadout = AttackLoadout(),
+                    attackProgramRegistry = registry,
+                ),
+                metadata = CommandMetadata(connectionId = "attacker-conn", requestId = requestId),
+                publisher = publisher,
+            )
+            runCurrent()
+            publisher.deltas.clear()
+            publisher.programUpdates.clear()
+            publisher.uiEvents.clear()
+
+            advanceTimeBy(180_100)
+            runCurrent()
+
+            return publisher to requireNotNull(repository.load(targetId))
+        }
+
+        val (invalidPublisher, invalidTarget) = runCase(
+            script = """int main() { message("OTHER-IP", "bad"); cancelAttack(); return 0; }""",
+            requestId = "attack-invalid-message-target",
+        )
+        val (tooLongPublisher, tooLongTarget) = runCase(
+            script = """int main() { message("TARGET-IP", "${"x".repeat(256)}"); cancelAttack(); return 0; }""",
+            requestId = "attack-invalid-message-length",
+        )
+
+        assertTrue(invalidPublisher.uiEvents.isEmpty())
+        assertEquals(97.8, invalidTarget.port(25)?.health)
+        assertEquals(ProgramLifecycleStatus.CANCELLED, invalidPublisher.programUpdates.single().second.status)
+        assertTrue(tooLongPublisher.uiEvents.isEmpty())
+        assertEquals(97.8, tooLongTarget.port(25)?.health)
+        assertEquals(ProgramLifecycleStatus.CANCELLED, tooLongPublisher.programUpdates.single().second.status)
     }
 
     @Test
@@ -2423,6 +2637,58 @@ class AttackCommandsTest {
         val attackerDelta = publisher.deltas.single { it.first == setOf("attacker-conn") }.second
         assertEquals(setOf("ports", "combat"), targetDelta.deltaKeys)
         assertEquals(setOf("combat", "ports", "runtime", "stats", "logs"), attackerDelta.deltaKeys)
+        assertEquals(ProgramLifecycleStatus.COMPLETED, publisher.programUpdates.single().second.status)
+    }
+
+    @Test
+    fun finalizeMessagePublishesTargetedUiEventBeforeCompletionCleanup() = runTest {
+        val attackerId = GameStateId("ATTACKER-IP")
+        val targetId = GameStateId("TARGET-IP")
+        val repository = InMemoryComputerStateRepository(
+            seededStates = mapOf(
+                attackerId to attackerState(
+                    attackerId,
+                    attackScriptBundle = attackScriptBundle(
+                        finalize = """int main() { message("TARGET-IP", "finish-message"); return 0; }""",
+                    ),
+                ),
+                targetId to targetState(targetId, health = 1.5),
+            ),
+        )
+        val interests = InMemoryInterestRegistry().apply {
+            register("attacker-conn", attackerId)
+            register("target-conn", targetId)
+        }
+        val publisher = RecordingGameStatePublisher()
+        val registry = InMemoryAttackProgramRegistry()
+        val dispatcher = dispatcher(repository, interests)
+
+        dispatcher.request(
+            command = RequestAttackCommand(
+                attackerStateId = attackerId,
+                targetStateId = targetId,
+                sourceIp = attackerId.value,
+                sourcePort = 12,
+                targetPort = 25,
+                loadout = AttackLoadout(),
+                attackProgramRegistry = registry,
+            ),
+            metadata = CommandMetadata(connectionId = "attacker-conn", requestId = "attack-finalize-message"),
+            publisher = publisher,
+        )
+        runCurrent()
+        publisher.deltas.clear()
+        publisher.programUpdates.clear()
+        publisher.uiEvents.clear()
+
+        advanceTimeBy(180_100)
+        runCurrent()
+
+        val updatedTarget = requireNotNull(repository.load(targetId))
+        assertEquals(0.0, updatedTarget.port(25)?.health)
+        assertEquals(1, publisher.uiEvents.size)
+        assertEquals(setOf("target-conn"), publisher.uiEvents.single().first)
+        assertEquals("finish-message", assertIs<TextMessageUiEvent>(publisher.uiEvents.single().second).message)
         assertEquals(ProgramLifecycleStatus.COMPLETED, publisher.programUpdates.single().second.status)
     }
 

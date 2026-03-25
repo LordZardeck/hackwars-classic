@@ -1536,6 +1536,12 @@ data class PopupUiEvent(
 ) : GameUiEvent
 
 @Serializable
+@SerialName("message")
+data class TextMessageUiEvent(
+    val message: String,
+) : GameUiEvent
+
+@Serializable
 sealed interface TriggerSelector {
     @Serializable
     @SerialName("by_index")

@@ -296,7 +296,7 @@ class DefaultCommandDispatcher(
         private val pendingStateChanges = linkedMapOf<GameStateId, PendingStateChange>()
         private val manualDeltas = mutableListOf<ComputerDelta>()
         private val pendingProgramUpdates = mutableListOf<ProgramUpdate>()
-        private val pendingUiEvents = mutableListOf<GameUiEvent>()
+        private val pendingUiEvents = mutableListOf<BufferedUiEvent>()
 
         override suspend fun loadState(id: GameStateId): ComputerState? = repository.load(id)
 
@@ -365,7 +365,17 @@ class DefaultCommandDispatcher(
         }
 
         override suspend fun publishUiEvent(event: GameUiEvent) {
-            pendingUiEvents += event
+            pendingUiEvents += BufferedUiEvent(
+                targetStateIds = null,
+                event = event,
+            )
+        }
+
+        override suspend fun publishUiEvent(targetStateIds: Set<GameStateId>, event: GameUiEvent) {
+            pendingUiEvents += BufferedUiEvent(
+                targetStateIds = targetStateIds.toSet(),
+                event = event,
+            )
         }
 
         suspend fun flush() {
@@ -390,18 +400,22 @@ class DefaultCommandDispatcher(
                 }
             }
 
+            val connectionId = connectionId
+            pendingUiEvents.forEach { pendingEvent ->
+                val recipients = pendingEvent.targetStateIds
+                    ?.flatMapTo(linkedSetOf()) { interestRegistry.subscribersFor(it) }
+                    ?: connectionId?.let(::setOf)
+                    ?: emptySet()
+                if (recipients.isNotEmpty()) {
+                    publisher.publishUiEvent(recipients, pendingEvent.event)
+                }
+            }
+
             pendingProgramUpdates.forEach { update ->
                 val recipients = update.relatedStateIds
                     .flatMapTo(linkedSetOf()) { interestRegistry.subscribersFor(it) }
                 if (recipients.isNotEmpty()) {
                     publisher.publishProgramUpdate(recipients, update)
-                }
-            }
-
-            val connectionId = connectionId
-            if (connectionId != null) {
-                pendingUiEvents.forEach { event ->
-                    publisher.publishUiEvent(setOf(connectionId), event)
                 }
             }
 
@@ -415,6 +429,11 @@ class DefaultCommandDispatcher(
             val stateId: GameStateId,
             var updatedState: ComputerState,
             val events: MutableList<ComputerEvent> = mutableListOf(),
+        )
+
+        private data class BufferedUiEvent(
+            val targetStateIds: Set<GameStateId>?,
+            val event: GameUiEvent,
         )
     }
 }
@@ -577,7 +596,7 @@ class CoroutineProgramScheduler(
     ) : CommandContext {
         private val bufferedProgramUpdates = mutableListOf<ProgramUpdate>()
         private val bufferedDeltas = mutableListOf<ComputerDelta>()
-        private val bufferedUiEvents = mutableListOf<GameUiEvent>()
+        private val bufferedUiEvents = mutableListOf<BufferedUiEvent>()
 
         override val connectionId: String? = metadata.connectionId
         override val requestId: String? = metadata.requestId
@@ -637,7 +656,17 @@ class CoroutineProgramScheduler(
         }
 
         override suspend fun publishUiEvent(event: GameUiEvent) {
-            bufferedUiEvents += event
+            bufferedUiEvents += BufferedUiEvent(
+                targetStateIds = null,
+                event = event,
+            )
+        }
+
+        override suspend fun publishUiEvent(targetStateIds: Set<GameStateId>, event: GameUiEvent) {
+            bufferedUiEvents += BufferedUiEvent(
+                targetStateIds = targetStateIds.toSet(),
+                event = event,
+            )
         }
 
         suspend fun flush() {
@@ -647,6 +676,16 @@ class CoroutineProgramScheduler(
                     publisher.publishDelta(recipients, delta)
                 }
             }
+            val connectionId = connectionId
+            bufferedUiEvents.forEach { bufferedEvent ->
+                val recipients = bufferedEvent.targetStateIds
+                    ?.flatMapTo(linkedSetOf()) { interestRegistry.subscribersFor(it) }
+                    ?: connectionId?.let(::setOf)
+                    ?: emptySet()
+                if (recipients.isNotEmpty()) {
+                    publisher.publishUiEvent(recipients, bufferedEvent.event)
+                }
+            }
             bufferedProgramUpdates.forEach { update ->
                 val recipients = update.relatedStateIds
                     .flatMapTo(linkedSetOf()) { interestRegistry.subscribersFor(it) }
@@ -654,16 +693,15 @@ class CoroutineProgramScheduler(
                     publisher.publishProgramUpdate(recipients, update)
                 }
             }
-            val connectionId = connectionId
-            if (connectionId != null) {
-                bufferedUiEvents.forEach { event ->
-                    publisher.publishUiEvent(setOf(connectionId), event)
-                }
-            }
             bufferedDeltas.clear()
             bufferedProgramUpdates.clear()
             bufferedUiEvents.clear()
         }
+
+        private data class BufferedUiEvent(
+            val targetStateIds: Set<GameStateId>?,
+            val event: GameUiEvent,
+        )
     }
 
     private class ProgramStepCommand(

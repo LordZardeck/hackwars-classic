@@ -11,6 +11,7 @@ import com.hackwars.rewrite.hackscript.AttackEmptyTargetPettyCashEffect
 import com.hackwars.rewrite.hackscript.AttackEditTargetLogsEffect
 import com.hackwars.rewrite.hackscript.AttackFreezeTargetPortEffect
 import com.hackwars.rewrite.hackscript.AttackInstallTargetScriptEffect
+import com.hackwars.rewrite.hackscript.AttackSendMessageEffect
 import com.hackwars.rewrite.hackscript.AttackStealTargetFileEffect
 import com.hackwars.rewrite.hackscript.AttackSwitchTargetEffect
 import com.hackwars.rewrite.hackscript.FloatHookValue
@@ -747,6 +748,13 @@ internal class AttackTickCommand(
             )
         }
 
+        suspend fun publishAttackMessage(targetIp: String, message: String) {
+            context.publishUiEvent(
+                targetStateIds = setOf(GameStateId(targetIp)),
+                event = TextMessageUiEvent(message),
+            )
+        }
+
         suspend fun destroyCurrentTargetWatches() {
             if (currentTargetState.identity.isNpc || currentTargetState.isDestroyWatchesImmune()) {
                 return
@@ -1052,6 +1060,10 @@ internal class AttackTickCommand(
                         cancelRequested = true
                     }
 
+                    is AttackSendMessageEffect -> {
+                        publishAttackMessage(effect.targetIp, effect.message)
+                    }
+
                     is AttackCancelCurrentAttackEffect -> {
                         cancelRequested = true
                     }
@@ -1214,6 +1226,10 @@ internal class AttackTickCommand(
 
                         is AttackInstallTargetScriptEffect -> {
                             installCurrentTargetScript()
+                        }
+
+                        is AttackSendMessageEffect -> {
+                            publishAttackMessage(effect.targetIp, effect.message)
                         }
 
                         else -> Unit

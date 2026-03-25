@@ -103,6 +103,7 @@ class AttackScriptEngineTest {
         val continueOutcome = engine.execute(
             script = """
                 int main() {
+                    message("TARGET-IP", "hello");
                     editLogs("old", "new");
                     deleteLogs("REMOTE-IP");
                     destroyWatches();
@@ -120,6 +121,7 @@ class AttackScriptEngineTest {
         val finalizeOutcome = engine.execute(
             script = """
                 int main() {
+                    message("ATTACKER-IP", "done");
                     editLogs("finish", "done");
                     deleteLogs("OTHER-IP");
                     destroyWatches();
@@ -135,6 +137,7 @@ class AttackScriptEngineTest {
         assertTrue(continueOutcome.diagnostics.isEmpty())
         assertEquals(
             listOf(
+                AttackSendMessageEffect("TARGET-IP", "hello"),
                 AttackEditTargetLogsEffect("old", "new"),
                 AttackDeleteTargetLogsEffect("REMOTE-IP"),
                 AttackDestroyTargetWatchesEffect,
@@ -150,6 +153,7 @@ class AttackScriptEngineTest {
         assertTrue(finalizeOutcome.diagnostics.isEmpty())
         assertEquals(
             listOf(
+                AttackSendMessageEffect("ATTACKER-IP", "done"),
                 AttackEditTargetLogsEffect("finish", "done"),
                 AttackDeleteTargetLogsEffect("OTHER-IP"),
                 AttackDestroyTargetWatchesEffect,
@@ -229,6 +233,69 @@ class AttackScriptEngineTest {
 
         assertEquals(listOf(AttackBerserkEffect), assertNotNull(outcome.result).effects)
         assertEquals("HELPER_LIMIT_REACHED", outcome.diagnostics.single().code)
+    }
+
+    @Test
+    fun messageEmitsTypedEffectInEachPhase() {
+        val initialize = engine.execute(
+            script = """int main() { message("ATTACKER-IP", "init"); return 0; }""",
+            input = input(phase = AttackExecutionPhase.INITIALIZE),
+        )
+        val continuePhase = engine.execute(
+            script = """int main() { message("TARGET-IP", "tick"); return 0; }""",
+            input = input(phase = AttackExecutionPhase.CONTINUE),
+        )
+        val finalize = engine.execute(
+            script = """int main() { message("TARGET-IP", "finish"); return 0; }""",
+            input = input(phase = AttackExecutionPhase.FINALIZE),
+        )
+
+        assertEquals(listOf(AttackSendMessageEffect("ATTACKER-IP", "init")), assertNotNull(initialize.result).effects)
+        assertTrue(initialize.diagnostics.isEmpty())
+        assertEquals(listOf(AttackSendMessageEffect("TARGET-IP", "tick")), assertNotNull(continuePhase.result).effects)
+        assertTrue(continuePhase.diagnostics.isEmpty())
+        assertEquals(listOf(AttackSendMessageEffect("TARGET-IP", "finish")), assertNotNull(finalize.result).effects)
+        assertTrue(finalize.diagnostics.isEmpty())
+    }
+
+    @Test
+    fun messageIsOnlyEmittedOncePerExecution() {
+        val outcome = engine.execute(
+            script = """int main() { message("ATTACKER-IP", "one"); message("TARGET-IP", "two"); return 0; }""",
+            input = input(phase = AttackExecutionPhase.CONTINUE),
+        )
+
+        assertEquals(listOf(AttackSendMessageEffect("ATTACKER-IP", "one")), assertNotNull(outcome.result).effects)
+        assertEquals("HELPER_LIMIT_REACHED", outcome.diagnostics.single().code)
+    }
+
+    @Test
+    fun invalidMessageArgumentsProduceDiagnosticsWithoutCrashing() {
+        val invalidTarget = engine.execute(
+            script = """int main() { message("OTHER-IP", "hello"); return 0; }""",
+            input = input(phase = AttackExecutionPhase.CONTINUE),
+        )
+        val tooLong = engine.execute(
+            script = """int main() { message("TARGET-IP", "${"x".repeat(256)}"); return 0; }""",
+            input = input(phase = AttackExecutionPhase.CONTINUE),
+        )
+        val wrongCount = engine.execute(
+            script = """int main() { message("TARGET-IP"); return 0; }""",
+            input = input(phase = AttackExecutionPhase.CONTINUE),
+        )
+        val wrongTypes = engine.execute(
+            script = """int main() { message(1, true); return 0; }""",
+            input = input(phase = AttackExecutionPhase.CONTINUE),
+        )
+
+        assertEquals("INVALID_TARGET_IP", invalidTarget.diagnostics.single().code)
+        assertTrue(assertNotNull(invalidTarget.result).effects.isEmpty())
+        assertEquals("MESSAGE_TOO_LONG", tooLong.diagnostics.single().code)
+        assertTrue(assertNotNull(tooLong.result).effects.isEmpty())
+        assertEquals("BAD_ARGUMENT_COUNT", wrongCount.diagnostics.single().code)
+        assertTrue(assertNotNull(wrongCount.result).effects.isEmpty())
+        assertEquals("BAD_ARGUMENT_TYPE", wrongTypes.diagnostics.single().code)
+        assertTrue(assertNotNull(wrongTypes.result).effects.isEmpty())
     }
 
     @Test

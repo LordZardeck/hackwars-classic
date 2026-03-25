@@ -112,6 +112,13 @@ data object AttackStealTargetFileEffect : AttackRuntimeEffect
 @SerialName("attack_install_target_script")
 data object AttackInstallTargetScriptEffect : AttackRuntimeEffect
 
+@Serializable
+@SerialName("attack_send_message")
+data class AttackSendMessageEffect(
+    val targetIp: String,
+    val message: String,
+) : AttackRuntimeEffect
+
 data class AttackExecutionResult(
     val effects: List<AttackRuntimeEffect> = emptyList(),
 )
@@ -126,6 +133,7 @@ private data class AttackEngineState(
     val diagnostics: MutableList<HackScriptDiagnostic> = mutableListOf(),
     val effects: MutableList<AttackRuntimeEffect> = mutableListOf(),
     var berserkTriggered: Boolean = false,
+    var messageSent: Boolean = false,
 )
 
 private class AttackScriptHost(
@@ -288,6 +296,52 @@ private class AttackScriptHost(
                     )
                 } else {
                     state.effects += AttackInstallTargetScriptEffect
+                }
+                HackValue.IntValue(0)
+            }
+
+            "message" -> {
+                if (arguments.size != 2) {
+                    state.diagnostics += HackScriptDiagnostic(
+                        code = "BAD_ARGUMENT_COUNT",
+                        message = "message expects 2 string arguments.",
+                    )
+                } else if (arguments.any { it !is HackValue.StringValue }) {
+                    state.diagnostics += HackScriptDiagnostic(
+                        code = "BAD_ARGUMENT_TYPE",
+                        message = "message expects 2 string arguments.",
+                    )
+                } else if (state.messageSent) {
+                    state.diagnostics += HackScriptDiagnostic(
+                        code = "HELPER_LIMIT_REACHED",
+                        message = "message may only be used once per execution.",
+                    )
+                } else {
+                    val targetIp = (arguments[0] as HackValue.StringValue).value
+                    val message = (arguments[1] as HackValue.StringValue).value
+                    when {
+                        targetIp != state.input.sourceIp && targetIp != state.input.targetIp -> {
+                            state.diagnostics += HackScriptDiagnostic(
+                                code = "INVALID_TARGET_IP",
+                                message = "message target must be the current attacker or target ip.",
+                            )
+                        }
+
+                        message.length >= 256 -> {
+                            state.diagnostics += HackScriptDiagnostic(
+                                code = "MESSAGE_TOO_LONG",
+                                message = "message text must be shorter than 256 characters.",
+                            )
+                        }
+
+                        else -> {
+                            state.effects += AttackSendMessageEffect(
+                                targetIp = targetIp,
+                                message = message,
+                            )
+                            state.messageSent = true
+                        }
+                    }
                 }
                 HackValue.IntValue(0)
             }
