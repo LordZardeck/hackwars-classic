@@ -53,6 +53,32 @@ data class RequestCancelAttackPayload(
 )
 
 @Serializable
+data class RequestZombieAttackPayload(
+    @SerialName("targetIP")
+    val targetIp: String,
+    val targetPort: Int,
+    @SerialName("sourceIP")
+    val sourceIp: String? = null,
+    val sourcePort: Int,
+    @SerialName("I")
+    val secondaryPorts: List<Int?>? = null,
+    @SerialName("S")
+    val scripts: List<List<String?>?>? = null,
+    @SerialName("O")
+    val extraInfo: List<HookValue>? = null,
+    @SerialName("parentIP")
+    val parentIp: String,
+)
+
+@Serializable
+data class RequestZombieCancelAttackPayload(
+    val ip: String? = null,
+    val port: Int,
+    @SerialName("targetIP")
+    val targetIp: String,
+)
+
+@Serializable
 enum class AttackStartFailureCode {
     SOURCE_IP_MISMATCH,
     SOURCE_PORT_NOT_FOUND,
@@ -73,6 +99,31 @@ enum class AttackStartFailureCode {
 @Serializable
 enum class AttackCancelFailureCode {
     SOURCE_IP_MISMATCH,
+}
+
+@Serializable
+enum class ZombieAttackStartFailureCode {
+    CONTROLLER_IP_MISMATCH,
+    ZOMBIE_STATE_NOT_FOUND,
+    SELF_TARGET,
+    SOURCE_PORT_NOT_FOUND,
+    INVALID_SOURCE_PORT,
+    SOURCE_ALREADY_ATTACKING,
+    TARGET_NOT_FOUND,
+    TARGET_PORT_NOT_FOUND,
+    INVALID_TARGET_PORT,
+    TARGET_ALREADY_UNDER_ATTACK,
+    ACTIVE_BANK_REQUIRED,
+    INSUFFICIENT_PETTY_CASH,
+    ZOMBIE_OVERHEATED,
+    CPU_HEADROOM_EXCEEDED,
+    NOT_AUTHORIZED,
+}
+
+@Serializable
+enum class ZombieAttackCancelFailureCode {
+    CONTROLLER_IP_MISMATCH,
+    ZOMBIE_STATE_NOT_FOUND,
 }
 
 @Serializable
@@ -100,6 +151,37 @@ data class AttackCancelResponse(
     val hadActiveSession: Boolean,
     val message: String,
     val version: Long,
+)
+
+@Serializable
+data class ZombieAttackStartResponse(
+    val controllerStateId: GameStateId,
+    val zombieStateId: GameStateId,
+    val sourcePort: Int,
+    val targetStateId: GameStateId,
+    val targetPort: Int,
+    val accepted: Boolean,
+    val failureCode: ZombieAttackStartFailureCode? = null,
+    val message: String,
+    val chargedAmount: Double = 0.0,
+    val controllerPettyCashAfter: Double,
+    val zombieCpuLoadAfter: Double? = null,
+    val session: AttackSessionState? = null,
+    val controllerVersion: Long,
+    val zombieVersion: Long? = null,
+)
+
+@Serializable
+data class ZombieAttackCancelResponse(
+    val controllerStateId: GameStateId,
+    val zombieStateId: GameStateId,
+    val sourcePort: Int,
+    val accepted: Boolean,
+    val failureCode: ZombieAttackCancelFailureCode? = null,
+    val hadActiveSession: Boolean,
+    val message: String,
+    val controllerVersion: Long,
+    val zombieVersion: Long? = null,
 )
 
 @Serializable
@@ -141,6 +223,7 @@ internal data class AttackInitializeResult(
 internal data class ZombieAttackStartResult(
     val accepted: Boolean,
     val message: String,
+    val failureCode: ZombieAttackStartFailureCode? = null,
     val session: AttackSessionState? = null,
 )
 
@@ -148,6 +231,7 @@ internal data class ZombieAttackCancelResult(
     val accepted: Boolean,
     val hadActiveSession: Boolean,
     val message: String,
+    val failureCode: ZombieAttackCancelFailureCode? = null,
 )
 
 class RequestAttackCommand(
@@ -451,6 +535,125 @@ class RequestAttackDefaultCommand(
     }
 }
 
+class RequestZombieAttackCommand(
+    private val controllerStateId: GameStateId,
+    private val controllerIp: String,
+    private val zombieStateId: GameStateId,
+    private val targetStateId: GameStateId,
+    private val sourcePort: Int,
+    private val targetPort: Int,
+    private val loadout: AttackLoadout,
+    private val attackProgramRegistry: AttackProgramRegistry = NoOpAttackProgramRegistry,
+    private val clock: () -> Long = { System.currentTimeMillis() },
+) : RequestCommand<ZombieAttackStartResponse> {
+    override val name: String = "requestzombieattack"
+    override val lifetime: CommandLifetime = CommandLifetime.defaultRequest
+    override val targetStateIds: Set<GameStateId> = setOf(controllerStateId, zombieStateId, targetStateId)
+
+    override suspend fun execute(context: CommandContext): ZombieAttackStartResponse {
+        val controllerState = context.requireExistingState(controllerStateId)
+        if (controllerIp != controllerStateId.value) {
+            return zombieAttackStartFailure(
+                controllerState = controllerState,
+                zombieStateId = zombieStateId,
+                targetStateId = targetStateId,
+                sourcePort = sourcePort,
+                targetPort = targetPort,
+                code = ZombieAttackStartFailureCode.CONTROLLER_IP_MISMATCH,
+                message = "Controller ip $controllerIp does not match ${controllerStateId.value}.",
+            )
+        }
+
+        val zombieState = context.loadState(zombieStateId)
+        val result = context.request(
+            StartZombieAttackSessionCommand(
+                controllerStateId = controllerStateId,
+                zombieStateId = zombieStateId,
+                targetStateId = targetStateId,
+                sourcePort = sourcePort,
+                targetPort = targetPort,
+                loadout = loadout,
+                attackProgramRegistry = attackProgramRegistry,
+                clock = clock,
+            ),
+        )
+        val updatedController = context.requireExistingState(controllerStateId)
+        val updatedZombie = context.loadState(zombieStateId)
+        val response = ZombieAttackStartResponse(
+            controllerStateId = controllerStateId,
+            zombieStateId = zombieStateId,
+            sourcePort = sourcePort,
+            targetStateId = targetStateId,
+            targetPort = targetPort,
+            accepted = result.accepted,
+            failureCode = result.failureCode,
+            message = result.message,
+            chargedAmount = if (result.accepted) ZOMBIE_ATTACK_START_COST else 0.0,
+            controllerPettyCashAfter = updatedController.economy.pettyCash,
+            zombieCpuLoadAfter = updatedZombie?.runtime?.currentCpuLoad ?: zombieState?.runtime?.currentCpuLoad,
+            session = result.session,
+            controllerVersion = updatedController.version,
+            zombieVersion = updatedZombie?.version ?: zombieState?.version,
+        )
+        publishZombieAttackUiEvents(
+            context = context,
+            response = response,
+        )
+        return response
+    }
+}
+
+class RequestZombieCancelAttackCommand(
+    private val controllerStateId: GameStateId,
+    private val controllerIp: String,
+    private val zombieStateId: GameStateId,
+    private val sourcePort: Int,
+    private val attackProgramRegistry: AttackProgramRegistry = NoOpAttackProgramRegistry,
+) : RequestCommand<ZombieAttackCancelResponse> {
+    override val name: String = "requestzombiecancelattack"
+    override val lifetime: CommandLifetime = CommandLifetime.defaultRequest
+    override val targetStateIds: Set<GameStateId> = emptySet()
+
+    override suspend fun execute(context: CommandContext): ZombieAttackCancelResponse {
+        val controllerState = context.requireExistingState(controllerStateId)
+        if (controllerIp != controllerStateId.value) {
+            return ZombieAttackCancelResponse(
+                controllerStateId = controllerStateId,
+                zombieStateId = zombieStateId,
+                sourcePort = sourcePort,
+                accepted = false,
+                failureCode = ZombieAttackCancelFailureCode.CONTROLLER_IP_MISMATCH,
+                hadActiveSession = false,
+                message = "Controller ip $controllerIp does not match ${controllerStateId.value}.",
+                controllerVersion = controllerState.version,
+            )
+        }
+
+        val zombieState = context.loadState(zombieStateId)
+        val result = context.request(
+            CancelZombieAttackSessionCommand(
+                controllerStateId = controllerStateId,
+                zombieStateId = zombieStateId,
+                sourcePort = sourcePort,
+                attackProgramRegistry = attackProgramRegistry,
+            ),
+        )
+        val updatedController = context.requireExistingState(controllerStateId)
+        val updatedZombie = context.loadState(zombieStateId)
+        return ZombieAttackCancelResponse(
+            controllerStateId = controllerStateId,
+            zombieStateId = zombieStateId,
+            sourcePort = sourcePort,
+            accepted = result.accepted,
+            failureCode = result.failureCode,
+            hadActiveSession = result.hadActiveSession,
+            message = result.message,
+            controllerVersion = updatedController.version,
+            zombieVersion = updatedZombie?.version ?: zombieState?.version,
+        )
+    }
+}
+
 internal class StartZombieAttackSessionCommand(
     private val controllerStateId: GameStateId,
     private val zombieStateId: GameStateId,
@@ -469,11 +672,17 @@ internal class StartZombieAttackSessionCommand(
 
     override suspend fun execute(context: CommandContext): ZombieAttackStartResult {
         val controllerState = context.requireExistingState(controllerStateId)
-        val zombieState = context.requireExistingState(zombieStateId)
+        val zombieState = context.loadState(zombieStateId)
+            ?: return ZombieAttackStartResult(
+                accepted = false,
+                message = "zombie-state-missing",
+                failureCode = ZombieAttackStartFailureCode.ZOMBIE_STATE_NOT_FOUND,
+            )
         if (targetStateId == zombieStateId) {
             return ZombieAttackStartResult(
                 accepted = false,
                 message = "self-target",
+                failureCode = ZombieAttackStartFailureCode.SELF_TARGET,
             )
         }
 
@@ -481,17 +690,20 @@ internal class StartZombieAttackSessionCommand(
             ?: return ZombieAttackStartResult(
                 accepted = false,
                 message = "source-port-missing",
+                failureCode = ZombieAttackStartFailureCode.SOURCE_PORT_NOT_FOUND,
             )
         if (!source.isValidAttackSource()) {
             return ZombieAttackStartResult(
                 accepted = false,
                 message = "invalid-source-port",
+                failureCode = ZombieAttackStartFailureCode.INVALID_SOURCE_PORT,
             )
         }
         if (source.attacking || zombieState.combat.activeAttacksBySourcePort.containsKey(sourcePort)) {
             return ZombieAttackStartResult(
                 accepted = false,
                 message = "source-already-attacking",
+                failureCode = ZombieAttackStartFailureCode.SOURCE_ALREADY_ATTACKING,
             )
         }
 
@@ -499,40 +711,47 @@ internal class StartZombieAttackSessionCommand(
             ?: return ZombieAttackStartResult(
                 accepted = false,
                 message = "target-missing",
+                failureCode = ZombieAttackStartFailureCode.TARGET_NOT_FOUND,
             )
         val resolvedTargetPort = targetState.port(targetPort)
             ?: return ZombieAttackStartResult(
                 accepted = false,
                 message = "target-port-missing",
+                failureCode = ZombieAttackStartFailureCode.TARGET_PORT_NOT_FOUND,
             )
         if (!resolvedTargetPort.isValidAttackTarget(now = clock(), allowFrozen = false)) {
             return ZombieAttackStartResult(
                 accepted = false,
                 message = "invalid-target-port",
+                failureCode = ZombieAttackStartFailureCode.INVALID_TARGET_PORT,
             )
         }
         if (targetState.combat.incomingAttacksByTargetPort.containsKey(targetPort)) {
             return ZombieAttackStartResult(
                 accepted = false,
                 message = "target-already-under-attack",
+                failureCode = ZombieAttackStartFailureCode.TARGET_ALREADY_UNDER_ATTACK,
             )
         }
         if (!controllerState.hasActiveDefaultBankPort()) {
             return ZombieAttackStartResult(
                 accepted = false,
                 message = "controller-active-bank-required",
+                failureCode = ZombieAttackStartFailureCode.ACTIVE_BANK_REQUIRED,
             )
         }
         if (controllerState.economy.pettyCash < ZOMBIE_ATTACK_START_COST) {
             return ZombieAttackStartResult(
                 accepted = false,
                 message = "controller-insufficient-petty-cash",
+                failureCode = ZombieAttackStartFailureCode.INSUFFICIENT_PETTY_CASH,
             )
         }
         if (zombieState.isOverheated()) {
             return ZombieAttackStartResult(
                 accepted = false,
                 message = "zombie-overheated",
+                failureCode = ZombieAttackStartFailureCode.ZOMBIE_OVERHEATED,
             )
         }
 
@@ -541,6 +760,7 @@ internal class StartZombieAttackSessionCommand(
             return ZombieAttackStartResult(
                 accepted = false,
                 message = "cpu-headroom-exceeded",
+                failureCode = ZombieAttackStartFailureCode.CPU_HEADROOM_EXCEEDED,
             )
         }
 
@@ -563,6 +783,7 @@ internal class StartZombieAttackSessionCommand(
             return ZombieAttackStartResult(
                 accepted = false,
                 message = "zombie-not-authorized",
+                failureCode = ZombieAttackStartFailureCode.NOT_AUTHORIZED,
             )
         }
 
@@ -619,7 +840,13 @@ internal class CancelZombieAttackSessionCommand(
     override val targetStateIds: Set<GameStateId> = emptySet()
 
     override suspend fun execute(context: CommandContext): ZombieAttackCancelResult {
-        val zombieState = context.requireExistingState(zombieStateId)
+        val zombieState = context.loadState(zombieStateId)
+            ?: return ZombieAttackCancelResult(
+                accepted = false,
+                hadActiveSession = false,
+                message = "zombie-state-missing",
+                failureCode = ZombieAttackCancelFailureCode.ZOMBIE_STATE_NOT_FOUND,
+            )
         val session = zombieState.combat.activeAttacksBySourcePort[sourcePort]
         if (session == null || session.attackMode != AttackMode.ZOMBIE || session.controllerStateId != controllerStateId) {
             return ZombieAttackCancelResult(
@@ -1933,6 +2160,78 @@ internal class AttackProgramCommand(
             ),
         )
         attackProgramRegistry.unregister(programId)
+    }
+}
+
+private fun zombieAttackStartFailure(
+    controllerState: ComputerState,
+    zombieStateId: GameStateId,
+    targetStateId: GameStateId,
+    sourcePort: Int,
+    targetPort: Int,
+    code: ZombieAttackStartFailureCode,
+    message: String,
+): ZombieAttackStartResponse {
+    return ZombieAttackStartResponse(
+        controllerStateId = controllerState.id,
+        zombieStateId = zombieStateId,
+        sourcePort = sourcePort,
+        targetStateId = targetStateId,
+        targetPort = targetPort,
+        accepted = false,
+        failureCode = code,
+        message = message,
+        controllerPettyCashAfter = controllerState.economy.pettyCash,
+        controllerVersion = controllerState.version,
+    )
+}
+
+private suspend fun publishZombieAttackUiEvents(
+    context: CommandContext,
+    response: ZombieAttackStartResponse,
+) {
+    val events = when (response.failureCode) {
+        ZombieAttackStartFailureCode.INSUFFICIENT_PETTY_CASH -> listOf(
+            PopupUiEvent(
+                message = "It costs \$20 to attempt an attack from a zombie port.",
+                style = PopupUiStyle.ERROR,
+            ),
+        )
+
+        ZombieAttackStartFailureCode.SOURCE_ALREADY_ATTACKING -> listOf(
+            ZombieAttackUiEvent(
+                message = "Port ${response.sourcePort} is already performing an attack.",
+                zombieIp = response.zombieStateId.value,
+                sourcePort = response.sourcePort,
+            ),
+        )
+
+        ZombieAttackStartFailureCode.ZOMBIE_OVERHEATED -> listOf(
+            ZombieAttackUiEvent(
+                message = "Computer at ${response.zombieStateId.value} just overheated!",
+                zombieIp = response.zombieStateId.value,
+                sourcePort = response.sourcePort,
+            ),
+        )
+
+        ZombieAttackStartFailureCode.INVALID_SOURCE_PORT,
+        ZombieAttackStartFailureCode.INVALID_TARGET_PORT,
+        ZombieAttackStartFailureCode.TARGET_ALREADY_UNDER_ATTACK,
+        ZombieAttackStartFailureCode.NOT_AUTHORIZED -> listOf(
+            ZombieAttackUiEvent(
+                message = "You cannot access this port.",
+                zombieIp = response.zombieStateId.value,
+                sourcePort = response.sourcePort,
+            ),
+        )
+
+        else -> emptyList()
+    }
+    events.forEach { event ->
+        context.publishUiEvent(
+            targetStateIds = setOf(response.controllerStateId),
+            event = event,
+        )
     }
 }
 

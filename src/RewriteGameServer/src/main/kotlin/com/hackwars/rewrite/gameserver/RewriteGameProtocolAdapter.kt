@@ -82,6 +82,10 @@ import com.hackwars.rewrite.gamecore.RequestAttackCommand
 import com.hackwars.rewrite.gamecore.RequestAttackPayload
 import com.hackwars.rewrite.gamecore.RequestCancelAttackCommand
 import com.hackwars.rewrite.gamecore.RequestCancelAttackPayload
+import com.hackwars.rewrite.gamecore.RequestZombieAttackCommand
+import com.hackwars.rewrite.gamecore.RequestZombieAttackPayload
+import com.hackwars.rewrite.gamecore.RequestZombieCancelAttackCommand
+import com.hackwars.rewrite.gamecore.RequestZombieCancelAttackPayload
 import com.hackwars.rewrite.gamecore.RequestPageCommand
 import com.hackwars.rewrite.gamecore.RequestPagePayload
 import com.hackwars.rewrite.gamecore.RequestSaveCommand
@@ -159,6 +163,8 @@ import com.hackwars.rewrite.gamecore.WatchMutationResponse
 import com.hackwars.rewrite.gamecore.WebsiteRenderResponse
 import com.hackwars.rewrite.gamecore.WithdrawCommand
 import com.hackwars.rewrite.gamecore.WithdrawPayload
+import com.hackwars.rewrite.gamecore.ZombieAttackCancelResponse
+import com.hackwars.rewrite.gamecore.ZombieAttackStartResponse
 import com.hackwars.rewrite.gamecore.attackLoadoutFromLegacyPayload
 import com.hackwars.rewrite.persistence.JdbcNetworkDirectoryRepository
 import com.hackwars.rewrite.persistence.JdbcSearchCatalogRepository
@@ -426,6 +432,8 @@ class RewriteGameProtocolAdapter(
             is TriggerRequestResponse -> RewriteGameJson.encode(TriggerRequestResponse.serializer(), result)
             is AttackStartResponse -> RewriteGameJson.encode(AttackStartResponse.serializer(), result)
             is AttackCancelResponse -> RewriteGameJson.encode(AttackCancelResponse.serializer(), result)
+            is ZombieAttackStartResponse -> RewriteGameJson.encode(ZombieAttackStartResponse.serializer(), result)
+            is ZombieAttackCancelResponse -> RewriteGameJson.encode(ZombieAttackCancelResponse.serializer(), result)
             is ChangeDailyPayResponse -> RewriteGameJson.encode(ChangeDailyPayResponse.serializer(), result)
             is MutationAcceptedResponse -> RewriteGameJson.encode(MutationAcceptedResponse.serializer(), result)
             is CompileFileResponse -> RewriteGameJson.encode(CompileFileResponse.serializer(), result)
@@ -643,6 +651,36 @@ class RewriteGameProtocolAdapter(
                     RequestCancelAttackCommand(
                         attackerStateId = authenticatedStateId,
                         sourceIp = payload.ip,
+                        sourcePort = payload.port,
+                        attackProgramRegistry = attackProgramRegistry,
+                    )
+                }
+                .register("requestzombieattack") { input ->
+                    val payload = decodePayload(input, RequestZombieAttackPayload.serializer())
+                    val authenticatedStateId = requireAuthenticatedStateId(input)
+                    RequestZombieAttackCommand(
+                        controllerStateId = authenticatedStateId,
+                        controllerIp = payload.parentIp,
+                        zombieStateId = GameStateId(payload.sourceIp ?: authenticatedStateId.value),
+                        targetStateId = GameStateId(payload.targetIp),
+                        sourcePort = payload.sourcePort,
+                        targetPort = payload.targetPort,
+                        loadout = attackLoadoutFromLegacyPayload(
+                            secondaryPorts = payload.secondaryPorts,
+                            scripts = payload.scripts,
+                            extraInfo = payload.extraInfo,
+                        ),
+                        attackProgramRegistry = attackProgramRegistry,
+                        clock = clock,
+                    )
+                }
+                .register("requestzombiecancelattack") { input ->
+                    val payload = decodePayload(input, RequestZombieCancelAttackPayload.serializer())
+                    val authenticatedStateId = requireAuthenticatedStateId(input)
+                    RequestZombieCancelAttackCommand(
+                        controllerStateId = authenticatedStateId,
+                        controllerIp = payload.targetIp,
+                        zombieStateId = GameStateId(payload.ip ?: authenticatedStateId.value),
                         sourcePort = payload.port,
                         attackProgramRegistry = attackProgramRegistry,
                     )
@@ -1069,6 +1107,7 @@ private fun GameUiEvent.protocolEventType(): String = when (this) {
     is com.hackwars.rewrite.gamecore.PopupUiEvent -> "popup"
     is com.hackwars.rewrite.gamecore.TextMessageUiEvent -> "message"
     is com.hackwars.rewrite.gamecore.AttackMessageUiEvent -> "attack_message"
+    is com.hackwars.rewrite.gamecore.ZombieAttackUiEvent -> "zombie_attack"
 }
 
 private fun ProgramLifecycleStatus.toProtocolStatus(): ProgramStatus = when (this) {

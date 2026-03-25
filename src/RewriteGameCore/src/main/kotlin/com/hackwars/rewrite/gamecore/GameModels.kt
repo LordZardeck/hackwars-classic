@@ -1612,6 +1612,14 @@ data class AttackMessageUiEvent(
 ) : GameUiEvent
 
 @Serializable
+@SerialName("zombie_attack")
+data class ZombieAttackUiEvent(
+    val message: String,
+    val zombieIp: String,
+    val sourcePort: Int,
+) : GameUiEvent
+
+@Serializable
 sealed interface TriggerSelector {
     @Serializable
     @SerialName("by_index")

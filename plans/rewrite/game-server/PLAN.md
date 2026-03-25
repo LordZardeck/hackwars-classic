@@ -474,7 +474,7 @@
   - Zombie-session `ProgramUpdate` frames are now controller-scoped only, while zombie-host subscribers still receive their own normal state deltas.
 
 ### RW-GS-S5B2B2B3B2C3B - public zombie attack or cancel transport and UI
-- Status: `todo`
+- Status: `in_progress`
 - Owner: `unassigned`
 - Depends on: `RW-GS-S5B2B2B3B2C3A`
 - Allowed write scope: `:RewriteHackScript`, `:RewriteGameCore`, `:RewriteGameServer`, `:RewritePersistence`
@@ -484,6 +484,7 @@
 - Notes:
   - Owns public `requestzombieattack` and `requestzombiecancelattack` transport, correlated responses, listener scoping, and zombie-specific UI now that controller identity and runtime source attribution are stable.
   - Reuses the internal zombie runtime commands introduced in `RW-GS-S5B2B2B3B2C3A` instead of adding a second combat path.
+  - Publishes dedicated zombie start or cancel responses plus controller-scoped `zombie_attack` UI events while keeping running `ProgramUpdate` frames controller-only.
   - Keeps watch-side zombie compatibility and broader zombie UX polish deferred to the next slice.
 
 ### RW-GS-S5B2B2B3B2C3C - watch-side zombie compatibility and zombie UX polish
