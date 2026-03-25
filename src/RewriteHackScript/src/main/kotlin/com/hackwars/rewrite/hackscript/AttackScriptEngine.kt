@@ -36,7 +36,14 @@ class AttackScriptEngine(
     }
 }
 
+enum class AttackExecutionPhase {
+    INITIALIZE,
+    CONTINUE,
+    FINALIZE,
+}
+
 data class AttackExecutionInput(
+    val phase: AttackExecutionPhase,
     val sourceIp: String,
     val sourcePort: Int,
     val targetIp: String,
@@ -60,6 +67,35 @@ data class AttackAppendHostLogEffect(
     val message: String,
 ) : AttackRuntimeEffect
 
+@Serializable
+@SerialName("attack_edit_target_logs")
+data class AttackEditTargetLogsEffect(
+    val data: String,
+    val replace: String,
+) : AttackRuntimeEffect
+
+@Serializable
+@SerialName("attack_delete_target_logs")
+data class AttackDeleteTargetLogsEffect(
+    val sourceIp: String,
+) : AttackRuntimeEffect
+
+@Serializable
+@SerialName("attack_cancel_current_attack")
+data object AttackCancelCurrentAttackEffect : AttackRuntimeEffect
+
+@Serializable
+@SerialName("attack_freeze_target_port")
+data object AttackFreezeTargetPortEffect : AttackRuntimeEffect
+
+@Serializable
+@SerialName("attack_berserk")
+data object AttackBerserkEffect : AttackRuntimeEffect
+
+@Serializable
+@SerialName("attack_switch_target")
+data object AttackSwitchTargetEffect : AttackRuntimeEffect
+
 data class AttackExecutionResult(
     val effects: List<AttackRuntimeEffect> = emptyList(),
 )
@@ -73,6 +109,7 @@ private data class AttackEngineState(
     val input: AttackExecutionInput,
     val diagnostics: MutableList<HackScriptDiagnostic> = mutableListOf(),
     val effects: MutableList<AttackRuntimeEffect> = mutableListOf(),
+    var berserkTriggered: Boolean = false,
 )
 
 private class AttackScriptHost(
@@ -97,6 +134,93 @@ private class AttackScriptHost(
             "logMessage" -> {
                 ensure(arguments.size == 1, "BAD_ARGUMENT_COUNT", "logMessage expects 1 argument.")
                 state.effects += AttackAppendHostLogEffect(arguments[0].asString())
+                HackValue.IntValue(0)
+            }
+
+            "editLogs" -> {
+                ensure(arguments.size == 2, "BAD_ARGUMENT_COUNT", "editLogs expects 2 arguments.")
+                if (state.input.phase !in setOf(AttackExecutionPhase.CONTINUE, AttackExecutionPhase.FINALIZE)) {
+                    state.diagnostics += HackScriptDiagnostic(
+                        code = "UNSUPPORTED_PHASE",
+                        message = "editLogs is only supported during CONTINUE and FINALIZE.",
+                    )
+                } else {
+                    state.effects += AttackEditTargetLogsEffect(
+                        data = arguments[0].asString(),
+                        replace = arguments[1].asString(),
+                    )
+                }
+                HackValue.IntValue(0)
+            }
+
+            "deleteLogs" -> {
+                ensure(arguments.size == 1, "BAD_ARGUMENT_COUNT", "deleteLogs expects 1 argument.")
+                if (state.input.phase !in setOf(AttackExecutionPhase.CONTINUE, AttackExecutionPhase.FINALIZE)) {
+                    state.diagnostics += HackScriptDiagnostic(
+                        code = "UNSUPPORTED_PHASE",
+                        message = "deleteLogs is only supported during CONTINUE and FINALIZE.",
+                    )
+                } else {
+                    state.effects += AttackDeleteTargetLogsEffect(arguments[0].asString())
+                }
+                HackValue.IntValue(0)
+            }
+
+            "cancelAttack" -> {
+                ensure(arguments.isEmpty(), "BAD_ARGUMENT_COUNT", "cancelAttack expects 0 arguments.")
+                if (state.input.phase != AttackExecutionPhase.CONTINUE) {
+                    state.diagnostics += HackScriptDiagnostic(
+                        code = "UNSUPPORTED_PHASE",
+                        message = "cancelAttack is only supported during CONTINUE.",
+                    )
+                } else {
+                    state.effects += AttackCancelCurrentAttackEffect
+                }
+                HackValue.IntValue(0)
+            }
+
+            "freeze" -> {
+                ensure(arguments.isEmpty(), "BAD_ARGUMENT_COUNT", "freeze expects 0 arguments.")
+                if (state.input.phase != AttackExecutionPhase.CONTINUE) {
+                    state.diagnostics += HackScriptDiagnostic(
+                        code = "UNSUPPORTED_PHASE",
+                        message = "freeze is only supported during CONTINUE.",
+                    )
+                } else {
+                    state.effects += AttackFreezeTargetPortEffect
+                }
+                HackValue.IntValue(0)
+            }
+
+            "berserk" -> {
+                ensure(arguments.isEmpty(), "BAD_ARGUMENT_COUNT", "berserk expects 0 arguments.")
+                if (state.input.phase != AttackExecutionPhase.CONTINUE) {
+                    state.diagnostics += HackScriptDiagnostic(
+                        code = "UNSUPPORTED_PHASE",
+                        message = "berserk is only supported during CONTINUE.",
+                    )
+                } else if (state.berserkTriggered) {
+                    state.diagnostics += HackScriptDiagnostic(
+                        code = "HELPER_LIMIT_REACHED",
+                        message = "berserk may only be used once per execution.",
+                    )
+                } else {
+                    state.effects += AttackBerserkEffect
+                    state.berserkTriggered = true
+                }
+                HackValue.IntValue(0)
+            }
+
+            "switchAttack" -> {
+                ensure(arguments.isEmpty(), "BAD_ARGUMENT_COUNT", "switchAttack expects 0 arguments.")
+                if (state.input.phase != AttackExecutionPhase.CONTINUE) {
+                    state.diagnostics += HackScriptDiagnostic(
+                        code = "UNSUPPORTED_PHASE",
+                        message = "switchAttack is only supported during CONTINUE.",
+                    )
+                } else {
+                    state.effects += AttackSwitchTargetEffect
+                }
                 HackValue.IntValue(0)
             }
 

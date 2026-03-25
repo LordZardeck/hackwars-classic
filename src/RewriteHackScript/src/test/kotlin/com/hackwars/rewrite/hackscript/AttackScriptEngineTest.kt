@@ -31,6 +31,7 @@ class AttackScriptEngineTest {
                 }
             """.trimIndent(),
             input = input(
+                phase = AttackExecutionPhase.INITIALIZE,
                 targetHealth = 100.0,
                 iterations = 0,
             ),
@@ -38,6 +39,7 @@ class AttackScriptEngineTest {
         val continuePhase = engine.execute(
             script = """int main() { logMessage("" + getTargetHP()); logMessage("" + getIterations()); return 0; }""",
             input = input(
+                phase = AttackExecutionPhase.CONTINUE,
                 targetHealth = 88.5,
                 iterations = 3,
             ),
@@ -45,6 +47,7 @@ class AttackScriptEngineTest {
         val finalize = engine.execute(
             script = """int main() { logMessage("" + getTargetHP()); logMessage("" + getIterations()); return 0; }""",
             input = input(
+                phase = AttackExecutionPhase.FINALIZE,
                 targetHealth = 0.0,
                 iterations = 4,
             ),
@@ -88,7 +91,7 @@ class AttackScriptEngineTest {
     fun logMessageProducesTypedRuntimeEffect() {
         val outcome = engine.execute(
             script = """int main() { logMessage("attack"); return 0; }""",
-            input = input(),
+            input = input(phase = AttackExecutionPhase.CONTINUE),
         )
 
         val result = assertNotNull(outcome.result)
@@ -96,10 +99,103 @@ class AttackScriptEngineTest {
     }
 
     @Test
+    fun continueAndFinalizeHelpersProduceTypedEffectsInSupportedPhases() {
+        val continueOutcome = engine.execute(
+            script = """
+                int main() {
+                    editLogs("old", "new");
+                    deleteLogs("REMOTE-IP");
+                    switchAttack();
+                    cancelAttack();
+                    freeze();
+                    return 0;
+                }
+            """.trimIndent(),
+            input = input(phase = AttackExecutionPhase.CONTINUE),
+        )
+        val finalizeOutcome = engine.execute(
+            script = """
+                int main() {
+                    editLogs("finish", "done");
+                    deleteLogs("OTHER-IP");
+                    return 0;
+                }
+            """.trimIndent(),
+            input = input(phase = AttackExecutionPhase.FINALIZE),
+        )
+
+        assertTrue(continueOutcome.diagnostics.isEmpty())
+        assertEquals(
+            listOf(
+                AttackEditTargetLogsEffect("old", "new"),
+                AttackDeleteTargetLogsEffect("REMOTE-IP"),
+                AttackSwitchTargetEffect,
+                AttackCancelCurrentAttackEffect,
+                AttackFreezeTargetPortEffect,
+            ),
+            assertNotNull(continueOutcome.result).effects,
+        )
+        assertTrue(finalizeOutcome.diagnostics.isEmpty())
+        assertEquals(
+            listOf(
+                AttackEditTargetLogsEffect("finish", "done"),
+                AttackDeleteTargetLogsEffect("OTHER-IP"),
+            ),
+            assertNotNull(finalizeOutcome.result).effects,
+        )
+    }
+
+    @Test
+    fun unsupportedPhaseUsageAddsDiagnosticsButDoesNotCrash() {
+        val initializeDelete = engine.execute(
+            script = """int main() { deleteLogs("REMOTE-IP"); return 0; }""",
+            input = input(phase = AttackExecutionPhase.INITIALIZE),
+        )
+        val finalizeCancel = engine.execute(
+            script = """int main() { cancelAttack(); return 0; }""",
+            input = input(phase = AttackExecutionPhase.FINALIZE),
+        )
+        val initializeFreeze = engine.execute(
+            script = """int main() { freeze(); return 0; }""",
+            input = input(phase = AttackExecutionPhase.INITIALIZE),
+        )
+        val finalizeSwitch = engine.execute(
+            script = """int main() { switchAttack(); return 0; }""",
+            input = input(phase = AttackExecutionPhase.FINALIZE),
+        )
+        val initializeBerserk = engine.execute(
+            script = """int main() { berserk(); return 0; }""",
+            input = input(phase = AttackExecutionPhase.INITIALIZE),
+        )
+
+        assertEquals("UNSUPPORTED_PHASE", initializeDelete.diagnostics.single().code)
+        assertEquals(emptyList(), assertNotNull(initializeDelete.result).effects)
+        assertEquals("UNSUPPORTED_PHASE", finalizeCancel.diagnostics.single().code)
+        assertEquals(emptyList(), assertNotNull(finalizeCancel.result).effects)
+        assertEquals("UNSUPPORTED_PHASE", initializeFreeze.diagnostics.single().code)
+        assertEquals(emptyList(), assertNotNull(initializeFreeze.result).effects)
+        assertEquals("UNSUPPORTED_PHASE", finalizeSwitch.diagnostics.single().code)
+        assertEquals(emptyList(), assertNotNull(finalizeSwitch.result).effects)
+        assertEquals("UNSUPPORTED_PHASE", initializeBerserk.diagnostics.single().code)
+        assertEquals(emptyList(), assertNotNull(initializeBerserk.result).effects)
+    }
+
+    @Test
+    fun berserkIsOnlyEmittedOncePerExecution() {
+        val outcome = engine.execute(
+            script = """int main() { berserk(); berserk(); return 0; }""",
+            input = input(phase = AttackExecutionPhase.CONTINUE),
+        )
+
+        assertEquals(listOf(AttackBerserkEffect), assertNotNull(outcome.result).effects)
+        assertEquals("HELPER_LIMIT_REACHED", outcome.diagnostics.single().code)
+    }
+
+    @Test
     fun unsupportedHelpersProduceStructuredFailureWithoutCrashing() {
         val outcome = engine.execute(
-            script = """int main() { freeze(); return 0; }""",
-            input = input(),
+            script = """int main() { emptyPettyCash(); return 0; }""",
+            input = input(phase = AttackExecutionPhase.CONTINUE),
         )
 
         assertNull(outcome.result)
@@ -110,7 +206,7 @@ class AttackScriptEngineTest {
     fun parseFailuresReturnDiagnosticsWithoutThrowing() {
         val outcome = engine.execute(
             script = "int main( { return 0; }",
-            input = input(),
+            input = input(phase = AttackExecutionPhase.CONTINUE),
         )
 
         assertNull(outcome.result)
@@ -118,10 +214,12 @@ class AttackScriptEngineTest {
     }
 
     private fun input(
+        phase: AttackExecutionPhase,
         targetHealth: Double = 100.0,
         iterations: Int = 0,
     ): AttackExecutionInput {
         return AttackExecutionInput(
+            phase = phase,
             sourceIp = "ATTACKER-IP",
             sourcePort = 12,
             targetIp = "TARGET-IP",

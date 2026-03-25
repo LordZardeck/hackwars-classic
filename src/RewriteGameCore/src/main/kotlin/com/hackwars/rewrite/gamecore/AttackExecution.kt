@@ -1,10 +1,16 @@
 package com.hackwars.rewrite.gamecore
 
+import com.hackwars.rewrite.hackscript.AttackCancelCurrentAttackEffect
+import com.hackwars.rewrite.hackscript.AttackBerserkEffect
+import com.hackwars.rewrite.hackscript.AttackDeleteTargetLogsEffect
+import com.hackwars.rewrite.hackscript.AttackEditTargetLogsEffect
+import com.hackwars.rewrite.hackscript.AttackFreezeTargetPortEffect
 import com.hackwars.rewrite.hackscript.AttackAppendHostLogEffect
 import com.hackwars.rewrite.hackscript.AttackExecutionInput
 import com.hackwars.rewrite.hackscript.AttackRuntimeEffect
 import com.hackwars.rewrite.hackscript.AttackScriptEngine
 import com.hackwars.rewrite.hackscript.AttackScriptOutcome
+import com.hackwars.rewrite.hackscript.AttackSwitchTargetEffect
 import org.slf4j.LoggerFactory
 
 internal enum class AttackScriptPhase(
@@ -14,6 +20,14 @@ internal enum class AttackScriptPhase(
     CONTINUE(ProgramScriptSlot.CONTINUE),
     FINALIZE(ProgramScriptSlot.FINALIZE),
 }
+
+internal data class AttackRuntimeApplyResult(
+    val cancelRequested: Boolean = false,
+    val suppressDamage: Boolean = false,
+    val freezeRequested: Boolean = false,
+    val berserkRequested: Boolean = false,
+    val switchTargetRequested: Boolean = false,
+)
 
 internal class AttackRuntimeExecutor(
     private val engine: AttackScriptEngine = AttackScriptEngine(),
@@ -35,31 +49,51 @@ internal class AttackRuntimeExecutor(
     suspend fun apply(
         context: CommandContext,
         attackerStateId: GameStateId,
+        targetStateId: GameStateId,
         phase: AttackScriptPhase,
         input: AttackExecutionInput,
         outcome: AttackScriptOutcome,
-    ) {
+    ): AttackRuntimeApplyResult {
+        logDiagnostics(
+            attackerStateId = attackerStateId,
+            phase = phase,
+            input = input,
+            outcome = outcome,
+        )
         val result = outcome.result
         if (result == null) {
-            logger.warn(
-                "Rewrite attack {} script failed for attacker={} sourcePort={} target={}#{}: {}",
-                phase.name.lowercase(),
-                attackerStateId.value,
-                input.sourcePort,
-                input.targetIp,
-                input.targetPort,
-                outcome.diagnostics.joinToString { "${it.code}:${it.message}" },
-            )
-            return
+            return AttackRuntimeApplyResult()
         }
 
+        var cancelRequested = false
+        var suppressDamage = false
+        var freezeRequested = false
+        var berserkRequested = false
+        var switchTargetRequested = false
         result.effects.forEach { effect ->
-            applyEffect(
+            val helperCancelsAttack = phase == AttackScriptPhase.CONTINUE && (
+                effect is AttackEditTargetLogsEffect ||
+                    effect is AttackDeleteTargetLogsEffect
+                )
+            val effectResult = applyEffect(
                 effect = effect,
                 context = context,
                 attackerStateId = attackerStateId,
+                targetStateId = targetStateId,
             )
+            cancelRequested = effectResult.cancelRequested || helperCancelsAttack || cancelRequested
+            suppressDamage = effectResult.suppressDamage || suppressDamage
+            freezeRequested = effectResult.freezeRequested || freezeRequested
+            berserkRequested = effectResult.berserkRequested || berserkRequested
+            switchTargetRequested = effectResult.switchTargetRequested || switchTargetRequested
         }
+        return AttackRuntimeApplyResult(
+            cancelRequested = cancelRequested,
+            suppressDamage = suppressDamage,
+            freezeRequested = freezeRequested,
+            berserkRequested = berserkRequested,
+            switchTargetRequested = switchTargetRequested,
+        )
     }
 
     suspend fun execute(
@@ -68,19 +102,40 @@ internal class AttackRuntimeExecutor(
         sourcePort: Int,
         phase: AttackScriptPhase,
         input: AttackExecutionInput,
-    ) {
+    ): AttackRuntimeApplyResult {
         val outcome = evaluate(
             attackerState = attackerState,
             sourcePort = sourcePort,
             phase = phase,
             input = input,
-        ) ?: return
-        apply(
+        ) ?: return AttackRuntimeApplyResult()
+        return apply(
             context = context,
             attackerStateId = attackerState.id,
+            targetStateId = GameStateId(input.targetIp),
             phase = phase,
             input = input,
             outcome = outcome,
+        )
+    }
+
+    fun logDiagnostics(
+        attackerStateId: GameStateId,
+        phase: AttackScriptPhase,
+        input: AttackExecutionInput,
+        outcome: AttackScriptOutcome,
+    ) {
+        if (outcome.diagnostics.isEmpty()) {
+            return
+        }
+        logger.warn(
+            "Rewrite attack {} script produced diagnostics for attacker={} sourcePort={} target={}#{}: {}",
+            phase.name.lowercase(),
+            attackerStateId.value,
+            input.sourcePort,
+            input.targetIp,
+            input.targetPort,
+            outcome.diagnostics.joinToString { "${it.code}:${it.message}" },
         )
     }
 
@@ -88,7 +143,8 @@ internal class AttackRuntimeExecutor(
         effect: AttackRuntimeEffect,
         context: CommandContext,
         attackerStateId: GameStateId,
-    ) {
+        targetStateId: GameStateId,
+    ): AttackRuntimeApplyResult {
         when (effect) {
             is AttackAppendHostLogEffect -> {
                 val createdAt = clock()
@@ -104,7 +160,39 @@ internal class AttackRuntimeExecutor(
                         ),
                     ),
                 )
+                return AttackRuntimeApplyResult()
             }
+
+            is AttackEditTargetLogsEffect -> {
+                context.appendEvents(
+                    id = targetStateId,
+                    events = listOf(
+                        HostLogRenderedTextReplacedEvent(
+                            data = effect.data,
+                            replace = effect.replace,
+                        ),
+                    ),
+                )
+                return AttackRuntimeApplyResult()
+            }
+
+            is AttackDeleteTargetLogsEffect -> {
+                context.appendEvents(
+                    id = targetStateId,
+                    events = listOf(HostLogsDeletedBySourceIpEvent(sourceIp = effect.sourceIp)),
+                )
+                return AttackRuntimeApplyResult()
+            }
+
+            is AttackCancelCurrentAttackEffect -> return AttackRuntimeApplyResult(cancelRequested = true)
+            is AttackFreezeTargetPortEffect -> {
+                return AttackRuntimeApplyResult(
+                    suppressDamage = true,
+                    freezeRequested = true,
+                )
+            }
+            is AttackBerserkEffect -> return AttackRuntimeApplyResult(berserkRequested = true)
+            is AttackSwitchTargetEffect -> return AttackRuntimeApplyResult(switchTargetRequested = true)
         }
     }
 

@@ -84,6 +84,7 @@ class JdbcRewriteSeedSinkTest {
                     currentCpuLoad = 15.0,
                     cpuMax = 100.0,
                     memoryType = 0,
+                    freezeImmune = true,
                     activeQuestLabelsById = mapOf("quest-1" to "Starter Quest"),
                     seedSaveFileName = "migration",
                     enableWatchBinary = true,
@@ -237,6 +238,8 @@ class JdbcRewriteSeedSinkTest {
         assertTrue(state.filesystem.filesByPath["/Public/http"]?.scriptBundle?.scriptsBySlot?.isNotEmpty() == true)
         assertTrue(state.filesystem.filesByPath["/Public/http.bin"]?.scriptBundle?.scriptsBySlot?.isNotEmpty() == true)
         assertTrue(state.filesystem.filesByPath["/Public/http"]?.scriptBundle?.script(ProgramScriptSlot.ENTER)?.contains("logMessage") == true)
+        assertEquals(0.8, state.ports.single { it.number == 80 }.installedFirewall?.combatProfile?.httpDamageModifier)
+        assertEquals(1.5, state.ports.single { it.number == 80 }.installedFirewall?.combatProfile?.attackBackDamage)
         assertEquals("Seeded Local Page", state.website.title)
         assertEquals(2, state.website.votesAvailable)
         assertEquals(4, state.website.voteCount)
@@ -254,6 +257,7 @@ class JdbcRewriteSeedSinkTest {
         assertEquals(240.0, state.stats.experienceByFamily[ScriptFamily.SCANNING])
         assertEquals(80.0, state.stats.experienceByFamily[ScriptFamily.FIREWALL])
         assertEquals(15.0, state.runtime.currentCpuLoad)
+        assertTrue(state.hardware.equipmentSlots.values.any { it.freezeImmune })
         assertEquals(1, state.watches.watches.size)
         assertTrue(!state.watches.watches.single().enabled)
         assertTrue(state.watches.watches.single().scriptBundle?.script(ProgramScriptSlot.FIRE)?.contains("logMessage") == true)

@@ -97,6 +97,7 @@ data class SeedInventorySnapshot(
     val cpuMax: Double = 100.0,
     val memoryType: Int = 0,
     val watchCapacityBoost: Int = 0,
+    val freezeImmune: Boolean = false,
     val activeQuestLabelsById: Map<String, String> = emptyMap(),
     val seedSaveFileName: String? = null,
     val enableBanking: Boolean = true,

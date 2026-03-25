@@ -97,6 +97,7 @@ data class InstalledEquipment(
     val memoryBoost: Int = 0,
     val storageBoost: Int = 0,
     val watchCapacityBoost: Int = 0,
+    val freezeImmune: Boolean = false,
 )
 
 @Serializable
@@ -117,6 +118,16 @@ enum class FirewallKind {
 }
 
 @Serializable
+data class FirewallCombatProfile(
+    val bankDamageModifier: Double = 1.0,
+    val ftpDamageModifier: Double = 1.0,
+    val httpDamageModifier: Double = 1.0,
+    val attackDamageModifier: Double = 1.0,
+    val redirectDamageModifier: Double = 1.0,
+    val attackBackDamage: Double = 0.0,
+)
+
+@Serializable
 data class InstalledApplication(
     val name: String,
     val kind: ApplicationKind = ApplicationKind.GENERIC,
@@ -135,6 +146,7 @@ data class InstalledFirewall(
     val binaryPath: String = "",
     val strength: Int = 0,
     val cpuCost: Double = 0.0,
+    val combatProfile: FirewallCombatProfile = FirewallCombatProfile(),
 )
 
 @Serializable
@@ -146,6 +158,7 @@ data class PortState(
     val dummy: Boolean = false,
     val attacking: Boolean = false,
     val health: Double = 100.0,
+    val freezeExpiresAtEpochMillis: Long? = null,
     val note: String = "",
     val maxCpuCost: Double = 0.0,
     val installedApplication: InstalledApplication? = null,
@@ -305,6 +318,7 @@ data class CompiledBinaryMetadata(
     val outputName: String = "",
     val applicationKind: ApplicationKind? = null,
     val firewallKind: FirewallKind? = null,
+    val firewallCombatProfile: FirewallCombatProfile? = null,
     val equipmentSlot: EquipmentSlot? = null,
     val bankingApplication: Boolean = false,
     val strength: Int = 0,
@@ -364,6 +378,8 @@ data class AttackSessionState(
     val targetStateId: GameStateId,
     val targetPort: Int,
     val targetView: AttackTargetView = AttackTargetView(),
+    val targetCyclePorts: List<Int> = emptyList(),
+    val targetCycleCursor: Int = 0,
     val windowHandle: Int = 0,
     val secondaryPorts: List<Int> = emptyList(),
     val maliciousScripts: List<AttackScriptReference?> = emptyList(),
@@ -490,6 +506,18 @@ data class LogState(
     fun append(entry: ComputerLogEntry, maximumEntries: Int = 50): LogState {
         val nextEntries = (entries + entry).takeLast(maximumEntries)
         return copy(entries = nextEntries)
+    }
+
+    fun deleteBySourceIp(sourceIp: String): LogState {
+        return copy(entries = entries.filterNot { it.sourceIp == sourceIp })
+    }
+
+    fun replaceRenderedText(data: String, replace: String): LogState {
+        return copy(
+            entries = entries.map { entry ->
+                entry.copy(renderedLine = entry.renderedLine.replace(data, replace))
+            },
+        )
     }
 }
 
@@ -666,6 +694,49 @@ data class HostLogAppendedEvent(
         return state.copy(
             version = nextVersion,
             logs = state.logs.append(entry),
+            runtime = state.runtime.withMutationVersion(nextVersion),
+        )
+    }
+
+    override fun toProjection(state: ComputerState): DeltaProjection {
+        return StateSectionsDeltaProjection(logs = state.logs)
+    }
+}
+
+@Serializable
+@SerialName("host_logs_deleted_by_source_ip")
+data class HostLogsDeletedBySourceIpEvent(
+    val sourceIp: String,
+) : ComputerEvent {
+    override val changedPaths: Set<String> = setOf("logs.entries")
+    override val deltaKeys: Set<String> = setOf("logs")
+
+    override fun applyTo(state: ComputerState, nextVersion: Long): ComputerState {
+        return state.copy(
+            version = nextVersion,
+            logs = state.logs.deleteBySourceIp(sourceIp),
+            runtime = state.runtime.withMutationVersion(nextVersion),
+        )
+    }
+
+    override fun toProjection(state: ComputerState): DeltaProjection {
+        return StateSectionsDeltaProjection(logs = state.logs)
+    }
+}
+
+@Serializable
+@SerialName("host_log_rendered_text_replaced")
+data class HostLogRenderedTextReplacedEvent(
+    val data: String,
+    val replace: String,
+) : ComputerEvent {
+    override val changedPaths: Set<String> = setOf("logs.entries")
+    override val deltaKeys: Set<String> = setOf("logs")
+
+    override fun applyTo(state: ComputerState, nextVersion: Long): ComputerState {
+        return state.copy(
+            version = nextVersion,
+            logs = state.logs.replaceRenderedText(data, replace),
             runtime = state.runtime.withMutationVersion(nextVersion),
         )
     }

@@ -14,6 +14,8 @@ import com.hackwars.rewrite.gamecore.EquipmentInstalledEvent
 import com.hackwars.rewrite.gamecore.EquipmentSlot
 import com.hackwars.rewrite.gamecore.FileCompiledEvent
 import com.hackwars.rewrite.gamecore.FileSavedEvent
+import com.hackwars.rewrite.gamecore.FirewallCombatProfile
+import com.hackwars.rewrite.gamecore.FirewallInstalledEvent
 import com.hackwars.rewrite.gamecore.GameStateId
 import com.hackwars.rewrite.gamecore.ComputerLogEntry
 import com.hackwars.rewrite.gamecore.InstalledEquipment
@@ -45,6 +47,9 @@ import com.hackwars.rewrite.gamecore.StoreLiquidationLineItem
 import com.hackwars.rewrite.gamecore.StoreListingPurchasedEvent
 import com.hackwars.rewrite.gamecore.HttpExperienceAdjustedEvent
 import com.hackwars.rewrite.gamecore.HostLogAppendedEvent
+import com.hackwars.rewrite.gamecore.HostLogRenderedTextReplacedEvent
+import com.hackwars.rewrite.gamecore.HostLogsDeletedBySourceIpEvent
+import com.hackwars.rewrite.gamecore.InstalledFirewall
 import com.hackwars.rewrite.gamecore.NetworkState
 import com.hackwars.rewrite.gamecore.NetworkStateChangedEvent
 import com.hackwars.rewrite.gamecore.NpcCategory
@@ -130,6 +135,53 @@ class JdbcComputerStateRepositoryTest {
     }
 
     @Test
+    fun replaysTargetLogMutationEventsDeterministically() {
+        resetDatabase()
+        val stateId = GameStateId("TARGET-IP")
+        seedPlayerAndComputer(
+            stateId = stateId,
+            state = ComputerState.empty(id = stateId, playFabId = "PF-TARGET"),
+        )
+        val repository = JdbcComputerStateRepository(
+            connectionFactory = ::newConnection,
+            serializer = serializer,
+        )
+
+        val updated = runBlockingAppend(
+            repository,
+            stateId,
+            listOf(
+                HostLogAppendedEvent(
+                    ComputerLogEntry(
+                        createdAtEpochMillis = 1_000L,
+                        renderedLine = "1-Jan-1970 (12:00:01 AM) REMOTE touched host",
+                        sourceIp = "REMOTE-IP",
+                    ),
+                ),
+                HostLogAppendedEvent(
+                    ComputerLogEntry(
+                        createdAtEpochMillis = 2_000L,
+                        renderedLine = "1-Jan-1970 (12:00:02 AM) OTHER touched host",
+                        sourceIp = "OTHER-IP",
+                    ),
+                ),
+                HostLogRenderedTextReplacedEvent(
+                    data = "OTHER",
+                    replace = "LOCAL",
+                ),
+                HostLogsDeletedBySourceIpEvent(sourceIp = "REMOTE-IP"),
+            ),
+        )
+        val reloaded = runBlockingLoad(repository, stateId)
+
+        requireNotNull(reloaded)
+        assertEquals(updated, reloaded)
+        assertEquals(1, reloaded.logs.entries.size)
+        assertEquals("OTHER-IP", reloaded.logs.entries.single().sourceIp)
+        assertEquals("1-Jan-1970 (12:00:02 AM) LOCAL touched host", reloaded.logs.entries.single().renderedLine)
+    }
+
+    @Test
     fun replaysFilesystemAndInstallEventsIntoDeterministicTypedState() {
         resetDatabase()
         val stateId = GameStateId("LOCAL-IP")
@@ -204,6 +256,26 @@ class JdbcComputerStateRepositoryTest {
                 outputName = "cpu-card.bin",
             ),
         )
+        val firewallProfile = FirewallCombatProfile(
+            bankDamageModifier = 0.9,
+            ftpDamageModifier = 0.85,
+            httpDamageModifier = 0.75,
+            attackDamageModifier = 0.8,
+            redirectDamageModifier = 0.95,
+            attackBackDamage = 1.25,
+        )
+        val firewallBinary = StoredFile(
+            path = buildFilePath("/Public", "wall.bin"),
+            name = "wall.bin",
+            kind = StoredFileKind.FIREWALL_BINARY,
+            contents = "firewall payload",
+            quantity = 2,
+            compiledBinary = CompiledBinaryMetadata(
+                scriptFamily = ScriptFamily.FIREWALL,
+                outputName = "wall.bin",
+                firewallCombatProfile = firewallProfile,
+            ),
+        )
 
         runBlockingAppend(
             repository,
@@ -213,6 +285,7 @@ class JdbcComputerStateRepositoryTest {
                 FileSavedEvent(sourceFile),
                 FileSavedEvent(httpSource),
                 FileSavedEvent(equipmentFile),
+                FileSavedEvent(firewallBinary),
                 FileCompiledEvent(
                     sourceFilePath = sourceFile.path,
                     remainingSourceFile = sourceFile,
@@ -270,6 +343,26 @@ class JdbcComputerStateRepositoryTest {
                         binaryPath = equipmentFile.path,
                     ),
                 ),
+                FirewallInstalledEvent(
+                    sourceFilePath = firewallBinary.path,
+                    remainingSourceFile = firewallBinary.copy(quantity = 1),
+                    portState = PortState(
+                        number = 80,
+                        type = "http",
+                        defaultPort = true,
+                        installedApplication = InstalledApplication(
+                            name = "site.bin",
+                            kind = ApplicationKind.HTTP,
+                            binaryPath = httpBinary.path,
+                            scriptBundle = httpBinary.scriptBundle,
+                        ),
+                        installedFirewall = InstalledFirewall(
+                            name = "wall.bin",
+                            binaryPath = firewallBinary.path,
+                            combatProfile = firewallProfile,
+                        ),
+                    ),
+                ),
             ),
         )
 
@@ -284,6 +377,8 @@ class JdbcComputerStateRepositoryTest {
         assertEquals("bank.hws", reloaded.filesystem.filesByPath[sourceFile.path]?.name)
         assertEquals("bank.bin", reloaded.ports.single { it.number == 6 }.installedApplication?.name)
         assertEquals(httpBinary.scriptBundle, reloaded.ports.single { it.number == 80 }.installedApplication?.scriptBundle)
+        assertEquals(firewallProfile, reloaded.filesystem.filesByPath[firewallBinary.path]?.compiledBinary?.firewallCombatProfile)
+        assertEquals(firewallProfile, reloaded.ports.single { it.number == 80 }.installedFirewall?.combatProfile)
         assertEquals("cpu-card.bin", reloaded.hardware.equipmentSlots[EquipmentSlot.CPU]?.name)
         assertTrue(countRows("rewrite_state_snapshot") >= 1)
     }
@@ -375,6 +470,8 @@ class JdbcComputerStateRepositoryTest {
                 lastAppliedDamage = 2.2,
                 completed = false,
             ),
+            targetCyclePorts = listOf(25, 7, 8),
+            targetCycleCursor = 0,
             windowHandle = 4,
             secondaryPorts = listOf(7, 8),
             maliciousScripts = listOf(AttackScriptReference("/Public", "worm.bin")),
@@ -402,6 +499,7 @@ class JdbcComputerStateRepositoryTest {
                         "combat.activeAttacksBySourcePort.12",
                         "combat.incomingAttacksByTargetPort.25",
                         "ports.25.health",
+                        "ports.25.freezeExpiresAtEpochMillis",
                         "ports.12.attacking",
                         "runtime.currentCpuLoad",
                     ),
@@ -421,7 +519,10 @@ class JdbcComputerStateRepositoryTest {
                     ports = initialState.ports.map { port ->
                         when (port.number) {
                             12 -> port.copy(attacking = true)
-                            25 -> port.copy(health = 97.8)
+                            25 -> port.copy(
+                                health = 97.8,
+                                freezeExpiresAtEpochMillis = 12_000L,
+                            )
                             else -> port
                         }
                     },
@@ -438,9 +539,12 @@ class JdbcComputerStateRepositoryTest {
         assertEquals(90.0, reloaded.economy.pettyCash)
         assertTrue(reloaded.ports.single { it.number == 12 }.attacking)
         assertEquals(97.8, reloaded.ports.single { it.number == 25 }.health)
+        assertEquals(12_000L, reloaded.ports.single { it.number == 25 }.freezeExpiresAtEpochMillis)
         assertEquals(8.0, reloaded.runtime.currentCpuLoad)
         assertEquals(2.2, reloaded.stats.experienceByFamily[ScriptFamily.ATTACK])
         assertEquals("attack-session-1", reloaded.combat.activeAttacksBySourcePort.getValue(12).programId)
+        assertEquals(listOf(25, 7, 8), reloaded.combat.activeAttacksBySourcePort.getValue(12).targetCyclePorts)
+        assertEquals(0, reloaded.combat.activeAttacksBySourcePort.getValue(12).targetCycleCursor)
         assertEquals(97.8, reloaded.combat.activeAttacksBySourcePort.getValue(12).targetView.health)
         assertEquals(2.2, reloaded.combat.activeAttacksBySourcePort.getValue(12).targetView.lastAppliedDamage)
         assertEquals(stateId, reloaded.combat.incomingAttacksByTargetPort.getValue(25).attackerStateId)
@@ -476,6 +580,7 @@ class JdbcComputerStateRepositoryTest {
                             slot = EquipmentSlot.PCI,
                             name = "watch-booster.bin",
                             watchCapacityBoost = 3,
+                            freezeImmune = true,
                         ),
                     ),
                 ),
@@ -560,6 +665,7 @@ class JdbcComputerStateRepositoryTest {
             reloaded.watches.watches.single().scriptBundle?.script(ProgramScriptSlot.FIRE),
         )
         assertEquals(3, reloaded.hardware.equipmentSlots[EquipmentSlot.PCI]?.watchCapacityBoost)
+        assertTrue(reloaded.hardware.equipmentSlots[EquipmentSlot.PCI]?.freezeImmune == true)
         assertEquals(5.0, reloaded.runtime.currentCpuLoad)
         assertTrue(countRows("rewrite_state_snapshot") >= 1)
     }

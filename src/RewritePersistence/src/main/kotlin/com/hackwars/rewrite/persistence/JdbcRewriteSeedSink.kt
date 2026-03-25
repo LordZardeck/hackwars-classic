@@ -6,6 +6,7 @@ import com.hackwars.rewrite.gamecore.CompiledBinaryMetadata
 import com.hackwars.rewrite.gamecore.ComputerState
 import com.hackwars.rewrite.gamecore.EconomyState
 import com.hackwars.rewrite.gamecore.EquipmentSlot
+import com.hackwars.rewrite.gamecore.FirewallCombatProfile
 import com.hackwars.rewrite.gamecore.GameStateId
 import com.hackwars.rewrite.gamecore.InstalledApplication
 import com.hackwars.rewrite.gamecore.InstalledEquipment
@@ -458,6 +459,14 @@ class JdbcRewriteSeedSink(
                             binaryPath = "/system/seed-http-wall.bin",
                             strength = 12,
                             cpuCost = 2.0,
+                            combatProfile = FirewallCombatProfile(
+                                bankDamageModifier = 0.9,
+                                ftpDamageModifier = 0.95,
+                                httpDamageModifier = 0.8,
+                                attackDamageModifier = 0.85,
+                                redirectDamageModifier = 0.9,
+                                attackBackDamage = 1.5,
+                            ),
                         ),
                     ),
                 )
@@ -477,6 +486,18 @@ class JdbcRewriteSeedSink(
                         binaryPath = "/system/watch-capacity-card.bin",
                         watchCapacityBoost = payload.watchCapacityBoost,
                     ),
+                )
+            }
+            if (payload.freezeImmune) {
+                val currentAgp = this[EquipmentSlot.AGP]
+                put(
+                    EquipmentSlot.AGP,
+                    (currentAgp ?: InstalledEquipment(
+                        slot = EquipmentSlot.AGP,
+                        name = "freeze-shield.bin",
+                        maker = "rewrite-import",
+                        binaryPath = "/system/freeze-shield.bin",
+                    )).copy(freezeImmune = true),
                 )
             }
         }
@@ -601,7 +622,7 @@ class JdbcRewriteSeedSink(
                 val activeQuestsJson = payload.activeQuestLabelsById.entries.joinToString(prefix = "{", postfix = "}") {
                     "\"${it.key}\":\"${it.value}\""
                 }
-                """{"type":"inventory","computerId":"${payload.computerId}","notes":$notesJson,"websiteTitle":"${payload.websiteTitle}","websiteBody":"${payload.websiteBody}","lastLoginAtEpochMillis":${payload.lastLoginAtEpochMillis ?: "null"},"votesAvailable":${payload.votesAvailable},"voteCount":${payload.voteCount},"totalLevel":${payload.totalLevel},"noobProtectionLevel":${payload.noobProtectionLevel},"pettyCash":${payload.pettyCash},"bankMoney":${payload.bankMoney},"currentNetworkName":"${payload.currentNetworkName}","allowedNetworks":$allowedNetworksJson,"lastNetworkSwitchAtEpochMillis":${payload.lastNetworkSwitchAtEpochMillis},"scanningExperience":${payload.scanningExperience},"firewallExperience":${payload.firewallExperience},"currentCpuLoad":${payload.currentCpuLoad},"cpuMax":${payload.cpuMax},"memoryType":${payload.memoryType},"watchCapacityBoost":${payload.watchCapacityBoost},"activeQuestLabelsById":$activeQuestsJson,"seedSaveFileName":"${payload.seedSaveFileName.orEmpty()}","enableBanking":${payload.enableBanking},"enableFtp":${payload.enableFtp},"enableHttp":${payload.enableHttp},"enableWatchBinary":${payload.enableWatchBinary},"seedInstalledWatchCount":${payload.seedInstalledWatchCount},"seedEnabledWatchCount":${payload.seedEnabledWatchCount},"seedWatchCpuCost":${payload.seedWatchCpuCost}}"""
+                """{"type":"inventory","computerId":"${payload.computerId}","notes":$notesJson,"websiteTitle":"${payload.websiteTitle}","websiteBody":"${payload.websiteBody}","lastLoginAtEpochMillis":${payload.lastLoginAtEpochMillis ?: "null"},"votesAvailable":${payload.votesAvailable},"voteCount":${payload.voteCount},"totalLevel":${payload.totalLevel},"noobProtectionLevel":${payload.noobProtectionLevel},"pettyCash":${payload.pettyCash},"bankMoney":${payload.bankMoney},"currentNetworkName":"${payload.currentNetworkName}","allowedNetworks":$allowedNetworksJson,"lastNetworkSwitchAtEpochMillis":${payload.lastNetworkSwitchAtEpochMillis},"scanningExperience":${payload.scanningExperience},"firewallExperience":${payload.firewallExperience},"currentCpuLoad":${payload.currentCpuLoad},"cpuMax":${payload.cpuMax},"memoryType":${payload.memoryType},"watchCapacityBoost":${payload.watchCapacityBoost},"freezeImmune":${payload.freezeImmune},"activeQuestLabelsById":$activeQuestsJson,"seedSaveFileName":"${payload.seedSaveFileName.orEmpty()}","enableBanking":${payload.enableBanking},"enableFtp":${payload.enableFtp},"enableHttp":${payload.enableHttp},"enableWatchBinary":${payload.enableWatchBinary},"seedInstalledWatchCount":${payload.seedInstalledWatchCount},"seedEnabledWatchCount":${payload.seedEnabledWatchCount},"seedWatchCpuCost":${payload.seedWatchCpuCost}}"""
             }
         }
     }

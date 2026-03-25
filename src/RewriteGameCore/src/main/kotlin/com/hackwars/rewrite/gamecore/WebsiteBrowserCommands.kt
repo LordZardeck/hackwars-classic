@@ -133,9 +133,9 @@ class RequestWebpageCommand(
 
     override suspend fun execute(context: CommandContext): WebsiteRenderResponse {
         val targetState = context.loadState(targetStateId) ?: return fallbackWebsite(targetStateId)
-        val installedApplication = targetState.activeDefaultApplication(ApplicationKind.HTTP)
+        val installedApplication = targetState.activeDefaultApplication(ApplicationKind.HTTP, clock())
             ?: return fallbackWebsite(targetStateId, targetState.version)
-        if (!targetState.hasActiveDefaultApplicationPort(ApplicationKind.HTTP)) {
+        if (!targetState.hasActiveDefaultApplicationPort(ApplicationKind.HTTP, clock())) {
             return fallbackWebsite(targetStateId, targetState.version)
         }
 
@@ -174,9 +174,9 @@ class SubmitWebpageCommand(
 
     override suspend fun execute(context: CommandContext): WebsiteRenderResponse {
         val targetState = context.loadState(targetStateId) ?: return fallbackWebsite(targetStateId)
-        val installedApplication = targetState.activeDefaultApplication(ApplicationKind.HTTP)
+        val installedApplication = targetState.activeDefaultApplication(ApplicationKind.HTTP, clock())
             ?: return fallbackWebsite(targetStateId, targetState.version)
-        if (!targetState.hasActiveDefaultApplicationPort(ApplicationKind.HTTP)) {
+        if (!targetState.hasActiveDefaultApplicationPort(ApplicationKind.HTTP, clock())) {
             return fallbackWebsite(targetStateId, targetState.version)
         }
 
@@ -214,7 +214,7 @@ class ExitWebpageCommand(
 
     override suspend fun execute(context: CommandContext) {
         val targetState = context.loadState(targetStateId) ?: return
-        val installedApplication = targetState.activeDefaultApplication(ApplicationKind.HTTP) ?: return
+        val installedApplication = targetState.activeDefaultApplication(ApplicationKind.HTTP, clock()) ?: return
         val executionResult = httpHookRuntime.onExit(
             HttpHookRequest(
                 sourceStateId = sourceStateId,
@@ -239,6 +239,7 @@ class ExitWebpageCommand(
 class VoteForWebsiteCommand(
     private val voterStateId: GameStateId,
     private val targetStateId: GameStateId,
+    private val clock: () -> Long = { System.currentTimeMillis() },
 ) : RequestCommand<VoteResponse> {
     override val name: String = "vote"
     override val lifetime: CommandLifetime = CommandLifetime.defaultRequest
@@ -262,7 +263,7 @@ class VoteForWebsiteCommand(
         require(voterState.website.votesAvailable > 0) {
             "No website votes are currently available."
         }
-        require(targetState.hasActiveDefaultApplicationPort(ApplicationKind.HTTP)) {
+        require(targetState.hasActiveDefaultApplicationPort(ApplicationKind.HTTP, clock())) {
             "Target ${targetStateId.value} does not have an active default HTTP site."
         }
 
@@ -403,18 +404,26 @@ private fun ComputerState.canRenderStoreListing(): Boolean {
     return hasActiveDefaultBankPort() && hasActiveDefaultApplicationPort(ApplicationKind.FTP)
 }
 
-private fun ComputerState.hasActiveDefaultApplicationPort(kind: ApplicationKind): Boolean {
+private fun ComputerState.hasActiveDefaultApplicationPort(
+    kind: ApplicationKind,
+    now: Long = System.currentTimeMillis(),
+): Boolean {
     return ports.any { port ->
         port.defaultPort &&
             port.enabled &&
+            !port.isFrozenAt(now) &&
             port.installedApplication?.kind == kind
     }
 }
 
-private fun ComputerState.activeDefaultApplication(kind: ApplicationKind): InstalledApplication? {
+private fun ComputerState.activeDefaultApplication(
+    kind: ApplicationKind,
+    now: Long = System.currentTimeMillis(),
+): InstalledApplication? {
     return ports.firstOrNull { port ->
         port.defaultPort &&
             port.enabled &&
+            !port.isFrozenAt(now) &&
             port.installedApplication?.kind == kind
     }?.installedApplication
 }

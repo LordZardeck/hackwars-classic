@@ -130,6 +130,7 @@ class RequestSecondaryDirectoryCommand(
     private val targetStateId: GameStateId,
     private val path: String?,
     private val portNumber: Int,
+    private val clock: () -> Long = { System.currentTimeMillis() },
 ) : RequestCommand<SecondaryDirectoryListingResponse> {
     override val name: String = "requestsecondarydirectory"
     override val lifetime: CommandLifetime = CommandLifetime.defaultRequest
@@ -139,6 +140,12 @@ class RequestSecondaryDirectoryCommand(
         val states = context.loadStates(targetStateIds)
         val requesterState = states[stateId] ?: ComputerState.empty(stateId, playerIp = stateId.value)
         val targetState = states[targetStateId] ?: ComputerState.empty(targetStateId, playerIp = targetStateId.value)
+        targetState.requireRemotePortAccess(
+            portNumber = portNumber,
+            now = clock(),
+            allowFrozen = true,
+            commandName = name,
+        )
         val normalizedPath = normalizeDirectoryPath(path, requesterState.filesystem.currentPath)
         val listing = targetState.filesystem.listDirectory(normalizedPath)
         return SecondaryDirectoryListingResponse(
@@ -644,6 +651,7 @@ class InstallFirewallCommand(
             binaryPath = source.path,
             strength = metadata.strength,
             cpuCost = source.cpuCost,
+            combatProfile = metadata.firewallCombatProfile ?: FirewallCombatProfile(),
         )
         val updatedPort = (existingPort ?: PortState(number = portNumber)).copy(
             installedFirewall = installedFirewall,
@@ -1334,9 +1342,33 @@ private fun InstalledFirewall.toStoredFile(): StoredFile {
         price = 0.0,
         compiledBinary = CompiledBinaryMetadata(
             firewallKind = kind,
+            firewallCombatProfile = combatProfile,
             strength = strength,
         ),
     )
+}
+
+internal fun PortState.isFrozenAt(now: Long): Boolean {
+    val freezeExpiry = freezeExpiresAtEpochMillis ?: return false
+    return freezeExpiry > now
+}
+
+internal fun ComputerState.requireRemotePortAccess(
+    portNumber: Int,
+    now: Long,
+    allowFrozen: Boolean,
+    commandName: String,
+): PortState {
+    val portState = requireNotNull(port(portNumber)) {
+        "Target port $portNumber does not exist on ${id.value} for $commandName."
+    }
+    require(portState.enabled && !portState.dummy) {
+        "Target port $portNumber is not available for $commandName."
+    }
+    require(allowFrozen || !portState.isFrozenAt(now)) {
+        "Target port $portNumber is frozen on ${id.value} for $commandName."
+    }
+    return portState
 }
 
 private data class SoldStoreFile(

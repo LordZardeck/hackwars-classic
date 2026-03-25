@@ -288,7 +288,7 @@
 - Notes:
   - Owns passive `WatchKind.HEALTH` auto-fire on combat-driven port-health loss using the same installed-watch runtime and single-pass evaluation model as the earlier watch slices.
   - Health watchers now execute only from typed combat damage, refresh baselines on non-overheated matching ports, and keep heal or recovery-driven baseline resets deferred to a later runtime or heal slice.
-  - Must not regress the explicit and passive petty-cash or scan behavior from earlier watch slices while `RW-GS-S5B2B2` remains deferred for richer combat helpers and firewall behavior.
+  - Must not regress the explicit and passive petty-cash or scan behavior from earlier watch slices while the richer post-`RW-GS-S5B2A` combat-helper work remains deferred.
 
 ### RW-GS-S5B1 - Attack start/cancel program foundation
 - Status: `done`
@@ -329,22 +329,61 @@
   - Keeps the effect surface intentionally narrow in this tranche: attack scripts can read typed combat context and append attacker-side host logs only.
   - Preserves the deterministic damage and attack-XP loop from `RW-GS-S5B2A`; parse/runtime failures are non-fatal and do not cancel the outer attack flow.
 
-### RW-GS-S5B2B2 - Richer combat helpers and firewall behavior
-- Status: `todo`
-- Owner: `unassigned`
+### RW-GS-S5B2B2A - Attack log finalizers and continue-time cancel helper
+- Status: `in_progress`
+- Owner: `codex`
 - Depends on: `RW-GS-S5B2B1`
 - Allowed write scope: `:RewriteHackScript`, `:RewriteGameCore`, `:RewriteGameServer`, `:RewritePersistence`
 - Verification command: `./gradlew :RewriteHackScript:test :RewriteGameCore:test :RewritePersistence:test :RewriteGameServer:test :RewriteTestKit:integrationTest`
 - Artifacts: `build/reports/tests/test`
 - Commit rule: `single green commit only`
 - Notes:
-  - Owns richer firewall combat behavior, broader attack-side helpers, and any follow-on target-side combat semantics beyond the deterministic base loop plus installed attack-script runtime delivered in `RW-GS-S5B2A` and `RW-GS-S5B2B1`.
-  - Keeps `launchnetworkattack` deferred until the rewrite has a typed redirecting or shipping-port model.
+  - Adds the first target-side attack-script helper effects only: `editLogs(data, replace)`, `deleteLogs(ip)`, and a safe continue-time `cancelAttack()` helper.
+  - `CONTINUE` helper finalizers still allow the current deterministic damage, attack-XP, and health-watch pass before bilateral cleanup and an attacker-scoped `CANCELLED` update.
+  - `FINALIZE` helper effects are limited to target log mutation before normal completion cleanup and the attacker-scoped `COMPLETED` update.
+
+### RW-GS-S5B2B2B1 - Freeze helper and deterministic firewall combat core
+- Status: `in_progress`
+- Owner: `codex`
+- Depends on: `RW-GS-S5B2B2A`
+- Allowed write scope: `:RewriteHackScript`, `:RewriteGameCore`, `:RewriteGameServer`, `:RewritePersistence`
+- Verification command: `./gradlew :RewriteHackScript:test :RewriteGameCore:test :RewritePersistence:test :RewriteGameServer:test :RewriteTestKit:integrationTest`
+- Artifacts: `build/reports/tests/test`
+- Commit rule: `single green commit only`
+- Notes:
+  - Adds typed deterministic firewall combat data, fixed attack-back, target-port freeze state, equipment freeze immunity, and the installed attack-script `freeze()` helper.
+  - Preserves the deterministic base damage loop, attack XP, bilateral cleanup, and health-watch auto-fire already delivered in earlier combat and watch slices.
+  - Keeps richer control helpers and the heavier target-side mutation helpers deferred behind the next follow-on sub-slices.
+
+### RW-GS-S5B2B2B2 - Berserk and switchAttack retargeting
+- Status: `in_progress`
+- Owner: `codex`
+- Depends on: `RW-GS-S5B2B2B1`
+- Allowed write scope: `:RewriteHackScript`, `:RewriteGameCore`, `:RewriteGameServer`, `:RewritePersistence`
+- Verification command: `./gradlew :RewriteHackScript:test :RewriteGameCore:test :RewritePersistence:test :RewritePersistence:migrationTest :RewriteGameServer:test :RewriteTestKit:integrationTest rewriteCheck`
+- Artifacts: `build/reports/tests/test`
+- Commit rule: `single green commit only`
+- Notes:
+  - Adds the installed attack-script `berserk()` helper as an extra deterministic damage pass with self-damage and extra attack XP before the normal tick damage loop.
+  - Adds `switchAttack()` as same-state deterministic retargeting across the persisted target ring `[initialTargetPort] + secondaryPorts`, while preserving the running session, iteration count, fee, and reserved CPU state.
+  - Keeps broader target-side economy, watch, file, social, and redirect or zombie-linked behavior deferred to `RW-GS-S5B2B2B3`.
+
+### RW-GS-S5B2B2B3 - Target-side economy, watch, file, and social attack helpers
+- Status: `todo`
+- Owner: `unassigned`
+- Depends on: `RW-GS-S5B2B2B2`
+- Allowed write scope: `:RewriteHackScript`, `:RewriteGameCore`, `:RewriteGameServer`, `:RewritePersistence`
+- Verification command: `./gradlew :RewriteHackScript:test :RewriteGameCore:test :RewritePersistence:test :RewriteGameServer:test :RewriteTestKit:integrationTest`
+- Artifacts: `build/reports/tests/test`
+- Commit rule: `single green commit only`
+- Notes:
+  - Owns the deferred attack-script helpers that mutate target economy, watches, files, or social or message state after the core combat and control helpers are stable.
+  - Keeps `launchnetworkattack`, redirecting or shipping-port semantics, and zombie-linked behavior deferred until the rewrite has the needed typed port and network models.
 
 ### RW-GS-S5C - Redirect, zombie, and combat cleanup
 - Status: `todo`
 - Owner: `unassigned`
-- Depends on: `RW-GS-S5B2B2`
+- Depends on: `RW-GS-S5B2B2B3`
 - Allowed write scope: `:RewriteGameCore`, `:RewriteGameServer`
 - Verification command: `./gradlew :RewriteGameCore:test :RewriteGameServer:test`
 - Artifacts: `build/reports/tests/test`

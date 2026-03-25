@@ -11,13 +11,13 @@ import kotlin.test.assertTrue
 
 class FilesystemInstallCommandsTest {
     @Test
-    fun requestDirectorySecondaryDirectoryAndFileAreReadOnlyAndNormalizeBlankPaths() = runTest {
+    fun requestDirectorySecondaryDirectoryAndFileAreReadOnlyAndAllowFrozenSecondaryDirectoryAccess() = runTest {
         val stateId = GameStateId("LOCAL-IP")
         val targetId = GameStateId("TARGET-IP")
         val repository = InMemoryComputerStateRepository(
             seededStates = mapOf(
                 stateId to localState(stateId),
-                targetId to targetState(targetId),
+                targetId to targetState(targetId, freezeExpiresAtEpochMillis = Long.MAX_VALUE),
             ),
         )
         val interests = InMemoryInterestRegistry()
@@ -262,10 +262,46 @@ class FilesystemInstallCommandsTest {
 
         requireNotNull(state)
         assertEquals("wall.bin", response.installedFirewall.name)
+        assertEquals(0.75, response.installedFirewall.combatProfile.httpDamageModifier)
+        assertEquals(1.25, response.installedFirewall.combatProfile.attackBackDamage)
         assertEquals("/firewalls/OldWall.bin", response.returnedFirewall?.path)
         assertNotNull(state.filesystem.filesByPath["/firewalls/OldWall.bin"])
         assertEquals("wall.bin", state.ports.single { it.number == 19 }.installedFirewall?.name)
+        assertEquals(0.75, state.ports.single { it.number == 19 }.installedFirewall?.combatProfile?.httpDamageModifier)
         assertEquals(setOf("filesystem", "ports"), publisher.deltas.single().second.deltaKeys)
+    }
+
+    @Test
+    fun firewallBinaryDecompileAndInstallPreserveCombatProfile() = runTest {
+        val stateId = GameStateId("LOCAL-IP")
+        val decompileRepository = InMemoryComputerStateRepository(seededStates = mapOf(stateId to localState(stateId)))
+        val decompileInterests = InMemoryInterestRegistry()
+        decompileInterests.register("conn-1", stateId)
+        val decompileDispatcher = DefaultCommandDispatcher(decompileRepository, decompileInterests)
+        val installRepository = InMemoryComputerStateRepository(seededStates = mapOf(stateId to localState(stateId)))
+        val installInterests = InMemoryInterestRegistry()
+        installInterests.register("conn-2", stateId)
+        val installDispatcher = DefaultCommandDispatcher(installRepository, installInterests)
+
+        val decompile = decompileDispatcher.request(
+            command = DecompileFileCommand(stateId = stateId, path = "/Public", fileName = "wall.bin"),
+            metadata = CommandMetadata(connectionId = "conn-1"),
+        )
+        val install = installDispatcher.request(
+            command = InstallFirewallCommand(
+                stateId = stateId,
+                path = "/Public",
+                fileName = "wall.bin",
+                portNumber = 19,
+            ),
+            metadata = CommandMetadata(connectionId = "conn-2"),
+        )
+
+        assertEquals(0.9, decompile.decompiledFile.compiledBinary?.firewallCombatProfile?.bankDamageModifier)
+        assertEquals(0.75, decompile.decompiledFile.compiledBinary?.firewallCombatProfile?.httpDamageModifier)
+        assertEquals(1.25, decompile.decompiledFile.compiledBinary?.firewallCombatProfile?.attackBackDamage)
+        assertEquals(0.75, install.installedFirewall.combatProfile.httpDamageModifier)
+        assertEquals(1.25, install.installedFirewall.combatProfile.attackBackDamage)
     }
 
     @Test
@@ -393,6 +429,14 @@ class FilesystemInstallCommandsTest {
                         firewallKind = FirewallKind.CUSTOM,
                         outputName = "wall.bin",
                         strength = 9,
+                        firewallCombatProfile = FirewallCombatProfile(
+                            bankDamageModifier = 0.9,
+                            ftpDamageModifier = 0.85,
+                            httpDamageModifier = 0.75,
+                            attackDamageModifier = 0.8,
+                            redirectDamageModifier = 0.95,
+                            attackBackDamage = 1.25,
+                        ),
                     ),
                 ),
             )
@@ -424,7 +468,10 @@ class FilesystemInstallCommandsTest {
         )
     }
 
-    private fun targetState(stateId: GameStateId): ComputerState {
+    private fun targetState(
+        stateId: GameStateId,
+        freezeExpiresAtEpochMillis: Long? = null,
+    ): ComputerState {
         var filesystem = ComputerState.empty(id = stateId, playerIp = stateId.value).filesystem
             .withCurrentPath("/Secrets")
             .ensureDirectory("/Secrets")
@@ -439,6 +486,7 @@ class FilesystemInstallCommandsTest {
         return ComputerState.empty(id = stateId, playerIp = stateId.value).copy(
             filesystem = filesystem,
             ports = listOf(
+                PortState(number = 17, type = "ftp", freezeExpiresAtEpochMillis = freezeExpiresAtEpochMillis),
                 PortState(number = 22, type = "ssh"),
                 PortState(number = 80, type = "http"),
                 PortState(number = 443, type = "https"),

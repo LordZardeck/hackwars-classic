@@ -111,8 +111,10 @@ class RewriteGameProtocolAdapterTest {
     }
 
     @Test
-    fun requestSecondaryDirectoryReturnsOneTypedResponseWithoutSubscriptions() = runTest {
-        val fixture = createFixture()
+    fun requestSecondaryDirectoryStillSucceedsAgainstFrozenTargetPortWithoutSubscriptions() = runTest {
+        val fixture = createFixture(
+            targetState = targetState(freezeExpiresAtEpochMillis = Long.MAX_VALUE),
+        )
         val connection = fixture.authenticatedConnection()
 
         connection.send(
@@ -394,11 +396,14 @@ class RewriteGameProtocolAdapterTest {
         assertEquals("/firewalls/OldWall.bin", response.returnedFirewall?.path)
     }
 
-    private fun TestScope.createFixture(): Fixture {
+    private fun TestScope.createFixture(
+        localState: ComputerState = localState(),
+        targetState: ComputerState = targetState(),
+    ): Fixture {
         val repository = InMemoryComputerStateRepository(
             seededStates = mapOf(
-                GameStateId("LOCAL-IP") to localState(),
-                GameStateId("TARGET-IP") to targetState(),
+                GameStateId("LOCAL-IP") to localState,
+                GameStateId("TARGET-IP") to targetState,
             ),
         )
         val interests = InMemoryInterestRegistry()
@@ -508,6 +513,12 @@ class RewriteGameProtocolAdapterTest {
     }
 
     private fun targetState(): ComputerState {
+        return targetState(freezeExpiresAtEpochMillis = null)
+    }
+
+    private fun targetState(
+        freezeExpiresAtEpochMillis: Long?,
+    ): ComputerState {
         var filesystem = ComputerState.empty(
             id = GameStateId("TARGET-IP"),
             playerIp = "TARGET-IP",
@@ -524,6 +535,7 @@ class RewriteGameProtocolAdapterTest {
         return ComputerState.empty(GameStateId("TARGET-IP"), playerIp = "TARGET-IP").copy(
             filesystem = filesystem,
             ports = listOf(
+                PortState(number = 17, type = "ftp", freezeExpiresAtEpochMillis = freezeExpiresAtEpochMillis),
                 PortState(number = 22, type = "ssh"),
                 PortState(number = 80, type = "http"),
                 PortState(number = 443, type = "https"),

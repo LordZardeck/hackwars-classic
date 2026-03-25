@@ -1,14 +1,24 @@
 package com.hackwars.rewrite.gamecore
 
+import com.hackwars.rewrite.hackscript.AttackExecutionPhase
 import com.hackwars.rewrite.hackscript.AttackExecutionInput
+import com.hackwars.rewrite.hackscript.AttackAppendHostLogEffect
+import com.hackwars.rewrite.hackscript.AttackBerserkEffect
+import com.hackwars.rewrite.hackscript.AttackCancelCurrentAttackEffect
+import com.hackwars.rewrite.hackscript.AttackDeleteTargetLogsEffect
+import com.hackwars.rewrite.hackscript.AttackEditTargetLogsEffect
+import com.hackwars.rewrite.hackscript.AttackFreezeTargetPortEffect
+import com.hackwars.rewrite.hackscript.AttackSwitchTargetEffect
 import com.hackwars.rewrite.hackscript.HookValue
 import java.util.UUID
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import org.slf4j.LoggerFactory
 import kotlin.math.min
 import kotlin.time.Duration.Companion.seconds
 
 private const val ATTACK_START_COST: Double = 10.0
+private const val ATTACK_FREEZE_DURATION_MILLIS: Long = 10_000L
 private val ATTACK_PROGRAM_TICK_INTERVAL = 180.seconds
 private val ATTACK_PROGRAM_LIFETIME = 450.seconds
 
@@ -135,6 +145,7 @@ class RequestAttackCommand(
 
     override suspend fun execute(context: CommandContext): AttackStartResponse {
         val attackerState = context.requireExistingState(attackerStateId)
+        val now = clock()
         if (sourceIp != attackerStateId.value) {
             return failure(
                 attackerState = attackerState,
@@ -183,7 +194,7 @@ class RequestAttackCommand(
                 code = AttackStartFailureCode.TARGET_PORT_NOT_FOUND,
                 message = "Target port $targetPort does not exist on ${targetStateId.value}.",
             )
-        if (!resolvedTargetPort.isValidAttackTarget()) {
+        if (!resolvedTargetPort.isValidAttackTarget(now = now, allowFrozen = false)) {
             return failure(
                 attackerState = attackerState,
                 code = AttackStartFailureCode.INVALID_TARGET_PORT,
@@ -252,6 +263,7 @@ class RequestAttackCommand(
                 sourcePort = sourcePort,
                 programId = programId,
                 attackProgramRegistry = attackProgramRegistry,
+                clock = clock,
             ),
         )
         attackProgramRegistry.register(attackerStateId, sourcePort, programId, handle)
@@ -440,6 +452,11 @@ internal class AttackInitializeCommand(
             targetStateId = targetStateId,
             targetPort = targetPort,
             targetView = targetView,
+            targetCyclePorts = buildTargetCyclePorts(
+                initialTargetPort = targetPort,
+                secondaryPorts = loadout.secondaryPorts,
+            ),
+            targetCycleCursor = 0,
             windowHandle = windowHandle,
             secondaryPorts = loadout.secondaryPorts,
             maliciousScripts = loadout.maliciousScripts,
@@ -498,6 +515,7 @@ internal class AttackInitializeCommand(
             sourcePort = sourcePort,
             phase = AttackScriptPhase.INITIALIZE,
             input = updatedAttacker.toAttackExecutionInput(
+                phase = AttackExecutionPhase.INITIALIZE,
                 sourcePort = sourcePort,
                 targetView = session.targetView,
                 iterations = 0,
@@ -512,6 +530,8 @@ internal class AttackTickCommand(
     private val targetStateId: GameStateId,
     private val sourcePort: Int,
     private val attackRuntimeExecutor: AttackRuntimeExecutor = DefaultAttackRuntimeExecutor,
+    private val firewallCombatResolver: FirewallCombatResolver = DefaultFirewallCombatResolver,
+    private val clock: () -> Long = { System.currentTimeMillis() },
 ) : RequestCommand<ProgramExecutionStep> {
     override val name: String = "attackcontinue"
     override val lifetime: CommandLifetime = CommandLifetime.defaultRequest
@@ -519,7 +539,22 @@ internal class AttackTickCommand(
 
     override suspend fun execute(context: CommandContext): ProgramExecutionStep {
         val attackerState = context.requireExistingState(attackerStateId)
-        val session = attackerState.combat.activeAttacksBySourcePort[sourcePort]
+        val sourcePortState = attackerState.port(sourcePort)
+        if (sourcePortState == null) {
+            context.request(
+                AttackReleaseCommand(
+                    attackerStateId = attackerStateId,
+                    targetStateId = targetStateId,
+                    sourcePort = sourcePort,
+                ),
+            )
+            return ProgramExecutionStep(
+                status = ProgramLifecycleStatus.CANCELLED,
+                progress = ProgramProgress(message = "source port missing"),
+                relatedStateIds = setOf(attackerStateId),
+            )
+        }
+        val session = attackerState.combat.activeAttacksBySourcePort[sourcePort]?.withResolvedTargetCycle()
         if (session == null) {
             context.request(
                 AttackReleaseCommand(
@@ -541,7 +576,7 @@ internal class AttackTickCommand(
         if (
             targetState == null ||
             targetPortState == null ||
-            !targetPortState.isValidAttackTarget() ||
+            !targetPortState.isValidAttackTarget(now = clock(), allowFrozen = true) ||
             incoming == null ||
             incoming.attackerStateId != attackerStateId ||
             incoming.attackerSourcePort != sourcePort
@@ -561,8 +596,7 @@ internal class AttackTickCommand(
             )
         }
 
-        val previousHealth = targetPortState.health
-        if (previousHealth <= 0.0) {
+        if (targetPortState.health <= 0.0) {
             context.request(
                 AttackReleaseCommand(
                     attackerStateId = attackerStateId,
@@ -581,89 +615,283 @@ internal class AttackTickCommand(
             )
         }
 
-        val currentTargetView = targetState.buildAttackTargetView(
-            targetPort = session.targetPort,
-            lastAppliedDamage = session.targetView.lastAppliedDamage,
+        val initialSession: AttackSessionState = session
+        val initialTargetState: ComputerState = targetState
+        val initialTargetPortState: PortState = targetPortState
+        val currentTargetView = initialTargetState.buildAttackTargetView(
+            targetPort = initialSession.targetPort,
+            lastAppliedDamage = initialSession.targetView.lastAppliedDamage,
             completed = false,
-            healthOverride = previousHealth,
+            healthOverride = initialTargetPortState.health,
+        )
+        val continueInput = attackerState.toAttackExecutionInput(
+            phase = AttackExecutionPhase.CONTINUE,
+            sourcePort = sourcePort,
+            targetView = currentTargetView,
+            iterations = initialSession.iterationCount + 1,
         )
         val continueOutcome = attackRuntimeExecutor.evaluate(
             attackerState = attackerState,
             sourcePort = sourcePort,
             phase = AttackScriptPhase.CONTINUE,
-            input = attackerState.toAttackExecutionInput(
-                sourcePort = sourcePort,
-                targetView = currentTargetView,
-                iterations = session.iterationCount + 1,
-            ),
+            input = continueInput,
         )
-
         val baseDamage = attackerState.attackBaseDamage()
-        val appliedDamage = min(baseDamage, previousHealth)
-        val newHealth = (previousHealth - appliedDamage).coerceAtLeast(0.0)
-        val completed = newHealth == 0.0
-        val updatedTargetPort = targetPortState.copy(health = newHealth)
-        val updatedTargetPorts = targetState.ports.upsertPort(updatedTargetPort, targetState.economy.defaultBankPort)
-        val updatedTargetCombat = if (completed) {
-            targetState.combat.removeIncomingAttack(session.targetPort)
-        } else {
-            targetState.combat
-        }
-        context.appendEvents(
-            id = targetStateId,
-            events = listOf(
-                CombatStateUpdatedEvent(
-                    changedPathList = buildSet {
-                        add("ports.${session.targetPort}.health")
-                        if (completed) {
-                            add("combat.incomingAttacksByTargetPort.${session.targetPort}")
-                        }
-                    },
-                    deltaKeyList = buildSet {
-                        add("ports")
-                        if (completed) {
-                            add("combat")
-                        }
-                    },
-                    combat = updatedTargetCombat,
-                    ports = updatedTargetPorts,
-                    currentCpuLoad = targetState.runtime.currentCpuLoad,
-                    includePorts = true,
-                ),
-            ),
-        )
-        context.emitPassiveHealthChange(
-            targetStateId = targetStateId,
-            sourceIp = attackerStateId.value,
-            portNumber = session.targetPort,
-            sourcePort = sourcePort,
-            previousHealth = previousHealth,
-            newHealth = newHealth,
-        )
-        if (continueOutcome != null) {
-            attackRuntimeExecutor.apply(
-                context = context,
-                attackerStateId = attackerStateId,
-                phase = AttackScriptPhase.CONTINUE,
-                input = attackerState.toAttackExecutionInput(
-                    sourcePort = sourcePort,
-                    targetView = currentTargetView,
-                    iterations = session.iterationCount + 1,
-                ),
-                outcome = continueOutcome,
+        val nextIteration = initialSession.iterationCount + 1
+        var currentSession: AttackSessionState = initialSession
+        var currentTargetCombat: CombatState = initialTargetState.combat
+        var currentTargetPorts: List<PortState> = initialTargetState.ports
+        var currentTargetState: ComputerState = initialTargetState
+        var currentTargetPortState: PortState = initialTargetPortState
+        var currentAttackerPorts: List<PortState> = attackerState.ports
+        var currentSourcePortState: PortState = sourcePortState
+        var cancelRequested = false
+        var suppressNormalDamage = false
+        var attackXpDelta = 0.0
+        var completed = false
+        var lastAppliedDamage = 0.0
+
+        fun refreshTargetState() {
+            currentTargetState = targetState.copy(
+                combat = currentTargetCombat,
+                ports = currentTargetPorts,
             )
         }
+
+        fun replaceTargetCombat(combat: CombatState) {
+            currentTargetCombat = combat
+            refreshTargetState()
+        }
+
+        fun replaceTargetPort(port: PortState) {
+            currentTargetPortState = port
+            currentTargetPorts = currentTargetPorts.upsertPort(port, targetState.economy.defaultBankPort)
+            refreshTargetState()
+        }
+
+        fun replaceSourcePort(port: PortState) {
+            currentSourcePortState = port
+            currentAttackerPorts = currentAttackerPorts.upsertPort(port, attackerState.economy.defaultBankPort)
+        }
+
+        suspend fun applyAttackerHealthLoss(
+            sourceIpForTrigger: String,
+            sourcePortForTrigger: Int,
+            amount: Double,
+        ) {
+            val previousHealth = currentSourcePortState.health
+            val appliedLoss = min(amount, previousHealth)
+            val newHealth = (previousHealth - appliedLoss).coerceAtLeast(0.0)
+            if (newHealth == previousHealth) {
+                return
+            }
+            replaceSourcePort(currentSourcePortState.copy(health = newHealth))
+            context.emitPassiveHealthChange(
+                targetStateId = attackerStateId,
+                sourceIp = sourceIpForTrigger,
+                portNumber = sourcePort,
+                sourcePort = sourcePortForTrigger,
+                previousHealth = previousHealth,
+                newHealth = newHealth,
+            )
+        }
+
+        suspend fun applyDamagePass(
+            resolution: FirewallCombatResolution,
+            awardAttackXp: Boolean,
+            directSelfDamage: Double = 0.0,
+        ): Boolean {
+            val previousHealth = currentTargetPortState.health
+            val appliedDamage = min(resolution.targetDamage, previousHealth)
+            val newHealth = (previousHealth - appliedDamage).coerceAtLeast(0.0)
+            if (newHealth != previousHealth) {
+                replaceTargetPort(currentTargetPortState.copy(health = newHealth))
+                context.emitPassiveHealthChange(
+                    targetStateId = targetStateId,
+                    sourceIp = attackerStateId.value,
+                    portNumber = currentSession.targetPort,
+                    sourcePort = sourcePort,
+                    previousHealth = previousHealth,
+                    newHealth = newHealth,
+                )
+            }
+            lastAppliedDamage = appliedDamage
+            if (awardAttackXp) {
+                attackXpDelta += baseDamage
+            }
+            if (resolution.attackBackDamage > 0.0) {
+                applyAttackerHealthLoss(
+                    sourceIpForTrigger = targetStateId.value,
+                    sourcePortForTrigger = currentSession.targetPort,
+                    amount = resolution.attackBackDamage,
+                )
+            }
+            if (directSelfDamage > 0.0) {
+                applyAttackerHealthLoss(
+                    sourceIpForTrigger = attackerStateId.value,
+                    sourcePortForTrigger = sourcePort,
+                    amount = directSelfDamage,
+                )
+            }
+            completed = newHealth == 0.0
+            return completed
+        }
+
+        if (continueOutcome != null) {
+            attackRuntimeExecutor.logDiagnostics(
+                attackerStateId = attackerStateId,
+                phase = AttackScriptPhase.CONTINUE,
+                input = continueInput,
+                outcome = continueOutcome,
+            )
+            for (effect in continueOutcome.result?.effects.orEmpty()) {
+                when (effect) {
+                    is AttackAppendHostLogEffect -> {
+                        val createdAt = clock()
+                        context.appendEvents(
+                            id = attackerStateId,
+                            events = listOf(
+                                HostLogAppendedEvent(
+                                    entry = ComputerLogEntry(
+                                        createdAtEpochMillis = createdAt,
+                                        renderedLine = renderLegacyLogLine(createdAt, effect.message),
+                                        sourceIp = attackerStateId.value,
+                                    ),
+                                ),
+                            ),
+                        )
+                    }
+
+                    is AttackEditTargetLogsEffect -> {
+                        context.appendEvents(
+                            id = targetStateId,
+                            events = listOf(
+                                HostLogRenderedTextReplacedEvent(
+                                    data = effect.data,
+                                    replace = effect.replace,
+                                ),
+                            ),
+                        )
+                        cancelRequested = true
+                    }
+
+                    is AttackDeleteTargetLogsEffect -> {
+                        context.appendEvents(
+                            id = targetStateId,
+                            events = listOf(HostLogsDeletedBySourceIpEvent(sourceIp = effect.sourceIp)),
+                        )
+                        cancelRequested = true
+                    }
+
+                    is AttackCancelCurrentAttackEffect -> {
+                        cancelRequested = true
+                    }
+
+                    is AttackFreezeTargetPortEffect -> {
+                        suppressNormalDamage = true
+                        if (!currentTargetState.isFreezeImmune()) {
+                            val freezeExpiresAtEpochMillis = clock() + ATTACK_FREEZE_DURATION_MILLIS
+                            if (freezeExpiresAtEpochMillis != currentTargetPortState.freezeExpiresAtEpochMillis) {
+                                replaceTargetPort(
+                                    currentTargetPortState.copy(
+                                        freezeExpiresAtEpochMillis = freezeExpiresAtEpochMillis,
+                                    ),
+                                )
+                            }
+                        }
+                    }
+
+                    is AttackSwitchTargetEffect -> {
+                        val nextTarget = currentSession.findNextSwitchTarget(
+                            targetState = currentTargetState,
+                            attackerStateId = attackerStateId,
+                            sourcePort = sourcePort,
+                            now = clock(),
+                        )
+                        if (nextTarget == null) {
+                            logger.warn(
+                                "Rewrite attack continue script could not switch target for attacker={} sourcePort={} target={}#{}.",
+                                attackerStateId.value,
+                                sourcePort,
+                                targetStateId.value,
+                                currentSession.targetPort,
+                            )
+                        } else {
+                            val (nextTargetPort, nextTargetCursor) = nextTarget
+                            replaceTargetCombat(
+                                currentTargetCombat
+                                    .removeIncomingAttack(currentSession.targetPort)
+                                    .withIncomingAttack(
+                                        IncomingAttackState(
+                                            attackerStateId = attackerStateId,
+                                            attackerSourcePort = sourcePort,
+                                            targetPort = nextTargetPort,
+                                            startedAtEpochMillis = currentSession.startedAtEpochMillis,
+                                            windowHandle = currentSession.windowHandle,
+                                        ),
+                                    ),
+                            )
+                            currentTargetPortState = requireNotNull(currentTargetState.port(nextTargetPort)) {
+                                "Target port $nextTargetPort disappeared during switchAttack on ${targetStateId.value}."
+                            }
+                            lastAppliedDamage = 0.0
+                            currentSession = currentSession.copy(
+                                targetPort = nextTargetPort,
+                                targetCycleCursor = nextTargetCursor,
+                                targetView = currentTargetState.buildAttackTargetView(
+                                    targetPort = nextTargetPort,
+                                    lastAppliedDamage = 0.0,
+                                    completed = false,
+                                    healthOverride = currentTargetPortState.health,
+                                ),
+                            )
+                        }
+                    }
+
+                    is AttackBerserkEffect -> {
+                        val berserkResolution = firewallCombatResolver.resolve(
+                            sourcePort = currentSourcePortState,
+                            targetPort = currentTargetPortState,
+                            baseDamage = baseDamage,
+                        )
+                        val completedByBerserk = applyDamagePass(
+                            resolution = berserkResolution,
+                            awardAttackXp = true,
+                            directSelfDamage = baseDamage / 2.0,
+                        )
+                        if (completedByBerserk) {
+                            break
+                        }
+                    }
+                }
+            }
+        }
+
+        if (!completed && !suppressNormalDamage) {
+            val damageResolution = firewallCombatResolver.resolve(
+                sourcePort = currentSourcePortState,
+                targetPort = currentTargetPortState,
+                baseDamage = baseDamage,
+            )
+            applyDamagePass(
+                resolution = damageResolution,
+                awardAttackXp = true,
+            )
+        }
+
         if (completed) {
-            val finalizeTargetView = targetState.buildAttackTargetView(
-                targetPort = session.targetPort,
-                lastAppliedDamage = appliedDamage,
+            replaceTargetCombat(currentTargetCombat.removeIncomingAttack(currentSession.targetPort))
+            val finalizeTargetView = currentTargetState.buildAttackTargetView(
+                targetPort = currentSession.targetPort,
+                lastAppliedDamage = lastAppliedDamage,
                 completed = true,
                 healthOverride = 0.0,
             )
             val finalizeInput = attackerState.toAttackExecutionInput(
+                phase = AttackExecutionPhase.FINALIZE,
                 sourcePort = sourcePort,
                 targetView = finalizeTargetView,
-                iterations = session.iterationCount + 1,
+                iterations = nextIteration,
             )
             val finalizeOutcome = attackRuntimeExecutor.evaluate(
                 attackerState = attackerState,
@@ -675,6 +903,7 @@ internal class AttackTickCommand(
                 attackRuntimeExecutor.apply(
                     context = context,
                     attackerStateId = attackerStateId,
+                    targetStateId = targetStateId,
                     phase = AttackScriptPhase.FINALIZE,
                     input = finalizeInput,
                     outcome = finalizeOutcome,
@@ -682,73 +911,140 @@ internal class AttackTickCommand(
             }
         }
 
+        val shouldCancel = cancelRequested || (currentSourcePortState.health == 0.0 && !completed)
+        if (shouldCancel) {
+            replaceTargetCombat(currentTargetCombat.removeIncomingAttack(currentSession.targetPort))
+        }
+
+        val finalTargetPortsChangedPaths = currentTargetPorts.combatChangedPaths(targetState.ports)
+        val targetCombatChanged = currentTargetCombat != targetState.combat
+        if (finalTargetPortsChangedPaths.isNotEmpty() || targetCombatChanged) {
+            context.appendEvents(
+                id = targetStateId,
+                events = listOf(
+                    CombatStateUpdatedEvent(
+                        changedPathList = buildSet {
+                            addAll(finalTargetPortsChangedPaths)
+                            if (targetCombatChanged) {
+                                add("combat.incomingAttacksByTargetPort")
+                            }
+                        }.ifEmpty { setOf("combat") },
+                        deltaKeyList = buildSet {
+                            if (finalTargetPortsChangedPaths.isNotEmpty()) {
+                                add("ports")
+                            }
+                            if (targetCombatChanged) {
+                                add("combat")
+                            }
+                        }.ifEmpty { setOf("combat") },
+                        combat = currentTargetCombat,
+                        ports = currentTargetPorts,
+                        currentCpuLoad = targetState.runtime.currentCpuLoad,
+                        includePorts = finalTargetPortsChangedPaths.isNotEmpty(),
+                    ),
+                ),
+            )
+        }
+
+        val finalAttackerCombat = when {
+            completed || shouldCancel -> attackerState.combat.removeSession(sourcePort)
+            else -> attackerState.combat.withSession(
+                currentSession.copy(
+                    iterationCount = nextIteration,
+                    targetView = currentTargetState.buildAttackTargetView(
+                        targetPort = currentSession.targetPort,
+                        lastAppliedDamage = lastAppliedDamage,
+                        completed = false,
+                        healthOverride = currentTargetPortState.health,
+                    ),
+                ),
+            )
+        }
+        val finalAttackerPorts = when {
+            completed || shouldCancel -> currentAttackerPorts.markAttacking(sourcePort, false)
+            else -> currentAttackerPorts
+        }
+        val finalCpuLoad = if (completed || shouldCancel) {
+            attackerState.copy(
+                combat = finalAttackerCombat,
+                ports = finalAttackerPorts,
+            ).expectedRuntimeCpuLoad()
+        } else {
+            attackerState.runtime.currentCpuLoad
+        }
+        val attackerPortsChangedPaths = finalAttackerPorts.combatChangedPaths(attackerState.ports)
+        val attackerCombatChanged = finalAttackerCombat != attackerState.combat
+        val runtimeChanged = finalCpuLoad != attackerState.runtime.currentCpuLoad
         context.appendEvents(
             id = attackerStateId,
-            events = listOf(
-                SkillExperienceAdjustedEvent(
-                    family = ScriptFamily.ATTACK,
-                    delta = baseDamage,
-                ),
-                CombatStateUpdatedEvent(
-                    changedPathList = if (completed) {
-                        setOf(
-                            "combat.activeAttacksBySourcePort.$sourcePort",
-                            "ports.$sourcePort.attacking",
-                            "runtime.currentCpuLoad",
-                        )
-                    } else {
-                        setOf(
-                            "combat.activeAttacksBySourcePort.$sourcePort.iterationCount",
-                            "combat.activeAttacksBySourcePort.$sourcePort.targetView",
-                        )
-                    },
-                    deltaKeyList = if (completed) {
-                        setOf("combat", "ports", "runtime", "stats")
-                    } else {
-                        setOf("combat", "stats")
-                    },
-                    combat = if (completed) {
-                        attackerState.combat.removeSession(sourcePort)
-                    } else {
-                        attackerState.combat.withSession(
-                            session.copy(
-                                iterationCount = session.iterationCount + 1,
-                                targetView = targetState.buildAttackTargetView(
-                                    targetPort = session.targetPort,
-                                    lastAppliedDamage = appliedDamage,
-                                    completed = false,
-                                    healthOverride = newHealth,
-                                ),
-                            ),
-                        )
-                    },
-                    ports = if (completed) {
-                        attackerState.ports.markAttacking(sourcePort, false)
-                    } else {
-                        attackerState.ports
-                    },
-                    currentCpuLoad = if (completed) {
-                        attackerState.copy(
-                            combat = attackerState.combat.removeSession(sourcePort),
-                            ports = attackerState.ports.markAttacking(sourcePort, false),
-                        ).expectedRuntimeCpuLoad()
-                    } else {
-                        attackerState.runtime.currentCpuLoad
-                    },
-                    includePorts = completed,
-                    includeRuntime = completed,
-                ),
-            ),
+            events = buildList {
+                if (attackXpDelta > 0.0) {
+                    add(
+                        SkillExperienceAdjustedEvent(
+                            family = ScriptFamily.ATTACK,
+                            delta = attackXpDelta,
+                        ),
+                    )
+                }
+                if (attackerCombatChanged || attackerPortsChangedPaths.isNotEmpty() || runtimeChanged) {
+                    add(
+                        CombatStateUpdatedEvent(
+                            changedPathList = buildSet {
+                                if (attackerCombatChanged) {
+                                    add("combat.activeAttacksBySourcePort.$sourcePort")
+                                }
+                                addAll(attackerPortsChangedPaths)
+                                if (runtimeChanged) {
+                                    add("runtime.currentCpuLoad")
+                                }
+                            }.ifEmpty { setOf("combat") },
+                            deltaKeyList = buildSet {
+                                if (attackerCombatChanged) {
+                                    add("combat")
+                                }
+                                if (attackerPortsChangedPaths.isNotEmpty()) {
+                                    add("ports")
+                                }
+                                if (runtimeChanged) {
+                                    add("runtime")
+                                }
+                                if (attackXpDelta > 0.0) {
+                                    add("stats")
+                                }
+                            }.ifEmpty {
+                                if (attackXpDelta > 0.0) setOf("stats") else setOf("combat")
+                            },
+                            combat = finalAttackerCombat,
+                            ports = finalAttackerPorts,
+                            currentCpuLoad = finalCpuLoad,
+                            includePorts = attackerPortsChangedPaths.isNotEmpty(),
+                            includeRuntime = runtimeChanged,
+                        ),
+                    )
+                }
+            },
         )
 
         return ProgramExecutionStep(
-            status = if (completed) ProgramLifecycleStatus.COMPLETED else ProgramLifecycleStatus.RUNNING,
+            status = when {
+                completed -> ProgramLifecycleStatus.COMPLETED
+                shouldCancel -> ProgramLifecycleStatus.CANCELLED
+                else -> ProgramLifecycleStatus.RUNNING
+            },
             progress = ProgramProgress(
-                message = if (completed) "completed" else "running",
-                completedSteps = session.iterationCount + 1,
+                message = when {
+                    completed -> "completed"
+                    shouldCancel -> "cancelled"
+                    else -> "running"
+                },
+                completedSteps = nextIteration,
             ),
             relatedStateIds = setOf(attackerStateId),
         )
+    }
+
+    private companion object {
+        private val logger = LoggerFactory.getLogger(AttackTickCommand::class.java)
     }
 }
 
@@ -934,6 +1230,7 @@ internal class AttackProgramCommand(
     private val sourcePort: Int,
     override val programId: String,
     private val attackProgramRegistry: AttackProgramRegistry = NoOpAttackProgramRegistry,
+    private val clock: () -> Long = { System.currentTimeMillis() },
 ) : ProgramCommand {
     override val name: String = "attack-program"
     override val lifetime: CommandLifetime = CommandLifetime(ATTACK_PROGRAM_LIFETIME)
@@ -967,6 +1264,7 @@ internal class AttackProgramCommand(
                 attackerStateId = attackerStateId,
                 targetStateId = targetStateId,
                 sourcePort = sourcePort,
+                clock = clock,
             ),
         )
         if (step.status != ProgramLifecycleStatus.RUNNING) {
@@ -1015,7 +1313,15 @@ private fun PortState.isValidAttackSource(): Boolean {
         installedApplication?.kind == ApplicationKind.ATTACK
 }
 
-private fun PortState.isValidAttackTarget(): Boolean = enabled && !dummy && health > 0.0
+private fun PortState.isValidAttackTarget(
+    now: Long,
+    allowFrozen: Boolean,
+): Boolean {
+    return enabled &&
+        !dummy &&
+        health > 0.0 &&
+        (allowFrozen || !isFrozenAt(now))
+}
 
 private fun PortState.currentAttackCpuCost(): Double {
     return (installedApplication?.cpuCost ?: 0.0) + (installedFirewall?.cpuCost ?: 0.0)
@@ -1076,6 +1382,10 @@ private fun ComputerState.attackBaseDamage(): Double {
     return 2.0 + legacyLevelForXp(stats.skillExperience(ScriptFamily.ATTACK)) * 0.2
 }
 
+private fun ComputerState.isFreezeImmune(): Boolean {
+    return hardware.equipmentSlots.values.any { it.freezeImmune }
+}
+
 private fun ComputerState.hasWatchOnPort(portNumber: Int): Boolean {
     return watches.watches.any { it.installPort == portNumber }
 }
@@ -1102,12 +1412,101 @@ private fun ComputerState.buildAttackTargetView(
     )
 }
 
+private fun buildTargetCyclePorts(
+    initialTargetPort: Int,
+    secondaryPorts: List<Int>,
+): List<Int> {
+    return buildList {
+        add(initialTargetPort)
+        addAll(secondaryPorts)
+    }
+}
+
+private fun AttackSessionState.withResolvedTargetCycle(): AttackSessionState {
+    val resolvedCycle = targetCyclePorts.ifEmpty {
+        buildTargetCyclePorts(
+            initialTargetPort = targetPort,
+            secondaryPorts = secondaryPorts,
+        )
+    }
+    val resolvedCursor = resolvedCycle.indexOf(targetPort).takeIf { it >= 0 } ?: 0
+    return if (resolvedCycle == targetCyclePorts && resolvedCursor == targetCycleCursor) {
+        this
+    } else {
+        copy(
+            targetCyclePorts = resolvedCycle,
+            targetCycleCursor = resolvedCursor,
+        )
+    }
+}
+
+private fun AttackSessionState.findNextSwitchTarget(
+    targetState: ComputerState,
+    attackerStateId: GameStateId,
+    sourcePort: Int,
+    now: Long,
+): Pair<Int, Int>? {
+    val resolved = withResolvedTargetCycle()
+    if (resolved.targetCyclePorts.size <= 1) {
+        return null
+    }
+    for (offset in 1..resolved.targetCyclePorts.lastIndex) {
+        val candidateCursor = (resolved.targetCycleCursor + offset) % resolved.targetCyclePorts.size
+        val candidatePort = resolved.targetCyclePorts[candidateCursor]
+        if (candidatePort == resolved.targetPort) {
+            continue
+        }
+        val candidateState = targetState.port(candidatePort) ?: continue
+        if (!candidateState.isValidAttackTarget(now = now, allowFrozen = false)) {
+            continue
+        }
+        val incoming = targetState.combat.incomingAttacksByTargetPort[candidatePort]
+        if (incoming != null) {
+            val sameAttack =
+                incoming.attackerStateId == attackerStateId &&
+                    incoming.attackerSourcePort == sourcePort &&
+                    incoming.targetPort == candidatePort
+            if (!sameAttack) {
+                continue
+            }
+        }
+        return candidatePort to candidateCursor
+    }
+    return null
+}
+
+private fun List<PortState>.combatChangedPaths(
+    previous: List<PortState>,
+): Set<String> {
+    val previousByPort = previous.associateBy { it.number }
+    return buildSet {
+        for (port in this@combatChangedPaths) {
+            val previousPort = previousByPort[port.number]
+            if (previousPort == null) {
+                add("ports.${port.number}")
+                continue
+            }
+            if (previousPort.health != port.health) {
+                add("ports.${port.number}.health")
+            }
+            if (previousPort.freezeExpiresAtEpochMillis != port.freezeExpiresAtEpochMillis) {
+                add("ports.${port.number}.freezeExpiresAtEpochMillis")
+            }
+            if (previousPort.attacking != port.attacking) {
+                add("ports.${port.number}.attacking")
+            }
+        }
+    }
+}
+
 private fun ComputerState.toAttackExecutionInput(
+    phase: AttackExecutionPhase,
     sourcePort: Int,
     targetView: AttackTargetView,
     iterations: Int,
 ): AttackExecutionInput {
     return AttackExecutionInput(
+        phase = phase,
         sourceIp = id.value,
         sourcePort = sourcePort,
         targetIp = targetView.targetStateId.value,
