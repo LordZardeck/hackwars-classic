@@ -6,6 +6,7 @@ import com.hackwars.rewrite.hackscript.AttackAppendHostLogEffect
 import com.hackwars.rewrite.hackscript.AttackBerserkEffect
 import com.hackwars.rewrite.hackscript.AttackCancelCurrentAttackEffect
 import com.hackwars.rewrite.hackscript.AttackDeleteTargetLogsEffect
+import com.hackwars.rewrite.hackscript.AttackDestroyTargetWatchesEffect
 import com.hackwars.rewrite.hackscript.AttackEditTargetLogsEffect
 import com.hackwars.rewrite.hackscript.AttackFreezeTargetPortEffect
 import com.hackwars.rewrite.hackscript.AttackSwitchTargetEffect
@@ -641,6 +642,8 @@ internal class AttackTickCommand(
         var currentSession: AttackSessionState = initialSession
         var currentTargetCombat: CombatState = initialTargetState.combat
         var currentTargetPorts: List<PortState> = initialTargetState.ports
+        var currentTargetWatches: WatchManagerState = initialTargetState.watches
+        var currentTargetRuntimeCpuLoad: Double = initialTargetState.runtime.currentCpuLoad
         var currentTargetState: ComputerState = initialTargetState
         var currentTargetPortState: PortState = initialTargetPortState
         var currentAttackerPorts: List<PortState> = attackerState.ports
@@ -655,6 +658,8 @@ internal class AttackTickCommand(
             currentTargetState = targetState.copy(
                 combat = currentTargetCombat,
                 ports = currentTargetPorts,
+                watches = currentTargetWatches,
+                runtime = targetState.runtime.copy(currentCpuLoad = currentTargetRuntimeCpuLoad),
             )
         }
 
@@ -666,6 +671,15 @@ internal class AttackTickCommand(
         fun replaceTargetPort(port: PortState) {
             currentTargetPortState = port
             currentTargetPorts = currentTargetPorts.upsertPort(port, targetState.economy.defaultBankPort)
+            refreshTargetState()
+        }
+
+        fun replaceTargetWatches(
+            watches: WatchManagerState,
+            currentCpuLoad: Double,
+        ) {
+            currentTargetWatches = watches
+            currentTargetRuntimeCpuLoad = currentCpuLoad
             refreshTargetState()
         }
 
@@ -693,6 +707,75 @@ internal class AttackTickCommand(
                 sourcePort = sourcePortForTrigger,
                 previousHealth = previousHealth,
                 newHealth = newHealth,
+            )
+        }
+
+        suspend fun appendAttackerLog(message: String) {
+            val createdAt = clock()
+            context.appendEvents(
+                id = attackerStateId,
+                events = listOf(
+                    HostLogAppendedEvent(
+                        entry = ComputerLogEntry(
+                            createdAtEpochMillis = createdAt,
+                            renderedLine = renderLegacyLogLine(createdAt, message),
+                            sourceIp = attackerStateId.value,
+                        ),
+                    ),
+                ),
+            )
+        }
+
+        suspend fun destroyCurrentTargetWatches() {
+            if (currentTargetState.identity.isNpc || currentTargetState.isDestroyWatchesImmune()) {
+                return
+            }
+
+            val removedWatches = currentTargetWatches.watches.filter { watch ->
+                watch.installPort == currentSession.targetPort &&
+                    watch.enabled &&
+                    watch.kind != WatchKind.SCAN
+            }
+            if (removedWatches.isEmpty()) {
+                return
+            }
+
+            val updatedWatches = WatchManagerState(
+                watches = currentTargetWatches.watches.filterNot { watch ->
+                    watch.installPort == currentSession.targetPort &&
+                        watch.enabled &&
+                        watch.kind != WatchKind.SCAN
+                },
+            )
+            val updatedCpuLoad = (currentTargetRuntimeCpuLoad - removedWatches.sumOf { it.cpuCost }).coerceAtLeast(0.0)
+            val runtimeChanged = updatedCpuLoad != targetState.runtime.currentCpuLoad
+
+            replaceTargetWatches(
+                watches = updatedWatches,
+                currentCpuLoad = updatedCpuLoad,
+            )
+
+            context.appendEvents(
+                id = targetStateId,
+                events = listOf(
+                    WatchManagerUpdatedEvent(
+                        changedPathList = buildSet {
+                            add("watches.watches")
+                            if (runtimeChanged) {
+                                add("runtime.currentCpuLoad")
+                            }
+                        },
+                        deltaKeyList = buildSet {
+                            add("watches")
+                            if (runtimeChanged) {
+                                add("runtime")
+                            }
+                        },
+                        watches = updatedWatches,
+                        currentCpuLoad = updatedCpuLoad,
+                        includeRuntime = runtimeChanged,
+                    ),
+                ),
             )
         }
 
@@ -747,19 +830,7 @@ internal class AttackTickCommand(
             for (effect in continueOutcome.result?.effects.orEmpty()) {
                 when (effect) {
                     is AttackAppendHostLogEffect -> {
-                        val createdAt = clock()
-                        context.appendEvents(
-                            id = attackerStateId,
-                            events = listOf(
-                                HostLogAppendedEvent(
-                                    entry = ComputerLogEntry(
-                                        createdAtEpochMillis = createdAt,
-                                        renderedLine = renderLegacyLogLine(createdAt, effect.message),
-                                        sourceIp = attackerStateId.value,
-                                    ),
-                                ),
-                            ),
-                        )
+                        appendAttackerLog(effect.message)
                     }
 
                     is AttackEditTargetLogsEffect -> {
@@ -780,6 +851,11 @@ internal class AttackTickCommand(
                             id = targetStateId,
                             events = listOf(HostLogsDeletedBySourceIpEvent(sourceIp = effect.sourceIp)),
                         )
+                        cancelRequested = true
+                    }
+
+                    is AttackDestroyTargetWatchesEffect -> {
+                        destroyCurrentTargetWatches()
                         cancelRequested = true
                     }
 
@@ -900,14 +976,44 @@ internal class AttackTickCommand(
                 input = finalizeInput,
             )
             if (finalizeOutcome != null) {
-                attackRuntimeExecutor.apply(
-                    context = context,
+                attackRuntimeExecutor.logDiagnostics(
                     attackerStateId = attackerStateId,
-                    targetStateId = targetStateId,
                     phase = AttackScriptPhase.FINALIZE,
                     input = finalizeInput,
                     outcome = finalizeOutcome,
                 )
+                for (effect in finalizeOutcome.result?.effects.orEmpty()) {
+                    when (effect) {
+                        is AttackAppendHostLogEffect -> {
+                            appendAttackerLog(effect.message)
+                        }
+
+                        is AttackEditTargetLogsEffect -> {
+                            context.appendEvents(
+                                id = targetStateId,
+                                events = listOf(
+                                    HostLogRenderedTextReplacedEvent(
+                                        data = effect.data,
+                                        replace = effect.replace,
+                                    ),
+                                ),
+                            )
+                        }
+
+                        is AttackDeleteTargetLogsEffect -> {
+                            context.appendEvents(
+                                id = targetStateId,
+                                events = listOf(HostLogsDeletedBySourceIpEvent(sourceIp = effect.sourceIp)),
+                            )
+                        }
+
+                        is AttackDestroyTargetWatchesEffect -> {
+                            destroyCurrentTargetWatches()
+                        }
+
+                        else -> Unit
+                    }
+                }
             }
         }
 
@@ -939,7 +1045,7 @@ internal class AttackTickCommand(
                         }.ifEmpty { setOf("combat") },
                         combat = currentTargetCombat,
                         ports = currentTargetPorts,
-                        currentCpuLoad = targetState.runtime.currentCpuLoad,
+                        currentCpuLoad = currentTargetRuntimeCpuLoad,
                         includePorts = finalTargetPortsChangedPaths.isNotEmpty(),
                     ),
                 ),
@@ -1384,6 +1490,10 @@ private fun ComputerState.attackBaseDamage(): Double {
 
 private fun ComputerState.isFreezeImmune(): Boolean {
     return hardware.equipmentSlots.values.any { it.freezeImmune }
+}
+
+private fun ComputerState.isDestroyWatchesImmune(): Boolean {
+    return hardware.equipmentSlots.values.any { it.destroyWatchesImmune }
 }
 
 private fun ComputerState.hasWatchOnPort(portNumber: Int): Boolean {

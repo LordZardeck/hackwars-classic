@@ -500,6 +500,18 @@ class JdbcRewriteSeedSink(
                     )).copy(freezeImmune = true),
                 )
             }
+            if (payload.destroyWatchesImmune) {
+                val currentCpu = this[EquipmentSlot.CPU]
+                put(
+                    EquipmentSlot.CPU,
+                    (currentCpu ?: InstalledEquipment(
+                        slot = EquipmentSlot.CPU,
+                        name = "watch-guard.bin",
+                        maker = "rewrite-import",
+                        binaryPath = "/system/watch-guard.bin",
+                    )).copy(destroyWatchesImmune = true),
+                )
+            }
         }
         val enabledWatchCount = payload.seedEnabledWatchCount.coerceIn(0, payload.seedInstalledWatchCount)
         val seededWatches = List(payload.seedInstalledWatchCount) { index ->
@@ -622,7 +634,7 @@ class JdbcRewriteSeedSink(
                 val activeQuestsJson = payload.activeQuestLabelsById.entries.joinToString(prefix = "{", postfix = "}") {
                     "\"${it.key}\":\"${it.value}\""
                 }
-                """{"type":"inventory","computerId":"${payload.computerId}","notes":$notesJson,"websiteTitle":"${payload.websiteTitle}","websiteBody":"${payload.websiteBody}","lastLoginAtEpochMillis":${payload.lastLoginAtEpochMillis ?: "null"},"votesAvailable":${payload.votesAvailable},"voteCount":${payload.voteCount},"totalLevel":${payload.totalLevel},"noobProtectionLevel":${payload.noobProtectionLevel},"pettyCash":${payload.pettyCash},"bankMoney":${payload.bankMoney},"currentNetworkName":"${payload.currentNetworkName}","allowedNetworks":$allowedNetworksJson,"lastNetworkSwitchAtEpochMillis":${payload.lastNetworkSwitchAtEpochMillis},"scanningExperience":${payload.scanningExperience},"firewallExperience":${payload.firewallExperience},"currentCpuLoad":${payload.currentCpuLoad},"cpuMax":${payload.cpuMax},"memoryType":${payload.memoryType},"watchCapacityBoost":${payload.watchCapacityBoost},"freezeImmune":${payload.freezeImmune},"activeQuestLabelsById":$activeQuestsJson,"seedSaveFileName":"${payload.seedSaveFileName.orEmpty()}","enableBanking":${payload.enableBanking},"enableFtp":${payload.enableFtp},"enableHttp":${payload.enableHttp},"enableWatchBinary":${payload.enableWatchBinary},"seedInstalledWatchCount":${payload.seedInstalledWatchCount},"seedEnabledWatchCount":${payload.seedEnabledWatchCount},"seedWatchCpuCost":${payload.seedWatchCpuCost}}"""
+                """{"type":"inventory","computerId":"${payload.computerId}","notes":$notesJson,"websiteTitle":"${payload.websiteTitle}","websiteBody":"${payload.websiteBody}","lastLoginAtEpochMillis":${payload.lastLoginAtEpochMillis ?: "null"},"votesAvailable":${payload.votesAvailable},"voteCount":${payload.voteCount},"totalLevel":${payload.totalLevel},"noobProtectionLevel":${payload.noobProtectionLevel},"pettyCash":${payload.pettyCash},"bankMoney":${payload.bankMoney},"currentNetworkName":"${payload.currentNetworkName}","allowedNetworks":$allowedNetworksJson,"lastNetworkSwitchAtEpochMillis":${payload.lastNetworkSwitchAtEpochMillis},"scanningExperience":${payload.scanningExperience},"firewallExperience":${payload.firewallExperience},"currentCpuLoad":${payload.currentCpuLoad},"cpuMax":${payload.cpuMax},"memoryType":${payload.memoryType},"watchCapacityBoost":${payload.watchCapacityBoost},"freezeImmune":${payload.freezeImmune},"destroyWatchesImmune":${payload.destroyWatchesImmune},"activeQuestLabelsById":$activeQuestsJson,"seedSaveFileName":"${payload.seedSaveFileName.orEmpty()}","enableBanking":${payload.enableBanking},"enableFtp":${payload.enableFtp},"enableHttp":${payload.enableHttp},"enableWatchBinary":${payload.enableWatchBinary},"seedInstalledWatchCount":${payload.seedInstalledWatchCount},"seedEnabledWatchCount":${payload.seedEnabledWatchCount},"seedWatchCpuCost":${payload.seedWatchCpuCost}}"""
             }
         }
     }

@@ -498,6 +498,64 @@ class RewriteGameAttackProtocolAdapterTest {
     }
 
     @Test
+    fun continueDestroyWatchesFlushesTargetWatchAndRuntimeDeltasBeforeCancelledUpdate() = runTest {
+        val fixture = createFixture(
+            localState = attackerState(
+                GameStateId("LOCAL-IP"),
+                attackScriptBundle = attackScriptBundle(
+                    continueScript = """int main() { destroyWatches(); return 0; }""",
+                ),
+            ),
+            targetState = targetState(GameStateId("TARGET-IP")).copy(
+                runtime = RuntimeState(currentCpuLoad = 7.0),
+                watches = WatchManagerState(
+                    watches = listOf(
+                        targetWatch(note = "remove-health", kind = WatchKind.HEALTH, installPort = 25, cpuCost = 3.0),
+                        targetWatch(note = "remove-cash", kind = WatchKind.PETTY_CASH, installPort = 25, cpuCost = 2.0),
+                        targetWatch(note = "keep-scan", kind = WatchKind.SCAN, installPort = 25, cpuCost = 2.0),
+                    ),
+                ),
+            ),
+        )
+        val attacker = fixture.authenticatedConnection("LOCAL-IP")
+        val target = fixture.authenticatedConnection("TARGET-IP")
+
+        attacker.send(
+            RewriteFrames.command(
+                commandId = "attack-destroy-watches-start",
+                commandName = "requestattack",
+                payload = RewriteGameJson.encode(
+                    serializer = RequestAttackPayload.serializer(),
+                    value = RequestAttackPayload(
+                        targetIp = "TARGET-IP",
+                        targetPort = 25,
+                        sourceIp = "LOCAL-IP",
+                        sourcePort = 12,
+                    ),
+                ),
+                expectsResponse = true,
+            ),
+        )
+        attacker.awaitFrame()
+        target.awaitFrame()
+        attacker.awaitFrame()
+        runCurrent()
+        attacker.awaitFrame()
+
+        advanceTimeBy(180_100)
+        runCurrent()
+
+        val targetDelta = target.awaitFrame()
+        val attackerDelta = attacker.awaitFrame()
+        val updateFrame = attacker.awaitFrame()
+
+        assertEquals(setOf("watches", "runtime", "ports", "combat"), targetDelta.delta?.delta_keys?.toSet())
+        assertEquals(setOf("combat", "ports", "runtime", "stats"), attackerDelta.delta?.delta_keys?.toSet())
+        assertEquals(ProgramStatus.PROGRAM_STATUS_CANCELLED, updateFrame.program_update?.status)
+        assertTrue(target.drainFrames().isEmpty())
+    }
+
+    @Test
     fun attackCompletionPublishesBilateralCleanupAndCompletedProgramUpdate() = runTest {
         val fixture = createFixture(
             targetState = targetState(GameStateId("TARGET-IP"), health = 1.5),
@@ -535,6 +593,63 @@ class RewriteGameAttackProtocolAdapterTest {
         val updateFrame = attacker.awaitFrame()
 
         assertEquals(setOf("ports", "combat"), targetDelta.delta?.delta_keys?.toSet())
+        assertEquals(setOf("combat", "ports", "runtime", "stats"), attackerDelta.delta?.delta_keys?.toSet())
+        assertEquals(ProgramStatus.PROGRAM_STATUS_COMPLETED, updateFrame.program_update?.status)
+        assertTrue(target.drainFrames().isEmpty())
+    }
+
+    @Test
+    fun finalizeDestroyWatchesFlushesTargetWatchAndRuntimeDeltasBeforeCompletedUpdate() = runTest {
+        val fixture = createFixture(
+            localState = attackerState(
+                GameStateId("LOCAL-IP"),
+                attackScriptBundle = attackScriptBundle(
+                    finalize = """int main() { destroyWatches(); return 0; }""",
+                ),
+            ),
+            targetState = targetState(GameStateId("TARGET-IP"), health = 1.5).copy(
+                runtime = RuntimeState(currentCpuLoad = 6.0),
+                watches = WatchManagerState(
+                    watches = listOf(
+                        targetWatch(note = "remove-health", kind = WatchKind.HEALTH, installPort = 25, cpuCost = 4.0),
+                        targetWatch(note = "keep-scan", kind = WatchKind.SCAN, installPort = 25, cpuCost = 2.0),
+                    ),
+                ),
+            ),
+        )
+        val attacker = fixture.authenticatedConnection("LOCAL-IP")
+        val target = fixture.authenticatedConnection("TARGET-IP")
+
+        attacker.send(
+            RewriteFrames.command(
+                commandId = "attack-finalize-destroy-watches-start",
+                commandName = "requestattack",
+                payload = RewriteGameJson.encode(
+                    serializer = RequestAttackPayload.serializer(),
+                    value = RequestAttackPayload(
+                        targetIp = "TARGET-IP",
+                        targetPort = 25,
+                        sourceIp = "LOCAL-IP",
+                        sourcePort = 12,
+                    ),
+                ),
+                expectsResponse = true,
+            ),
+        )
+        attacker.awaitFrame()
+        target.awaitFrame()
+        attacker.awaitFrame()
+        runCurrent()
+        attacker.awaitFrame()
+
+        advanceTimeBy(180_100)
+        runCurrent()
+
+        val targetDelta = target.awaitFrame()
+        val attackerDelta = attacker.awaitFrame()
+        val updateFrame = attacker.awaitFrame()
+
+        assertEquals(setOf("watches", "runtime", "ports", "combat"), targetDelta.delta?.delta_keys?.toSet())
         assertEquals(setOf("combat", "ports", "runtime", "stats"), attackerDelta.delta?.delta_keys?.toSet())
         assertEquals(ProgramStatus.PROGRAM_STATUS_COMPLETED, updateFrame.program_update?.status)
         assertTrue(target.drainFrames().isEmpty())
@@ -1112,6 +1227,32 @@ class RewriteGameAttackProtocolAdapterTest {
             searchFirewallType = 0,
             observedPorts = listOf(25),
             contents = """int main() { logMessage("health"); return 0; }""",
+            compiledBinary = CompiledBinaryMetadata(
+                scriptFamily = ScriptFamily.WATCH,
+                applicationKind = ApplicationKind.WATCH,
+                outputName = "watch.bin",
+            ),
+        )
+    }
+
+    private fun targetWatch(
+        note: String,
+        kind: WatchKind,
+        installPort: Int,
+        cpuCost: Double,
+        enabled: Boolean = true,
+    ): InstalledWatch {
+        return InstalledWatch(
+            kind = kind,
+            enabled = enabled,
+            note = note,
+            cpuCost = cpuCost,
+            quantityThreshold = 50.0,
+            baselineQuantity = 100.0,
+            installPort = installPort,
+            searchFirewallType = 0,
+            observedPorts = listOf(installPort),
+            contents = "watch",
             compiledBinary = CompiledBinaryMetadata(
                 scriptFamily = ScriptFamily.WATCH,
                 applicationKind = ApplicationKind.WATCH,

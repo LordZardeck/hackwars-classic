@@ -581,6 +581,7 @@ class JdbcComputerStateRepositoryTest {
                             name = "watch-booster.bin",
                             watchCapacityBoost = 3,
                             freezeImmune = true,
+                            destroyWatchesImmune = true,
                         ),
                     ),
                 ),
@@ -666,6 +667,7 @@ class JdbcComputerStateRepositoryTest {
         )
         assertEquals(3, reloaded.hardware.equipmentSlots[EquipmentSlot.PCI]?.watchCapacityBoost)
         assertTrue(reloaded.hardware.equipmentSlots[EquipmentSlot.PCI]?.freezeImmune == true)
+        assertTrue(reloaded.hardware.equipmentSlots[EquipmentSlot.PCI]?.destroyWatchesImmune == true)
         assertEquals(5.0, reloaded.runtime.currentCpuLoad)
         assertTrue(countRows("rewrite_state_snapshot") >= 1)
     }

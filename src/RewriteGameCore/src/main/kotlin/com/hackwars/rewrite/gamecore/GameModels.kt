@@ -98,6 +98,7 @@ data class InstalledEquipment(
     val storageBoost: Int = 0,
     val watchCapacityBoost: Int = 0,
     val freezeImmune: Boolean = false,
+    val destroyWatchesImmune: Boolean = false,
 )
 
 @Serializable

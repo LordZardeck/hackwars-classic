@@ -98,6 +98,7 @@ data class SeedInventorySnapshot(
     val memoryType: Int = 0,
     val watchCapacityBoost: Int = 0,
     val freezeImmune: Boolean = false,
+    val destroyWatchesImmune: Boolean = false,
     val activeQuestLabelsById: Map<String, String> = emptyMap(),
     val seedSaveFileName: String? = null,
     val enableBanking: Boolean = true,

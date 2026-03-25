@@ -85,6 +85,7 @@ class JdbcRewriteSeedSinkTest {
                     cpuMax = 100.0,
                     memoryType = 0,
                     freezeImmune = true,
+                    destroyWatchesImmune = true,
                     activeQuestLabelsById = mapOf("quest-1" to "Starter Quest"),
                     seedSaveFileName = "migration",
                     enableWatchBinary = true,
@@ -258,6 +259,7 @@ class JdbcRewriteSeedSinkTest {
         assertEquals(80.0, state.stats.experienceByFamily[ScriptFamily.FIREWALL])
         assertEquals(15.0, state.runtime.currentCpuLoad)
         assertTrue(state.hardware.equipmentSlots.values.any { it.freezeImmune })
+        assertTrue(state.hardware.equipmentSlots.values.any { it.destroyWatchesImmune })
         assertEquals(1, state.watches.watches.size)
         assertTrue(!state.watches.watches.single().enabled)
         assertTrue(state.watches.watches.single().scriptBundle?.script(ProgramScriptSlot.FIRE)?.contains("logMessage") == true)

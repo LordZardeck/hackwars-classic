@@ -105,6 +105,7 @@ class AttackScriptEngineTest {
                 int main() {
                     editLogs("old", "new");
                     deleteLogs("REMOTE-IP");
+                    destroyWatches();
                     switchAttack();
                     cancelAttack();
                     freeze();
@@ -118,6 +119,7 @@ class AttackScriptEngineTest {
                 int main() {
                     editLogs("finish", "done");
                     deleteLogs("OTHER-IP");
+                    destroyWatches();
                     return 0;
                 }
             """.trimIndent(),
@@ -129,6 +131,7 @@ class AttackScriptEngineTest {
             listOf(
                 AttackEditTargetLogsEffect("old", "new"),
                 AttackDeleteTargetLogsEffect("REMOTE-IP"),
+                AttackDestroyTargetWatchesEffect,
                 AttackSwitchTargetEffect,
                 AttackCancelCurrentAttackEffect,
                 AttackFreezeTargetPortEffect,
@@ -140,6 +143,7 @@ class AttackScriptEngineTest {
             listOf(
                 AttackEditTargetLogsEffect("finish", "done"),
                 AttackDeleteTargetLogsEffect("OTHER-IP"),
+                AttackDestroyTargetWatchesEffect,
             ),
             assertNotNull(finalizeOutcome.result).effects,
         )
@@ -167,6 +171,10 @@ class AttackScriptEngineTest {
             script = """int main() { berserk(); return 0; }""",
             input = input(phase = AttackExecutionPhase.INITIALIZE),
         )
+        val initializeDestroyWatches = engine.execute(
+            script = """int main() { destroyWatches(); return 0; }""",
+            input = input(phase = AttackExecutionPhase.INITIALIZE),
+        )
 
         assertEquals("UNSUPPORTED_PHASE", initializeDelete.diagnostics.single().code)
         assertEquals(emptyList(), assertNotNull(initializeDelete.result).effects)
@@ -178,6 +186,8 @@ class AttackScriptEngineTest {
         assertEquals(emptyList(), assertNotNull(finalizeSwitch.result).effects)
         assertEquals("UNSUPPORTED_PHASE", initializeBerserk.diagnostics.single().code)
         assertEquals(emptyList(), assertNotNull(initializeBerserk.result).effects)
+        assertEquals("UNSUPPORTED_PHASE", initializeDestroyWatches.diagnostics.single().code)
+        assertEquals(emptyList(), assertNotNull(initializeDestroyWatches.result).effects)
     }
 
     @Test

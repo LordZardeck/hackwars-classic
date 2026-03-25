@@ -96,6 +96,10 @@ data object AttackBerserkEffect : AttackRuntimeEffect
 @SerialName("attack_switch_target")
 data object AttackSwitchTargetEffect : AttackRuntimeEffect
 
+@Serializable
+@SerialName("attack_destroy_target_watches")
+data object AttackDestroyTargetWatchesEffect : AttackRuntimeEffect
+
 data class AttackExecutionResult(
     val effects: List<AttackRuntimeEffect> = emptyList(),
 )
@@ -220,6 +224,19 @@ private class AttackScriptHost(
                     )
                 } else {
                     state.effects += AttackSwitchTargetEffect
+                }
+                HackValue.IntValue(0)
+            }
+
+            "destroyWatches" -> {
+                ensure(arguments.isEmpty(), "BAD_ARGUMENT_COUNT", "destroyWatches expects 0 arguments.")
+                if (state.input.phase !in setOf(AttackExecutionPhase.CONTINUE, AttackExecutionPhase.FINALIZE)) {
+                    state.diagnostics += HackScriptDiagnostic(
+                        code = "UNSUPPORTED_PHASE",
+                        message = "destroyWatches is only supported during CONTINUE and FINALIZE.",
+                    )
+                } else {
+                    state.effects += AttackDestroyTargetWatchesEffect
                 }
                 HackValue.IntValue(0)
             }

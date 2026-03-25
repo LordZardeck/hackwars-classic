@@ -452,6 +452,142 @@ class AttackCommandsTest {
     }
 
     @Test
+    fun continueDestroyWatchesRemovesOnlyEnabledNonScanWatchesOnTheCurrentTargetPort() = runTest {
+        val attackerId = GameStateId("ATTACKER-IP")
+        val targetId = GameStateId("TARGET-IP")
+        val repository = InMemoryComputerStateRepository(
+            seededStates = mapOf(
+                attackerId to attackerState(
+                    attackerId,
+                    attackScriptBundle = attackScriptBundle(
+                        continueScript = """int main() { destroyWatches(); return 0; }""",
+                    ),
+                ),
+                targetId to targetState(
+                    targetId,
+                    currentCpuLoad = 10.0,
+                    additionalPorts = listOf(PortState(number = 26, type = "ftp", enabled = true, health = 100.0)),
+                    watches = WatchManagerState(
+                        watches = listOf(
+                            targetWatch(note = "remove-health", kind = WatchKind.HEALTH, installPort = 25, cpuCost = 3.0),
+                            targetWatch(note = "remove-cash", kind = WatchKind.PETTY_CASH, installPort = 25, cpuCost = 2.0),
+                            targetWatch(note = "keep-scan", kind = WatchKind.SCAN, installPort = 25, cpuCost = 4.0),
+                            targetWatch(note = "keep-disabled", kind = WatchKind.HEALTH, installPort = 25, cpuCost = 6.0, enabled = false),
+                            targetWatch(note = "keep-other-port", kind = WatchKind.HEALTH, installPort = 26, cpuCost = 1.0),
+                        ),
+                    ),
+                ),
+            ),
+        )
+        val interests = InMemoryInterestRegistry().apply {
+            register("attacker-conn", attackerId)
+            register("target-conn", targetId)
+        }
+        val publisher = RecordingGameStatePublisher()
+        val registry = InMemoryAttackProgramRegistry()
+        val dispatcher = dispatcher(repository, interests)
+
+        dispatcher.request(
+            command = RequestAttackCommand(
+                attackerStateId = attackerId,
+                targetStateId = targetId,
+                sourceIp = attackerId.value,
+                sourcePort = 12,
+                targetPort = 25,
+                loadout = AttackLoadout(),
+                attackProgramRegistry = registry,
+            ),
+            metadata = CommandMetadata(connectionId = "attacker-conn", requestId = "attack-destroy-watches"),
+            publisher = publisher,
+        )
+        runCurrent()
+        publisher.deltas.clear()
+        publisher.programUpdates.clear()
+
+        advanceTimeBy(180_100)
+        runCurrent()
+
+        val updatedAttacker = requireNotNull(repository.load(attackerId))
+        val updatedTarget = requireNotNull(repository.load(targetId))
+
+        assertEquals(97.8, updatedTarget.port(25)?.health)
+        assertEquals(listOf("keep-scan", "keep-disabled", "keep-other-port"), updatedTarget.watches.watches.map { it.note })
+        assertEquals(5.0, updatedTarget.runtime.currentCpuLoad)
+        assertTrue(updatedAttacker.combat.activeAttacksBySourcePort.isEmpty())
+        assertTrue(updatedTarget.combat.incomingAttacksByTargetPort.isEmpty())
+        assertEquals(setOf("watches", "runtime", "ports", "combat"), publisher.deltas.single { it.first == setOf("target-conn") }.second.deltaKeys)
+        val attackerDelta = publisher.deltas.single { it.first == setOf("attacker-conn") }.second
+        assertEquals(setOf("combat", "ports", "runtime", "stats"), attackerDelta.deltaKeys)
+        assertEquals(ProgramLifecycleStatus.CANCELLED, publisher.programUpdates.single().second.status)
+    }
+
+    @Test
+    fun destroyedHealthWatchesDoNotAutoFireLaterInTheSameTick() = runTest {
+        val attackerId = GameStateId("ATTACKER-IP")
+        val targetId = GameStateId("TARGET-IP")
+        val repository = InMemoryComputerStateRepository(
+            seededStates = mapOf(
+                attackerId to attackerState(
+                    attackerId,
+                    attackScriptBundle = attackScriptBundle(
+                        continueScript = """int main() { destroyWatches(); return 0; }""",
+                    ),
+                ),
+                targetId to targetState(
+                    targetId,
+                    currentCpuLoad = 5.0,
+                    watches = WatchManagerState(
+                        watches = listOf(
+                            targetWatch(
+                                note = "health-watch",
+                                kind = WatchKind.HEALTH,
+                                installPort = 25,
+                                cpuCost = 5.0,
+                                quantityThreshold = 99.0,
+                                baselineQuantity = 100.0,
+                                fireScript = """int main() { logMessage("health-fired"); return 0; }""",
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+        )
+        val interests = InMemoryInterestRegistry().apply {
+            register("attacker-conn", attackerId)
+            register("target-conn", targetId)
+        }
+        val publisher = RecordingGameStatePublisher()
+        val registry = InMemoryAttackProgramRegistry()
+        val dispatcher = dispatcher(repository, interests)
+
+        dispatcher.request(
+            command = RequestAttackCommand(
+                attackerStateId = attackerId,
+                targetStateId = targetId,
+                sourceIp = attackerId.value,
+                sourcePort = 12,
+                targetPort = 25,
+                loadout = AttackLoadout(),
+                attackProgramRegistry = registry,
+            ),
+            metadata = CommandMetadata(connectionId = "attacker-conn", requestId = "attack-destroy-health-watch"),
+            publisher = publisher,
+        )
+        runCurrent()
+        publisher.deltas.clear()
+        publisher.programUpdates.clear()
+
+        advanceTimeBy(180_100)
+        runCurrent()
+
+        val updatedTarget = requireNotNull(repository.load(targetId))
+        assertTrue(updatedTarget.watches.watches.isEmpty())
+        assertTrue(updatedTarget.logs.entries.isEmpty())
+        assertEquals(0.0, updatedTarget.stats.skillExperience(ScriptFamily.WATCH))
+        assertEquals(97.8, updatedTarget.port(25)?.health)
+    }
+
+    @Test
     fun continueEditLogsMutatesTargetRenderedLinesStillDamagesAndCancelsAttack() = runTest {
         val attackerId = GameStateId("ATTACKER-IP")
         val targetId = GameStateId("TARGET-IP")
@@ -693,6 +829,134 @@ class AttackCommandsTest {
         assertEquals(setOf("logs", "ports", "combat"), targetDelta.deltaKeys)
         assertEquals(setOf("combat", "ports", "runtime", "stats"), attackerDelta.deltaKeys)
         assertEquals(ProgramLifecycleStatus.COMPLETED, publisher.programUpdates.single().second.status)
+    }
+
+    @Test
+    fun finalizeDestroyWatchesMutatesTargetWatchesBeforeCompletionCleanup() = runTest {
+        val attackerId = GameStateId("ATTACKER-IP")
+        val targetId = GameStateId("TARGET-IP")
+        val repository = InMemoryComputerStateRepository(
+            seededStates = mapOf(
+                attackerId to attackerState(
+                    attackerId,
+                    attackScriptBundle = attackScriptBundle(
+                        finalize = """int main() { destroyWatches(); return 0; }""",
+                    ),
+                ),
+                targetId to targetState(
+                    targetId,
+                    health = 1.5,
+                    currentCpuLoad = 9.0,
+                    watches = WatchManagerState(
+                        watches = listOf(
+                            targetWatch(note = "remove-health", kind = WatchKind.HEALTH, installPort = 25, cpuCost = 4.0),
+                            targetWatch(note = "remove-cash", kind = WatchKind.PETTY_CASH, installPort = 25, cpuCost = 2.0),
+                            targetWatch(note = "keep-scan", kind = WatchKind.SCAN, installPort = 25, cpuCost = 3.0),
+                        ),
+                    ),
+                ),
+            ),
+        )
+        val interests = InMemoryInterestRegistry().apply {
+            register("attacker-conn", attackerId)
+            register("target-conn", targetId)
+        }
+        val publisher = RecordingGameStatePublisher()
+        val registry = InMemoryAttackProgramRegistry()
+        val dispatcher = dispatcher(repository, interests)
+
+        dispatcher.request(
+            command = RequestAttackCommand(
+                attackerStateId = attackerId,
+                targetStateId = targetId,
+                sourceIp = attackerId.value,
+                sourcePort = 12,
+                targetPort = 25,
+                loadout = AttackLoadout(),
+                attackProgramRegistry = registry,
+            ),
+            metadata = CommandMetadata(connectionId = "attacker-conn", requestId = "attack-finalize-destroy-watches"),
+            publisher = publisher,
+        )
+        runCurrent()
+        publisher.deltas.clear()
+        publisher.programUpdates.clear()
+
+        advanceTimeBy(180_100)
+        runCurrent()
+
+        val updatedAttacker = requireNotNull(repository.load(attackerId))
+        val updatedTarget = requireNotNull(repository.load(targetId))
+
+        assertEquals(0.0, updatedTarget.port(25)?.health)
+        assertEquals(listOf("keep-scan"), updatedTarget.watches.watches.map { it.note })
+        assertEquals(3.0, updatedTarget.runtime.currentCpuLoad)
+        assertTrue(updatedAttacker.combat.activeAttacksBySourcePort.isEmpty())
+        assertTrue(updatedTarget.combat.incomingAttacksByTargetPort.isEmpty())
+        assertEquals(setOf("watches", "runtime", "ports", "combat"), publisher.deltas.single { it.first == setOf("target-conn") }.second.deltaKeys)
+        val attackerDelta = publisher.deltas.single { it.first == setOf("attacker-conn") }.second
+        assertEquals(setOf("combat", "ports", "runtime", "stats"), attackerDelta.deltaKeys)
+        assertEquals(ProgramLifecycleStatus.COMPLETED, publisher.programUpdates.single().second.status)
+    }
+
+    @Test
+    fun destroyWatchesNoOpsForImmuneTargetsButStillFinalizesNormally() = runTest {
+        val attackerId = GameStateId("ATTACKER-IP")
+        val targetId = GameStateId("TARGET-IP")
+        val repository = InMemoryComputerStateRepository(
+            seededStates = mapOf(
+                attackerId to attackerState(
+                    attackerId,
+                    attackScriptBundle = attackScriptBundle(
+                        continueScript = """int main() { destroyWatches(); return 0; }""",
+                    ),
+                ),
+                targetId to targetState(
+                    targetId,
+                    currentCpuLoad = 5.0,
+                    destroyWatchesImmune = true,
+                    watches = WatchManagerState(
+                        watches = listOf(
+                            targetWatch(note = "immune-health", kind = WatchKind.HEALTH, installPort = 25, cpuCost = 5.0),
+                        ),
+                    ),
+                ),
+            ),
+        )
+        val interests = InMemoryInterestRegistry().apply {
+            register("attacker-conn", attackerId)
+            register("target-conn", targetId)
+        }
+        val publisher = RecordingGameStatePublisher()
+        val registry = InMemoryAttackProgramRegistry()
+        val dispatcher = dispatcher(repository, interests)
+
+        dispatcher.request(
+            command = RequestAttackCommand(
+                attackerStateId = attackerId,
+                targetStateId = targetId,
+                sourceIp = attackerId.value,
+                sourcePort = 12,
+                targetPort = 25,
+                loadout = AttackLoadout(),
+                attackProgramRegistry = registry,
+            ),
+            metadata = CommandMetadata(connectionId = "attacker-conn", requestId = "attack-destroy-watches-immune"),
+            publisher = publisher,
+        )
+        runCurrent()
+        publisher.deltas.clear()
+        publisher.programUpdates.clear()
+
+        advanceTimeBy(180_100)
+        runCurrent()
+
+        val updatedTarget = requireNotNull(repository.load(targetId))
+        assertEquals(listOf("immune-health"), updatedTarget.watches.watches.map { it.note })
+        assertEquals(5.0, updatedTarget.runtime.currentCpuLoad)
+        assertEquals(97.8, updatedTarget.port(25)?.health)
+        assertEquals(setOf("ports", "combat"), publisher.deltas.single { it.first == setOf("target-conn") }.second.deltaKeys)
+        assertEquals(ProgramLifecycleStatus.CANCELLED, publisher.programUpdates.single().second.status)
     }
 
     @Test
@@ -1036,6 +1300,71 @@ class AttackCommandsTest {
         assertEquals(setOf("ports", "combat"), targetDelta.deltaKeys)
         assertEquals(setOf("combat"), attackerDelta.deltaKeys)
         assertEquals(ProgramLifecycleStatus.RUNNING, publisher.programUpdates.single().second.status)
+    }
+
+    @Test
+    fun switchAttackThenDestroyWatchesActsOnTheRetargetedPort() = runTest {
+        val attackerId = GameStateId("ATTACKER-IP")
+        val targetId = GameStateId("TARGET-IP")
+        val repository = InMemoryComputerStateRepository(
+            seededStates = mapOf(
+                attackerId to attackerState(
+                    attackerId,
+                    attackScriptBundle = attackScriptBundle(
+                        continueScript = """int main() { switchAttack(); destroyWatches(); return 0; }""",
+                    ),
+                ),
+                targetId to targetState(
+                    targetId,
+                    currentCpuLoad = 5.0,
+                    watches = WatchManagerState(
+                        watches = listOf(
+                            targetWatch(note = "original-port", kind = WatchKind.HEALTH, installPort = 25, cpuCost = 2.0),
+                            targetWatch(note = "retargeted-port", kind = WatchKind.PETTY_CASH, installPort = 26, cpuCost = 3.0),
+                        ),
+                    ),
+                    additionalPorts = listOf(
+                        PortState(number = 26, type = "ftp", enabled = true, health = 100.0),
+                    ),
+                ),
+            ),
+        )
+        val interests = InMemoryInterestRegistry().apply {
+            register("attacker-conn", attackerId)
+            register("target-conn", targetId)
+        }
+        val publisher = RecordingGameStatePublisher()
+        val registry = InMemoryAttackProgramRegistry()
+        val dispatcher = dispatcher(repository, interests)
+
+        dispatcher.request(
+            command = RequestAttackCommand(
+                attackerStateId = attackerId,
+                targetStateId = targetId,
+                sourceIp = attackerId.value,
+                sourcePort = 12,
+                targetPort = 25,
+                loadout = AttackLoadout(secondaryPorts = listOf(26)),
+                attackProgramRegistry = registry,
+                clock = { 5_000L },
+            ),
+            metadata = CommandMetadata(connectionId = "attacker-conn", requestId = "attack-switch-destroy"),
+            publisher = publisher,
+        )
+        runCurrent()
+        publisher.deltas.clear()
+        publisher.programUpdates.clear()
+
+        advanceTimeBy(180_100)
+        runCurrent()
+
+        val updatedTarget = requireNotNull(repository.load(targetId))
+        assertEquals(listOf("original-port"), updatedTarget.watches.watches.map { it.note })
+        assertEquals(2.0, updatedTarget.runtime.currentCpuLoad)
+        assertEquals(100.0, updatedTarget.port(25)?.health)
+        assertEquals(97.8, updatedTarget.port(26)?.health)
+        assertEquals(setOf("watches", "runtime", "ports", "combat"), publisher.deltas.single { it.first == setOf("target-conn") }.second.deltaKeys)
+        assertEquals(ProgramLifecycleStatus.CANCELLED, publisher.programUpdates.single().second.status)
     }
 
     @Test
@@ -1771,22 +2100,39 @@ class AttackCommandsTest {
         logs: List<ComputerLogEntry> = emptyList(),
         freezeExpiresAtEpochMillis: Long? = null,
         freezeImmune: Boolean = false,
+        destroyWatchesImmune: Boolean = false,
         firewallCombatProfile: FirewallCombatProfile = FirewallCombatProfile(),
         additionalPorts: List<PortState> = emptyList(),
+        watches: WatchManagerState = WatchManagerState(),
+        currentCpuLoad: Double = 0.0,
+        isNpc: Boolean = false,
     ): ComputerState {
-        return ComputerState.empty(id = stateId, playFabId = "PF-${stateId.value}").copy(
+        return ComputerState.empty(id = stateId, playFabId = "PF-${stateId.value}", isNpc = isNpc).copy(
             logs = LogState(logs),
+            watches = watches,
+            runtime = RuntimeState(currentCpuLoad = currentCpuLoad),
             hardware = HardwareState(
-                equipmentSlots = if (freezeImmune) {
-                    mapOf(
-                        EquipmentSlot.PCI to InstalledEquipment(
-                            slot = EquipmentSlot.PCI,
-                            name = "freeze-shield.bin",
-                            freezeImmune = true,
-                        ),
-                    )
-                } else {
-                    emptyMap()
+                equipmentSlots = buildMap {
+                    if (freezeImmune) {
+                        put(
+                            EquipmentSlot.PCI,
+                            InstalledEquipment(
+                                slot = EquipmentSlot.PCI,
+                                name = "freeze-shield.bin",
+                                freezeImmune = true,
+                            ),
+                        )
+                    }
+                    if (destroyWatchesImmune) {
+                        put(
+                            EquipmentSlot.AGP,
+                            InstalledEquipment(
+                                slot = EquipmentSlot.AGP,
+                                name = "watch-shield.bin",
+                                destroyWatchesImmune = true,
+                            ),
+                        )
+                    }
                 },
             ),
             ports = buildList {
@@ -1805,6 +2151,41 @@ class AttackCommandsTest {
                 )
                 addAll(additionalPorts)
             },
+        )
+    }
+
+    private fun targetWatch(
+        note: String,
+        kind: WatchKind,
+        installPort: Int,
+        cpuCost: Double,
+        enabled: Boolean = true,
+        quantityThreshold: Double = 50.0,
+        baselineQuantity: Double = 100.0,
+        fireScript: String? = null,
+    ): InstalledWatch {
+        return InstalledWatch(
+            kind = kind,
+            enabled = enabled,
+            note = note,
+            cpuCost = cpuCost,
+            quantityThreshold = quantityThreshold,
+            baselineQuantity = baselineQuantity,
+            installPort = installPort,
+            searchFirewallType = 0,
+            observedPorts = listOf(installPort),
+            contents = fireScript ?: "watch script",
+            scriptBundle = fireScript?.let {
+                ProgramScriptBundle(
+                    family = ScriptFamily.WATCH,
+                    scriptsBySlot = linkedMapOf(ProgramScriptSlot.FIRE to it),
+                )
+            },
+            compiledBinary = CompiledBinaryMetadata(
+                scriptFamily = ScriptFamily.WATCH,
+                applicationKind = ApplicationKind.WATCH,
+                outputName = "watch.bin",
+            ),
         )
     }
 
