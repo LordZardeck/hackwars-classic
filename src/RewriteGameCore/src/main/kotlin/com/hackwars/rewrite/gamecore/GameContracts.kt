@@ -196,6 +196,26 @@ object NoOpAttackProgramRegistry : AttackProgramRegistry {
     override suspend fun unregister(programId: String) = Unit
 }
 
+interface DailyIncomeProgramRegistry {
+    suspend fun register(stateId: GameStateId, programId: String, handle: ProgramHandle)
+    suspend fun programIdFor(stateId: GameStateId): String?
+    suspend fun hasProgram(stateId: GameStateId): Boolean
+    suspend fun cancel(stateId: GameStateId, reason: String): Boolean
+    suspend fun unregister(programId: String)
+}
+
+object NoOpDailyIncomeProgramRegistry : DailyIncomeProgramRegistry {
+    override suspend fun register(stateId: GameStateId, programId: String, handle: ProgramHandle) = Unit
+
+    override suspend fun programIdFor(stateId: GameStateId): String? = null
+
+    override suspend fun hasProgram(stateId: GameStateId): Boolean = false
+
+    override suspend fun cancel(stateId: GameStateId, reason: String): Boolean = false
+
+    override suspend fun unregister(programId: String) = Unit
+}
+
 interface WatchTriggerIntentSink {
     suspend fun emitWatchTrigger(intent: WatchTriggerIntent)
 }

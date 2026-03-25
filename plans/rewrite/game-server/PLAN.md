@@ -433,21 +433,34 @@
   - Keeps `message()` non-finalizing and preserves the current deterministic damage, cleanup, and program-update ordering.
   - Keeps daily-pay and zombie-linked behavior deferred to follow-on sub-slices.
 
-### RW-GS-S5B2B2B3B2C2 - changeDailyPay daily-pay redirect foundation
-- Status: `todo`
-- Owner: `unassigned`
+### RW-GS-S5B2B2B3B2C2A - shared changeDailyPay redirect core plus session-loaded daily income
+- Status: `done`
+- Owner: `codex`
 - Depends on: `RW-GS-S5B2B2B3B2C1`
-- Allowed write scope: `:RewriteHackScript`, `:RewriteGameCore`, `:RewriteGameServer`, `:RewritePersistence`
+- Allowed write scope: `:RewriteHackScript`, `:RewriteGameCore`, `:RewriteGameServer`, `:RewritePersistence`, `:RewriteTestKit`
 - Verification command: `./gradlew :RewriteHackScript:test :RewriteGameCore:test :RewritePersistence:test :RewriteGameServer:test :RewriteTestKit:integrationTest`
 - Artifacts: `build/reports/tests/test`
 - Commit rule: `single green commit only`
 - Notes:
-  - Owns the deferred attack-script helper that mutates target daily-pay behavior once the rewrite has the needed typed daily-pay runtime model.
+  - Adds typed rewrite `DailyPayState`, the public `changedailypay` command, and the installed attack-script `changeDailyPay(targetIp)` helper over the same shared redirect resolver.
+  - Preserves deterministic firewall no-op handling, typed CHANGE-bounty consumption plus anti-immediate-retake guard, and HTTP-install reset of redirect ownership.
+  - Adds the hidden session-loaded daily-income runtime, including subscriber-scoped startup and shutdown, due-pay log/economy/vote/HTTP-XP side effects, and passive petty-cash watch evaluation on both affected states.
+
+### RW-GS-S5B2B2B3B2C2B - daily-pay UI and social polish
+- Status: `todo`
+- Owner: `unassigned`
+- Depends on: `RW-GS-S5B2B2B3B2C2A`
+- Allowed write scope: `:RewriteGameCore`, `:RewriteGameServer`, `:RewriteClient`
+- Verification command: `./gradlew :RewriteGameCore:test :RewriteGameServer:test :RewriteTestKit:integrationTest`
+- Artifacts: `build/reports/tests/test`
+- Commit rule: `single green commit only`
+- Notes:
+  - Owns any later daily-pay popup or game-message parity work after the typed redirect core and hidden runtime are stable.
 
 ### RW-GS-S5B2B2B3B2C3 - zombie-linked social helpers and transport
 - Status: `todo`
 - Owner: `unassigned`
-- Depends on: `RW-GS-S5B2B2B3B2C2`
+- Depends on: `RW-GS-S5B2B2B3B2C2B`
 - Allowed write scope: `:RewriteHackScript`, `:RewriteGameCore`, `:RewriteGameServer`, `:RewritePersistence`
 - Verification command: `./gradlew :RewriteHackScript:test :RewriteGameCore:test :RewritePersistence:test :RewriteGameServer:test :RewriteTestKit:integrationTest`
 - Artifacts: `build/reports/tests/test`

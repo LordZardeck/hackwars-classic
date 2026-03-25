@@ -113,6 +113,12 @@ data object AttackStealTargetFileEffect : AttackRuntimeEffect
 data object AttackInstallTargetScriptEffect : AttackRuntimeEffect
 
 @Serializable
+@SerialName("attack_change_daily_pay")
+data class AttackChangeDailyPayEffect(
+    val targetIp: String,
+) : AttackRuntimeEffect
+
+@Serializable
 @SerialName("attack_send_message")
 data class AttackSendMessageEffect(
     val targetIp: String,
@@ -296,6 +302,36 @@ private class AttackScriptHost(
                     )
                 } else {
                     state.effects += AttackInstallTargetScriptEffect
+                }
+                HackValue.IntValue(0)
+            }
+
+            "changeDailyPay" -> {
+                if (arguments.size != 1) {
+                    state.diagnostics += HackScriptDiagnostic(
+                        code = "BAD_ARGUMENT_COUNT",
+                        message = "changeDailyPay expects 1 string argument.",
+                    )
+                } else if (arguments.single() !is HackValue.StringValue) {
+                    state.diagnostics += HackScriptDiagnostic(
+                        code = "BAD_ARGUMENT_TYPE",
+                        message = "changeDailyPay expects 1 string argument.",
+                    )
+                } else if (state.input.phase !in setOf(AttackExecutionPhase.CONTINUE, AttackExecutionPhase.FINALIZE)) {
+                    state.diagnostics += HackScriptDiagnostic(
+                        code = "UNSUPPORTED_PHASE",
+                        message = "changeDailyPay is only supported during CONTINUE and FINALIZE.",
+                    )
+                } else {
+                    val targetIp = (arguments.single() as HackValue.StringValue).value
+                    if (targetIp.isBlank()) {
+                        state.diagnostics += HackScriptDiagnostic(
+                            code = "INVALID_TARGET_IP",
+                            message = "changeDailyPay target ip must not be blank.",
+                        )
+                    } else {
+                        state.effects += AttackChangeDailyPayEffect(targetIp = targetIp)
+                    }
                 }
                 HackValue.IntValue(0)
             }

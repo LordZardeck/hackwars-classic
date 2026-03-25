@@ -211,6 +211,36 @@ class FilesystemInstallCommandsTest {
     }
 
     @Test
+    fun installingHttpApplicationResetsDailyPayRedirectToSelfAndReductionMultiplier() = runTest {
+        val stateId = GameStateId("LOCAL-IP")
+        val seededState = localState(stateId).copy(
+            dailyPay = DailyPayState(
+                revenueTargetStateId = GameStateId("REV-IP"),
+                reductionMultiplier = 0.25,
+            ),
+        )
+        val repository = InMemoryComputerStateRepository(seededStates = mapOf(stateId to seededState))
+        val interests = InMemoryInterestRegistry()
+        interests.register("conn-1", stateId)
+        val dispatcher = DefaultCommandDispatcher(repository, interests)
+
+        dispatcher.request(
+            command = InstallApplicationCommand(
+                stateId = stateId,
+                path = "/Public",
+                fileName = "site.bin",
+                portNumber = 80,
+            ),
+            metadata = CommandMetadata(connectionId = "conn-1"),
+            publisher = RecordingGameStatePublisher(),
+        )
+
+        val updated = requireNotNull(repository.load(stateId))
+        assertEquals(stateId, updated.dailyPay.revenueTargetStateId)
+        assertEquals(1.0, updated.dailyPay.reductionMultiplier)
+    }
+
+    @Test
     fun installApplicationConsumesBinaryCreatesPortAndSetsDefaultBank() = runTest {
         val stateId = GameStateId("LOCAL-IP")
         val repository = InMemoryComputerStateRepository(seededStates = mapOf(stateId to localState(stateId)))

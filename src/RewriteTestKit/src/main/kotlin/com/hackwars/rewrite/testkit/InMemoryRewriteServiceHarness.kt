@@ -26,6 +26,7 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.ReceiveChannel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeout
@@ -60,6 +61,8 @@ interface RewriteServiceAdapter {
     val service: RewriteService
 
     suspend fun onSessionStarted(session: InMemoryAuthenticatedSession): List<FrameEnvelope> = emptyList()
+
+    suspend fun onSessionEnded(session: InMemoryAuthenticatedSession) = Unit
 
     suspend fun onCommand(
         session: InMemoryAuthenticatedSession,
@@ -344,6 +347,11 @@ class InMemoryRewriteServiceHarness(
         )
         context.outbound.close()
         connections.remove(context.connectionId)
+        context.verifiedSession?.let { session ->
+            runBlocking {
+                adapter.onSessionEnded(session)
+            }
+        }
     }
 
     private data class ConnectionContext(

@@ -129,6 +129,46 @@ class InMemoryAttackProgramRegistry : AttackProgramRegistry {
     }
 }
 
+class InMemoryDailyIncomeProgramRegistry : DailyIncomeProgramRegistry {
+    private val handlesByProgramId = mutableMapOf<String, ProgramHandle>()
+    private val programIdsByState = mutableMapOf<GameStateId, String>()
+    private val mutex = Mutex()
+
+    override suspend fun register(stateId: GameStateId, programId: String, handle: ProgramHandle) {
+        mutex.withLock {
+            handlesByProgramId[programId] = handle
+            programIdsByState[stateId] = programId
+        }
+    }
+
+    override suspend fun programIdFor(stateId: GameStateId): String? = mutex.withLock {
+        programIdsByState[stateId]
+    }
+
+    override suspend fun hasProgram(stateId: GameStateId): Boolean = mutex.withLock {
+        programIdsByState[stateId]?.let(handlesByProgramId::containsKey) == true
+    }
+
+    override suspend fun cancel(stateId: GameStateId, reason: String): Boolean {
+        val handle = mutex.withLock {
+            val programId = programIdsByState[stateId] ?: return false
+            handlesByProgramId[programId]
+        } ?: return false
+        handle.cancel(reason)
+        return true
+    }
+
+    override suspend fun unregister(programId: String) {
+        mutex.withLock {
+            handlesByProgramId.remove(programId)
+            val stateId = programIdsByState.entries.firstOrNull { it.value == programId }?.key
+            if (stateId != null) {
+                programIdsByState.remove(stateId)
+            }
+        }
+    }
+}
+
 class DefaultCommandDispatcher(
     private val repository: ComputerStateRepository,
     private val interestRegistry: InterestRegistry,

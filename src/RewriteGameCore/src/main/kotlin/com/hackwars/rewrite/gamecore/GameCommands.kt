@@ -10,6 +10,7 @@ class GameSessionBootstrapCommand(
     private val interestRegistry: InterestRegistry,
     private val networkDirectoryRepository: NetworkDirectoryRepository? = null,
     private val attackProgramRegistry: AttackProgramRegistry = NoOpAttackProgramRegistry,
+    private val dailyIncomeProgramRegistry: DailyIncomeProgramRegistry = NoOpDailyIncomeProgramRegistry,
     private val clock: () -> Long = { System.currentTimeMillis() },
 ) : RequestCommand<GameSessionBootstrapResult> {
     override val name: String = "game-session-bootstrap"
@@ -61,6 +62,13 @@ class GameSessionBootstrapCommand(
                 ),
             )
         }
+        context.request(
+            RefreshDailyIncomeRuntimeCommand(
+                stateId = stateId,
+                interestRegistry = interestRegistry,
+                clock = clock,
+            ),
+        )
 
         val bootstrapState = when {
             existingState == null && networkDirectoryRepository != null -> stateWithLogin.copy(
@@ -552,6 +560,14 @@ class InstallApplicationCommand(
                     remainingSourceFile = remainingSource,
                     portState = updatedPort,
                     defaultBankPort = defaultBankPort,
+                    dailyPay = if (installedApplication.kind == ApplicationKind.HTTP) {
+                        state.dailyPay.copy(
+                            revenueTargetStateId = stateId,
+                            reductionMultiplier = 1.0,
+                        )
+                    } else {
+                        null
+                    },
                 ),
             ),
         )

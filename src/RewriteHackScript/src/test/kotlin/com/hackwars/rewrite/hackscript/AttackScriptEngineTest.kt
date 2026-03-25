@@ -110,6 +110,7 @@ class AttackScriptEngineTest {
                     emptyPettyCash();
                     stealFile();
                     installScript();
+                    changeDailyPay("REV-IP");
                     switchAttack();
                     cancelAttack();
                     freeze();
@@ -128,6 +129,7 @@ class AttackScriptEngineTest {
                     emptyPettyCash();
                     stealFile();
                     installScript();
+                    changeDailyPay("REV-IP");
                     return 0;
                 }
             """.trimIndent(),
@@ -144,6 +146,7 @@ class AttackScriptEngineTest {
                 AttackEmptyTargetPettyCashEffect,
                 AttackStealTargetFileEffect,
                 AttackInstallTargetScriptEffect,
+                AttackChangeDailyPayEffect("REV-IP"),
                 AttackSwitchTargetEffect,
                 AttackCancelCurrentAttackEffect,
                 AttackFreezeTargetPortEffect,
@@ -160,6 +163,7 @@ class AttackScriptEngineTest {
                 AttackEmptyTargetPettyCashEffect,
                 AttackStealTargetFileEffect,
                 AttackInstallTargetScriptEffect,
+                AttackChangeDailyPayEffect("REV-IP"),
             ),
             assertNotNull(finalizeOutcome.result).effects,
         )
@@ -203,6 +207,10 @@ class AttackScriptEngineTest {
             script = """int main() { installScript(); return 0; }""",
             input = input(phase = AttackExecutionPhase.INITIALIZE),
         )
+        val initializeChangeDailyPay = engine.execute(
+            script = """int main() { changeDailyPay("REV-IP"); return 0; }""",
+            input = input(phase = AttackExecutionPhase.INITIALIZE),
+        )
 
         assertEquals("UNSUPPORTED_PHASE", initializeDelete.diagnostics.single().code)
         assertEquals(emptyList(), assertNotNull(initializeDelete.result).effects)
@@ -222,6 +230,25 @@ class AttackScriptEngineTest {
         assertEquals(emptyList(), assertNotNull(initializeStealFile.result).effects)
         assertEquals("UNSUPPORTED_PHASE", initializeInstallScript.diagnostics.single().code)
         assertEquals(emptyList(), assertNotNull(initializeInstallScript.result).effects)
+        assertEquals("UNSUPPORTED_PHASE", initializeChangeDailyPay.diagnostics.single().code)
+        assertEquals(emptyList(), assertNotNull(initializeChangeDailyPay.result).effects)
+    }
+
+    @Test
+    fun changeDailyPayRejectsWrongArgumentShapesWithoutCrashing() {
+        val wrongCount = engine.execute(
+            script = """int main() { changeDailyPay(); return 0; }""",
+            input = input(phase = AttackExecutionPhase.CONTINUE),
+        )
+        val wrongType = engine.execute(
+            script = """int main() { changeDailyPay(1); return 0; }""",
+            input = input(phase = AttackExecutionPhase.CONTINUE),
+        )
+
+        assertEquals("BAD_ARGUMENT_COUNT", wrongCount.diagnostics.single().code)
+        assertTrue(assertNotNull(wrongCount.result).effects.isEmpty())
+        assertEquals("BAD_ARGUMENT_TYPE", wrongType.diagnostics.single().code)
+        assertTrue(assertNotNull(wrongType.result).effects.isEmpty())
     }
 
     @Test

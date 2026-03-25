@@ -10,6 +10,8 @@ import com.hackwars.rewrite.gamecore.CombatState
 import com.hackwars.rewrite.gamecore.CombatStateUpdatedEvent
 import com.hackwars.rewrite.gamecore.DirectoryCreatedEvent
 import com.hackwars.rewrite.gamecore.DirectoryEntry
+import com.hackwars.rewrite.gamecore.DailyPayState
+import com.hackwars.rewrite.gamecore.DailyPayStateUpdatedEvent
 import com.hackwars.rewrite.gamecore.EquipmentInstalledEvent
 import com.hackwars.rewrite.gamecore.EquipmentSlot
 import com.hackwars.rewrite.gamecore.FileCompiledEvent
@@ -271,6 +273,8 @@ class JdbcComputerStateRepositoryTest {
             emptyPettyCashReductionMultiplier = 0.65,
             stealFileFailChance = 0.3,
             installScriptFailChance = 0.55,
+            changeDailyPayFailChance = 0.45,
+            changeDailyPayReductionMultiplier = 0.35,
         )
         val firewallBinary = StoredFile(
             path = buildFilePath("/Public", "wall.bin"),
@@ -377,6 +381,20 @@ class JdbcComputerStateRepositoryTest {
                         ),
                     ),
                 ),
+                DailyPayStateUpdatedEvent(
+                    changedPathList = setOf(
+                        "dailyPay.revenueTargetStateId",
+                        "dailyPay.reductionMultiplier",
+                        "dailyPay.lastPaidAtEpochMillis",
+                        "dailyPay.lastBountyHttpStateId",
+                    ),
+                    dailyPay = DailyPayState(
+                        revenueTargetStateId = GameStateId("REV-IP"),
+                        reductionMultiplier = 0.35,
+                        lastPaidAtEpochMillis = 12_345L,
+                        lastBountyHttpStateId = GameStateId("LOCAL-IP"),
+                    ),
+                ),
             ),
         )
 
@@ -402,6 +420,10 @@ class JdbcComputerStateRepositoryTest {
         assertEquals(firewallActionProfile, reloaded.filesystem.filesByPath[firewallBinary.path]?.compiledBinary?.firewallActionProfile)
         assertEquals(firewallProfile, reloaded.ports.single { it.number == 80 }.installedFirewall?.combatProfile)
         assertEquals(firewallActionProfile, reloaded.ports.single { it.number == 80 }.installedFirewall?.actionProfile)
+        assertEquals(GameStateId("REV-IP"), reloaded.dailyPay.revenueTargetStateId)
+        assertEquals(0.35, reloaded.dailyPay.reductionMultiplier)
+        assertEquals(12_345L, reloaded.dailyPay.lastPaidAtEpochMillis)
+        assertEquals(GameStateId("LOCAL-IP"), reloaded.dailyPay.lastBountyHttpStateId)
         assertEquals("cpu-card.bin", reloaded.hardware.equipmentSlots[EquipmentSlot.CPU]?.name)
         assertTrue(countRows("rewrite_state_snapshot") >= 1)
     }

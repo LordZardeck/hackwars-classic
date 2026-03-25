@@ -23,6 +23,7 @@ data class ComputerState(
     val watches: WatchManagerState = WatchManagerState(),
     val filesystem: FilesystemState = FilesystemState(),
     val website: WebsiteState = WebsiteState(),
+    val dailyPay: DailyPayState = DailyPayState(),
     val combat: CombatState = CombatState(),
     val quests: QuestState = QuestState(),
     val preferences: PreferenceState = PreferenceState(),
@@ -45,6 +46,7 @@ data class ComputerState(
                 displayName = displayName,
                 isNpc = isNpc,
             ),
+            dailyPay = DailyPayState(revenueTargetStateId = id),
         )
     }
 }
@@ -134,6 +136,8 @@ data class FirewallActionProfile(
     val emptyPettyCashReductionMultiplier: Double = 1.0,
     val stealFileFailChance: Double = 0.0,
     val installScriptFailChance: Double = 0.0,
+    val changeDailyPayFailChance: Double = 0.0,
+    val changeDailyPayReductionMultiplier: Double = 1.0,
 )
 
 @Serializable
@@ -368,6 +372,16 @@ data class WebsiteState(
     val voteCount: Int = 0,
     val votesAvailable: Int = 0,
     val storeRevenueTargetStateId: GameStateId? = null,
+)
+
+@Serializable
+data class DailyPayState(
+    val baseAmount: Double = 1000.0,
+    val reductionMultiplier: Double = 1.0,
+    val revenueTargetStateId: GameStateId? = null,
+    val lastPaidAtEpochMillis: Long = 0L,
+    val inactive: Boolean = false,
+    val lastBountyHttpStateId: GameStateId? = null,
 )
 
 @Serializable
@@ -676,6 +690,28 @@ data class WebsiteVoteCountAdjustedEvent(
 
     override fun toProjection(state: ComputerState): DeltaProjection {
         return StateSectionsDeltaProjection(website = state.website)
+    }
+}
+
+@Serializable
+@SerialName("daily_pay_state_updated")
+data class DailyPayStateUpdatedEvent(
+    private val changedPathList: Set<String>,
+    val dailyPay: DailyPayState,
+) : ComputerEvent {
+    override val changedPaths: Set<String> = changedPathList
+    override val deltaKeys: Set<String> = setOf("dailyPay")
+
+    override fun applyTo(state: ComputerState, nextVersion: Long): ComputerState {
+        return state.copy(
+            version = nextVersion,
+            dailyPay = dailyPay,
+            runtime = state.runtime.withMutationVersion(nextVersion),
+        )
+    }
+
+    override fun toProjection(state: ComputerState): DeltaProjection {
+        return StateSectionsDeltaProjection(dailyPay = state.dailyPay)
     }
 }
 
@@ -1340,6 +1376,7 @@ data class ApplicationInstalledEvent(
     val remainingSourceFile: StoredFile?,
     val portState: PortState,
     val defaultBankPort: Int? = null,
+    val dailyPay: DailyPayState? = null,
 ) : ComputerEvent {
     override val changedPaths: Set<String> = linkedSetOf<String>().apply {
         add("filesystem.filesByPath.$sourceFilePath")
@@ -1347,12 +1384,18 @@ data class ApplicationInstalledEvent(
         if (defaultBankPort != null) {
             add("economy.defaultBankPort")
         }
+        if (dailyPay != null) {
+            add("dailyPay")
+        }
     }
     override val deltaKeys: Set<String> = linkedSetOf<String>().apply {
         add("filesystem")
         add("ports")
         if (defaultBankPort != null) {
             add("economy")
+        }
+        if (dailyPay != null) {
+            add("dailyPay")
         }
     }
 
@@ -1374,6 +1417,7 @@ data class ApplicationInstalledEvent(
             filesystem = filesystem,
             economy = updatedEconomy,
             ports = state.ports.upsertPort(updatedPort, updatedEconomy.defaultBankPort),
+            dailyPay = dailyPay ?: state.dailyPay,
             runtime = state.runtime.withMutationVersion(nextVersion),
         )
     }
@@ -1383,6 +1427,7 @@ data class ApplicationInstalledEvent(
             filesystem = state.filesystem,
             economy = state.economy,
             ports = state.ports,
+            dailyPay = state.dailyPay.takeIf { dailyPay != null },
         )
     }
 }
@@ -1479,6 +1524,7 @@ data class StateSectionsDeltaProjection(
     val hardware: HardwareState? = null,
     val ports: List<PortState>? = null,
     val website: WebsiteState? = null,
+    val dailyPay: DailyPayState? = null,
     val combat: CombatState? = null,
     val quests: QuestState? = null,
     val preferences: PreferenceState? = null,
@@ -1928,6 +1974,31 @@ data class VoteResponse(
 )
 
 @Serializable
+enum class ChangeDailyPayOutcome {
+    SUCCESS,
+    ALREADY_CONTROLLED,
+    WRONG_PORT_TYPE,
+    FIREWALL_NOOP,
+    BOUNTY_GUARD,
+}
+
+@Serializable
+data class ChangeDailyPayResponse(
+    val actorStateId: GameStateId,
+    val targetStateId: GameStateId,
+    val targetPort: Int,
+    val requestedRevenueTargetStateId: GameStateId,
+    val accepted: Boolean,
+    val outcome: ChangeDailyPayOutcome,
+    val message: String,
+    val reductionMultiplierAfter: Double,
+    val revenueTargetStateIdAfter: GameStateId,
+    val requesterHttpExperienceAfter: Double,
+    val actorVersion: Long,
+    val targetVersion: Long,
+)
+
+@Serializable
 data class SetPreferencePayload(
     val key: String,
     val value: String,
@@ -2003,6 +2074,7 @@ private fun mergeStateSectionsProjection(
         hardware = latest { it.hardware },
         ports = latest { it.ports },
         website = latest { it.website },
+        dailyPay = latest { it.dailyPay },
         combat = latest { it.combat },
         quests = latest { it.quests },
         preferences = latest { it.preferences },

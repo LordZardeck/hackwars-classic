@@ -5,6 +5,7 @@ import com.hackwars.rewrite.hackscript.AttackExecutionInput
 import com.hackwars.rewrite.hackscript.AttackAppendHostLogEffect
 import com.hackwars.rewrite.hackscript.AttackBerserkEffect
 import com.hackwars.rewrite.hackscript.AttackCancelCurrentAttackEffect
+import com.hackwars.rewrite.hackscript.AttackChangeDailyPayEffect
 import com.hackwars.rewrite.hackscript.AttackDeleteTargetLogsEffect
 import com.hackwars.rewrite.hackscript.AttackDestroyTargetWatchesEffect
 import com.hackwars.rewrite.hackscript.AttackEmptyTargetPettyCashEffect
@@ -965,6 +966,32 @@ internal class AttackTickCommand(
             replaceTargetPort(currentTargetPortState.copy(installedApplication = updatedApplication))
         }
 
+        suspend fun changeCurrentTargetDailyPay(requestedRevenueTargetIp: String) {
+            val updatedTargetState = context.requireExistingState(targetStateId)
+            val updatedAttackerState = context.requireExistingState(attackerStateId)
+            val refreshedTargetPortState = requireNotNull(updatedTargetState.port(currentSession.targetPort)) {
+                "Target port ${currentSession.targetPort} disappeared during changeDailyPay on ${targetStateId.value}."
+            }
+            performChangeDailyPay(
+                context = context,
+                actorState = updatedAttackerState,
+                targetState = updatedTargetState,
+                targetPortState = refreshedTargetPortState,
+                requestedRevenueTargetStateId = GameStateId(requestedRevenueTargetIp),
+            )
+            currentTargetState = context.requireExistingState(targetStateId)
+            currentTargetCombat = currentTargetState.combat
+            currentTargetEconomy = currentTargetState.economy
+            currentTargetFilesystem = currentTargetState.filesystem
+            currentTargetPorts = currentTargetState.ports
+            currentTargetWatches = currentTargetState.watches
+            currentTargetRuntimeCpuLoad = currentTargetState.runtime.currentCpuLoad
+            currentTargetPortState = requireNotNull(currentTargetState.port(currentSession.targetPort)) {
+                "Target port ${currentSession.targetPort} disappeared after changeDailyPay on ${targetStateId.value}."
+            }
+            currentAttackerEconomy = context.requireExistingState(attackerStateId).economy
+        }
+
         suspend fun applyDamagePass(
             resolution: FirewallCombatResolution,
             awardAttackXp: Boolean,
@@ -1057,6 +1084,11 @@ internal class AttackTickCommand(
 
                     is AttackInstallTargetScriptEffect -> {
                         installCurrentTargetScript()
+                        cancelRequested = true
+                    }
+
+                    is AttackChangeDailyPayEffect -> {
+                        changeCurrentTargetDailyPay(effect.targetIp)
                         cancelRequested = true
                     }
 
@@ -1226,6 +1258,10 @@ internal class AttackTickCommand(
 
                         is AttackInstallTargetScriptEffect -> {
                             installCurrentTargetScript()
+                        }
+
+                        is AttackChangeDailyPayEffect -> {
+                            changeCurrentTargetDailyPay(effect.targetIp)
                         }
 
                         is AttackSendMessageEffect -> {

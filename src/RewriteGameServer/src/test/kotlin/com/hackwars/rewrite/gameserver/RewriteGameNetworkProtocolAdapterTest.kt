@@ -561,6 +561,10 @@ class RewriteGameNetworkProtocolAdapterTest {
                 },
             )
         }
+
+        override suspend fun onSessionEnded(session: InMemoryAuthenticatedSession) {
+            adapter.onSessionEnded(session.toGameSession())
+        }
     }
 }
 

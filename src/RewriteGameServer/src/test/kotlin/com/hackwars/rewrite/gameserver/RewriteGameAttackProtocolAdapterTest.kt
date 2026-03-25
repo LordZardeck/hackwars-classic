@@ -4,11 +4,14 @@ import com.hackwars.rewrite.gamecore.ApplicationKind
 import com.hackwars.rewrite.gamecore.AttackCancelResponse
 import com.hackwars.rewrite.gamecore.AttackSessionState
 import com.hackwars.rewrite.gamecore.AttackStartResponse
+import com.hackwars.rewrite.gamecore.ChangeDailyPayPayload
+import com.hackwars.rewrite.gamecore.ChangeDailyPayResponse
 import com.hackwars.rewrite.gamecore.CompiledBinaryMetadata
 import com.hackwars.rewrite.gamecore.CombatState
 import com.hackwars.rewrite.gamecore.ComputerState
 import com.hackwars.rewrite.gamecore.ComputerLogEntry
 import com.hackwars.rewrite.gamecore.CoroutineProgramScheduler
+import com.hackwars.rewrite.gamecore.DailyPayState
 import com.hackwars.rewrite.gamecore.DefaultCommandDispatcher
 import com.hackwars.rewrite.gamecore.EconomyState
 import com.hackwars.rewrite.gamecore.FilesystemState
@@ -38,6 +41,7 @@ import com.hackwars.rewrite.gamecore.StoredFile
 import com.hackwars.rewrite.gamecore.TextMessageUiEvent
 import com.hackwars.rewrite.gamecore.WatchKind
 import com.hackwars.rewrite.gamecore.WatchManagerState
+import com.hackwars.rewrite.gamecore.WebsiteState
 import com.hackwars.rewrite.gamecore.buildFilePath
 import com.hackwars.rewrite.gamecore.saveFile
 import com.hackwars.rewrite.protocol.ProtocolTimeoutPolicy
@@ -211,6 +215,91 @@ class RewriteGameAttackProtocolAdapterTest {
         assertEquals("hello-self", assertIs<TextMessageUiEvent>(message).message)
         assertTrue(response.accepted)
         assertTrue(target.drainFrames().isEmpty())
+    }
+
+    @Test
+    fun changeDailyPayPublishesDeltasBeforeItsCorrelatedResponse() = runTest {
+        val fixture = createFixture(
+            targetState = targetState(
+                GameStateId("TARGET-IP"),
+                installedApplication = InstalledApplication(
+                    name = "site.bin",
+                    kind = ApplicationKind.HTTP,
+                ),
+            ),
+        )
+        val attacker = fixture.authenticatedConnection("LOCAL-IP")
+        val target = fixture.authenticatedConnection("TARGET-IP")
+
+        attacker.send(
+            RewriteFrames.command(
+                commandId = "changedailypay-1",
+                commandName = "changedailypay",
+                payload = RewriteGameJson.encode(
+                    serializer = ChangeDailyPayPayload.serializer(),
+                    value = ChangeDailyPayPayload(
+                        ip = "TARGET-IP",
+                        port = 25,
+                        change = "REV-IP",
+                        finalizeIp = "LOCAL-IP",
+                        attackPort = 0,
+                    ),
+                ),
+                expectsResponse = true,
+            ),
+        )
+
+        val actorDelta = attacker.awaitFrame()
+        val targetDelta = target.awaitFrame()
+        val responseFrame = attacker.awaitFrame()
+        val response = RewriteGameJson.decode(
+            serializer = ChangeDailyPayResponse.serializer(),
+            payload = responseFrame.command_response!!.payload.toByteArray(),
+        )
+
+        assertEquals(setOf("stats"), actorDelta.delta?.delta_keys?.toSet())
+        assertEquals(setOf("dailyPay"), targetDelta.delta?.delta_keys?.toSet())
+        assertTrue(response.accepted)
+        assertEquals(GameStateId("REV-IP"), response.revenueTargetStateIdAfter)
+        assertEquals(20.0, response.requesterHttpExperienceAfter)
+    }
+
+    @Test
+    fun sessionEndCancelsTheHiddenDailyIncomeRuntimeWhenTheLastSubscriberDisconnects() = runTest {
+        val localId = GameStateId("LOCAL-IP")
+        val baseLocal = attackerState(localId)
+        val fixture = createFixture(
+            localState = baseLocal.copy(
+                website = WebsiteState(votesAvailable = 0),
+                dailyPay = DailyPayState(
+                    revenueTargetStateId = localId,
+                    lastPaidAtEpochMillis = 5_000L,
+                ),
+                ports = baseLocal.ports + PortState(
+                    number = 80,
+                    type = "http",
+                    enabled = true,
+                    defaultPort = true,
+                    installedApplication = InstalledApplication(
+                        name = "site.bin",
+                        kind = ApplicationKind.HTTP,
+                    ),
+                ),
+            ),
+        )
+        val attacker = fixture.authenticatedConnection("LOCAL-IP")
+        val beforeClose = requireNotNull(fixture.repository.load(localId))
+
+        attacker.connection.close()
+        runCurrent()
+        advanceTimeBy(43_261_000L)
+        runCurrent()
+
+        val updated = requireNotNull(fixture.repository.load(localId))
+        assertEquals(beforeClose.website.votesAvailable, updated.website.votesAvailable)
+        assertEquals(beforeClose.economy.pettyCash, updated.economy.pettyCash)
+        assertEquals(beforeClose.economy.bankMoney, updated.economy.bankMoney)
+        assertEquals(beforeClose.dailyPay.lastPaidAtEpochMillis, updated.dailyPay.lastPaidAtEpochMillis)
     }
 
     @Test
@@ -1993,6 +2082,10 @@ class RewriteGameAttackProtocolAdapterTest {
                     harness.push(connectionId, frame)
                 },
             )
+        }
+
+        override suspend fun onSessionEnded(session: InMemoryAuthenticatedSession) {
+            adapter.onSessionEnded(session.toGameSession())
         }
     }
 

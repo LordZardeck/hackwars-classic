@@ -11,6 +11,9 @@ import com.hackwars.rewrite.gamecore.BankTransactionResponse
 import com.hackwars.rewrite.gamecore.BountyCreatedResponse
 import com.hackwars.rewrite.gamecore.ChangeNetworkCommand
 import com.hackwars.rewrite.gamecore.ChangeNetworkPayload
+import com.hackwars.rewrite.gamecore.ChangeDailyPayCommand
+import com.hackwars.rewrite.gamecore.ChangeDailyPayPayload
+import com.hackwars.rewrite.gamecore.ChangeDailyPayResponse
 import com.hackwars.rewrite.gamecore.ClueDataAcceptedResponse
 import com.hackwars.rewrite.gamecore.ClueDataCommand
 import com.hackwars.rewrite.gamecore.ClueDataPayload
@@ -26,6 +29,8 @@ import com.hackwars.rewrite.gamecore.DepositPayload
 import com.hackwars.rewrite.gamecore.DecompileFileCommand
 import com.hackwars.rewrite.gamecore.DecompileFilePayload
 import com.hackwars.rewrite.gamecore.DecompileFileResponse
+import com.hackwars.rewrite.gamecore.DailyIncomeProgramCommand
+import com.hackwars.rewrite.gamecore.DailyIncomeProgramRegistry
 import com.hackwars.rewrite.gamecore.DeleteFileCommand
 import com.hackwars.rewrite.gamecore.DeleteFilePayload
 import com.hackwars.rewrite.gamecore.DeleteFolderCommand
@@ -63,6 +68,7 @@ import com.hackwars.rewrite.gamecore.MutationAcceptedResponse
 import com.hackwars.rewrite.gamecore.HookSideEffectSink
 import com.hackwars.rewrite.gamecore.HttpHookRuntime
 import com.hackwars.rewrite.gamecore.InMemoryAttackProgramRegistry
+import com.hackwars.rewrite.gamecore.InMemoryDailyIncomeProgramRegistry
 import com.hackwars.rewrite.gamecore.NetworkDirectoryRepository
 import com.hackwars.rewrite.gamecore.NetworkSwitchResponse
 import com.hackwars.rewrite.gamecore.NoOpGameStatePublisher
@@ -189,6 +195,7 @@ class RewriteGameProtocolAdapter(
         connectionFactory = RewritePostgresConnectionFactory.fromEnvironment(),
     ),
     private val attackProgramRegistry: AttackProgramRegistry = InMemoryAttackProgramRegistry(),
+    private val dailyIncomeProgramRegistry: DailyIncomeProgramRegistry = InMemoryDailyIncomeProgramRegistry(),
     private val registry: CommandRegistry = defaultRegistry(
         serverId,
         clock,
@@ -209,11 +216,34 @@ class RewriteGameProtocolAdapter(
                 interestRegistry = interestRegistry,
                 networkDirectoryRepository = networkDirectoryRepository,
                 attackProgramRegistry = attackProgramRegistry,
+                dailyIncomeProgramRegistry = dailyIncomeProgramRegistry,
                 clock = clock,
             ),
             metadata = metadataFor(session),
             publisher = NoOpGameStatePublisher,
         )
+
+        val stateId = GameStateId(session.playerIp)
+        if (!dailyIncomeProgramRegistry.hasProgram(stateId)) {
+            val publisher = protocolPublisher(transport)
+            val programId = "daily-income-${stateId.value}"
+            val handle = dispatcher.schedule(
+                command = DailyIncomeProgramCommand(
+                    stateId = stateId,
+                    programId = programId,
+                    dailyIncomeProgramRegistry = dailyIncomeProgramRegistry,
+                    interestRegistry = interestRegistry,
+                    clock = clock,
+                ),
+                metadata = metadataFor(session),
+                publisher = publisher,
+            )
+            dailyIncomeProgramRegistry.register(
+                stateId = stateId,
+                programId = programId,
+                handle = handle,
+            )
+        }
 
         return listOf(
             RewriteFrames.snapshot(
@@ -222,6 +252,15 @@ class RewriteGameProtocolAdapter(
                 payload = RewriteGameJson.encode(ComputerState.serializer(), bootstrap.state),
             ),
         )
+    }
+
+    suspend fun onSessionEnded(session: AuthenticatedGameSession) {
+        val stateId = GameStateId(session.playerIp)
+        interestRegistry.unregisterConnection(session.connectionId)
+        val remainingSubscribers = interestRegistry.subscribersFor(stateId)
+        if (remainingSubscribers.isEmpty()) {
+            dailyIncomeProgramRegistry.cancel(stateId, "session-ended")
+        }
     }
 
     suspend fun onCommand(
@@ -387,6 +426,7 @@ class RewriteGameProtocolAdapter(
             is TriggerRequestResponse -> RewriteGameJson.encode(TriggerRequestResponse.serializer(), result)
             is AttackStartResponse -> RewriteGameJson.encode(AttackStartResponse.serializer(), result)
             is AttackCancelResponse -> RewriteGameJson.encode(AttackCancelResponse.serializer(), result)
+            is ChangeDailyPayResponse -> RewriteGameJson.encode(ChangeDailyPayResponse.serializer(), result)
             is MutationAcceptedResponse -> RewriteGameJson.encode(MutationAcceptedResponse.serializer(), result)
             is CompileFileResponse -> RewriteGameJson.encode(CompileFileResponse.serializer(), result)
             is DecompileFileResponse -> RewriteGameJson.encode(DecompileFileResponse.serializer(), result)
@@ -605,6 +645,19 @@ class RewriteGameProtocolAdapter(
                         sourceIp = payload.ip,
                         sourcePort = payload.port,
                         attackProgramRegistry = attackProgramRegistry,
+                    )
+                }
+                .register("changedailypay") { input ->
+                    val payload = decodePayload(input, ChangeDailyPayPayload.serializer())
+                    val authenticatedStateId = requireAuthenticatedStateId(input)
+                    ChangeDailyPayCommand(
+                        actorStateId = authenticatedStateId,
+                        targetStateId = GameStateId(payload.ip),
+                        targetPort = payload.port,
+                        requestedRevenueTargetStateId = GameStateId(
+                            payload.change?.takeUnless { it.isBlank() }
+                                ?: error("Change target is required for ${input.commandName}."),
+                        ),
                     )
                 }
                 .register("requestsearch") { input ->

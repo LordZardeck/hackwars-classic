@@ -3290,6 +3290,86 @@ class AttackCommandsTest {
     }
 
     @Test
+    fun switchAttackThenChangeDailyPayActsOnTheRetargetedHttpPort() = runTest {
+        val attackerId = GameStateId("ATTACKER-IP")
+        val targetId = GameStateId("TARGET-IP")
+        val repository = InMemoryComputerStateRepository(
+            seededStates = mapOf(
+                attackerId to attackerState(
+                    attackerId,
+                    attackScriptBundle = attackScriptBundle(
+                        continueScript = """int main() { switchAttack(); changeDailyPay("REV-IP"); return 0; }""",
+                    ),
+                ),
+                targetId to targetState(
+                    targetId,
+                    installedApplication = InstalledApplication(
+                        name = "bank.bin",
+                        kind = ApplicationKind.BANKING,
+                        banking = true,
+                    ),
+                    portType = "bank",
+                    additionalPorts = listOf(
+                        PortState(
+                            number = 26,
+                            type = "http",
+                            enabled = true,
+                            health = 100.0,
+                            installedApplication = InstalledApplication(
+                                name = "site.bin",
+                                kind = ApplicationKind.HTTP,
+                            ),
+                            installedFirewall = InstalledFirewall(
+                                name = "site-fw.bin",
+                                actionProfile = FirewallActionProfile(
+                                    changeDailyPayReductionMultiplier = 0.3,
+                                ),
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+        )
+        val interests = InMemoryInterestRegistry().apply {
+            register("attacker-conn", attackerId)
+            register("target-conn", targetId)
+        }
+        val publisher = RecordingGameStatePublisher()
+        val registry = InMemoryAttackProgramRegistry()
+        val dispatcher = dispatcher(repository, interests)
+
+        dispatcher.request(
+            command = RequestAttackCommand(
+                attackerStateId = attackerId,
+                targetStateId = targetId,
+                sourceIp = attackerId.value,
+                sourcePort = 12,
+                targetPort = 25,
+                loadout = AttackLoadout(secondaryPorts = listOf(26)),
+                attackProgramRegistry = registry,
+                clock = { 5_000L },
+            ),
+            metadata = CommandMetadata(connectionId = "attacker-conn", requestId = "attack-switch-change-pay"),
+            publisher = publisher,
+        )
+        runCurrent()
+        publisher.deltas.clear()
+        publisher.programUpdates.clear()
+
+        advanceTimeBy(180_100)
+        runCurrent()
+
+        val updatedTarget = requireNotNull(repository.load(targetId))
+
+        assertEquals(GameStateId("REV-IP"), updatedTarget.dailyPay.revenueTargetStateId)
+        assertEquals(0.3, updatedTarget.dailyPay.reductionMultiplier)
+        assertEquals(100.0, updatedTarget.port(25)?.health)
+        assertEquals(97.8, updatedTarget.port(26)?.health)
+        assertEquals(setOf("dailyPay", "ports"), publisher.deltas.single { it.first == setOf("target-conn") }.second.deltaKeys)
+        assertEquals(ProgramLifecycleStatus.CANCELLED, publisher.programUpdates.single().second.status)
+    }
+
+    @Test
     fun freezeSuppressesTickDamageAndMarksTheTargetPortFrozen() = runTest {
         val attackerId = GameStateId("ATTACKER-IP")
         val targetId = GameStateId("TARGET-IP")
