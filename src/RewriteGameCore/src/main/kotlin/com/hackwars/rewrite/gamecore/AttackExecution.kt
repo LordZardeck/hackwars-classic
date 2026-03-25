@@ -7,6 +7,7 @@ import com.hackwars.rewrite.hackscript.AttackDestroyTargetWatchesEffect
 import com.hackwars.rewrite.hackscript.AttackEmptyTargetPettyCashEffect
 import com.hackwars.rewrite.hackscript.AttackEditTargetLogsEffect
 import com.hackwars.rewrite.hackscript.AttackFreezeTargetPortEffect
+import com.hackwars.rewrite.hackscript.AttackInstallTargetScriptEffect
 import com.hackwars.rewrite.hackscript.AttackAppendHostLogEffect
 import com.hackwars.rewrite.hackscript.AttackStealTargetFileEffect
 import com.hackwars.rewrite.hackscript.AttackExecutionInput
@@ -199,6 +200,7 @@ internal class AttackRuntimeExecutor(
             is AttackDestroyTargetWatchesEffect -> return AttackRuntimeApplyResult()
             is AttackEmptyTargetPettyCashEffect -> return AttackRuntimeApplyResult()
             is AttackStealTargetFileEffect -> return AttackRuntimeApplyResult()
+            is AttackInstallTargetScriptEffect -> return AttackRuntimeApplyResult()
         }
     }
 

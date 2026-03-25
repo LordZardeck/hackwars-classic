@@ -133,6 +133,13 @@ data class FirewallActionProfile(
     val emptyPettyCashFailChance: Double = 0.0,
     val emptyPettyCashReductionMultiplier: Double = 1.0,
     val stealFileFailChance: Double = 0.0,
+    val installScriptFailChance: Double = 0.0,
+)
+
+@Serializable
+data class MaliciousProgramConfig(
+    val targetIp: String? = null,
+    val pettyCashTarget: Double = 0.0,
 )
 
 @Serializable
@@ -144,6 +151,7 @@ data class InstalledApplication(
     val cpuCost: Double = 0.0,
     val banking: Boolean = false,
     val scriptBundle: ProgramScriptBundle? = null,
+    val maliciousConfig: MaliciousProgramConfig = MaliciousProgramConfig(),
 )
 
 @Serializable

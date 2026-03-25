@@ -1,5 +1,6 @@
 package com.hackwars.rewrite.gamecore
 
+import com.hackwars.rewrite.hackscript.IntHookValue
 import com.hackwars.rewrite.hackscript.StringHookValue
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.TestScope
@@ -1647,6 +1648,723 @@ class AttackCommandsTest {
     }
 
     @Test
+    fun continueInstallScriptConsumesCompatibleSourceButRequiresWeakenedTargetAndPreservesApplicationIdentity() = runTest {
+        val attackerId = GameStateId("ATTACKER-IP")
+        val targetId = GameStateId("TARGET-IP")
+        val cleanBundle = ProgramScriptBundle(
+            family = ScriptFamily.BANKING,
+            scriptsBySlot = linkedMapOf(ProgramScriptSlot.DEPOSIT to "clean"),
+        )
+        val maliciousBundle = ProgramScriptBundle(
+            family = ScriptFamily.BANKING,
+            scriptsBySlot = linkedMapOf(ProgramScriptSlot.TRANSFER to "infected"),
+        )
+        val targetApplication = InstalledApplication(
+            name = "target-bank.bin",
+            kind = ApplicationKind.BANKING,
+            banking = true,
+            binaryPath = "/system/target-bank.bin",
+            cpuCost = 2.0,
+            scriptBundle = cleanBundle,
+            maliciousConfig = MaliciousProgramConfig(
+                targetIp = "OLD-IP",
+                pettyCashTarget = 5.0,
+            ),
+        )
+        val repository = InMemoryComputerStateRepository(
+            seededStates = mapOf(
+                attackerId to attackerState(
+                    attackerId,
+                    attackScriptBundle = attackScriptBundle(
+                        continueScript = """int main() { installScript(); return 0; }""",
+                    ),
+                    filesystemFiles = listOf(
+                        storedFile(
+                            "/Public",
+                            "worm.bin",
+                            quantity = 2,
+                            kind = StoredFileKind.APPLICATION_BINARY,
+                            compiledBinary = CompiledBinaryMetadata(
+                                scriptFamily = ScriptFamily.BANKING,
+                                applicationKind = ApplicationKind.BANKING,
+                                outputName = "worm.bin",
+                            ),
+                            scriptBundle = maliciousBundle,
+                        ),
+                    ),
+                ),
+                targetId to targetState(
+                    targetId,
+                    pettyCash = 25.0,
+                    portType = "bank",
+                    installedApplication = targetApplication,
+                ),
+            ),
+        )
+        val interests = InMemoryInterestRegistry().apply {
+            register("attacker-conn", attackerId)
+            register("target-conn", targetId)
+        }
+        val publisher = RecordingGameStatePublisher()
+        val registry = InMemoryAttackProgramRegistry()
+        val dispatcher = dispatcher(repository, interests)
+
+        dispatcher.request(
+            command = RequestAttackCommand(
+                attackerStateId = attackerId,
+                targetStateId = targetId,
+                sourceIp = attackerId.value,
+                sourcePort = 12,
+                targetPort = 25,
+                loadout = AttackLoadout(
+                    maliciousScripts = listOf(AttackScriptReference("/Public", "worm.bin")),
+                    extraInfo = listOf(StringHookValue("MAL-IP"), IntHookValue(42)),
+                ),
+                attackProgramRegistry = registry,
+            ),
+            metadata = CommandMetadata(connectionId = "attacker-conn", requestId = "attack-install-script-continue"),
+            publisher = publisher,
+        )
+        runCurrent()
+        publisher.deltas.clear()
+        publisher.programUpdates.clear()
+
+        advanceTimeBy(180_100)
+        runCurrent()
+
+        val updatedAttacker = requireNotNull(repository.load(attackerId))
+        val updatedTarget = requireNotNull(repository.load(targetId))
+        val remainingSource = requireNotNull(updatedAttacker.filesystem.resolveFile("/Public", "worm.bin"))
+        val updatedApplication = requireNotNull(updatedTarget.port(25)?.installedApplication)
+
+        assertEquals(1, remainingSource.quantity)
+        assertEquals(97.8, updatedTarget.port(25)?.health)
+        assertEquals(targetApplication.name, updatedApplication.name)
+        assertEquals(targetApplication.kind, updatedApplication.kind)
+        assertEquals(targetApplication.binaryPath, updatedApplication.binaryPath)
+        assertEquals(targetApplication.cpuCost, updatedApplication.cpuCost)
+        assertEquals(cleanBundle, updatedApplication.scriptBundle)
+        assertEquals(targetApplication.maliciousConfig, updatedApplication.maliciousConfig)
+        assertTrue(updatedAttacker.combat.activeAttacksBySourcePort.isEmpty())
+        assertTrue(updatedTarget.combat.incomingAttacksByTargetPort.isEmpty())
+        assertEquals(setOf("ports", "combat"), publisher.deltas.single { it.first == setOf("target-conn") }.second.deltaKeys)
+        assertEquals(setOf("filesystem", "combat", "ports", "runtime", "stats"), publisher.deltas.single { it.first == setOf("attacker-conn") }.second.deltaKeys)
+        assertEquals(ProgramLifecycleStatus.CANCELLED, publisher.programUpdates.single().second.status)
+    }
+
+    @Test
+    fun finalizeInstallScriptOnWeakenedTargetMutatesScriptsAndMaliciousConfigBeforeCompletionCleanup() = runTest {
+        val attackerId = GameStateId("ATTACKER-IP")
+        val targetId = GameStateId("TARGET-IP")
+        val cleanBundle = ProgramScriptBundle(
+            family = ScriptFamily.BANKING,
+            scriptsBySlot = linkedMapOf(ProgramScriptSlot.DEPOSIT to "clean"),
+        )
+        val maliciousBundle = ProgramScriptBundle(
+            family = ScriptFamily.BANKING,
+            scriptsBySlot = linkedMapOf(
+                ProgramScriptSlot.DEPOSIT to "infected-deposit",
+                ProgramScriptSlot.TRANSFER to "infected-transfer",
+            ),
+        )
+        val targetApplication = InstalledApplication(
+            name = "target-bank.bin",
+            kind = ApplicationKind.BANKING,
+            banking = true,
+            binaryPath = "/system/target-bank.bin",
+            cpuCost = 2.0,
+            scriptBundle = cleanBundle,
+            maliciousConfig = MaliciousProgramConfig(
+                targetIp = "OLD-IP",
+                pettyCashTarget = 1.0,
+            ),
+        )
+        val repository = InMemoryComputerStateRepository(
+            seededStates = mapOf(
+                attackerId to attackerState(
+                    attackerId,
+                    attackScriptBundle = attackScriptBundle(
+                        finalize = """int main() { installScript(); return 0; }""",
+                    ),
+                    filesystemFiles = listOf(
+                        storedFile(
+                            "/Public",
+                            "worm.bin",
+                            kind = StoredFileKind.APPLICATION_BINARY,
+                            compiledBinary = CompiledBinaryMetadata(
+                                scriptFamily = ScriptFamily.BANKING,
+                                applicationKind = ApplicationKind.BANKING,
+                                outputName = "worm.bin",
+                            ),
+                            scriptBundle = maliciousBundle,
+                        ),
+                    ),
+                ),
+                targetId to targetState(
+                    targetId,
+                    health = 1.5,
+                    portType = "bank",
+                    installedApplication = targetApplication,
+                ),
+            ),
+        )
+        val interests = InMemoryInterestRegistry().apply {
+            register("attacker-conn", attackerId)
+            register("target-conn", targetId)
+        }
+        val publisher = RecordingGameStatePublisher()
+        val registry = InMemoryAttackProgramRegistry()
+        val dispatcher = dispatcher(repository, interests)
+
+        dispatcher.request(
+            command = RequestAttackCommand(
+                attackerStateId = attackerId,
+                targetStateId = targetId,
+                sourceIp = attackerId.value,
+                sourcePort = 12,
+                targetPort = 25,
+                loadout = AttackLoadout(
+                    maliciousScripts = listOf(AttackScriptReference("/Public", "worm.bin")),
+                    extraInfo = listOf(StringHookValue("MAL-IP"), IntHookValue(77)),
+                ),
+                attackProgramRegistry = registry,
+            ),
+            metadata = CommandMetadata(connectionId = "attacker-conn", requestId = "attack-install-script-finalize"),
+            publisher = publisher,
+        )
+        runCurrent()
+        publisher.deltas.clear()
+        publisher.programUpdates.clear()
+
+        advanceTimeBy(180_100)
+        runCurrent()
+
+        val updatedAttacker = requireNotNull(repository.load(attackerId))
+        val updatedTarget = requireNotNull(repository.load(targetId))
+        val updatedApplication = requireNotNull(updatedTarget.port(25)?.installedApplication)
+
+        assertNull(updatedAttacker.filesystem.resolveFile("/Public", "worm.bin"))
+        assertEquals(0.0, updatedTarget.port(25)?.health)
+        assertEquals(targetApplication.name, updatedApplication.name)
+        assertEquals(targetApplication.kind, updatedApplication.kind)
+        assertEquals(targetApplication.binaryPath, updatedApplication.binaryPath)
+        assertEquals(targetApplication.cpuCost, updatedApplication.cpuCost)
+        assertEquals(maliciousBundle, updatedApplication.scriptBundle)
+        assertEquals(
+            MaliciousProgramConfig(
+                targetIp = "MAL-IP",
+                pettyCashTarget = 77.0,
+            ),
+            updatedApplication.maliciousConfig,
+        )
+        assertTrue(updatedAttacker.combat.activeAttacksBySourcePort.isEmpty())
+        assertTrue(updatedTarget.combat.incomingAttacksByTargetPort.isEmpty())
+        assertEquals(setOf("ports", "combat"), publisher.deltas.single { it.first == setOf("target-conn") }.second.deltaKeys)
+        assertEquals(setOf("filesystem", "combat", "ports", "runtime", "stats"), publisher.deltas.single { it.first == setOf("attacker-conn") }.second.deltaKeys)
+        assertEquals(ProgramLifecycleStatus.COMPLETED, publisher.programUpdates.single().second.status)
+    }
+
+    @Test
+    fun continueInstallScriptRequiresCompatibleSourceAndExistingTargetApplication() = runTest {
+        val attackerId = GameStateId("ATTACKER-IP")
+        val targetId = GameStateId("TARGET-IP")
+
+        val missingFileRepository = InMemoryComputerStateRepository(
+            seededStates = mapOf(
+                attackerId to attackerState(
+                    attackerId,
+                    attackScriptBundle = attackScriptBundle(
+                        continueScript = """int main() { installScript(); return 0; }""",
+                    ),
+                ),
+                targetId to targetState(
+                    targetId,
+                    portType = "bank",
+                    installedApplication = InstalledApplication(
+                        name = "target-bank.bin",
+                        kind = ApplicationKind.BANKING,
+                        banking = true,
+                        cpuCost = 2.0,
+                    ),
+                ),
+            ),
+        )
+        val missingFileInterests = InMemoryInterestRegistry().apply {
+            register("attacker-conn", attackerId)
+            register("target-conn", targetId)
+        }
+        val missingFilePublisher = RecordingGameStatePublisher()
+        val missingFileRegistry = InMemoryAttackProgramRegistry()
+        val missingFileDispatcher = dispatcher(missingFileRepository, missingFileInterests)
+
+        missingFileDispatcher.request(
+            command = RequestAttackCommand(
+                attackerStateId = attackerId,
+                targetStateId = targetId,
+                sourceIp = attackerId.value,
+                sourcePort = 12,
+                targetPort = 25,
+                loadout = AttackLoadout(
+                    maliciousScripts = listOf(AttackScriptReference("/Public", "worm.bin")),
+                ),
+                attackProgramRegistry = missingFileRegistry,
+            ),
+            metadata = CommandMetadata(connectionId = "attacker-conn", requestId = "attack-install-script-missing-file"),
+            publisher = missingFilePublisher,
+        )
+        runCurrent()
+        missingFilePublisher.deltas.clear()
+        missingFilePublisher.programUpdates.clear()
+        advanceTimeBy(180_100)
+        runCurrent()
+
+        val wrongKindRepository = InMemoryComputerStateRepository(
+            seededStates = mapOf(
+                attackerId to attackerState(
+                    attackerId,
+                    attackScriptBundle = attackScriptBundle(
+                        continueScript = """int main() { installScript(); return 0; }""",
+                    ),
+                    filesystemFiles = listOf(
+                        storedFile(
+                            "/Public",
+                            "worm.bin",
+                            kind = StoredFileKind.TEXT,
+                            compiledBinary = CompiledBinaryMetadata(
+                                scriptFamily = ScriptFamily.BANKING,
+                                applicationKind = ApplicationKind.BANKING,
+                                outputName = "worm.bin",
+                            ),
+                        ),
+                    ),
+                ),
+                targetId to targetState(
+                    targetId,
+                    portType = "bank",
+                    installedApplication = InstalledApplication(
+                        name = "target-bank.bin",
+                        kind = ApplicationKind.BANKING,
+                        banking = true,
+                        cpuCost = 2.0,
+                    ),
+                ),
+            ),
+        )
+        val wrongKindInterests = InMemoryInterestRegistry().apply {
+            register("attacker-conn", attackerId)
+            register("target-conn", targetId)
+        }
+        val wrongKindPublisher = RecordingGameStatePublisher()
+        val wrongKindRegistry = InMemoryAttackProgramRegistry()
+        val wrongKindDispatcher = dispatcher(wrongKindRepository, wrongKindInterests)
+
+        wrongKindDispatcher.request(
+            command = RequestAttackCommand(
+                attackerStateId = attackerId,
+                targetStateId = targetId,
+                sourceIp = attackerId.value,
+                sourcePort = 12,
+                targetPort = 25,
+                loadout = AttackLoadout(
+                    maliciousScripts = listOf(AttackScriptReference("/Public", "worm.bin")),
+                ),
+                attackProgramRegistry = wrongKindRegistry,
+            ),
+            metadata = CommandMetadata(connectionId = "attacker-conn", requestId = "attack-install-script-wrong-kind"),
+            publisher = wrongKindPublisher,
+        )
+        runCurrent()
+        wrongKindPublisher.deltas.clear()
+        wrongKindPublisher.programUpdates.clear()
+        advanceTimeBy(180_100)
+        runCurrent()
+
+        val wrongAppKindRepository = InMemoryComputerStateRepository(
+            seededStates = mapOf(
+                attackerId to attackerState(
+                    attackerId,
+                    attackScriptBundle = attackScriptBundle(
+                        continueScript = """int main() { installScript(); return 0; }""",
+                    ),
+                    filesystemFiles = listOf(
+                        storedFile(
+                            "/Public",
+                            "worm.bin",
+                            kind = StoredFileKind.APPLICATION_BINARY,
+                            compiledBinary = CompiledBinaryMetadata(
+                                scriptFamily = ScriptFamily.GENERAL,
+                                applicationKind = ApplicationKind.FTP,
+                                outputName = "worm.bin",
+                            ),
+                            scriptBundle = ProgramScriptBundle(
+                                family = ScriptFamily.GENERAL,
+                                scriptsBySlot = linkedMapOf(ProgramScriptSlot.GET to "ftp"),
+                            ),
+                        ),
+                    ),
+                ),
+                targetId to targetState(
+                    targetId,
+                    portType = "bank",
+                    installedApplication = InstalledApplication(
+                        name = "target-bank.bin",
+                        kind = ApplicationKind.BANKING,
+                        banking = true,
+                        cpuCost = 2.0,
+                    ),
+                ),
+            ),
+        )
+        val wrongAppKindInterests = InMemoryInterestRegistry().apply {
+            register("attacker-conn", attackerId)
+            register("target-conn", targetId)
+        }
+        val wrongAppKindPublisher = RecordingGameStatePublisher()
+        val wrongAppKindRegistry = InMemoryAttackProgramRegistry()
+        val wrongAppKindDispatcher = dispatcher(wrongAppKindRepository, wrongAppKindInterests)
+
+        wrongAppKindDispatcher.request(
+            command = RequestAttackCommand(
+                attackerStateId = attackerId,
+                targetStateId = targetId,
+                sourceIp = attackerId.value,
+                sourcePort = 12,
+                targetPort = 25,
+                loadout = AttackLoadout(
+                    maliciousScripts = listOf(AttackScriptReference("/Public", "worm.bin")),
+                ),
+                attackProgramRegistry = wrongAppKindRegistry,
+            ),
+            metadata = CommandMetadata(connectionId = "attacker-conn", requestId = "attack-install-script-wrong-app-kind"),
+            publisher = wrongAppKindPublisher,
+        )
+        runCurrent()
+        wrongAppKindPublisher.deltas.clear()
+        wrongAppKindPublisher.programUpdates.clear()
+        advanceTimeBy(180_100)
+        runCurrent()
+
+        val missingInstalledAppRepository = InMemoryComputerStateRepository(
+            seededStates = mapOf(
+                attackerId to attackerState(
+                    attackerId,
+                    attackScriptBundle = attackScriptBundle(
+                        continueScript = """int main() { installScript(); return 0; }""",
+                    ),
+                    filesystemFiles = listOf(
+                        storedFile(
+                            "/Public",
+                            "worm.bin",
+                            kind = StoredFileKind.APPLICATION_BINARY,
+                            compiledBinary = CompiledBinaryMetadata(
+                                scriptFamily = ScriptFamily.BANKING,
+                                applicationKind = ApplicationKind.BANKING,
+                                outputName = "worm.bin",
+                            ),
+                        ),
+                    ),
+                ),
+                targetId to targetState(
+                    targetId,
+                    portType = "bank",
+                    installedApplication = null,
+                ),
+            ),
+        )
+        val missingInstalledAppInterests = InMemoryInterestRegistry().apply {
+            register("attacker-conn", attackerId)
+            register("target-conn", targetId)
+        }
+        val missingInstalledAppPublisher = RecordingGameStatePublisher()
+        val missingInstalledAppRegistry = InMemoryAttackProgramRegistry()
+        val missingInstalledAppDispatcher = dispatcher(missingInstalledAppRepository, missingInstalledAppInterests)
+
+        missingInstalledAppDispatcher.request(
+            command = RequestAttackCommand(
+                attackerStateId = attackerId,
+                targetStateId = targetId,
+                sourceIp = attackerId.value,
+                sourcePort = 12,
+                targetPort = 25,
+                loadout = AttackLoadout(
+                    maliciousScripts = listOf(AttackScriptReference("/Public", "worm.bin")),
+                ),
+                attackProgramRegistry = missingInstalledAppRegistry,
+            ),
+            metadata = CommandMetadata(connectionId = "attacker-conn", requestId = "attack-install-script-missing-app"),
+            publisher = missingInstalledAppPublisher,
+        )
+        runCurrent()
+        missingInstalledAppPublisher.deltas.clear()
+        missingInstalledAppPublisher.programUpdates.clear()
+        advanceTimeBy(180_100)
+        runCurrent()
+
+        assertNull(requireNotNull(missingFileRepository.load(attackerId)).filesystem.resolveFile("/Public", "worm.bin"))
+        assertEquals(97.8, missingFileRepository.load(targetId)?.port(25)?.health)
+        assertEquals(setOf("ports", "combat"), missingFilePublisher.deltas.single { it.first == setOf("target-conn") }.second.deltaKeys)
+        assertEquals(setOf("combat", "ports", "runtime", "stats"), missingFilePublisher.deltas.single { it.first == setOf("attacker-conn") }.second.deltaKeys)
+
+        assertNotNull(requireNotNull(wrongKindRepository.load(attackerId)).filesystem.resolveFile("/Public", "worm.bin"))
+        assertEquals(97.8, wrongKindRepository.load(targetId)?.port(25)?.health)
+        assertEquals(setOf("ports", "combat"), wrongKindPublisher.deltas.single { it.first == setOf("target-conn") }.second.deltaKeys)
+        assertEquals(setOf("combat", "ports", "runtime", "stats"), wrongKindPublisher.deltas.single { it.first == setOf("attacker-conn") }.second.deltaKeys)
+
+        assertNotNull(requireNotNull(wrongAppKindRepository.load(attackerId)).filesystem.resolveFile("/Public", "worm.bin"))
+        assertEquals(97.8, wrongAppKindRepository.load(targetId)?.port(25)?.health)
+        assertEquals(setOf("ports", "combat"), wrongAppKindPublisher.deltas.single { it.first == setOf("target-conn") }.second.deltaKeys)
+        assertEquals(setOf("combat", "ports", "runtime", "stats"), wrongAppKindPublisher.deltas.single { it.first == setOf("attacker-conn") }.second.deltaKeys)
+
+        assertNotNull(requireNotNull(missingInstalledAppRepository.load(attackerId)).filesystem.resolveFile("/Public", "worm.bin"))
+        assertEquals(97.8, missingInstalledAppRepository.load(targetId)?.port(25)?.health)
+        assertEquals(setOf("ports", "combat"), missingInstalledAppPublisher.deltas.single { it.first == setOf("target-conn") }.second.deltaKeys)
+        assertEquals(setOf("combat", "ports", "runtime", "stats"), missingInstalledAppPublisher.deltas.single { it.first == setOf("attacker-conn") }.second.deltaKeys)
+    }
+
+    @Test
+    fun finalizeInstallScriptNpcAndFirewallFailStillConsumeCompatibleSourceWithoutInstalling() = runTest {
+        val attackerId = GameStateId("ATTACKER-IP")
+        val targetId = GameStateId("TARGET-IP")
+        val maliciousBundle = ProgramScriptBundle(
+            family = ScriptFamily.BANKING,
+            scriptsBySlot = linkedMapOf(ProgramScriptSlot.DEPOSIT to "infected"),
+        )
+
+        val npcRepository = InMemoryComputerStateRepository(
+            seededStates = mapOf(
+                attackerId to attackerState(
+                    attackerId,
+                    attackScriptBundle = attackScriptBundle(
+                        finalize = """int main() { installScript(); return 0; }""",
+                    ),
+                    filesystemFiles = listOf(
+                        storedFile(
+                            "/Public",
+                            "worm.bin",
+                            kind = StoredFileKind.APPLICATION_BINARY,
+                            compiledBinary = CompiledBinaryMetadata(
+                                scriptFamily = ScriptFamily.BANKING,
+                                applicationKind = ApplicationKind.BANKING,
+                                outputName = "worm.bin",
+                            ),
+                            scriptBundle = maliciousBundle,
+                        ),
+                    ),
+                ),
+                targetId to targetState(
+                    targetId,
+                    health = 1.5,
+                    portType = "bank",
+                    isNpc = true,
+                    installedApplication = InstalledApplication(
+                        name = "target-bank.bin",
+                        kind = ApplicationKind.BANKING,
+                        banking = true,
+                        cpuCost = 2.0,
+                    ),
+                ),
+            ),
+        )
+        val npcInterests = InMemoryInterestRegistry().apply {
+            register("attacker-conn", attackerId)
+            register("target-conn", targetId)
+        }
+        val npcPublisher = RecordingGameStatePublisher()
+        val npcRegistry = InMemoryAttackProgramRegistry()
+        val npcDispatcher = dispatcher(npcRepository, npcInterests)
+
+        npcDispatcher.request(
+            command = RequestAttackCommand(
+                attackerStateId = attackerId,
+                targetStateId = targetId,
+                sourceIp = attackerId.value,
+                sourcePort = 12,
+                targetPort = 25,
+                loadout = AttackLoadout(
+                    maliciousScripts = listOf(AttackScriptReference("/Public", "worm.bin")),
+                ),
+                attackProgramRegistry = npcRegistry,
+            ),
+            metadata = CommandMetadata(connectionId = "attacker-conn", requestId = "attack-install-script-npc"),
+            publisher = npcPublisher,
+        )
+        runCurrent()
+        npcPublisher.deltas.clear()
+        npcPublisher.programUpdates.clear()
+        advanceTimeBy(180_100)
+        runCurrent()
+
+        val firewallRepository = InMemoryComputerStateRepository(
+            seededStates = mapOf(
+                attackerId to attackerState(
+                    attackerId,
+                    attackScriptBundle = attackScriptBundle(
+                        finalize = """int main() { installScript(); return 0; }""",
+                    ),
+                    filesystemFiles = listOf(
+                        storedFile(
+                            "/Public",
+                            "worm.bin",
+                            kind = StoredFileKind.APPLICATION_BINARY,
+                            compiledBinary = CompiledBinaryMetadata(
+                                scriptFamily = ScriptFamily.BANKING,
+                                applicationKind = ApplicationKind.BANKING,
+                                outputName = "worm.bin",
+                            ),
+                            scriptBundle = maliciousBundle,
+                        ),
+                    ),
+                ),
+                targetId to targetState(
+                    targetId,
+                    health = 1.5,
+                    portType = "bank",
+                    firewallActionProfile = FirewallActionProfile(
+                        installScriptFailChance = 0.5,
+                    ),
+                    installedApplication = InstalledApplication(
+                        name = "target-bank.bin",
+                        kind = ApplicationKind.BANKING,
+                        banking = true,
+                        cpuCost = 2.0,
+                    ),
+                ),
+            ),
+        )
+        val firewallInterests = InMemoryInterestRegistry().apply {
+            register("attacker-conn", attackerId)
+            register("target-conn", targetId)
+        }
+        val firewallPublisher = RecordingGameStatePublisher()
+        val firewallRegistry = InMemoryAttackProgramRegistry()
+        val firewallDispatcher = dispatcher(firewallRepository, firewallInterests)
+
+        firewallDispatcher.request(
+            command = RequestAttackCommand(
+                attackerStateId = attackerId,
+                targetStateId = targetId,
+                sourceIp = attackerId.value,
+                sourcePort = 12,
+                targetPort = 25,
+                loadout = AttackLoadout(
+                    maliciousScripts = listOf(AttackScriptReference("/Public", "worm.bin")),
+                ),
+                attackProgramRegistry = firewallRegistry,
+            ),
+            metadata = CommandMetadata(connectionId = "attacker-conn", requestId = "attack-install-script-firewall"),
+            publisher = firewallPublisher,
+        )
+        runCurrent()
+        firewallPublisher.deltas.clear()
+        firewallPublisher.programUpdates.clear()
+        advanceTimeBy(180_100)
+        runCurrent()
+
+        assertNull(requireNotNull(npcRepository.load(attackerId)).filesystem.resolveFile("/Public", "worm.bin"))
+        assertEquals(0.0, npcRepository.load(targetId)?.port(25)?.health)
+        assertNull(npcRepository.load(targetId)?.port(25)?.installedApplication?.scriptBundle)
+        assertEquals(ProgramLifecycleStatus.COMPLETED, npcPublisher.programUpdates.single().second.status)
+
+        assertNull(requireNotNull(firewallRepository.load(attackerId)).filesystem.resolveFile("/Public", "worm.bin"))
+        assertEquals(0.0, firewallRepository.load(targetId)?.port(25)?.health)
+        assertNull(firewallRepository.load(targetId)?.port(25)?.installedApplication?.scriptBundle)
+        assertEquals(ProgramLifecycleStatus.COMPLETED, firewallPublisher.programUpdates.single().second.status)
+    }
+
+    @Test
+    fun switchAttackThenInstallScriptActsOnTheRetargetedCompatiblePort() = runTest {
+        val attackerId = GameStateId("ATTACKER-IP")
+        val targetId = GameStateId("TARGET-IP")
+        val repository = InMemoryComputerStateRepository(
+            seededStates = mapOf(
+                attackerId to attackerState(
+                    attackerId,
+                    attackScriptBundle = attackScriptBundle(
+                        continueScript = """int main() { switchAttack(); installScript(); return 0; }""",
+                    ),
+                    filesystemFiles = listOf(
+                        storedFile(
+                            "/Public",
+                            "worm.bin",
+                            kind = StoredFileKind.APPLICATION_BINARY,
+                            compiledBinary = CompiledBinaryMetadata(
+                                scriptFamily = ScriptFamily.GENERAL,
+                                applicationKind = ApplicationKind.FTP,
+                                outputName = "worm.bin",
+                            ),
+                        ),
+                    ),
+                ),
+                targetId to targetState(
+                    targetId,
+                    installedApplication = InstalledApplication(
+                        name = "http.bin",
+                        kind = ApplicationKind.HTTP,
+                        cpuCost = 2.0,
+                    ),
+                    additionalPorts = listOf(
+                        PortState(
+                            number = 26,
+                            type = "ftp",
+                            enabled = true,
+                            health = 100.0,
+                            installedApplication = InstalledApplication(
+                                name = "ftp.bin",
+                                kind = ApplicationKind.FTP,
+                                cpuCost = 2.0,
+                                scriptBundle = ProgramScriptBundle(
+                                    family = ScriptFamily.GENERAL,
+                                    scriptsBySlot = linkedMapOf(ProgramScriptSlot.GET to "clean-ftp"),
+                                ),
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+        )
+        val interests = InMemoryInterestRegistry().apply {
+            register("attacker-conn", attackerId)
+            register("target-conn", targetId)
+        }
+        val publisher = RecordingGameStatePublisher()
+        val registry = InMemoryAttackProgramRegistry()
+        val dispatcher = dispatcher(repository, interests)
+
+        dispatcher.request(
+            command = RequestAttackCommand(
+                attackerStateId = attackerId,
+                targetStateId = targetId,
+                sourceIp = attackerId.value,
+                sourcePort = 12,
+                targetPort = 25,
+                loadout = AttackLoadout(
+                    secondaryPorts = listOf(26),
+                    maliciousScripts = listOf(AttackScriptReference("/Public", "worm.bin")),
+                ),
+                attackProgramRegistry = registry,
+            ),
+            metadata = CommandMetadata(connectionId = "attacker-conn", requestId = "attack-switch-install-script"),
+            publisher = publisher,
+        )
+        runCurrent()
+        publisher.deltas.clear()
+        publisher.programUpdates.clear()
+
+        advanceTimeBy(180_100)
+        runCurrent()
+
+        val updatedAttacker = requireNotNull(repository.load(attackerId))
+        val updatedTarget = requireNotNull(repository.load(targetId))
+
+        assertNull(updatedAttacker.filesystem.resolveFile("/Public", "worm.bin"))
+        assertEquals(100.0, updatedTarget.port(25)?.health)
+        assertEquals(97.8, updatedTarget.port(26)?.health)
+        assertEquals(setOf("ports", "combat"), publisher.deltas.single { it.first == setOf("target-conn") }.second.deltaKeys)
+        assertEquals(setOf("filesystem", "combat", "ports", "runtime", "stats"), publisher.deltas.single { it.first == setOf("attacker-conn") }.second.deltaKeys)
+        assertEquals(ProgramLifecycleStatus.CANCELLED, publisher.programUpdates.single().second.status)
+    }
+
+    @Test
     fun attackCompletionRunsFinalizeScriptBeforeCleanupFlush() = runTest {
         val attackerId = GameStateId("ATTACKER-IP")
         val targetId = GameStateId("TARGET-IP")
@@ -1959,7 +2677,7 @@ class AttackCommandsTest {
             seededStates = mapOf(
                 attackerId to attackerState(
                     attackerId,
-                    attackScriptBundle = attackScriptBundle(continueScript = """int main() { installScript(); return 0; }"""),
+                    attackScriptBundle = attackScriptBundle(continueScript = """int main() { totallyUnsupported(); return 0; }"""),
                 ),
                 targetId to targetState(targetId),
             ),

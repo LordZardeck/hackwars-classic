@@ -108,6 +108,10 @@ data object AttackEmptyTargetPettyCashEffect : AttackRuntimeEffect
 @SerialName("attack_steal_target_file")
 data object AttackStealTargetFileEffect : AttackRuntimeEffect
 
+@Serializable
+@SerialName("attack_install_target_script")
+data object AttackInstallTargetScriptEffect : AttackRuntimeEffect
+
 data class AttackExecutionResult(
     val effects: List<AttackRuntimeEffect> = emptyList(),
 )
@@ -271,6 +275,19 @@ private class AttackScriptHost(
                     )
                 } else {
                     state.effects += AttackStealTargetFileEffect
+                }
+                HackValue.IntValue(0)
+            }
+
+            "installScript" -> {
+                ensure(arguments.isEmpty(), "BAD_ARGUMENT_COUNT", "installScript expects 0 arguments.")
+                if (state.input.phase !in setOf(AttackExecutionPhase.CONTINUE, AttackExecutionPhase.FINALIZE)) {
+                    state.diagnostics += HackScriptDiagnostic(
+                        code = "UNSUPPORTED_PHASE",
+                        message = "installScript is only supported during CONTINUE and FINALIZE.",
+                    )
+                } else {
+                    state.effects += AttackInstallTargetScriptEffect
                 }
                 HackValue.IntValue(0)
             }

@@ -59,6 +59,7 @@ import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
 
@@ -610,6 +611,254 @@ class RewriteGameAttackProtocolAdapterTest {
         val updateFrame = attacker.awaitFrame()
 
         assertEquals(setOf("filesystem", "ports", "combat"), targetDelta.delta?.delta_keys?.toSet())
+        assertEquals(setOf("filesystem", "combat", "ports", "runtime", "stats"), attackerDelta.delta?.delta_keys?.toSet())
+        assertEquals(ProgramStatus.PROGRAM_STATUS_COMPLETED, updateFrame.program_update?.status)
+        assertTrue(target.drainFrames().isEmpty())
+    }
+
+    @Test
+    fun continueInstallScriptConsumesAttackerBinaryBeforeCancelledUpdateWithoutTargetInstallOnNonWeakenedPort() = runTest {
+        val fixture = createFixture(
+            localState = attackerState(
+                GameStateId("LOCAL-IP"),
+                attackScriptBundle = attackScriptBundle(
+                    continueScript = """int main() { installScript(); return 0; }""",
+                ),
+                filesystemFiles = listOf(
+                    storedFile(
+                        "/Public",
+                        "worm.bin",
+                        kind = com.hackwars.rewrite.gamecore.StoredFileKind.APPLICATION_BINARY,
+                        compiledBinary = CompiledBinaryMetadata(
+                            scriptFamily = ScriptFamily.BANKING,
+                            applicationKind = ApplicationKind.BANKING,
+                            outputName = "worm.bin",
+                        ),
+                        scriptBundle = ProgramScriptBundle(
+                            family = ScriptFamily.BANKING,
+                            scriptsBySlot = linkedMapOf(ProgramScriptSlot.DEPOSIT to "infected"),
+                        ),
+                    ),
+                ),
+            ),
+            targetState = targetState(
+                GameStateId("TARGET-IP"),
+                portType = "bank",
+                installedApplication = InstalledApplication(
+                    name = "target-bank.bin",
+                    kind = ApplicationKind.BANKING,
+                    banking = true,
+                    cpuCost = 2.0,
+                ),
+            ),
+        )
+        val attacker = fixture.authenticatedConnection("LOCAL-IP")
+        val target = fixture.authenticatedConnection("TARGET-IP")
+
+        attacker.send(
+            RewriteFrames.command(
+                commandId = "attack-install-script-continue-start",
+                commandName = "requestattack",
+                payload = RewriteGameJson.encode(
+                    serializer = RequestAttackPayload.serializer(),
+                    value = RequestAttackPayload(
+                        targetIp = "TARGET-IP",
+                        targetPort = 25,
+                        sourceIp = "LOCAL-IP",
+                        sourcePort = 12,
+                        scripts = listOf(listOf("/Public", "worm.bin")),
+                    ),
+                ),
+                expectsResponse = true,
+            ),
+        )
+        attacker.awaitFrame()
+        target.awaitFrame()
+        attacker.awaitFrame()
+        runCurrent()
+        attacker.awaitFrame()
+
+        advanceTimeBy(180_100)
+        runCurrent()
+
+        val targetDelta = target.awaitFrame()
+        val attackerDelta = attacker.awaitFrame()
+        val updateFrame = attacker.awaitFrame()
+        val updatedAttacker = requireNotNull(fixture.repository.load(GameStateId("LOCAL-IP")))
+        val updatedTarget = requireNotNull(fixture.repository.load(GameStateId("TARGET-IP")))
+
+        assertNull(updatedAttacker.filesystem.resolveFile("/Public", "worm.bin"))
+        assertEquals(97.8, updatedTarget.ports.first { it.number == 25 }.health)
+        assertNull(updatedTarget.ports.first { it.number == 25 }.installedApplication?.scriptBundle)
+        assertEquals(setOf("ports", "combat"), targetDelta.delta?.delta_keys?.toSet())
+        assertEquals(setOf("filesystem", "combat", "ports", "runtime", "stats"), attackerDelta.delta?.delta_keys?.toSet())
+        assertEquals(ProgramStatus.PROGRAM_STATUS_CANCELLED, updateFrame.program_update?.status)
+        assertTrue(target.drainFrames().isEmpty())
+    }
+
+    @Test
+    fun finalizeInstallScriptFlushesAttackerFilesystemAndTargetPortMutationBeforeCompletedUpdate() = runTest {
+        val fixture = createFixture(
+            localState = attackerState(
+                GameStateId("LOCAL-IP"),
+                attackScriptBundle = attackScriptBundle(
+                    finalize = """int main() { installScript(); return 0; }""",
+                ),
+                filesystemFiles = listOf(
+                    storedFile(
+                        "/Public",
+                        "worm.bin",
+                        kind = com.hackwars.rewrite.gamecore.StoredFileKind.APPLICATION_BINARY,
+                        compiledBinary = CompiledBinaryMetadata(
+                            scriptFamily = ScriptFamily.BANKING,
+                            applicationKind = ApplicationKind.BANKING,
+                            outputName = "worm.bin",
+                        ),
+                        scriptBundle = ProgramScriptBundle(
+                            family = ScriptFamily.BANKING,
+                            scriptsBySlot = linkedMapOf(ProgramScriptSlot.DEPOSIT to "infected"),
+                        ),
+                    ),
+                ),
+            ),
+            targetState = targetState(
+                GameStateId("TARGET-IP"),
+                health = 1.5,
+                portType = "bank",
+                installedApplication = InstalledApplication(
+                    name = "target-bank.bin",
+                    kind = ApplicationKind.BANKING,
+                    banking = true,
+                    cpuCost = 2.0,
+                ),
+            ),
+        )
+        val attacker = fixture.authenticatedConnection("LOCAL-IP")
+        val target = fixture.authenticatedConnection("TARGET-IP")
+
+        attacker.send(
+            RewriteFrames.command(
+                commandId = "attack-install-script-finalize-start",
+                commandName = "requestattack",
+                payload = RewriteGameJson.encode(
+                    serializer = RequestAttackPayload.serializer(),
+                    value = RequestAttackPayload(
+                        targetIp = "TARGET-IP",
+                        targetPort = 25,
+                        sourceIp = "LOCAL-IP",
+                        sourcePort = 12,
+                        scripts = listOf(listOf("/Public", "worm.bin")),
+                    ),
+                ),
+                expectsResponse = true,
+            ),
+        )
+        attacker.awaitFrame()
+        target.awaitFrame()
+        attacker.awaitFrame()
+        runCurrent()
+        attacker.awaitFrame()
+
+        advanceTimeBy(180_100)
+        runCurrent()
+
+        val targetDelta = target.awaitFrame()
+        val attackerDelta = attacker.awaitFrame()
+        val updateFrame = attacker.awaitFrame()
+        val updatedAttacker = requireNotNull(fixture.repository.load(GameStateId("LOCAL-IP")))
+        val updatedTarget = requireNotNull(fixture.repository.load(GameStateId("TARGET-IP")))
+
+        assertNull(updatedAttacker.filesystem.resolveFile("/Public", "worm.bin"))
+        assertEquals(0.0, updatedTarget.ports.first { it.number == 25 }.health)
+        assertEquals("infected", updatedTarget.ports.first { it.number == 25 }.installedApplication?.scriptBundle?.script(ProgramScriptSlot.DEPOSIT))
+        assertEquals(setOf("ports", "combat"), targetDelta.delta?.delta_keys?.toSet())
+        assertEquals(setOf("filesystem", "combat", "ports", "runtime", "stats"), attackerDelta.delta?.delta_keys?.toSet())
+        assertEquals(ProgramStatus.PROGRAM_STATUS_COMPLETED, updateFrame.program_update?.status)
+        assertTrue(target.drainFrames().isEmpty())
+    }
+
+    @Test
+    fun finalizeInstallScriptFirewallFailConsumesAttackerBinaryWithoutTargetInstallMutation() = runTest {
+        val fixture = createFixture(
+            localState = attackerState(
+                GameStateId("LOCAL-IP"),
+                attackScriptBundle = attackScriptBundle(
+                    finalize = """int main() { installScript(); return 0; }""",
+                ),
+                filesystemFiles = listOf(
+                    storedFile(
+                        "/Public",
+                        "worm.bin",
+                        kind = com.hackwars.rewrite.gamecore.StoredFileKind.APPLICATION_BINARY,
+                        compiledBinary = CompiledBinaryMetadata(
+                            scriptFamily = ScriptFamily.BANKING,
+                            applicationKind = ApplicationKind.BANKING,
+                            outputName = "worm.bin",
+                        ),
+                        scriptBundle = ProgramScriptBundle(
+                            family = ScriptFamily.BANKING,
+                            scriptsBySlot = linkedMapOf(ProgramScriptSlot.DEPOSIT to "infected"),
+                        ),
+                    ),
+                ),
+            ),
+            targetState = targetState(
+                GameStateId("TARGET-IP"),
+                health = 1.5,
+                portType = "bank",
+                firewallActionProfile = FirewallActionProfile(
+                    installScriptFailChance = 0.25,
+                ),
+                installedApplication = InstalledApplication(
+                    name = "target-bank.bin",
+                    kind = ApplicationKind.BANKING,
+                    banking = true,
+                    cpuCost = 2.0,
+                    scriptBundle = ProgramScriptBundle(
+                        family = ScriptFamily.BANKING,
+                        scriptsBySlot = linkedMapOf(ProgramScriptSlot.DEPOSIT to "clean"),
+                    ),
+                ),
+            ),
+        )
+        val attacker = fixture.authenticatedConnection("LOCAL-IP")
+        val target = fixture.authenticatedConnection("TARGET-IP")
+
+        attacker.send(
+            RewriteFrames.command(
+                commandId = "attack-install-script-firewall-start",
+                commandName = "requestattack",
+                payload = RewriteGameJson.encode(
+                    serializer = RequestAttackPayload.serializer(),
+                    value = RequestAttackPayload(
+                        targetIp = "TARGET-IP",
+                        targetPort = 25,
+                        sourceIp = "LOCAL-IP",
+                        sourcePort = 12,
+                        scripts = listOf(listOf("/Public", "worm.bin")),
+                    ),
+                ),
+                expectsResponse = true,
+            ),
+        )
+        attacker.awaitFrame()
+        target.awaitFrame()
+        attacker.awaitFrame()
+        runCurrent()
+        attacker.awaitFrame()
+
+        advanceTimeBy(180_100)
+        runCurrent()
+
+        val targetDelta = target.awaitFrame()
+        val attackerDelta = attacker.awaitFrame()
+        val updateFrame = attacker.awaitFrame()
+        val updatedAttacker = requireNotNull(fixture.repository.load(GameStateId("LOCAL-IP")))
+        val updatedTarget = requireNotNull(fixture.repository.load(GameStateId("TARGET-IP")))
+
+        assertNull(updatedAttacker.filesystem.resolveFile("/Public", "worm.bin"))
+        assertEquals("clean", updatedTarget.ports.first { it.number == 25 }.installedApplication?.scriptBundle?.script(ProgramScriptSlot.DEPOSIT))
+        assertEquals(setOf("ports", "combat"), targetDelta.delta?.delta_keys?.toSet())
         assertEquals(setOf("filesystem", "combat", "ports", "runtime", "stats"), attackerDelta.delta?.delta_keys?.toSet())
         assertEquals(ProgramStatus.PROGRAM_STATUS_COMPLETED, updateFrame.program_update?.status)
         assertTrue(target.drainFrames().isEmpty())
@@ -1439,7 +1688,10 @@ class RewriteGameAttackProtocolAdapterTest {
             clock = { Instant.ofEpochMilli(testScheduler.currentTime) },
         )
         harnessAdapter.attachHarness(harness)
-        return Fixture(harness)
+        return Fixture(
+            harness = harness,
+            repository = repository,
+        )
     }
 
     private suspend fun Fixture.authenticatedConnection(requestedIp: String): AuthenticatedConnection {
@@ -1478,6 +1730,7 @@ class RewriteGameAttackProtocolAdapterTest {
 
     private data class Fixture(
         val harness: InMemoryRewriteServiceHarness,
+        val repository: InMemoryComputerStateRepository,
     )
 
     private data class AuthenticatedConnection(
@@ -1577,8 +1830,9 @@ class RewriteGameAttackProtocolAdapterTest {
         installedApplication: InstalledApplication? = null,
         additionalPorts: List<PortState> = emptyList(),
         filesystemFiles: List<StoredFile> = emptyList(),
+        isNpc: Boolean = false,
     ): ComputerState {
-        return ComputerState.empty(id = stateId, playFabId = "PF-${stateId.value}").copy(
+        return ComputerState.empty(id = stateId, playFabId = "PF-${stateId.value}", isNpc = isNpc).copy(
             economy = EconomyState(
                 pettyCash = pettyCash,
             ),
@@ -1630,12 +1884,19 @@ class RewriteGameAttackProtocolAdapterTest {
         path: String,
         name: String,
         quantity: Int = 1,
+        kind: com.hackwars.rewrite.gamecore.StoredFileKind = com.hackwars.rewrite.gamecore.StoredFileKind.TEXT,
+        contents: String = name,
+        compiledBinary: CompiledBinaryMetadata? = null,
+        scriptBundle: ProgramScriptBundle? = null,
     ): StoredFile {
         return StoredFile(
             path = buildFilePath(path, name),
             name = name,
-            contents = name,
+            kind = kind,
+            contents = contents,
             quantity = quantity,
+            compiledBinary = compiledBinary,
+            scriptBundle = scriptBundle,
         )
     }
 

@@ -303,11 +303,13 @@ class FilesystemInstallCommandsTest {
         assertEquals(0.35, decompile.decompiledFile.compiledBinary?.firewallActionProfile?.emptyPettyCashFailChance)
         assertEquals(0.6, decompile.decompiledFile.compiledBinary?.firewallActionProfile?.emptyPettyCashReductionMultiplier)
         assertEquals(0.25, decompile.decompiledFile.compiledBinary?.firewallActionProfile?.stealFileFailChance)
+        assertEquals(0.45, decompile.decompiledFile.compiledBinary?.firewallActionProfile?.installScriptFailChance)
         assertEquals(0.75, install.installedFirewall.combatProfile.httpDamageModifier)
         assertEquals(1.25, install.installedFirewall.combatProfile.attackBackDamage)
         assertEquals(0.35, install.installedFirewall.actionProfile.emptyPettyCashFailChance)
         assertEquals(0.6, install.installedFirewall.actionProfile.emptyPettyCashReductionMultiplier)
         assertEquals(0.25, install.installedFirewall.actionProfile.stealFileFailChance)
+        assertEquals(0.45, install.installedFirewall.actionProfile.installScriptFailChance)
     }
 
     @Test
@@ -447,6 +449,7 @@ class FilesystemInstallCommandsTest {
                             emptyPettyCashFailChance = 0.35,
                             emptyPettyCashReductionMultiplier = 0.6,
                             stealFileFailChance = 0.25,
+                            installScriptFailChance = 0.45,
                         ),
                     ),
                 ),
@@ -480,6 +483,7 @@ class FilesystemInstallCommandsTest {
                             emptyPettyCashFailChance = 0.1,
                             emptyPettyCashReductionMultiplier = 0.8,
                             stealFileFailChance = 0.15,
+                            installScriptFailChance = 0.2,
                         ),
                     ),
                 ),

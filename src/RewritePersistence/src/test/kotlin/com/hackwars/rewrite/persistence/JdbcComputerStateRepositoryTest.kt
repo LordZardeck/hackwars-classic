@@ -24,6 +24,7 @@ import com.hackwars.rewrite.gamecore.IncomingAttackState
 import com.hackwars.rewrite.gamecore.PortState
 import com.hackwars.rewrite.gamecore.PreferenceSetEvent
 import com.hackwars.rewrite.gamecore.LastLoginRecordedEvent
+import com.hackwars.rewrite.gamecore.MaliciousProgramConfig
 import com.hackwars.rewrite.gamecore.ProgramScriptBundle
 import com.hackwars.rewrite.gamecore.ProgramScriptSlot
 import com.hackwars.rewrite.gamecore.ScriptFamily
@@ -269,6 +270,7 @@ class JdbcComputerStateRepositoryTest {
             emptyPettyCashFailChance = 0.4,
             emptyPettyCashReductionMultiplier = 0.65,
             stealFileFailChance = 0.3,
+            installScriptFailChance = 0.55,
         )
         val firewallBinary = StoredFile(
             path = buildFilePath("/Public", "wall.bin"),
@@ -320,6 +322,10 @@ class JdbcComputerStateRepositoryTest {
                             kind = ApplicationKind.BANKING,
                             binaryPath = compiledFile.path,
                             banking = true,
+                            maliciousConfig = MaliciousProgramConfig(
+                                targetIp = "MAL-IP",
+                                pettyCashTarget = 77.0,
+                            ),
                         ),
                     ),
                     defaultBankPort = 6,
@@ -384,6 +390,13 @@ class JdbcComputerStateRepositoryTest {
         assertEquals(1, reloaded.filesystem.directoriesByPath.count { it.key == "/Public" })
         assertEquals("bank.hws", reloaded.filesystem.filesByPath[sourceFile.path]?.name)
         assertEquals("bank.bin", reloaded.ports.single { it.number == 6 }.installedApplication?.name)
+        assertEquals(
+            MaliciousProgramConfig(
+                targetIp = "MAL-IP",
+                pettyCashTarget = 77.0,
+            ),
+            reloaded.ports.single { it.number == 6 }.installedApplication?.maliciousConfig,
+        )
         assertEquals(httpBinary.scriptBundle, reloaded.ports.single { it.number == 80 }.installedApplication?.scriptBundle)
         assertEquals(firewallProfile, reloaded.filesystem.filesByPath[firewallBinary.path]?.compiledBinary?.firewallCombatProfile)
         assertEquals(firewallActionProfile, reloaded.filesystem.filesByPath[firewallBinary.path]?.compiledBinary?.firewallActionProfile)

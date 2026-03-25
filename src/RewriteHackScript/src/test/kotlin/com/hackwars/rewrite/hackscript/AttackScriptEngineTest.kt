@@ -108,6 +108,7 @@ class AttackScriptEngineTest {
                     destroyWatches();
                     emptyPettyCash();
                     stealFile();
+                    installScript();
                     switchAttack();
                     cancelAttack();
                     freeze();
@@ -124,6 +125,7 @@ class AttackScriptEngineTest {
                     destroyWatches();
                     emptyPettyCash();
                     stealFile();
+                    installScript();
                     return 0;
                 }
             """.trimIndent(),
@@ -138,6 +140,7 @@ class AttackScriptEngineTest {
                 AttackDestroyTargetWatchesEffect,
                 AttackEmptyTargetPettyCashEffect,
                 AttackStealTargetFileEffect,
+                AttackInstallTargetScriptEffect,
                 AttackSwitchTargetEffect,
                 AttackCancelCurrentAttackEffect,
                 AttackFreezeTargetPortEffect,
@@ -152,6 +155,7 @@ class AttackScriptEngineTest {
                 AttackDestroyTargetWatchesEffect,
                 AttackEmptyTargetPettyCashEffect,
                 AttackStealTargetFileEffect,
+                AttackInstallTargetScriptEffect,
             ),
             assertNotNull(finalizeOutcome.result).effects,
         )
@@ -191,6 +195,10 @@ class AttackScriptEngineTest {
             script = """int main() { stealFile(); return 0; }""",
             input = input(phase = AttackExecutionPhase.INITIALIZE),
         )
+        val initializeInstallScript = engine.execute(
+            script = """int main() { installScript(); return 0; }""",
+            input = input(phase = AttackExecutionPhase.INITIALIZE),
+        )
 
         assertEquals("UNSUPPORTED_PHASE", initializeDelete.diagnostics.single().code)
         assertEquals(emptyList(), assertNotNull(initializeDelete.result).effects)
@@ -208,6 +216,8 @@ class AttackScriptEngineTest {
         assertEquals(emptyList(), assertNotNull(initializeEmptyPettyCash.result).effects)
         assertEquals("UNSUPPORTED_PHASE", initializeStealFile.diagnostics.single().code)
         assertEquals(emptyList(), assertNotNull(initializeStealFile.result).effects)
+        assertEquals("UNSUPPORTED_PHASE", initializeInstallScript.diagnostics.single().code)
+        assertEquals(emptyList(), assertNotNull(initializeInstallScript.result).effects)
     }
 
     @Test
@@ -224,7 +234,7 @@ class AttackScriptEngineTest {
     @Test
     fun unsupportedHelpersProduceStructuredFailureWithoutCrashing() {
         val outcome = engine.execute(
-            script = """int main() { installScript(); return 0; }""",
+            script = """int main() { totallyUnsupported(); return 0; }""",
             input = input(phase = AttackExecutionPhase.CONTINUE),
         )
 

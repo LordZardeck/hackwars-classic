@@ -10,9 +10,13 @@ import com.hackwars.rewrite.hackscript.AttackDestroyTargetWatchesEffect
 import com.hackwars.rewrite.hackscript.AttackEmptyTargetPettyCashEffect
 import com.hackwars.rewrite.hackscript.AttackEditTargetLogsEffect
 import com.hackwars.rewrite.hackscript.AttackFreezeTargetPortEffect
+import com.hackwars.rewrite.hackscript.AttackInstallTargetScriptEffect
 import com.hackwars.rewrite.hackscript.AttackStealTargetFileEffect
 import com.hackwars.rewrite.hackscript.AttackSwitchTargetEffect
+import com.hackwars.rewrite.hackscript.FloatHookValue
 import com.hackwars.rewrite.hackscript.HookValue
+import com.hackwars.rewrite.hackscript.IntHookValue
+import com.hackwars.rewrite.hackscript.StringHookValue
 import java.util.UUID
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -901,6 +905,58 @@ internal class AttackTickCommand(
             )
         }
 
+        suspend fun installCurrentTargetScript() {
+            val targetApplication = currentTargetPortState.installedApplication ?: return
+            val sourceReference = currentSession.maliciousScripts.firstOrNull { it != null } ?: return
+            val sourceFile = currentAttackerFilesystem.resolveFile(sourceReference.folder, sourceReference.name) ?: return
+            val sourceMetadata = sourceFile.compiledBinary ?: return
+            if (sourceFile.kind != StoredFileKind.APPLICATION_BINARY) {
+                return
+            }
+            if (!targetApplication.kind.isInstallScriptSupportedTarget()) {
+                return
+            }
+            if (sourceMetadata.applicationKind != targetApplication.kind) {
+                return
+            }
+
+            val remainingSourceFile = if (sourceFile.quantity <= 1) {
+                null
+            } else {
+                sourceFile.copy(quantity = sourceFile.quantity - 1)
+            }
+            currentAttackerFilesystem = currentAttackerFilesystem.deleteFileByPath(sourceFile.path)
+            if (remainingSourceFile != null) {
+                currentAttackerFilesystem = currentAttackerFilesystem.saveFile(remainingSourceFile)
+            }
+            context.appendEvents(
+                id = attackerStateId,
+                events = buildList {
+                    add(FileDeletedEvent(sourceFile.path))
+                    if (remainingSourceFile != null) {
+                        add(FileSavedEvent(remainingSourceFile))
+                    }
+                },
+            )
+
+            if (currentTargetState.identity.isNpc) {
+                return
+            }
+            if (currentTargetPortState.health != 0.0) {
+                return
+            }
+            if (currentTargetPortState.shouldFailInstallScript()) {
+                return
+            }
+
+            val installedBundle = sourceFile.scriptBundle ?: emptyInstallScriptBundleFor(targetApplication.kind)
+            val updatedApplication = targetApplication.copy(
+                scriptBundle = installedBundle,
+                maliciousConfig = currentSession.extraInfo.toMaliciousProgramConfig(),
+            )
+            replaceTargetPort(currentTargetPortState.copy(installedApplication = updatedApplication))
+        }
+
         suspend fun applyDamagePass(
             resolution: FirewallCombatResolution,
             awardAttackXp: Boolean,
@@ -988,6 +1044,11 @@ internal class AttackTickCommand(
 
                     is AttackStealTargetFileEffect -> {
                         stealCurrentTargetFile()
+                        cancelRequested = true
+                    }
+
+                    is AttackInstallTargetScriptEffect -> {
+                        installCurrentTargetScript()
                         cancelRequested = true
                     }
 
@@ -1149,6 +1210,10 @@ internal class AttackTickCommand(
 
                         is AttackStealTargetFileEffect -> {
                             stealCurrentTargetFile()
+                        }
+
+                        is AttackInstallTargetScriptEffect -> {
+                            installCurrentTargetScript()
                         }
 
                         else -> Unit
@@ -1770,6 +1835,9 @@ private fun List<PortState>.combatChangedPaths(
             if (previousPort.attacking != port.attacking) {
                 add("ports.${port.number}.attacking")
             }
+            if (previousPort.installedApplication != port.installedApplication) {
+                add("ports.${port.number}.installedApplication")
+            }
         }
     }
 }
@@ -1794,5 +1862,39 @@ private fun ComputerState.toAttackExecutionInput(
         currentCpuLoad = runtime.currentCpuLoad,
         maximumCpuLoad = hardware.cpuMax,
         iterations = iterations,
+    )
+}
+
+private fun ApplicationKind.isInstallScriptSupportedTarget(): Boolean {
+    return this == ApplicationKind.BANKING ||
+        this == ApplicationKind.FTP ||
+        this == ApplicationKind.ATTACK
+}
+
+private fun PortState.shouldFailInstallScript(): Boolean {
+    val actionProfile = installedFirewall?.actionProfile ?: FirewallActionProfile()
+    return actionProfile.installScriptFailChance > 0.0
+}
+
+private fun emptyInstallScriptBundleFor(applicationKind: ApplicationKind): ProgramScriptBundle {
+    val family = when (applicationKind) {
+        ApplicationKind.BANKING -> ScriptFamily.BANKING
+        ApplicationKind.ATTACK -> ScriptFamily.ATTACK
+        ApplicationKind.FTP -> ScriptFamily.GENERAL
+        else -> ScriptFamily.GENERAL
+    }
+    return ProgramScriptBundle(family = family)
+}
+
+private fun List<HookValue>.toMaliciousProgramConfig(): MaliciousProgramConfig {
+    val targetIp = (getOrNull(0) as? StringHookValue)?.value
+    val pettyCashTarget = when (val value = getOrNull(1)) {
+        is FloatHookValue -> value.value
+        is IntHookValue -> value.value.toDouble()
+        else -> 0.0
+    }
+    return MaliciousProgramConfig(
+        targetIp = targetIp,
+        pettyCashTarget = pettyCashTarget,
     )
 }

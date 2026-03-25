@@ -395,7 +395,7 @@
   - Keeps file, social, message, zombie-linked, and redirect or shipping-port helper work deferred to follow-on sub-slices.
 
 ### RW-GS-S5B2B2B3B2A - stealFile target-side filesystem finalizer
-- Status: `in_progress`
+- Status: `completed`
 - Owner: `codex`
 - Depends on: `RW-GS-S5B2B2B3B1`
 - Allowed write scope: `:RewriteHackScript`, `:RewriteGameCore`, `:RewriteGameServer`, `:RewritePersistence`
@@ -408,16 +408,17 @@
   - Keeps malicious install, daily-pay, message, zombie-linked, and other social/helper work deferred to follow-on sub-slices.
 
 ### RW-GS-S5B2B2B3B2B - installScript malicious installed-program finalizer
-- Status: `todo`
-- Owner: `unassigned`
+- Status: `in_progress`
+- Owner: `codex`
 - Depends on: `RW-GS-S5B2B2B3B2A`
 - Allowed write scope: `:RewriteHackScript`, `:RewriteGameCore`, `:RewriteGameServer`, `:RewritePersistence`
 - Verification command: `./gradlew :RewriteHackScript:test :RewriteGameCore:test :RewritePersistence:test :RewriteGameServer:test :RewriteTestKit:integrationTest`
 - Artifacts: `build/reports/tests/test`
 - Commit rule: `single green commit only`
 - Notes:
-  - Owns the installed attack-script `installScript()` helper once the rewrite is ready to model malicious installed-program side effects on target ports.
-  - Must preserve deterministic attack cleanup and avoid coupling the initial malicious-install work to the remaining social or zombie-linked helpers.
+  - Adds the installed attack-script `installScript()` helper as a deterministic target-side malicious installed-program finalizer in `CONTINUE` and `FINALIZE`.
+  - Consumes one compatible attacker binary before NPC, weakened, or deterministic firewall-fail gates, and only mutates the target port's existing installed script bundle plus minimal malicious config when the target is non-NPC and weakened.
+  - Keeps daily-pay, message, zombie-linked, and broader social/helper behavior deferred to follow-on sub-slices.
 
 ### RW-GS-S5B2B2B3B2C - changeDailyPay, message, and zombie-linked social helpers
 - Status: `todo`
