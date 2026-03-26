@@ -43,6 +43,12 @@ class RewritePersistenceBootstrapTest {
             assertTableExists(it, "rewrite_network_npc")
             assertTableExists(it, "rewrite_session_ticket")
             assertTableExists(it, "rewrite_service_session")
+            assertTableExists(it, "rewrite_chat_channel")
+            assertTableExists(it, "rewrite_chat_channel_member")
+            assertTableExists(it, "rewrite_chat_message")
+            assertTableExists(it, "rewrite_chat_relation")
+            assertTableExists(it, "rewrite_chat_channel_mute")
+            assertTableExists(it, "rewrite_chat_presence")
         }
     }
 
@@ -50,7 +56,7 @@ class RewritePersistenceBootstrapTest {
     fun rollbackRemovesBootstrapTables() {
         withConnection {
             RewriteLiquibase.update(it)
-            RewriteLiquibase.rollback(it, 3)
+            RewriteLiquibase.rollback(it, 4)
 
             assertTableMissing(it, "rewrite_import_batch")
             assertTableMissing(it, "rewrite_player_account")
@@ -62,6 +68,12 @@ class RewritePersistenceBootstrapTest {
             assertTableMissing(it, "rewrite_network_npc")
             assertTableMissing(it, "rewrite_session_ticket")
             assertTableMissing(it, "rewrite_service_session")
+            assertTableMissing(it, "rewrite_chat_channel")
+            assertTableMissing(it, "rewrite_chat_channel_member")
+            assertTableMissing(it, "rewrite_chat_message")
+            assertTableMissing(it, "rewrite_chat_relation")
+            assertTableMissing(it, "rewrite_chat_channel_mute")
+            assertTableMissing(it, "rewrite_chat_presence")
         }
     }
 

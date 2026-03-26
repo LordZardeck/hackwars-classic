@@ -85,7 +85,7 @@
 - Verification scope: `./gradlew :RewritePersistence:test :RewritePersistence:migrationTest`
 
 ### RW-DATA-003D - Define retained chat and social schema slice
-- Status: `ready`
+- Status: `done`
 - Priority: `P1`
 - Execution lane: `schema`
 - Worker role: `worker`

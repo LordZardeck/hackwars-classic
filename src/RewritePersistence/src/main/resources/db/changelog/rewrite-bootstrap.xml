@@ -330,4 +330,268 @@
             <dropTable tableName="rewrite_session_ticket"/>
         </rollback>
     </changeSet>
+
+    <changeSet id="rewrite-0004-chat-social" author="codex">
+        <comment>Persist retained chat channels, moderation membership, history, relations, mutes, and online presence.</comment>
+
+        <createTable tableName="rewrite_chat_channel">
+            <column name="channel_id" type="varchar(64)">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="display_name" type="varchar(128)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="topic" type="text">
+                <constraints nullable="false"/>
+            </column>
+            <column name="owner_player_id" type="varchar(64)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="private_channel" type="boolean">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="timestamptz">
+                <constraints nullable="false"/>
+            </column>
+            <column name="channel_payload" type="jsonb">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <createTable tableName="rewrite_chat_channel_member">
+            <column name="channel_id" type="varchar(64)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="player_id" type="varchar(64)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="role" type="varchar(16)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="joined_at" type="timestamptz">
+                <constraints nullable="false"/>
+            </column>
+            <column name="membership_payload" type="jsonb">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <addPrimaryKey
+            tableName="rewrite_chat_channel_member"
+            columnNames="channel_id, player_id"
+            constraintName="pk_rewrite_chat_channel_member"/>
+
+        <createTable tableName="rewrite_chat_message">
+            <column name="message_id" type="varchar(64)">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="message_kind" type="varchar(16)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="channel_id" type="varchar(64)"/>
+            <column name="sender_player_id" type="varchar(64)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="recipient_player_id" type="varchar(64)"/>
+            <column name="event_type" type="varchar(32)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="payload" type="bytea">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="timestamptz">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <createTable tableName="rewrite_chat_relation">
+            <column name="player_id" type="varchar(64)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="target_player_id" type="varchar(64)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="relation_kind" type="varchar(16)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="timestamptz">
+                <constraints nullable="false"/>
+            </column>
+            <column name="relation_payload" type="jsonb">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <addPrimaryKey
+            tableName="rewrite_chat_relation"
+            columnNames="player_id, target_player_id, relation_kind"
+            constraintName="pk_rewrite_chat_relation"/>
+
+        <createTable tableName="rewrite_chat_channel_mute">
+            <column name="player_id" type="varchar(64)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="channel_id" type="varchar(64)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="muted_player_id" type="varchar(64)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="timestamptz">
+                <constraints nullable="false"/>
+            </column>
+            <column name="mute_payload" type="jsonb">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <addPrimaryKey
+            tableName="rewrite_chat_channel_mute"
+            columnNames="player_id, channel_id, muted_player_id"
+            constraintName="pk_rewrite_chat_channel_mute"/>
+
+        <createTable tableName="rewrite_chat_presence">
+            <column name="connection_id" type="varchar(64)">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="player_id" type="varchar(64)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="online_at" type="timestamptz">
+                <constraints nullable="false"/>
+            </column>
+            <column name="last_seen_at" type="timestamptz">
+                <constraints nullable="false"/>
+            </column>
+            <column name="offline_at" type="timestamptz"/>
+            <column name="presence_payload" type="jsonb">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <addForeignKeyConstraint
+            baseTableName="rewrite_chat_channel"
+            baseColumnNames="owner_player_id"
+            referencedTableName="rewrite_player_account"
+            referencedColumnNames="player_id"
+            constraintName="fk_rewrite_chat_channel_owner"/>
+
+        <addForeignKeyConstraint
+            baseTableName="rewrite_chat_channel_member"
+            baseColumnNames="channel_id"
+            referencedTableName="rewrite_chat_channel"
+            referencedColumnNames="channel_id"
+            constraintName="fk_rewrite_chat_member_channel"/>
+
+        <addForeignKeyConstraint
+            baseTableName="rewrite_chat_channel_member"
+            baseColumnNames="player_id"
+            referencedTableName="rewrite_player_account"
+            referencedColumnNames="player_id"
+            constraintName="fk_rewrite_chat_member_player"/>
+
+        <addForeignKeyConstraint
+            baseTableName="rewrite_chat_message"
+            baseColumnNames="channel_id"
+            referencedTableName="rewrite_chat_channel"
+            referencedColumnNames="channel_id"
+            constraintName="fk_rewrite_chat_message_channel"/>
+
+        <addForeignKeyConstraint
+            baseTableName="rewrite_chat_message"
+            baseColumnNames="sender_player_id"
+            referencedTableName="rewrite_player_account"
+            referencedColumnNames="player_id"
+            constraintName="fk_rewrite_chat_message_sender"/>
+
+        <addForeignKeyConstraint
+            baseTableName="rewrite_chat_message"
+            baseColumnNames="recipient_player_id"
+            referencedTableName="rewrite_player_account"
+            referencedColumnNames="player_id"
+            constraintName="fk_rewrite_chat_message_recipient"/>
+
+        <addForeignKeyConstraint
+            baseTableName="rewrite_chat_relation"
+            baseColumnNames="player_id"
+            referencedTableName="rewrite_player_account"
+            referencedColumnNames="player_id"
+            constraintName="fk_rewrite_chat_relation_player"/>
+
+        <addForeignKeyConstraint
+            baseTableName="rewrite_chat_relation"
+            baseColumnNames="target_player_id"
+            referencedTableName="rewrite_player_account"
+            referencedColumnNames="player_id"
+            constraintName="fk_rewrite_chat_relation_target"/>
+
+        <addForeignKeyConstraint
+            baseTableName="rewrite_chat_channel_mute"
+            baseColumnNames="player_id"
+            referencedTableName="rewrite_player_account"
+            referencedColumnNames="player_id"
+            constraintName="fk_rewrite_chat_mute_player"/>
+
+        <addForeignKeyConstraint
+            baseTableName="rewrite_chat_channel_mute"
+            baseColumnNames="channel_id"
+            referencedTableName="rewrite_chat_channel"
+            referencedColumnNames="channel_id"
+            constraintName="fk_rewrite_chat_mute_channel"/>
+
+        <addForeignKeyConstraint
+            baseTableName="rewrite_chat_channel_mute"
+            baseColumnNames="muted_player_id"
+            referencedTableName="rewrite_player_account"
+            referencedColumnNames="player_id"
+            constraintName="fk_rewrite_chat_mute_target"/>
+
+        <addForeignKeyConstraint
+            baseTableName="rewrite_chat_presence"
+            baseColumnNames="player_id"
+            referencedTableName="rewrite_player_account"
+            referencedColumnNames="player_id"
+            constraintName="fk_rewrite_chat_presence_player"/>
+
+        <createIndex tableName="rewrite_chat_channel_member" indexName="idx_rewrite_chat_member_role">
+            <column name="channel_id"/>
+            <column name="role"/>
+            <column name="joined_at"/>
+        </createIndex>
+
+        <createIndex tableName="rewrite_chat_message" indexName="idx_rewrite_chat_message_channel">
+            <column name="channel_id"/>
+            <column name="created_at"/>
+        </createIndex>
+
+        <createIndex tableName="rewrite_chat_message" indexName="idx_rewrite_chat_message_whisper">
+            <column name="recipient_player_id"/>
+            <column name="created_at"/>
+        </createIndex>
+
+        <createIndex tableName="rewrite_chat_relation" indexName="idx_rewrite_chat_relation_kind">
+            <column name="player_id"/>
+            <column name="relation_kind"/>
+        </createIndex>
+
+        <createIndex tableName="rewrite_chat_channel_mute" indexName="idx_rewrite_chat_mute_lookup">
+            <column name="player_id"/>
+            <column name="channel_id"/>
+        </createIndex>
+
+        <createIndex tableName="rewrite_chat_presence" indexName="idx_rewrite_chat_presence_player">
+            <column name="player_id"/>
+            <column name="offline_at"/>
+            <column name="online_at"/>
+        </createIndex>
+
+        <rollback>
+            <dropTable tableName="rewrite_chat_presence"/>
+            <dropTable tableName="rewrite_chat_channel_mute"/>
+            <dropTable tableName="rewrite_chat_relation"/>
+            <dropTable tableName="rewrite_chat_message"/>
+            <dropTable tableName="rewrite_chat_channel_member"/>
+            <dropTable tableName="rewrite_chat_channel"/>
+        </rollback>
+    </changeSet>
 </databaseChangeLog>
