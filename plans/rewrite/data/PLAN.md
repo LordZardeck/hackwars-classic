@@ -137,7 +137,7 @@
 - Verification scope: `./gradlew :RewritePersistence:test :RewritePersistence:migrationTest rewriteMigrationTest`
 
 ### RW-DATA-005B - Add retained audit and reconciliation reporting
-- Status: `ready`
+- Status: `done`
 - Priority: `P3`
 - Execution lane: `audit`
 - Worker role: `verifier`

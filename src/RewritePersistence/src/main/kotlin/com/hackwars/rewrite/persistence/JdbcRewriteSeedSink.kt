@@ -952,11 +952,23 @@ class JdbcRewriteSeedSink(
                 val channelsJson = payload.channels.joinToString(prefix = "[", postfix = "]") { channel ->
                     """{"channelId":"${channel.channelId}","displayName":"${channel.displayName}","ownerPlayerId":"${channel.ownerPlayerId}"}"""
                 }
+                val membershipsJson = payload.memberships.joinToString(prefix = "[", postfix = "]") { membership ->
+                    """{"channelId":"${membership.channelId}","playerId":"${membership.playerId}"}"""
+                }
                 val messagesJson = payload.messages.joinToString(prefix = "[", postfix = "]") { message ->
                     val encodedPayload = Base64.getEncoder().encodeToString(message.payload)
                     """{"messageId":"${message.messageId}","messageKind":"${message.messageKind.name}","eventType":"${message.eventType}","payloadBase64":"$encodedPayload"}"""
                 }
-                """{"type":"chat-social","channels":$channelsJson,"memberships":${payload.memberships.size},"messages":$messagesJson,"relations":${payload.relations.size},"channelMutes":${payload.channelMutes.size},"presence":${payload.presence.size}}"""
+                val relationsJson = payload.relations.joinToString(prefix = "[", postfix = "]") { relation ->
+                    """{"playerId":"${relation.playerId}","targetPlayerId":"${relation.targetPlayerId}","relationKind":"${relation.relationKind.name}"}"""
+                }
+                val channelMutesJson = payload.channelMutes.joinToString(prefix = "[", postfix = "]") { mute ->
+                    """{"playerId":"${mute.playerId}","channelId":"${mute.channelId}","mutedPlayerId":"${mute.mutedPlayerId}"}"""
+                }
+                val presenceJson = payload.presence.joinToString(prefix = "[", postfix = "]") { presence ->
+                    """{"connectionId":"${presence.connectionId}","playerId":"${presence.playerId}"}"""
+                }
+                """{"type":"chat-social","channels":$channelsJson,"memberships":$membershipsJson,"messages":$messagesJson,"relations":$relationsJson,"channelMutes":$channelMutesJson,"presence":$presenceJson}"""
             }
         }
     }

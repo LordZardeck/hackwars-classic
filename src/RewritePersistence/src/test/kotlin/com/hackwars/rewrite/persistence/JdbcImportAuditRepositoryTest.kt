@@ -1,92 +1,89 @@
 package com.hackwars.rewrite.persistence
 
-import com.hackwars.rewrite.gamecore.GameStateId
 import com.hackwars.rewrite.gamecore.NpcCategory
 import com.hackwars.rewrite.gamecore.ROOT_NETWORK_NAME
 import java.sql.Connection
 import java.sql.DriverManager
 import java.time.Instant
 import kotlinx.coroutines.runBlocking
-import org.junit.jupiter.api.Test
 import org.testcontainers.containers.PostgreSQLContainer
 import org.testcontainers.junit.jupiter.Container
 import org.testcontainers.junit.jupiter.Testcontainers
-import kotlin.test.assertContentEquals
+import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertNotNull
 
 @Testcontainers
-class RetainedImporterMigrationEvidenceTest {
+class JdbcImportAuditRepositoryTest {
     companion object {
         @Container
         @JvmStatic
         val postgres: PostgreSQLContainer<*> = PostgreSQLContainer("postgres:17").apply {
-            withDatabaseName("rewrite_retained_importer_migration_evidence_test")
+            withDatabaseName("rewrite_import_audit_repository_test")
             withUsername("rewrite")
             withPassword("rewrite")
         }
     }
 
-    @Test
-    fun migratedSchemaSupportsRetainedImporterFixtureAcrossAllSlices() {
-        resetDatabase()
-        val sink = JdbcRewriteSeedSink(connectionFactory = ::newConnection)
+    private val sink = JdbcRewriteSeedSink(connectionFactory = ::newConnection)
 
-        runBlocking {
-            retainedFixtureBatches().forEach { batch ->
-                sink.write(batch)
+    @Test
+    fun listsImportBatchesAndBuildsCleanRetainedReconciliationReport() {
+        resetDatabase()
+        retainedFixtureBatches().forEach(::writeBatch)
+        val repository = JdbcImportAuditRepository(connectionFactory = ::newConnection)
+
+        val batches = runBlocking { repository.listImportBatches() }
+        val report = runBlocking { repository.buildRetainedReconciliationReport() }
+
+        assertEquals(9, batches.size)
+        assertEquals(
+            listOf(
+                "chat-social",
+                "computer",
+                "inventory",
+                "player",
+                "player",
+                "player",
+                "service-session",
+                "session-ticket",
+                "world",
+            ),
+            batches.map { it.payloadType }.sorted(),
+        )
+        assertEquals(
+            mapOf(
+                "chat-social" to 1,
+                "computer" to 1,
+                "inventory" to 1,
+                "player" to 3,
+                "service-session" to 1,
+                "session-ticket" to 1,
+                "world" to 1,
+            ),
+            report.payloadCountsByType,
+        )
+        assertEquals(0, report.mismatchCount)
+        assertEquals(emptyList(), report.missingWebsiteStateIds)
+        assertEquals(emptyList(), report.missingChatPresenceConnectionIds)
+    }
+
+    @Test
+    fun retainedReconciliationReportFlagsMissingProjectionAndPresenceRows() {
+        resetDatabase()
+        retainedFixtureBatches().forEach(::writeBatch)
+        newConnection().use { connection ->
+            connection.createStatement().use { statement ->
+                statement.executeUpdate("delete from rewrite_website_projection where state_id = '198.51.100.10'")
+                statement.executeUpdate("delete from rewrite_chat_presence where connection_id = 'chat-1'")
             }
         }
+        val repository = JdbcImportAuditRepository(connectionFactory = ::newConnection)
 
-        val authRepository = JdbcAuthSessionRepository(connectionFactory = ::newConnection)
-        val auditRepository = JdbcImportAuditRepository(connectionFactory = ::newConnection)
-        val networkRepository = JdbcNetworkDirectoryRepository(connectionFactory = ::newConnection)
-        val websiteRepository = JdbcWebsiteProjectionRepository(connectionFactory = ::newConnection)
-        val chatRepository = JdbcChatSocialRepository(connectionFactory = ::newConnection)
+        val report = runBlocking { repository.buildRetainedReconciliationReport() }
 
-        val auditReport = runBlocking { auditRepository.buildRetainedReconciliationReport() }
-        val ticket = runBlocking { authRepository.findSessionTicket("SESSION-LOCAL") }
-        val session = runBlocking {
-            authRepository.findServiceSession(PersistedServiceKind.GAME, "game-1")
-        }
-        val network = runBlocking { networkRepository.loadNetwork(ROOT_NETWORK_NAME) }
-        val website = runBlocking { websiteRepository.findWebsiteProjection("198.51.100.10") }
-        val history = runBlocking { chatRepository.loadChannelHistory("global", limit = 10) }
-        val friends = runBlocking { chatRepository.listRelations("local-user", PersistedRelationKind.FRIEND) }
-        val presence = runBlocking { chatRepository.listActivePresence("local-user") }
-
-        assertNotNull(ticket)
-        assertEquals(0, auditReport.mismatchCount)
-        assertEquals(9, auditReport.batchCount)
-        assertEquals("198.51.100.10", ticket.playerIp)
-        assertNotNull(session)
-        assertEquals("SESSION-LOCAL", session.sessionTicket)
-        assertNotNull(network)
-        assertEquals(GameStateId("203.0.113.20"), network.storeStateId)
-        assertEquals("Root Hunter", network.regularNpcs.single().displayName)
-        assertNotNull(website)
-        assertEquals("Fixture Website", website.title)
-        assertEquals("198.51.100.10", website.canonicalAddress)
-        assertEquals(1, history.size)
-        assertContentEquals("Hello Bob".encodeToByteArray(), history.single().payload)
-        assertEquals(listOf("charlie"), friends.map { it.targetPlayerId })
-        assertEquals(listOf("chat-1"), presence.map { it.connectionId })
-
-        newConnection().use { connection ->
-            assertEquals(9, countRows(connection, "rewrite_import_batch"))
-            assertEquals(3, countRows(connection, "rewrite_player_account"))
-            assertEquals(1, countRows(connection, "rewrite_session_ticket"))
-            assertEquals(1, countRows(connection, "rewrite_service_session"))
-            assertEquals(1, countRows(connection, "rewrite_computer_state"))
-            assertEquals(2, countRows(connection, "rewrite_network_directory"))
-            assertEquals(1, countRows(connection, "rewrite_website_projection"))
-            assertEquals(1, countRows(connection, "rewrite_chat_channel"))
-            assertEquals(2, countRows(connection, "rewrite_chat_channel_member"))
-            assertEquals(1, countRows(connection, "rewrite_chat_message"))
-            assertEquals(1, countRows(connection, "rewrite_chat_relation"))
-            assertEquals(1, countRows(connection, "rewrite_chat_channel_mute"))
-            assertEquals(1, countRows(connection, "rewrite_chat_presence"))
-        }
+        assertEquals(listOf("198.51.100.10"), report.missingWebsiteStateIds)
+        assertEquals(listOf("chat-1"), report.missingChatPresenceConnectionIds)
+        assertEquals(2, report.mismatchCount)
     }
 
     private fun retainedFixtureBatches(): List<RewriteSeedBatch> {
@@ -305,15 +302,9 @@ class RetainedImporterMigrationEvidenceTest {
         }
     }
 
-    private fun countRows(
-        connection: Connection,
-        tableName: String,
-    ): Int {
-        connection.prepareStatement("select count(*) from $tableName").use { statement ->
-            statement.executeQuery().use { resultSet ->
-                resultSet.next()
-                return resultSet.getInt(1)
-            }
+    private fun writeBatch(batch: RewriteSeedBatch) {
+        runBlocking {
+            sink.write(batch)
         }
     }
 
