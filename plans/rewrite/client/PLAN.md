@@ -335,7 +335,7 @@
 - Verification scope: `./gradlew :RewriteProtocol:test :RewriteClient:test :RewriteClient:uiTest`
 
 ### RW-CLIENT-W3C1 - Browser rendering parity hardening foundation
-- Status: `ready`
+- Status: `done`
 - Priority: `P2`
 - Execution lane: `ftp_web`
 - Worker role: `worker`

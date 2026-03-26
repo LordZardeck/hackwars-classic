@@ -242,9 +242,10 @@ internal class RewriteWebBrowserWindow(
     private val htmlView = RewriteHtmlView(
         paneName = "rewrite-web-html-pane",
         scrollPaneName = "rewrite-web-html-scroll",
-        hyperlinkListener = ::handleHyperlinkEvent,
         autoFormSubmission = false,
-    )
+    ).also { view ->
+        view.pane.addHyperlinkListener(::handleHyperlinkEvent)
+    }
     private val addressField = JTextField().apply {
         name = "rewrite-web-address-field"
         addActionListener { navigateFromAddressField() }
