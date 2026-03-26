@@ -44,7 +44,7 @@
 - Verification scope: `./gradlew :RewriteProtocol:test :RewriteChatCore:test`
 
 ### RW-CHAT-001C - Correct retained add_admin and mute contract scoping
-- Status: `ready`
+- Status: `done`
 - Priority: `P1`
 - Execution lane: `contracts`
 - Worker role: `worker`
@@ -55,6 +55,7 @@
 - Autonomous next: `RW-CHAT-003B`
 - Fallback if blocked: `RW-CHAT-003A`
 - Verification scope: `./gradlew :RewriteProtocol:test :RewriteChatCore:test :RewriteChatServer:test`
+- Locked scope note: this card adds channel scope to retained `add_admin` and `mute` payloads, updates the retained chat adapter to route those requests, and closes the wire mismatch exposed during `RW-CHAT-003A`.
 
 ### RW-CHAT-002A - Implement retained chat session bootstrap and auth binding
 - Status: `done`
@@ -91,10 +92,10 @@
 - Ready when: canonical chat contracts and retained chat/social schema exist
 - Parallel with: `RW-CHAT-002A`, `RW-CHAT-004A`
 - Allowed write scope: `src/RewriteChatCore/**`, `src/RewriteChatServer/**`, `src/RewritePersistence/**`
-- Autonomous next: `RW-CHAT-001C`
+- Autonomous next: `RW-CHAT-003B`
 - Fallback if blocked: `RW-DATA-003D`
 - Verification scope: `./gradlew :RewriteChatCore:test :RewriteChatServer:test :RewritePersistence:test`
-- Locked scope note: this card closes retained `sub_channels`, `channel_create`, `channel_join`, `channel_leave`, and `channel_kick`, plus actor-local roster refresh and empty-channel cleanup. `add_admin` and `mute` stay explicitly tracked by `RW-CHAT-001C` because the current rewrite DTOs are missing channel scope.
+- Locked scope note: this card closes retained `sub_channels`, `channel_create`, `channel_join`, `channel_leave`, and `channel_kick`, plus actor-local roster refresh and empty-channel cleanup. Channel-scoped `add_admin` and `mute` contract/routing is closed in `RW-CHAT-001C`.
 
 ### RW-CHAT-003B - Implement retained channel fanout, history, and whisper pipeline
 - Status: `ready`

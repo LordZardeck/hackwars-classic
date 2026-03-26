@@ -8,6 +8,7 @@ import com.hackwars.rewrite.chatcore.RetainedChatBootstrapPolicy
 import com.hackwars.rewrite.persistence.AuthSessionRepository
 import com.hackwars.rewrite.persistence.ChatSocialRepository
 import com.hackwars.rewrite.persistence.PersistedChannelRole
+import com.hackwars.rewrite.persistence.PersistedChannelMute
 import com.hackwars.rewrite.persistence.PersistedChatChannel
 import com.hackwars.rewrite.persistence.PersistedChatChannelMembership
 import com.hackwars.rewrite.persistence.PersistedChatRelation
@@ -15,11 +16,13 @@ import com.hackwars.rewrite.persistence.PersistedChatPresence
 import com.hackwars.rewrite.persistence.PersistedRelationKind
 import com.hackwars.rewrite.persistence.PersistedServiceKind
 import com.hackwars.rewrite.persistence.PersistedServiceSession
+import com.hackwars.rewrite.protocol.ChatAddAdminPayload
 import com.hackwars.rewrite.protocol.ChatChannelCreatePayload
 import com.hackwars.rewrite.protocol.ChatChannelJoinPayload
 import com.hackwars.rewrite.protocol.ChatChannelKickPayload
 import com.hackwars.rewrite.protocol.ChatChannelLeavePayload
 import com.hackwars.rewrite.protocol.ChatErrorEventPayload
+import com.hackwars.rewrite.protocol.ChatMutePayload
 import com.hackwars.rewrite.protocol.ChatParityEventType
 import com.hackwars.rewrite.protocol.ChatRequestType
 import com.hackwars.rewrite.protocol.ChatSubChannelsPayload
@@ -262,14 +265,29 @@ class RewriteChatProtocolAdapter(
                 )
             }
 
-            ChatRequestType.ADD_ADMIN,
-            ChatRequestType.MUTE,
-            -> requestErrorFrames(
+            ChatRequestType.ADD_ADMIN -> decodeAndHandle<ChatAddAdminPayload>(
+                command = command,
+                session = session,
+                serializer = ChatAddAdminPayload.serializer(),
+            ) { payload ->
+                handleAddChannelModerator(
                     commandId = command.command_id,
-                    receiverPlayerId = session.playerId,
-                    code = "CHAT_REQUEST_BLOCKED_ON_RW_CHAT_001C",
-                    message = "Retained `${requestType.wireName}` needs the channel-scoped contract fix tracked by RW-CHAT-001C.",
+                    session = session,
+                    payload = payload,
                 )
+            }
+
+            ChatRequestType.MUTE -> decodeAndHandle<ChatMutePayload>(
+                command = command,
+                session = session,
+                serializer = ChatMutePayload.serializer(),
+            ) { payload ->
+                handleMuteChannelMember(
+                    commandId = command.command_id,
+                    session = session,
+                    payload = payload,
+                )
+            }
 
             ChatRequestType.CHANNEL_TEXT,
             ChatRequestType.CHANNEL_TEXT_ME,
@@ -606,6 +624,127 @@ class RewriteChatProtocolAdapter(
             commandId = commandId,
             session = session,
         )
+    }
+
+    private suspend fun handleAddChannelModerator(
+        commandId: String,
+        session: AuthenticatedChatSession,
+        payload: ChatAddAdminPayload,
+    ): List<FrameEnvelope> {
+        if (payload.senderPlayerId != session.playerId) {
+            return requestErrorFrames(
+                commandId = commandId,
+                receiverPlayerId = session.playerId,
+                code = "CHAT_SENDER_MISMATCH",
+                message = "Retained chat sender identity must match the authenticated player.",
+            )
+        }
+        validateChannelName(payload.channelName)?.let { return requestErrorFrames(commandId, session.playerId, "CHAT_INVALID_CHANNEL_NAME", it) }
+
+        val channel = loadChannel(payload.channelName)
+            ?: return requestErrorFrames(
+                commandId = commandId,
+                receiverPlayerId = session.playerId,
+                code = "CHAT_CHANNEL_NOT_FOUND",
+                message = "Retained chat channel `${payload.channelName}` does not exist.",
+            )
+        val memberships = chatSocialRepository.listMemberships(channel.channelId)
+        val actorMembership = memberships.firstOrNull { it.playerId == session.playerId }
+            ?: return requestErrorFrames(
+                commandId = commandId,
+                receiverPlayerId = session.playerId,
+                code = "CHAT_NOT_SUBSCRIBED",
+                message = "Retained chat player `${session.playerId}` is not subscribed to `${payload.channelName}`.",
+            )
+        if (actorMembership.role != PersistedChannelRole.OWNER) {
+            return requestErrorFrames(
+                commandId = commandId,
+                receiverPlayerId = session.playerId,
+                code = "CHAT_MODERATOR_GRANT_FORBIDDEN",
+                message = "Retained chat moderator grants require channel ownership for `${payload.channelName}`.",
+            )
+        }
+        if (payload.receiverPlayerId == session.playerId) {
+            return requestErrorFrames(
+                commandId = commandId,
+                receiverPlayerId = session.playerId,
+                code = "CHAT_MODERATOR_GRANT_SELF_FORBIDDEN",
+                message = "Retained chat moderator grants cannot target the acting player.",
+            )
+        }
+        val targetMembership = memberships.firstOrNull { it.playerId == payload.receiverPlayerId }
+            ?: return requestErrorFrames(
+                commandId = commandId,
+                receiverPlayerId = session.playerId,
+                code = "CHAT_MODERATOR_TARGET_MISSING",
+                message = "Retained chat moderator target `${payload.receiverPlayerId}` is not subscribed to `${payload.channelName}`.",
+            )
+        if (targetMembership.role == PersistedChannelRole.MEMBER) {
+            chatSocialRepository.upsertMembership(targetMembership.copy(role = PersistedChannelRole.MODERATOR))
+        }
+        return responseWithSubscribedChannelsRefresh(
+            commandId = commandId,
+            session = session,
+        )
+    }
+
+    private suspend fun handleMuteChannelMember(
+        commandId: String,
+        session: AuthenticatedChatSession,
+        payload: ChatMutePayload,
+    ): List<FrameEnvelope> {
+        if (payload.senderPlayerId != session.playerId) {
+            return requestErrorFrames(
+                commandId = commandId,
+                receiverPlayerId = session.playerId,
+                code = "CHAT_SENDER_MISMATCH",
+                message = "Retained chat sender identity must match the authenticated player.",
+            )
+        }
+        validateChannelName(payload.channelName)?.let { return requestErrorFrames(commandId, session.playerId, "CHAT_INVALID_CHANNEL_NAME", it) }
+
+        val channel = loadChannel(payload.channelName)
+            ?: return requestErrorFrames(
+                commandId = commandId,
+                receiverPlayerId = session.playerId,
+                code = "CHAT_CHANNEL_NOT_FOUND",
+                message = "Retained chat channel `${payload.channelName}` does not exist.",
+            )
+        val memberships = chatSocialRepository.listMemberships(channel.channelId)
+        if (memberships.none { it.playerId == session.playerId }) {
+            return requestErrorFrames(
+                commandId = commandId,
+                receiverPlayerId = session.playerId,
+                code = "CHAT_NOT_SUBSCRIBED",
+                message = "Retained chat player `${session.playerId}` is not subscribed to `${payload.channelName}`.",
+            )
+        }
+        if (payload.receiverPlayerId == session.playerId) {
+            return requestErrorFrames(
+                commandId = commandId,
+                receiverPlayerId = session.playerId,
+                code = "CHAT_MUTE_SELF_FORBIDDEN",
+                message = "Retained chat mute cannot target the acting player.",
+            )
+        }
+        if (memberships.none { it.playerId == payload.receiverPlayerId }) {
+            return requestErrorFrames(
+                commandId = commandId,
+                receiverPlayerId = session.playerId,
+                code = "CHAT_MUTE_TARGET_MISSING",
+                message = "Retained chat mute target `${payload.receiverPlayerId}` is not subscribed to `${payload.channelName}`.",
+            )
+        }
+        chatSocialRepository.upsertChannelMute(
+            PersistedChannelMute(
+                playerId = session.playerId,
+                channelId = channel.channelId,
+                mutedPlayerId = payload.receiverPlayerId,
+                createdAt = clock(),
+                mutePayload = """{"source":"channel_mute"}""",
+            ),
+        )
+        return listOf(RewriteFrames.commandResponse(commandId = commandId))
     }
 
     private suspend fun removeChannelMembership(

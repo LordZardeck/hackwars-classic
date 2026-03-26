@@ -236,12 +236,14 @@ data class ChatWhisperPayload(
 @Serializable
 data class ChatAddAdminPayload(
     val senderPlayerId: String,
+    val channelName: String,
     val receiverPlayerId: String,
 )
 
 @Serializable
 data class ChatMutePayload(
     val senderPlayerId: String,
+    val channelName: String,
     val receiverPlayerId: String,
 )
 

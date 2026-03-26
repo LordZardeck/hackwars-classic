@@ -137,11 +137,25 @@ class ChatContractsTest {
                 ),
             ),
         )
+        val addAdmin = ChatAddAdminPayload(
+            senderPlayerId = "player-1",
+            channelName = "General-0",
+            receiverPlayerId = "player-2",
+        )
+        val mute = ChatMutePayload(
+            senderPlayerId = "player-1",
+            channelName = "General-0",
+            receiverPlayerId = "player-3",
+        )
 
         val encodedRequest = RewriteChatJson.encode(ChatRelationAddPayload.serializer(), request)
         val encodedEvent = RewriteChatJson.encode(ChatSubChannelsEventPayload.serializer(), event)
+        val encodedAddAdmin = RewriteChatJson.encode(ChatAddAdminPayload.serializer(), addAdmin)
+        val encodedMute = RewriteChatJson.encode(ChatMutePayload.serializer(), mute)
 
         assertEquals(request, RewriteChatJson.decode(ChatRelationAddPayload.serializer(), encodedRequest))
         assertEquals(event, RewriteChatJson.decode(ChatSubChannelsEventPayload.serializer(), encodedEvent))
+        assertEquals(addAdmin, RewriteChatJson.decode(ChatAddAdminPayload.serializer(), encodedAddAdmin))
+        assertEquals(mute, RewriteChatJson.decode(ChatMutePayload.serializer(), encodedMute))
     }
 }

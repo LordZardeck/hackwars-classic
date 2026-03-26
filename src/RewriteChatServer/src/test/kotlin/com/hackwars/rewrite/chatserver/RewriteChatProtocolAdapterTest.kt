@@ -13,11 +13,13 @@ import com.hackwars.rewrite.persistence.PersistedRelationKind
 import com.hackwars.rewrite.persistence.PersistedServiceKind
 import com.hackwars.rewrite.persistence.PersistedServiceSession
 import com.hackwars.rewrite.persistence.PersistedSessionTicket
+import com.hackwars.rewrite.protocol.ChatAddAdminPayload
 import com.hackwars.rewrite.protocol.ChatChannelCreatePayload
 import com.hackwars.rewrite.protocol.ChatChannelJoinPayload
 import com.hackwars.rewrite.protocol.ChatChannelKickPayload
 import com.hackwars.rewrite.protocol.ChatChannelLeavePayload
 import com.hackwars.rewrite.protocol.ChatErrorEventPayload
+import com.hackwars.rewrite.protocol.ChatMutePayload
 import com.hackwars.rewrite.protocol.ChatParityEventType
 import com.hackwars.rewrite.protocol.ChatRelationListEventPayload
 import com.hackwars.rewrite.protocol.ChatSubChannelsPayload
@@ -297,28 +299,103 @@ class RewriteChatProtocolAdapterTest {
     }
 
     @Test
-    fun addAdminReturnsExplicitRwChat001cBlocker() = runTest {
+    fun addAdminPromotesChannelMemberToModerator() = runTest {
         val fixture = createFixture()
+        fixture.chatRepository.upsertChannel(
+            PersistedChatChannel(
+                channelId = "Ops",
+                displayName = "Ops",
+                ownerPlayerId = "pf-localuser",
+                createdAt = Instant.parse("2026-03-26T10:06:00Z"),
+                channelPayload = """{"kind":"user","adminCanKick":true,"removeWhenEmpty":true}""",
+            ),
+        )
+        fixture.chatRepository.upsertMembership(
+            PersistedChatChannelMembership(
+                channelId = "Ops",
+                playerId = "pf-localuser",
+                role = PersistedChannelRole.OWNER,
+                joinedAt = Instant.parse("2026-03-26T10:06:01Z"),
+            ),
+        )
+        fixture.chatRepository.upsertMembership(
+            PersistedChatChannelMembership(
+                channelId = "Ops",
+                playerId = "alice",
+                role = PersistedChannelRole.MEMBER,
+                joinedAt = Instant.parse("2026-03-26T10:06:02Z"),
+            ),
+        )
         val connection = fixture.authenticatedConnection()
         connection.awaitFrame()
         connection.awaitFrame()
 
         val frames = connection.sendChatCommand(
             commandName = "add_admin",
-            payload = RewriteChatJson.codec.encodeToString(
-                com.hackwars.rewrite.protocol.ChatAddAdminPayload.serializer(),
-                com.hackwars.rewrite.protocol.ChatAddAdminPayload(
-                    senderPlayerId = "pf-localuser",
-                    receiverPlayerId = "alice",
-                ),
-            ).encodeToByteArray(),
+            payload = ChatAddAdminPayload(
+                senderPlayerId = "pf-localuser",
+                channelName = "Ops",
+                receiverPlayerId = "alice",
+            ),
+            serializer = ChatAddAdminPayload.serializer(),
         )
 
+        assertEquals(CommandResponseStatus.COMMAND_RESPONSE_STATUS_OK, frames.commandResponse().command_response?.status)
+        assertEquals(PersistedChannelRole.MODERATOR, fixture.chatRepository.listMemberships("Ops").first { it.playerId == "alice" }.role)
         assertEquals(
-            "CHAT_REQUEST_BLOCKED_ON_RW_CHAT_001C",
-            frames.commandResponse().command_response?.error?.code,
+            setOf("pf-localuser", "alice"),
+            frames.subChannelsEvent().channels.first { it.channelName == "Ops" }.adminUsers,
         )
-        assertTrue(frames.errorEvent().message.contains("RW-CHAT-001C"))
+    }
+
+    @Test
+    fun mutePersistsChannelScopedMute() = runTest {
+        val fixture = createFixture()
+        fixture.chatRepository.upsertChannel(
+            PersistedChatChannel(
+                channelId = "Ops",
+                displayName = "Ops",
+                ownerPlayerId = "pf-localuser",
+                createdAt = Instant.parse("2026-03-26T10:06:00Z"),
+                channelPayload = """{"kind":"user","adminCanKick":true,"removeWhenEmpty":true}""",
+            ),
+        )
+        fixture.chatRepository.upsertMembership(
+            PersistedChatChannelMembership(
+                channelId = "Ops",
+                playerId = "pf-localuser",
+                role = PersistedChannelRole.OWNER,
+                joinedAt = Instant.parse("2026-03-26T10:06:01Z"),
+            ),
+        )
+        fixture.chatRepository.upsertMembership(
+            PersistedChatChannelMembership(
+                channelId = "Ops",
+                playerId = "alice",
+                role = PersistedChannelRole.MEMBER,
+                joinedAt = Instant.parse("2026-03-26T10:06:02Z"),
+            ),
+        )
+        val connection = fixture.authenticatedConnection()
+        connection.awaitFrame()
+        connection.awaitFrame()
+
+        val frames = connection.sendChatCommand(
+            commandName = "mute",
+            payload = ChatMutePayload(
+                senderPlayerId = "pf-localuser",
+                channelName = "Ops",
+                receiverPlayerId = "alice",
+            ),
+            serializer = ChatMutePayload.serializer(),
+        )
+
+        assertEquals(CommandResponseStatus.COMMAND_RESPONSE_STATUS_OK, frames.commandResponse().command_response?.status)
+        assertEquals(
+            listOf("alice"),
+            fixture.chatRepository.listChannelMutes("pf-localuser", "Ops").map { it.mutedPlayerId },
+        )
+        assertEquals(1, frames.size)
     }
 
     private fun TestScope.createFixture(): Fixture {
