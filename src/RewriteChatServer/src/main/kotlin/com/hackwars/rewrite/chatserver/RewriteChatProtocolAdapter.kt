@@ -8,13 +8,21 @@ import com.hackwars.rewrite.chatcore.RetainedChatBootstrapPolicy
 import com.hackwars.rewrite.persistence.AuthSessionRepository
 import com.hackwars.rewrite.persistence.ChatSocialRepository
 import com.hackwars.rewrite.persistence.PersistedChannelRole
+import com.hackwars.rewrite.persistence.PersistedChatChannel
+import com.hackwars.rewrite.persistence.PersistedChatChannelMembership
 import com.hackwars.rewrite.persistence.PersistedChatRelation
 import com.hackwars.rewrite.persistence.PersistedChatPresence
 import com.hackwars.rewrite.persistence.PersistedRelationKind
 import com.hackwars.rewrite.persistence.PersistedServiceKind
 import com.hackwars.rewrite.persistence.PersistedServiceSession
+import com.hackwars.rewrite.protocol.ChatChannelCreatePayload
+import com.hackwars.rewrite.protocol.ChatChannelJoinPayload
+import com.hackwars.rewrite.protocol.ChatChannelKickPayload
+import com.hackwars.rewrite.protocol.ChatChannelLeavePayload
 import com.hackwars.rewrite.protocol.ChatErrorEventPayload
 import com.hackwars.rewrite.protocol.ChatParityEventType
+import com.hackwars.rewrite.protocol.ChatRequestType
+import com.hackwars.rewrite.protocol.ChatSubChannelsPayload
 import com.hackwars.rewrite.protocol.RewriteChatJson
 import com.hackwars.rewrite.protocol.RewriteFrames
 import com.hackwars.rewrite.protocol.RewriteService
@@ -121,6 +129,7 @@ class RewriteChatProtocolAdapter(
                 ),
             ),
         )
+        ensureDefaultAutoChannels(session)
 
         val bootstrap = RetainedChatBootstrapPolicy.project(
             receiverPlayerId = PlayerId(session.playerId),
@@ -165,7 +174,8 @@ class RewriteChatProtocolAdapter(
         connectionId: String,
         command: CommandEnvelope,
     ): List<FrameEnvelope> {
-        if (activeSessions[connectionId] == null) {
+        val session = activeSessions[connectionId]
+        if (session == null) {
             return listOf(
                 errorResponse(
                     commandId = command.command_id,
@@ -174,17 +184,625 @@ class RewriteChatProtocolAdapter(
                 ),
             )
         }
+        val requestType = runCatching { ChatRequestType.fromWireName(command.command_name) }
+            .getOrElse {
+                return requestErrorFrames(
+                        commandId = command.command_id,
+                        receiverPlayerId = session.playerId,
+                        code = "CHAT_REQUEST_UNSUPPORTED",
+                        message = "Unsupported retained chat request `${command.command_name}`.",
+                    )
+            }
+        return when (requestType) {
+            ChatRequestType.SUB_CHANNELS -> decodeAndHandle<ChatSubChannelsPayload>(
+                command = command,
+                session = session,
+                serializer = ChatSubChannelsPayload.serializer(),
+            ) { payload ->
+                if (payload.senderPlayerId != session.playerId) {
+                    requestErrorFrames(
+                        commandId = command.command_id,
+                        receiverPlayerId = session.playerId,
+                        code = "CHAT_SENDER_MISMATCH",
+                        message = "Retained chat sender identity must match the authenticated player.",
+                    )
+                } else {
+                    responseWithSubscribedChannelsRefresh(
+                        commandId = command.command_id,
+                        session = session,
+                    )
+                }
+            }
+
+            ChatRequestType.CHANNEL_CREATE -> decodeAndHandle<ChatChannelCreatePayload>(
+                command = command,
+                session = session,
+                serializer = ChatChannelCreatePayload.serializer(),
+            ) { payload ->
+                handleCreateChannel(
+                    commandId = command.command_id,
+                    session = session,
+                    payload = payload,
+                )
+            }
+
+            ChatRequestType.CHANNEL_JOIN -> decodeAndHandle<ChatChannelJoinPayload>(
+                command = command,
+                session = session,
+                serializer = ChatChannelJoinPayload.serializer(),
+            ) { payload ->
+                handleJoinChannel(
+                    commandId = command.command_id,
+                    session = session,
+                    payload = payload,
+                )
+            }
+
+            ChatRequestType.CHANNEL_LEAVE -> decodeAndHandle<ChatChannelLeavePayload>(
+                command = command,
+                session = session,
+                serializer = ChatChannelLeavePayload.serializer(),
+            ) { payload ->
+                handleLeaveChannel(
+                    commandId = command.command_id,
+                    session = session,
+                    payload = payload,
+                )
+            }
+
+            ChatRequestType.CHANNEL_KICK -> decodeAndHandle<ChatChannelKickPayload>(
+                command = command,
+                session = session,
+                serializer = ChatChannelKickPayload.serializer(),
+            ) { payload ->
+                handleKickChannelMember(
+                    commandId = command.command_id,
+                    session = session,
+                    payload = payload,
+                )
+            }
+
+            ChatRequestType.ADD_ADMIN,
+            ChatRequestType.MUTE,
+            -> requestErrorFrames(
+                    commandId = command.command_id,
+                    receiverPlayerId = session.playerId,
+                    code = "CHAT_REQUEST_BLOCKED_ON_RW_CHAT_001C",
+                    message = "Retained `${requestType.wireName}` needs the channel-scoped contract fix tracked by RW-CHAT-001C.",
+                )
+
+            ChatRequestType.CHANNEL_TEXT,
+            ChatRequestType.CHANNEL_TEXT_ME,
+            ChatRequestType.WHISPER,
+            -> requestErrorFrames(
+                    commandId = command.command_id,
+                    receiverPlayerId = session.playerId,
+                    code = "CHAT_REQUEST_OWNED_BY_RW_CHAT_003B",
+                    message = "Retained `${requestType.wireName}` lands in RW-CHAT-003B.",
+                )
+
+            ChatRequestType.RELATION_LIST,
+            ChatRequestType.RELATION_ADD,
+            -> requestErrorFrames(
+                    commandId = command.command_id,
+                    receiverPlayerId = session.playerId,
+                    code = "CHAT_REQUEST_OWNED_BY_RW_CHAT_004A",
+                    message = "Retained `${requestType.wireName}` lands in RW-CHAT-004A.",
+                )
+        }
+    }
+
+    private suspend fun ensureDefaultAutoChannels(session: AuthenticatedChatSession) {
+        val now = clock()
+        for (channelId in RetainedChatBootstrapPolicy.defaultAutoChannels) {
+            val channel = loadChannel(channelId)
+                ?: PersistedChatChannel(
+                    channelId = channelId,
+                    displayName = channelId,
+                    ownerPlayerId = session.playerId,
+                    createdAt = now,
+                    channelPayload = encodeChannelPolicy(
+                        ChannelPolicyPayload(
+                            kind = "auto",
+                            adminCanKick = false,
+                            removeWhenEmpty = false,
+                        ),
+                    ),
+                ).also { chatSocialRepository.upsertChannel(it) }
+            val memberships = chatSocialRepository.listMemberships(channel.channelId)
+            if (memberships.none { it.playerId == session.playerId }) {
+                val role = if (memberships.isEmpty()) PersistedChannelRole.OWNER else PersistedChannelRole.MEMBER
+                if (role == PersistedChannelRole.OWNER && channel.ownerPlayerId != session.playerId) {
+                    chatSocialRepository.upsertChannel(channel.copy(ownerPlayerId = session.playerId))
+                }
+                chatSocialRepository.upsertMembership(
+                    PersistedChatChannelMembership(
+                        channelId = channel.channelId,
+                        playerId = session.playerId,
+                        role = role,
+                        joinedAt = now,
+                        membershipPayload = encodeMembershipPayload(
+                            MembershipPayload(
+                                source = "auto_bootstrap",
+                                grantedBy = session.playerId,
+                            ),
+                        ),
+                    ),
+                )
+            }
+        }
+    }
+
+    private suspend fun handleCreateChannel(
+        commandId: String,
+        session: AuthenticatedChatSession,
+        payload: ChatChannelCreatePayload,
+    ): List<FrameEnvelope> {
+        if (payload.senderPlayerId != session.playerId) {
+            return requestErrorFrames(
+                commandId = commandId,
+                receiverPlayerId = session.playerId,
+                code = "CHAT_SENDER_MISMATCH",
+                message = "Retained chat sender identity must match the authenticated player.",
+            )
+        }
+        validateChannelName(payload.channelName)?.let { return requestErrorFrames(commandId, session.playerId, "CHAT_INVALID_CHANNEL_NAME", it) }
+        validatePassword(payload.password)?.let { return requestErrorFrames(commandId, session.playerId, "CHAT_INVALID_PASSWORD", it) }
+
+        val existing = loadChannel(payload.channelName)
+        if (existing != null) {
+            val existingError = errorEvent(
+                receiverPlayerId = session.playerId,
+                message = "Channel ${payload.channelName} already exists. Joining instead.",
+            )
+            val joinedFrames = handleJoinChannel(
+                commandId = commandId,
+                session = session,
+                payload = ChatChannelJoinPayload(
+                    senderPlayerId = payload.senderPlayerId,
+                    channelName = payload.channelName,
+                    password = payload.password,
+                ),
+            )
+            return if (joinedFrames.firstOrNull()?.command_response?.status == CommandResponseStatus.COMMAND_RESPONSE_STATUS_OK) {
+                listOf(joinedFrames.first(), existingError) + joinedFrames.drop(1)
+            } else {
+                listOf(existingError) + joinedFrames
+            }
+        }
+
+        val existingMemberships = loadMembershipsForPlayer(session.playerId)
+        if (existingMemberships.size >= MAX_CHANNELS_PER_PLAYER) {
+            return requestErrorFrames(
+                commandId = commandId,
+                receiverPlayerId = session.playerId,
+                code = "CHAT_MAX_CHANNELS_REACHED",
+                message = "Retained chat only allows $MAX_CHANNELS_PER_PLAYER subscribed channels.",
+            )
+        }
+
+        val now = clock()
+        chatSocialRepository.upsertChannel(
+            PersistedChatChannel(
+                channelId = payload.channelName,
+                displayName = payload.channelName,
+                ownerPlayerId = session.playerId,
+                privateChannel = payload.password.isNotBlank(),
+                createdAt = now,
+                channelPayload = encodeChannelPolicy(
+                    ChannelPolicyPayload(
+                        kind = "user",
+                        password = payload.password,
+                        adminCanKick = true,
+                        removeWhenEmpty = true,
+                    ),
+                ),
+            ),
+        )
+        chatSocialRepository.upsertMembership(
+            PersistedChatChannelMembership(
+                channelId = payload.channelName,
+                playerId = session.playerId,
+                role = PersistedChannelRole.OWNER,
+                joinedAt = now,
+                membershipPayload = encodeMembershipPayload(
+                    MembershipPayload(
+                        source = "create",
+                        grantedBy = session.playerId,
+                    ),
+                ),
+            ),
+        )
+        return responseWithSubscribedChannelsRefresh(
+            commandId = commandId,
+            session = session,
+        )
+    }
+
+    private suspend fun handleJoinChannel(
+        commandId: String,
+        session: AuthenticatedChatSession,
+        payload: ChatChannelJoinPayload,
+    ): List<FrameEnvelope> {
+        if (payload.senderPlayerId != session.playerId) {
+            return requestErrorFrames(
+                commandId = commandId,
+                receiverPlayerId = session.playerId,
+                code = "CHAT_SENDER_MISMATCH",
+                message = "Retained chat sender identity must match the authenticated player.",
+            )
+        }
+        validateChannelName(payload.channelName)?.let { return requestErrorFrames(commandId, session.playerId, "CHAT_INVALID_CHANNEL_NAME", it) }
+        validatePassword(payload.password)?.let { return requestErrorFrames(commandId, session.playerId, "CHAT_INVALID_PASSWORD", it) }
+
+        val channel = loadChannel(payload.channelName)
+            ?: return requestErrorFrames(
+                commandId = commandId,
+                receiverPlayerId = session.playerId,
+                code = "CHAT_CHANNEL_NOT_FOUND",
+                message = "Retained chat channel `${payload.channelName}` does not exist.",
+            )
+        val memberships = chatSocialRepository.listMemberships(channel.channelId)
+        if (memberships.any { it.playerId == session.playerId }) {
+            return responseWithSubscribedChannelsRefresh(
+                commandId = commandId,
+                session = session,
+            )
+        }
+        val policy = decodeChannelPolicy(channel.channelPayload)
+        if (policy.password.isNotBlank() && policy.password != payload.password) {
+            return requestErrorFrames(
+                commandId = commandId,
+                receiverPlayerId = session.playerId,
+                code = "CHAT_PASSWORD_INCORRECT",
+                message = "Retained chat password is incorrect for `${payload.channelName}`.",
+            )
+        }
+        if (memberships.size >= MAX_CHANNEL_USERS) {
+            return requestErrorFrames(
+                commandId = commandId,
+                receiverPlayerId = session.playerId,
+                code = "CHAT_CHANNEL_FULL",
+                message = "Retained chat channel `${payload.channelName}` is full.",
+            )
+        }
+        val existingMemberships = loadMembershipsForPlayer(session.playerId)
+        if (existingMemberships.size >= MAX_CHANNELS_PER_PLAYER) {
+            return requestErrorFrames(
+                commandId = commandId,
+                receiverPlayerId = session.playerId,
+                code = "CHAT_MAX_CHANNELS_REACHED",
+                message = "Retained chat only allows $MAX_CHANNELS_PER_PLAYER subscribed channels.",
+            )
+        }
+
+        val role = if (memberships.isEmpty()) PersistedChannelRole.OWNER else PersistedChannelRole.MEMBER
+        if (role == PersistedChannelRole.OWNER && channel.ownerPlayerId != session.playerId) {
+            chatSocialRepository.upsertChannel(channel.copy(ownerPlayerId = session.playerId))
+        }
+        chatSocialRepository.upsertMembership(
+            PersistedChatChannelMembership(
+                channelId = channel.channelId,
+                playerId = session.playerId,
+                role = role,
+                joinedAt = clock(),
+                membershipPayload = encodeMembershipPayload(
+                    MembershipPayload(
+                        source = "join",
+                        grantedBy = if (role == PersistedChannelRole.OWNER) session.playerId else channel.ownerPlayerId,
+                    ),
+                ),
+            ),
+        )
+        return responseWithSubscribedChannelsRefresh(
+            commandId = commandId,
+            session = session,
+        )
+    }
+
+    private suspend fun handleLeaveChannel(
+        commandId: String,
+        session: AuthenticatedChatSession,
+        payload: ChatChannelLeavePayload,
+    ): List<FrameEnvelope> {
+        if (payload.senderPlayerId != session.playerId) {
+            return requestErrorFrames(
+                commandId = commandId,
+                receiverPlayerId = session.playerId,
+                code = "CHAT_SENDER_MISMATCH",
+                message = "Retained chat sender identity must match the authenticated player.",
+            )
+        }
+        validateChannelName(payload.channelName)?.let { return requestErrorFrames(commandId, session.playerId, "CHAT_INVALID_CHANNEL_NAME", it) }
+
+        val channel = loadChannel(payload.channelName)
+            ?: return requestErrorFrames(
+                commandId = commandId,
+                receiverPlayerId = session.playerId,
+                code = "CHAT_CHANNEL_NOT_FOUND",
+                message = "Retained chat channel `${payload.channelName}` does not exist.",
+            )
+        val memberships = chatSocialRepository.listMemberships(channel.channelId)
+        val actorMembership = memberships.firstOrNull { it.playerId == session.playerId }
+            ?: return requestErrorFrames(
+                commandId = commandId,
+                receiverPlayerId = session.playerId,
+                code = "CHAT_NOT_SUBSCRIBED",
+                message = "Retained chat player `${session.playerId}` is not subscribed to `${payload.channelName}`.",
+            )
+
+        removeChannelMembership(
+            channel = channel,
+            memberships = memberships,
+            removedMembership = actorMembership,
+        )
+        return responseWithSubscribedChannelsRefresh(
+            commandId = commandId,
+            session = session,
+        )
+    }
+
+    private suspend fun handleKickChannelMember(
+        commandId: String,
+        session: AuthenticatedChatSession,
+        payload: ChatChannelKickPayload,
+    ): List<FrameEnvelope> {
+        if (payload.senderPlayerId != session.playerId) {
+            return requestErrorFrames(
+                commandId = commandId,
+                receiverPlayerId = session.playerId,
+                code = "CHAT_SENDER_MISMATCH",
+                message = "Retained chat sender identity must match the authenticated player.",
+            )
+        }
+        validateChannelName(payload.channelName)?.let { return requestErrorFrames(commandId, session.playerId, "CHAT_INVALID_CHANNEL_NAME", it) }
+
+        val channel = loadChannel(payload.channelName)
+            ?: return requestErrorFrames(
+                commandId = commandId,
+                receiverPlayerId = session.playerId,
+                code = "CHAT_CHANNEL_NOT_FOUND",
+                message = "Retained chat channel `${payload.channelName}` does not exist.",
+            )
+        val memberships = chatSocialRepository.listMemberships(channel.channelId)
+        val actorMembership = memberships.firstOrNull { it.playerId == session.playerId }
+            ?: return requestErrorFrames(
+                commandId = commandId,
+                receiverPlayerId = session.playerId,
+                code = "CHAT_NOT_SUBSCRIBED",
+                message = "Retained chat player `${session.playerId}` is not subscribed to `${payload.channelName}`.",
+            )
+        val targetMembership = memberships.firstOrNull { it.playerId == payload.targetPlayerId }
+            ?: return requestErrorFrames(
+                commandId = commandId,
+                receiverPlayerId = session.playerId,
+                code = "CHAT_KICK_TARGET_MISSING",
+                message = "Retained chat kick target `${payload.targetPlayerId}` is not subscribed to `${payload.channelName}`.",
+            )
+        if (payload.targetPlayerId == session.playerId) {
+            return requestErrorFrames(
+                commandId = commandId,
+                receiverPlayerId = session.playerId,
+                code = "CHAT_KICK_SELF_FORBIDDEN",
+                message = "Retained chat kick cannot target the acting player.",
+            )
+        }
+        val policy = decodeChannelPolicy(channel.channelPayload)
+        if (!canKick(actorMembership, targetMembership, channel, policy)) {
+            return requestErrorFrames(
+                commandId = commandId,
+                receiverPlayerId = session.playerId,
+                code = "CHAT_KICK_FORBIDDEN",
+                message = "Retained chat kick is not allowed for `${payload.channelName}`.",
+            )
+        }
+
+        removeChannelMembership(
+            channel = channel,
+            memberships = memberships,
+            removedMembership = targetMembership,
+        )
+        return responseWithSubscribedChannelsRefresh(
+            commandId = commandId,
+            session = session,
+        )
+    }
+
+    private suspend fun removeChannelMembership(
+        channel: PersistedChatChannel,
+        memberships: List<PersistedChatChannelMembership>,
+        removedMembership: PersistedChatChannelMembership,
+    ) {
+        chatSocialRepository.deleteMembership(
+            channelId = removedMembership.channelId,
+            playerId = removedMembership.playerId,
+        )
+        val remainingMemberships = memberships
+            .filterNot { it.channelId == removedMembership.channelId && it.playerId == removedMembership.playerId }
+            .sortedBy { it.joinedAt }
+        if (remainingMemberships.isEmpty()) {
+            val policy = decodeChannelPolicy(channel.channelPayload)
+            if (policy.removeWhenEmpty) {
+                chatSocialRepository.deleteChannel(channel.channelId)
+            }
+            return
+        }
+        if (channel.ownerPlayerId == removedMembership.playerId || removedMembership.role == PersistedChannelRole.OWNER) {
+            val successor = remainingMemberships.first()
+            if (successor.role != PersistedChannelRole.OWNER) {
+                chatSocialRepository.upsertMembership(successor.copy(role = PersistedChannelRole.OWNER))
+            }
+            if (channel.ownerPlayerId != successor.playerId) {
+                chatSocialRepository.upsertChannel(channel.copy(ownerPlayerId = successor.playerId))
+            }
+        }
+    }
+
+    private suspend fun responseWithSubscribedChannelsRefresh(
+        commandId: String,
+        session: AuthenticatedChatSession,
+    ): List<FrameEnvelope> {
         return listOf(
-            errorResponse(
-                commandId = command.command_id,
-                code = "CHAT_BOOTSTRAP_ONLY",
-                message = "Retained chat command routing lands in RW-CHAT-003A and RW-CHAT-004A.",
+            RewriteFrames.commandResponse(commandId = commandId),
+            RewriteFrames.chatEvent(
+                eventId = UUID.randomUUID().toString(),
+                eventType = ChatParityEventType.SUB_CHANNELS,
+                payload = RewriteChatJson.encode(
+                    serializer = com.hackwars.rewrite.protocol.ChatSubChannelsEventPayload.serializer(),
+                    value = RetainedChatBootstrapPolicy.projectSubscribedChannels(
+                        receiverPlayerId = PlayerId(session.playerId),
+                        channelRosters = loadSubscribedChannelRosters(session.playerId),
+                    ),
+                ),
+            ),
+        )
+    }
+
+    private suspend fun loadMembershipsForPlayer(playerId: String): List<PersistedChatChannelMembership> {
+        return buildList {
+            for (channel in chatSocialRepository.listChannels()) {
+                addAll(
+                    chatSocialRepository.listMemberships(channel.channelId)
+                        .filter { it.playerId == playerId },
+                )
+            }
+        }
+    }
+
+    private suspend fun loadChannel(channelId: String): PersistedChatChannel? {
+        return chatSocialRepository.listChannels().firstOrNull { it.channelId == channelId }
+    }
+
+    private fun canKick(
+        actorMembership: PersistedChatChannelMembership,
+        targetMembership: PersistedChatChannelMembership,
+        channel: PersistedChatChannel,
+        policy: ChannelPolicyPayload,
+    ): Boolean {
+        if (!policy.adminCanKick) {
+            return false
+        }
+        if (actorMembership.role == PersistedChannelRole.MEMBER) {
+            return false
+        }
+        if (targetMembership.playerId == channel.ownerPlayerId || targetMembership.role == PersistedChannelRole.OWNER) {
+            return false
+        }
+        return true
+    }
+
+    private fun validateChannelName(channelName: String): String? {
+        return when {
+            channelName.isBlank() -> "Retained chat channel names must not be blank."
+            channelName.length > MAX_CHANNEL_NAME_LENGTH -> "Retained chat channel names must be at most $MAX_CHANNEL_NAME_LENGTH characters."
+            !VALID_CHANNEL_NAME.matches(channelName) -> {
+                "Retained chat channel names may only use letters, numbers, spaces, dots, underscores, dashes, and angle brackets."
+            }
+
+            else -> null
+        }
+    }
+
+    private fun validatePassword(password: String): String? {
+        return if (password.length > MAX_CHANNEL_PASSWORD_LENGTH) {
+            "Retained chat passwords must be at most $MAX_CHANNEL_PASSWORD_LENGTH characters."
+        } else {
+            null
+        }
+    }
+
+    private fun decodeChannelPolicy(payload: String): ChannelPolicyPayload {
+        return runCatching {
+            RewriteChatJson.codec.decodeFromString(ChannelPolicyPayload.serializer(), payload)
+        }.getOrDefault(ChannelPolicyPayload())
+    }
+
+    private fun encodeChannelPolicy(policy: ChannelPolicyPayload): String {
+        return RewriteChatJson.codec.encodeToString(ChannelPolicyPayload.serializer(), policy)
+    }
+
+    private fun encodeMembershipPayload(payload: MembershipPayload): String {
+        return RewriteChatJson.codec.encodeToString(MembershipPayload.serializer(), payload)
+    }
+
+    private suspend fun <T> decodeAndHandle(
+        command: CommandEnvelope,
+        session: AuthenticatedChatSession,
+        serializer: kotlinx.serialization.KSerializer<T>,
+        handler: suspend (T) -> List<FrameEnvelope>,
+    ): List<FrameEnvelope> {
+        val payload = runCatching {
+            RewriteChatJson.decode(serializer = serializer, bytes = command.payload.toByteArray())
+        }.getOrElse {
+            return requestErrorFrames(
+                    commandId = command.command_id,
+                    receiverPlayerId = session.playerId,
+                    code = "CHAT_PAYLOAD_INVALID",
+                    message = "Retained chat could not decode `${command.command_name}` payload.",
+                )
+        }
+        return handler(payload)
+    }
+
+    private fun requestErrorFrames(
+        commandId: String,
+        receiverPlayerId: String,
+        code: String,
+        message: String,
+    ): List<FrameEnvelope> {
+        return listOf(
+            requestErrorResponse(commandId, receiverPlayerId, code, message),
+            errorEvent(
+                receiverPlayerId = receiverPlayerId,
+                message = message,
+            ),
+        )
+    }
+
+    private fun requestErrorResponse(
+        commandId: String,
+        receiverPlayerId: String,
+        code: String,
+        message: String,
+    ): FrameEnvelope {
+        return RewriteFrames.commandResponse(
+            commandId = commandId,
+            status = CommandResponseStatus.COMMAND_RESPONSE_STATUS_ERROR,
+            error = ErrorEnvelope(
+                code = code,
+                message = message,
+                retryable = false,
+            ),
+        )
+    }
+
+    private fun errorEvent(
+        receiverPlayerId: String,
+        message: String,
+    ): FrameEnvelope {
+        return RewriteFrames.chatEvent(
+            eventId = UUID.randomUUID().toString(),
+            eventType = ChatParityEventType.ERROR,
+            payload = RewriteChatJson.encode(
+                serializer = ChatErrorEventPayload.serializer(),
+                value = ChatErrorEventPayload(
+                    receiverPlayerId = receiverPlayerId,
+                    message = message,
+                ),
             ),
         )
     }
 
     private suspend fun loadSubscribedChannelRosters(playerId: String): List<ChatChannelRoster> {
-        return chatSocialRepository.listChannels().mapNotNull { channel ->
+        return chatSocialRepository.listChannels()
+            .sortedWith(
+                compareBy<PersistedChatChannel>(
+                    { RetainedChatBootstrapPolicy.defaultAutoChannels.indexOf(it.channelId).let { index -> if (index >= 0) index else Int.MAX_VALUE } },
+                    { it.createdAt },
+                    { it.channelId },
+                ),
+            )
+            .mapNotNull { channel ->
             val memberships = chatSocialRepository.listMemberships(channel.channelId)
             if (memberships.none { it.playerId == playerId }) {
                 return@mapNotNull null
@@ -238,6 +856,12 @@ class RewriteChatProtocolAdapter(
     }
 
     private companion object {
+        const val MAX_CHANNELS_PER_PLAYER: Int = 6
+        const val MAX_CHANNEL_USERS: Int = 120
+        const val MAX_CHANNEL_NAME_LENGTH: Int = 18
+        const val MAX_CHANNEL_PASSWORD_LENGTH: Int = 18
+        val VALID_CHANNEL_NAME: Regex = Regex("^[A-Za-z0-9 ._<>-]{1,18}$")
+
         fun errorResponse(
             commandId: String,
             code: String,
@@ -314,4 +938,18 @@ private data class ChatPresencePayload(
 @Serializable
 private data class ChatRelationPayload(
     val comment: String = "",
+)
+
+@Serializable
+private data class ChannelPolicyPayload(
+    val kind: String = "user",
+    val password: String = "",
+    val adminCanKick: Boolean = true,
+    val removeWhenEmpty: Boolean = true,
+)
+
+@Serializable
+private data class MembershipPayload(
+    val source: String = "",
+    val grantedBy: String = "",
 )

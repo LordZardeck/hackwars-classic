@@ -178,6 +178,75 @@ class JdbcChatSocialRepositoryTest {
         assertEquals(emptyList(), runBlocking { repository.listActivePresence("alice") })
     }
 
+    @Test
+    fun deletesMembershipAndChannelDependents() {
+        resetDatabase()
+        seedPlayerAccount("alice", "PF-ALICE", "192.0.2.10")
+        seedPlayerAccount("bob", "PF-BOB", "192.0.2.11")
+        seedPlayerAccount("charlie", "PF-CHARLIE", "192.0.2.12")
+        val repository = JdbcChatSocialRepository(connectionFactory = ::newConnection)
+
+        runBlocking {
+            repository.upsertChannel(
+                PersistedChatChannel(
+                    channelId = "ops",
+                    displayName = "ops",
+                    ownerPlayerId = "alice",
+                    createdAt = Instant.parse("2026-03-26T13:00:00Z"),
+                    channelPayload = """{"kind":"user","removeWhenEmpty":true}""",
+                ),
+            )
+            repository.upsertMembership(
+                PersistedChatChannelMembership(
+                    channelId = "ops",
+                    playerId = "alice",
+                    role = PersistedChannelRole.OWNER,
+                    joinedAt = Instant.parse("2026-03-26T13:00:01Z"),
+                ),
+            )
+            repository.upsertMembership(
+                PersistedChatChannelMembership(
+                    channelId = "ops",
+                    playerId = "bob",
+                    role = PersistedChannelRole.MEMBER,
+                    joinedAt = Instant.parse("2026-03-26T13:00:02Z"),
+                ),
+            )
+            repository.upsertChannelMute(
+                PersistedChannelMute(
+                    playerId = "alice",
+                    channelId = "ops",
+                    mutedPlayerId = "charlie",
+                    createdAt = Instant.parse("2026-03-26T13:00:03Z"),
+                ),
+            )
+            repository.appendMessage(
+                PersistedChatMessage(
+                    messageId = "ops-1",
+                    messageKind = PersistedChatMessageKind.CHANNEL,
+                    channelId = "ops",
+                    senderPlayerId = "alice",
+                    eventType = "CHANNEL_TEXT",
+                    payload = "hi".encodeToByteArray(),
+                    createdAt = Instant.parse("2026-03-26T13:00:04Z"),
+                ),
+            )
+            repository.deleteMembership(
+                channelId = "ops",
+                playerId = "bob",
+            )
+        }
+
+        assertEquals(listOf("alice"), runBlocking { repository.listMemberships("ops") }.map { it.playerId })
+
+        runBlocking { repository.deleteChannel("ops") }
+
+        assertEquals(emptyList(), runBlocking { repository.listChannels() })
+        assertEquals(emptyList(), runBlocking { repository.listMemberships("ops") })
+        assertEquals(emptyList(), runBlocking { repository.loadChannelHistory("ops", limit = 10) })
+        assertEquals(emptyList(), runBlocking { repository.listChannelMutes("alice", "ops") })
+    }
+
     private fun resetDatabase() {
         newConnection().use { connection ->
             connection.createStatement().use { statement ->

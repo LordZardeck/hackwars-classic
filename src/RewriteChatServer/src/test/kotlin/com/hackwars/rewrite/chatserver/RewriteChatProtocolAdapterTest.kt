@@ -13,8 +13,14 @@ import com.hackwars.rewrite.persistence.PersistedRelationKind
 import com.hackwars.rewrite.persistence.PersistedServiceKind
 import com.hackwars.rewrite.persistence.PersistedServiceSession
 import com.hackwars.rewrite.persistence.PersistedSessionTicket
+import com.hackwars.rewrite.protocol.ChatChannelCreatePayload
+import com.hackwars.rewrite.protocol.ChatChannelJoinPayload
+import com.hackwars.rewrite.protocol.ChatChannelKickPayload
+import com.hackwars.rewrite.protocol.ChatChannelLeavePayload
+import com.hackwars.rewrite.protocol.ChatErrorEventPayload
 import com.hackwars.rewrite.protocol.ChatParityEventType
 import com.hackwars.rewrite.protocol.ChatRelationListEventPayload
+import com.hackwars.rewrite.protocol.ChatSubChannelsPayload
 import com.hackwars.rewrite.protocol.ChatSubChannelsEventPayload
 import com.hackwars.rewrite.protocol.ProtocolTimeoutPolicy
 import com.hackwars.rewrite.protocol.RewriteChatJson
@@ -25,6 +31,8 @@ import com.hackwars.rewrite.testkit.FakeSessionCatalog
 import com.hackwars.rewrite.testkit.FakeSessionTicketVerifier
 import com.hackwars.rewrite.testkit.InMemoryClientConnection
 import com.hackwars.rewrite.testkit.InMemoryRewriteServiceHarness
+import hackwars.rewrite.v1.CommandResponseStatus
+import hackwars.rewrite.v1.FrameEnvelope
 import java.time.Instant
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.TestScope
@@ -64,7 +72,7 @@ class RewriteChatProtocolAdapterTest {
             relationListFrame.chat_event?.event_type,
         )
         assertEquals("pf-localuser", bootstrapChannels.receiverPlayerId)
-        assertEquals(listOf("General-0", "Trade-0"), bootstrapChannels.channels.map { it.channelName })
+        assertEquals(listOf("General-0", "Trade-0", "Help-0"), bootstrapChannels.channels.map { it.channelName })
         assertEquals(listOf("pf-localuser", "alice"), bootstrapChannels.channels.first().users)
         assertEquals(setOf("pf-localuser"), bootstrapChannels.channels.first().adminUsers)
 
@@ -81,6 +89,7 @@ class RewriteChatProtocolAdapterTest {
 
         val presence = fixture.chatRepository.listActivePresence("pf-localuser")
         assertEquals(listOf("chat-1"), presence.map { it.connectionId })
+        assertEquals(listOf("pf-localuser"), fixture.chatRepository.listMemberships("Help-0").map { it.playerId })
     }
 
     @Test
@@ -95,6 +104,221 @@ class RewriteChatProtocolAdapterTest {
         assertNotNull(closedSession)
         assertNotNull(closedSession.closedAt)
         assertEquals(emptyList(), fixture.chatRepository.listActivePresence("pf-localuser"))
+    }
+
+    @Test
+    fun subChannelsCommandReturnsActorLocalRefresh() = runTest {
+        val fixture = createFixture()
+        val connection = fixture.authenticatedConnection()
+        connection.awaitFrame()
+        connection.awaitFrame()
+
+        val frames = connection.sendChatCommand(
+            commandName = "sub_channels",
+            payload = ChatSubChannelsPayload(senderPlayerId = "pf-localuser"),
+            serializer = ChatSubChannelsPayload.serializer(),
+        )
+
+        val response = frames.commandResponse()
+        val refresh = frames.subChannelsEvent()
+
+        assertEquals(CommandResponseStatus.COMMAND_RESPONSE_STATUS_OK, response.command_response?.status)
+        assertEquals(listOf("General-0", "Trade-0", "Help-0"), refresh.channels.map { it.channelName })
+    }
+
+    @Test
+    fun createChannelCreatesOwnerMembershipAndRefreshesSubscribedChannels() = runTest {
+        val fixture = createFixture()
+        val connection = fixture.authenticatedConnection()
+        connection.awaitFrame()
+        connection.awaitFrame()
+
+        val frames = connection.sendChatCommand(
+            commandName = "channel_create",
+            payload = ChatChannelCreatePayload(
+                senderPlayerId = "pf-localuser",
+                channelName = "Ops",
+                password = "secret",
+            ),
+            serializer = ChatChannelCreatePayload.serializer(),
+        )
+
+        assertEquals(CommandResponseStatus.COMMAND_RESPONSE_STATUS_OK, frames.commandResponse().command_response?.status)
+        assertEquals(
+            listOf("General-0", "Trade-0", "Help-0", "Ops"),
+            frames.subChannelsEvent().channels.map { it.channelName },
+        )
+        val createdChannel = fixture.chatRepository.listChannels().first { it.channelId == "Ops" }
+        assertTrue(createdChannel.privateChannel)
+        assertEquals("pf-localuser", createdChannel.ownerPlayerId)
+        assertEquals(
+            listOf("pf-localuser"),
+            fixture.chatRepository.listMemberships("Ops").map { it.playerId },
+        )
+        assertEquals(
+            PersistedChannelRole.OWNER,
+            fixture.chatRepository.listMemberships("Ops").single().role,
+        )
+    }
+
+    @Test
+    fun createExistingChannelFallsBackToJoinAndEmitsLegacyStyleError() = runTest {
+        val fixture = createFixture()
+        fixture.chatRepository.upsertChannel(
+            PersistedChatChannel(
+                channelId = "Ops",
+                displayName = "Ops",
+                ownerPlayerId = "alice",
+                createdAt = Instant.parse("2026-03-26T10:06:00Z"),
+                channelPayload = """{"kind":"user","removeWhenEmpty":true}""",
+            ),
+        )
+        fixture.chatRepository.upsertMembership(
+            PersistedChatChannelMembership(
+                channelId = "Ops",
+                playerId = "alice",
+                role = PersistedChannelRole.OWNER,
+                joinedAt = Instant.parse("2026-03-26T10:06:01Z"),
+            ),
+        )
+        val connection = fixture.authenticatedConnection()
+        connection.awaitFrame()
+        connection.awaitFrame()
+
+        val frames = connection.sendChatCommand(
+            commandName = "channel_create",
+            payload = ChatChannelCreatePayload(
+                senderPlayerId = "pf-localuser",
+                channelName = "Ops",
+                password = "",
+            ),
+            serializer = ChatChannelCreatePayload.serializer(),
+        )
+
+        assertEquals(CommandResponseStatus.COMMAND_RESPONSE_STATUS_OK, frames.commandResponse().command_response?.status)
+        val error = frames.errorEvent()
+        assertTrue(error.message.contains("already exists"))
+        assertEquals(listOf("General-0", "Trade-0", "Help-0", "Ops"), frames.subChannelsEvent().channels.map { it.channelName })
+    }
+
+    @Test
+    fun leaveChannelTransfersOwnershipToNextMember() = runTest {
+        val fixture = createFixture()
+        fixture.chatRepository.upsertChannel(
+            PersistedChatChannel(
+                channelId = "Ops",
+                displayName = "Ops",
+                ownerPlayerId = "pf-localuser",
+                createdAt = Instant.parse("2026-03-26T10:06:00Z"),
+                channelPayload = """{"kind":"user","removeWhenEmpty":true}""",
+            ),
+        )
+        fixture.chatRepository.upsertMembership(
+            PersistedChatChannelMembership(
+                channelId = "Ops",
+                playerId = "pf-localuser",
+                role = PersistedChannelRole.OWNER,
+                joinedAt = Instant.parse("2026-03-26T10:06:01Z"),
+            ),
+        )
+        fixture.chatRepository.upsertMembership(
+            PersistedChatChannelMembership(
+                channelId = "Ops",
+                playerId = "alice",
+                role = PersistedChannelRole.MEMBER,
+                joinedAt = Instant.parse("2026-03-26T10:06:02Z"),
+            ),
+        )
+        val connection = fixture.authenticatedConnection()
+        connection.awaitFrame()
+        connection.awaitFrame()
+
+        val frames = connection.sendChatCommand(
+            commandName = "channel_leave",
+            payload = ChatChannelLeavePayload(
+                senderPlayerId = "pf-localuser",
+                channelName = "Ops",
+            ),
+            serializer = ChatChannelLeavePayload.serializer(),
+        )
+
+        assertEquals(CommandResponseStatus.COMMAND_RESPONSE_STATUS_OK, frames.commandResponse().command_response?.status)
+        assertEquals(listOf("General-0", "Trade-0", "Help-0"), frames.subChannelsEvent().channels.map { it.channelName })
+        assertEquals(listOf("alice"), fixture.chatRepository.listMemberships("Ops").map { it.playerId })
+        assertEquals(PersistedChannelRole.OWNER, fixture.chatRepository.listMemberships("Ops").single().role)
+        assertEquals("alice", fixture.chatRepository.listChannels().first { it.channelId == "Ops" }.ownerPlayerId)
+    }
+
+    @Test
+    fun kickChannelMemberRemovesTargetMembership() = runTest {
+        val fixture = createFixture()
+        fixture.chatRepository.upsertChannel(
+            PersistedChatChannel(
+                channelId = "Ops",
+                displayName = "Ops",
+                ownerPlayerId = "pf-localuser",
+                createdAt = Instant.parse("2026-03-26T10:06:00Z"),
+                channelPayload = """{"kind":"user","adminCanKick":true,"removeWhenEmpty":true}""",
+            ),
+        )
+        fixture.chatRepository.upsertMembership(
+            PersistedChatChannelMembership(
+                channelId = "Ops",
+                playerId = "pf-localuser",
+                role = PersistedChannelRole.OWNER,
+                joinedAt = Instant.parse("2026-03-26T10:06:01Z"),
+            ),
+        )
+        fixture.chatRepository.upsertMembership(
+            PersistedChatChannelMembership(
+                channelId = "Ops",
+                playerId = "alice",
+                role = PersistedChannelRole.MEMBER,
+                joinedAt = Instant.parse("2026-03-26T10:06:02Z"),
+            ),
+        )
+        val connection = fixture.authenticatedConnection()
+        connection.awaitFrame()
+        connection.awaitFrame()
+
+        val frames = connection.sendChatCommand(
+            commandName = "channel_kick",
+            payload = ChatChannelKickPayload(
+                senderPlayerId = "pf-localuser",
+                channelName = "Ops",
+                targetPlayerId = "alice",
+            ),
+            serializer = ChatChannelKickPayload.serializer(),
+        )
+
+        assertEquals(CommandResponseStatus.COMMAND_RESPONSE_STATUS_OK, frames.commandResponse().command_response?.status)
+        assertEquals(listOf("General-0", "Trade-0", "Help-0", "Ops"), frames.subChannelsEvent().channels.map { it.channelName })
+        assertEquals(listOf("pf-localuser"), fixture.chatRepository.listMemberships("Ops").map { it.playerId })
+    }
+
+    @Test
+    fun addAdminReturnsExplicitRwChat001cBlocker() = runTest {
+        val fixture = createFixture()
+        val connection = fixture.authenticatedConnection()
+        connection.awaitFrame()
+        connection.awaitFrame()
+
+        val frames = connection.sendChatCommand(
+            commandName = "add_admin",
+            payload = RewriteChatJson.codec.encodeToString(
+                com.hackwars.rewrite.protocol.ChatAddAdminPayload.serializer(),
+                com.hackwars.rewrite.protocol.ChatAddAdminPayload(
+                    senderPlayerId = "pf-localuser",
+                    receiverPlayerId = "alice",
+                ),
+            ).encodeToByteArray(),
+        )
+
+        assertEquals(
+            "CHAT_REQUEST_BLOCKED_ON_RW_CHAT_001C",
+            frames.commandResponse().command_response?.error?.code,
+        )
+        assertTrue(frames.errorEvent().message.contains("RW-CHAT-001C"))
     }
 
     private fun TestScope.createFixture(): Fixture {
@@ -213,6 +437,55 @@ class RewriteChatProtocolAdapterTest {
         return connection
     }
 
+    private suspend fun <T> InMemoryClientConnection.sendChatCommand(
+        commandName: String,
+        payload: T,
+        serializer: kotlinx.serialization.KSerializer<T>,
+        commandId: String = "$commandName-1",
+    ): List<FrameEnvelope> {
+        return sendChatCommand(
+            commandName = commandName,
+            payload = RewriteChatJson.encode(serializer, payload),
+            commandId = commandId,
+        )
+    }
+
+    private suspend fun InMemoryClientConnection.sendChatCommand(
+        commandName: String,
+        payload: ByteArray,
+        commandId: String = "$commandName-1",
+    ): List<FrameEnvelope> {
+        send(
+            RewriteFrames.command(
+                commandId = commandId,
+                commandName = commandName,
+                payload = payload,
+                expectsResponse = true,
+            ),
+        )
+        return drainFrames()
+    }
+
+    private fun List<FrameEnvelope>.commandResponse(): FrameEnvelope {
+        return first { it.command_response != null }
+    }
+
+    private fun List<FrameEnvelope>.subChannelsEvent(): ChatSubChannelsEventPayload {
+        val frame = first { it.chat_event?.event_type == ChatParityEventType.SUB_CHANNELS.wireName }
+        return RewriteChatJson.decode(
+            serializer = ChatSubChannelsEventPayload.serializer(),
+            bytes = frame.chat_event!!.payload.toByteArray(),
+        )
+    }
+
+    private fun List<FrameEnvelope>.errorEvent(): ChatErrorEventPayload {
+        val frame = first { it.chat_event?.event_type == ChatParityEventType.ERROR.wireName }
+        return RewriteChatJson.decode(
+            serializer = ChatErrorEventPayload.serializer(),
+            bytes = frame.chat_event!!.payload.toByteArray(),
+        )
+    }
+
     private data class Fixture(
         val harness: InMemoryRewriteServiceHarness,
         val authRepository: InMemoryAuthSessionRepository,
@@ -273,7 +546,9 @@ private class InMemoryAuthSessionRepository : AuthSessionRepository {
 private class InMemoryChatSocialRepository(
     private val channels: MutableList<PersistedChatChannel> = mutableListOf(),
     private val memberships: MutableList<PersistedChatChannelMembership> = mutableListOf(),
+    private val messages: MutableList<PersistedChatMessage> = mutableListOf(),
     private val relations: MutableList<PersistedChatRelation> = mutableListOf(),
+    private val channelMutes: MutableList<PersistedChannelMute> = mutableListOf(),
     private val presence: MutableList<PersistedChatPresence> = mutableListOf(),
 ) : ChatSocialRepository {
     override suspend fun upsertChannel(channel: PersistedChatChannel) {
@@ -282,6 +557,13 @@ private class InMemoryChatSocialRepository(
     }
 
     override suspend fun listChannels(): List<PersistedChatChannel> = channels.sortedBy { it.createdAt }
+
+    override suspend fun deleteChannel(channelId: String) {
+        channels.removeAll { it.channelId == channelId }
+        memberships.removeAll { it.channelId == channelId }
+        messages.removeAll { it.channelId == channelId }
+        channelMutes.removeAll { it.channelId == channelId }
+    }
 
     override suspend fun upsertMembership(membership: PersistedChatChannelMembership) {
         memberships.removeAll { it.channelId == membership.channelId && it.playerId == membership.playerId }
@@ -292,12 +574,23 @@ private class InMemoryChatSocialRepository(
         return memberships.filter { it.channelId == channelId }.sortedBy { it.joinedAt }
     }
 
-    override suspend fun appendMessage(message: PersistedChatMessage) = Unit
+    override suspend fun deleteMembership(
+        channelId: String,
+        playerId: String,
+    ) {
+        memberships.removeAll { it.channelId == channelId && it.playerId == playerId }
+    }
+
+    override suspend fun appendMessage(message: PersistedChatMessage) {
+        messages += message
+    }
 
     override suspend fun loadChannelHistory(
         channelId: String,
         limit: Int,
-    ): List<PersistedChatMessage> = emptyList()
+    ): List<PersistedChatMessage> {
+        return messages.filter { it.channelId == channelId }.sortedBy { it.createdAt }.take(limit)
+    }
 
     override suspend fun upsertRelation(relation: PersistedChatRelation) {
         relations.removeAll {
@@ -315,12 +608,21 @@ private class InMemoryChatSocialRepository(
         return relations.filter { it.playerId == playerId && it.relationKind == relationKind }
     }
 
-    override suspend fun upsertChannelMute(mute: PersistedChannelMute) = Unit
+    override suspend fun upsertChannelMute(mute: PersistedChannelMute) {
+        channelMutes.removeAll {
+            it.playerId == mute.playerId &&
+                it.channelId == mute.channelId &&
+                it.mutedPlayerId == mute.mutedPlayerId
+        }
+        channelMutes += mute
+    }
 
     override suspend fun listChannelMutes(
         playerId: String,
         channelId: String,
-    ): List<PersistedChannelMute> = emptyList()
+    ): List<PersistedChannelMute> {
+        return channelMutes.filter { it.playerId == playerId && it.channelId == channelId }
+    }
 
     override suspend fun upsertPresence(presence: PersistedChatPresence) {
         this.presence.removeAll { it.connectionId == presence.connectionId }

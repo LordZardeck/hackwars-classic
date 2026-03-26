@@ -45,14 +45,22 @@ object RetainedChatBootstrapPolicy {
     ): ChatBootstrapProjection {
         require(receiverPlayerId.value.isNotBlank()) { "receiverPlayerId must not be blank." }
         return ChatBootstrapProjection(
-            subscribedChannels = ChatSubChannelsEventPayload(
-                receiverPlayerId = receiverPlayerId.value,
-                channels = channelRosters.map(ChatChannelRoster::toPayload),
-            ),
+            subscribedChannels = projectSubscribedChannels(receiverPlayerId, channelRosters),
             relationList = ChatRelationListEventPayload(
                 receiverPlayerId = receiverPlayerId.value,
                 relations = mergeRelations(relations),
             ),
+        )
+    }
+
+    fun projectSubscribedChannels(
+        receiverPlayerId: PlayerId,
+        channelRosters: List<ChatChannelRoster>,
+    ): ChatSubChannelsEventPayload {
+        require(receiverPlayerId.value.isNotBlank()) { "receiverPlayerId must not be blank." }
+        return ChatSubChannelsEventPayload(
+            receiverPlayerId = receiverPlayerId.value,
+            channels = channelRosters.map(ChatChannelRoster::toPayload),
         )
     }
 

@@ -43,6 +43,19 @@
 - Fallback if blocked: `RW-CHAT-001A`
 - Verification scope: `./gradlew :RewriteProtocol:test :RewriteChatCore:test`
 
+### RW-CHAT-001C - Correct retained add_admin and mute contract scoping
+- Status: `ready`
+- Priority: `P1`
+- Execution lane: `contracts`
+- Worker role: `worker`
+- Depends on: `RW-CHAT-001A`, `RW-CHAT-001B`
+- Ready when: retained chat lifecycle routing exposes the channel-scoping mismatch for moderation commands
+- Parallel with: `RW-CHAT-003B`, `RW-CHAT-004A`
+- Allowed write scope: `src/RewriteProtocol/**`, `src/RewriteChatCore/**`, `src/RewriteChatServer/**`, `plans/rewrite/feature-inventory/PLAN.md`
+- Autonomous next: `RW-CHAT-003B`
+- Fallback if blocked: `RW-CHAT-003A`
+- Verification scope: `./gradlew :RewriteProtocol:test :RewriteChatCore:test :RewriteChatServer:test`
+
 ### RW-CHAT-002A - Implement retained chat session bootstrap and auth binding
 - Status: `done`
 - Priority: `P1`
@@ -70,7 +83,7 @@
 - Verification scope: `./gradlew :RewriteChatCore:test :RewriteChatServer:test`
 
 ### RW-CHAT-003A - Implement retained channel lifecycle and moderation model
-- Status: `ready`
+- Status: `done`
 - Priority: `P1`
 - Execution lane: `channels`
 - Worker role: `worker`
@@ -78,12 +91,13 @@
 - Ready when: canonical chat contracts and retained chat/social schema exist
 - Parallel with: `RW-CHAT-002A`, `RW-CHAT-004A`
 - Allowed write scope: `src/RewriteChatCore/**`, `src/RewriteChatServer/**`, `src/RewritePersistence/**`
-- Autonomous next: `RW-CHAT-003B`
+- Autonomous next: `RW-CHAT-001C`
 - Fallback if blocked: `RW-DATA-003D`
 - Verification scope: `./gradlew :RewriteChatCore:test :RewriteChatServer:test :RewritePersistence:test`
+- Locked scope note: this card closes retained `sub_channels`, `channel_create`, `channel_join`, `channel_leave`, and `channel_kick`, plus actor-local roster refresh and empty-channel cleanup. `add_admin` and `mute` stay explicitly tracked by `RW-CHAT-001C` because the current rewrite DTOs are missing channel scope.
 
 ### RW-CHAT-003B - Implement retained channel fanout, history, and whisper pipeline
-- Status: `todo`
+- Status: `ready`
 - Priority: `P1`
 - Execution lane: `channels`
 - Worker role: `worker`

@@ -69,6 +69,30 @@ class JdbcChatSocialRepository(
         }
     }
 
+    override suspend fun deleteChannel(channelId: String) {
+        connectionFactory().use { connection ->
+            connection.autoCommit = false
+            try {
+                deleteChannelDependents(connection, channelId)
+                connection.prepareStatement(
+                    """
+                    delete from rewrite_chat_channel
+                    where channel_id = ?
+                    """.trimIndent(),
+                ).use { statement ->
+                    statement.setString(1, channelId)
+                    statement.executeUpdate()
+                }
+                connection.commit()
+            } catch (error: Throwable) {
+                connection.rollback()
+                throw error
+            } finally {
+                connection.autoCommit = true
+            }
+        }
+    }
+
     override suspend fun upsertMembership(membership: PersistedChatChannelMembership) {
         connectionFactory().use { connection ->
             connection.prepareStatement(
@@ -120,6 +144,25 @@ class JdbcChatSocialRepository(
                     }
                     return memberships
                 }
+            }
+        }
+    }
+
+    override suspend fun deleteMembership(
+        channelId: String,
+        playerId: String,
+    ) {
+        connectionFactory().use { connection ->
+            connection.prepareStatement(
+                """
+                delete from rewrite_chat_channel_member
+                where channel_id = ?
+                  and player_id = ?
+                """.trimIndent(),
+            ).use { statement ->
+                statement.setString(1, channelId)
+                statement.setString(2, playerId)
+                statement.executeUpdate()
             }
         }
     }
@@ -460,5 +503,38 @@ class JdbcChatSocialRepository(
             offlineAt = resultSet.getTimestamp("offline_at")?.toInstant(),
             presencePayload = resultSet.getString("presence_payload"),
         )
+    }
+
+    private fun deleteChannelDependents(
+        connection: Connection,
+        channelId: String,
+    ) {
+        connection.prepareStatement(
+            """
+            delete from rewrite_chat_channel_mute
+            where channel_id = ?
+            """.trimIndent(),
+        ).use { statement ->
+            statement.setString(1, channelId)
+            statement.executeUpdate()
+        }
+        connection.prepareStatement(
+            """
+            delete from rewrite_chat_message
+            where channel_id = ?
+            """.trimIndent(),
+        ).use { statement ->
+            statement.setString(1, channelId)
+            statement.executeUpdate()
+        }
+        connection.prepareStatement(
+            """
+            delete from rewrite_chat_channel_member
+            where channel_id = ?
+            """.trimIndent(),
+        ).use { statement ->
+            statement.setString(1, channelId)
+            statement.executeUpdate()
+        }
     }
 }

@@ -86,9 +86,16 @@ interface ChatSocialRepository {
 
     suspend fun listChannels(): List<PersistedChatChannel>
 
+    suspend fun deleteChannel(channelId: String)
+
     suspend fun upsertMembership(membership: PersistedChatChannelMembership)
 
     suspend fun listMemberships(channelId: String): List<PersistedChatChannelMembership>
+
+    suspend fun deleteMembership(
+        channelId: String,
+        playerId: String,
+    )
 
     suspend fun appendMessage(message: PersistedChatMessage)
 
