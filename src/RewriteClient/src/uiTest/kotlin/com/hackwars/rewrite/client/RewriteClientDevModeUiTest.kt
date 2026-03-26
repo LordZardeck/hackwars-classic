@@ -2,6 +2,7 @@ package com.hackwars.rewrite.client
 
 import com.hackwars.rewrite.client.shell.RewriteShellCommand
 import com.hackwars.rewrite.clientdev.RewriteClientDevEnvironment
+import com.hackwars.rewrite.client.testsupport.rewriteUiFailureTriage
 import com.hackwars.rewrite.clientmodel.RewriteClientRoute
 import java.awt.GraphicsEnvironment
 import javax.swing.JInternalFrame
@@ -16,37 +17,46 @@ class RewriteClientDevModeUiTest {
     fun deterministicDevModeCanReachDesktopAndOpenRepresentativeWindows() {
         assumeFalse(GraphicsEnvironment.isHeadless())
 
-        val environment = RewriteClientDevEnvironment()
-        val frame = invokeAndWaitResult {
-            RewriteRootFrame(
-                controller = environment.createController(),
-            ).apply { isVisible = true }
-        }
-        try {
-            frame.controller.submitLogin("localuser", "password1234".toCharArray())
-            waitUntil { frame.controller.route() == RewriteClientRoute.DESKTOP }
-            waitUntil {
-                invokeAndWaitResult {
-                    frame.desktopPane.allFrames.any { it.name == "rewrite-shell-window-network" } &&
-                        frame.desktopPane.allFrames.any { it.name == "rewrite-log-window" }
+        rewriteUiFailureTriage(
+            suiteName = "RewriteClientDevModeUiTest",
+            testName = "deterministicDevModeCanReachDesktopAndOpenRepresentativeWindows",
+            context = mapOf(
+                "surface" to "dev-mode",
+                "route" to "desktop",
+            ),
+        ) {
+            val environment = RewriteClientDevEnvironment()
+            val frame = invokeAndWaitResult {
+                RewriteRootFrame(
+                    controller = environment.createController(),
+                ).apply { isVisible = true }
+            }
+            try {
+                frame.controller.submitLogin("localuser", "password1234".toCharArray())
+                waitUntil { frame.controller.route() == RewriteClientRoute.DESKTOP }
+                waitUntil {
+                    invokeAndWaitResult {
+                        frame.desktopPane.allFrames.any { it.name == "rewrite-shell-window-network" } &&
+                            frame.desktopPane.allFrames.any { it.name == "rewrite-log-window" }
+                    }
                 }
+
+                SwingUtilities.invokeAndWait {
+                    frame.controller.launchShellCommand(RewriteShellCommand.HOME)
+                    frame.controller.launchShellCommand(RewriteShellCommand.STORE)
+                }
+
+                val homeWindow = waitForWindow(frame, "rewrite-home-window")
+                val storeWindow = waitForWindow(frame, "rewrite-store-window")
+
+                assertNotNull(homeWindow)
+                assertNotNull(storeWindow)
+                assertTrue(invokeAndWaitResult { frame.desktopPane.allFrames.any { it.name == "rewrite-shell-window-network" } })
+                assertTrue(invokeAndWaitResult { frame.desktopPane.allFrames.any { it.name == "rewrite-log-window" } })
+            } finally {
+                disposeFrame(frame)
+                environment.close()
             }
-
-            SwingUtilities.invokeAndWait {
-                frame.controller.launchShellCommand(RewriteShellCommand.HOME)
-                frame.controller.launchShellCommand(RewriteShellCommand.STORE)
-            }
-
-            val homeWindow = waitForWindow(frame, "rewrite-home-window")
-            val storeWindow = waitForWindow(frame, "rewrite-store-window")
-
-            assertNotNull(homeWindow)
-            assertNotNull(storeWindow)
-            assertTrue(invokeAndWaitResult { frame.desktopPane.allFrames.any { it.name == "rewrite-shell-window-network" } })
-            assertTrue(invokeAndWaitResult { frame.desktopPane.allFrames.any { it.name == "rewrite-log-window" } })
-        } finally {
-            disposeFrame(frame)
-            environment.close()
         }
     }
 
