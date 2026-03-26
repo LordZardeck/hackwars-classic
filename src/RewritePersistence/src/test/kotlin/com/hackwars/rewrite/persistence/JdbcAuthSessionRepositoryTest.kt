@@ -126,6 +126,61 @@ class JdbcAuthSessionRepositoryTest {
         assertEquals(emptyList(), runBlocking { repository.listActiveServiceSessions("local-user") })
     }
 
+    @Test
+    fun upsertsAndClosesChatServiceSessions() {
+        resetDatabase()
+        seedPlayerAccount(playerId = "pf-localuser", playFabId = "PF-LOCALUSER", playerIp = "192.0.2.10")
+        val repository = JdbcAuthSessionRepository(connectionFactory = ::newConnection)
+        runBlocking {
+            repository.upsertSessionTicket(
+                PersistedSessionTicket(
+                    sessionTicket = "SESSION-CHAT",
+                    playerId = "pf-localuser",
+                    playFabId = "PF-LOCALUSER",
+                    playerIp = "192.0.2.10",
+                    issuedAt = Instant.parse("2026-03-26T10:15:30Z"),
+                ),
+            )
+            repository.upsertServiceSession(
+                PersistedServiceSession(
+                    serviceSessionId = "chat-conn-1",
+                    serviceKind = PersistedServiceKind.CHAT,
+                    connectionId = "chat-1",
+                    playerId = "pf-localuser",
+                    playFabId = "PF-LOCALUSER",
+                    playerIp = "192.0.2.10",
+                    sessionTicket = "SESSION-CHAT",
+                    heartbeatIntervalMillis = 15_000L,
+                    authenticatedAt = Instant.parse("2026-03-26T10:16:00Z"),
+                    lastSeenAt = Instant.parse("2026-03-26T10:16:00Z"),
+                    sessionPayload = """{"playerId":"pf-localuser","chatPrincipal":"pf-localuser"}""",
+                ),
+            )
+        }
+
+        val started = runBlocking {
+            repository.findServiceSession(PersistedServiceKind.CHAT, "chat-1")
+        }
+        assertNotNull(started)
+        assertEquals(PersistedServiceKind.CHAT, started.serviceKind)
+        assertEquals("pf-localuser", started.playerId)
+
+        runBlocking {
+            repository.closeServiceSession(
+                serviceKind = PersistedServiceKind.CHAT,
+                connectionId = "chat-1",
+                closedAt = Instant.parse("2026-03-26T10:17:00Z"),
+            )
+        }
+
+        val closed = runBlocking {
+            repository.findServiceSession(PersistedServiceKind.CHAT, "chat-1")
+        }
+        assertNotNull(closed)
+        assertNotNull(closed.closedAt)
+        assertEquals(emptyList(), runBlocking { repository.listActiveServiceSessions("pf-localuser") })
+    }
+
     private fun resetDatabase() {
         newConnection().use { connection ->
             connection.createStatement().use { statement ->

@@ -44,7 +44,7 @@
 - Verification scope: `./gradlew :RewriteProtocol:test :RewriteChatCore:test`
 
 ### RW-CHAT-002A - Implement retained chat session bootstrap and auth binding
-- Status: `ready`
+- Status: `done`
 - Priority: `P1`
 - Execution lane: `bootstrap`
 - Worker role: `worker`
@@ -57,7 +57,7 @@
 - Verification scope: `./gradlew :RewriteChatCore:test :RewriteChatServer:test :RewritePersistence:test`
 
 ### RW-CHAT-002B - Implement retained chat ping, timeout, and forced logout lifecycle
-- Status: `todo`
+- Status: `ready`
 - Priority: `P2`
 - Execution lane: `bootstrap`
 - Worker role: `worker`
