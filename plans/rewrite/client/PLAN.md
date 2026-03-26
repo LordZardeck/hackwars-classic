@@ -77,7 +77,7 @@
   - Keeps countdown, stats, and message surfaces deferred.
 
 ### RW-CLIENT-003B1 - Implement shell stats rail, player-title binding, and countdown chrome
-- Status: `in_progress`
+- Status: `done`
 - Owner: `unassigned`
 - Depends on: `RW-CLIENT-003A`
 - Allowed write scope: `:RewriteClient`
@@ -101,16 +101,28 @@
   - Popup/dialog routing and bottom-shell messaging stay together in this tranche.
 
 ## Window Family Lanes
-### RW-CLIENT-W1 - Banking and economy windows
-- Status: `todo`
+### RW-CLIENT-W1A - Deposit, withdraw, and transfer windows plus correlated economy command responses
+- Status: `in_progress`
 - Owner: `unassigned`
 - Depends on: `RW-CLIENT-003A`
-- Allowed write scope: `:RewriteClient/client/economy/**`
+- Allowed write scope: `:RewriteProtocol`, `:RewriteClient/client/economy/**`, `:RewriteClient`
+- Verification command: `./gradlew :RewriteProtocol:test :RewriteClient:test :RewriteClient:uiTest`
+- Artifacts: `build/reports/rewrite/ui`
+- Commit rule: `single green commit only`
+- Notes:
+  - Covers the client-side correlated GAME command broker plus rewrite-owned deposit, withdraw, and transfer windows.
+  - Keeps `Create Bounty` deferred until filesystem-backed file/path picking is available.
+
+### RW-CLIENT-W1B - Create Bounty dialog and file-picker follow-up
+- Status: `todo`
+- Owner: `unassigned`
+- Depends on: `RW-CLIENT-W1A`, `RW-CLIENT-W2`
+- Allowed write scope: `:RewriteClient/client/economy/**`, `:RewriteClient/client/files/**`
 - Verification command: `./gradlew :RewriteClient:test :RewriteClient:uiTest`
 - Artifacts: `build/reports/rewrite/ui`
 - Commit rule: `single green commit only`
 - Notes:
-  - Deposit, withdraw, transfer, and related dialogs.
+  - Depends on `RW-CLIENT-W2` because bounty creation needs filesystem-backed file and path selection.
 
 ### RW-CLIENT-W2 - Home, filesystem, FTP, and editor windows
 - Status: `todo`

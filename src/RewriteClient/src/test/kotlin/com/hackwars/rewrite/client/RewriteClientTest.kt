@@ -4,20 +4,27 @@ import com.hackwars.rewrite.clientmodel.RewriteClientRoute
 import com.hackwars.rewrite.clientmodel.RewriteDecodedGameState
 import com.hackwars.rewrite.clientmodel.RewriteDecodedGameUiNotice
 import com.hackwars.rewrite.protocol.ClientAttackMessageUiEvent
+import com.hackwars.rewrite.protocol.ClientBankTransactionResponse
+import com.hackwars.rewrite.protocol.ClientDepositPayload
 import com.hackwars.rewrite.protocol.ClientEconomyState
 import com.hackwars.rewrite.protocol.ClientGameDeltaProjection
 import com.hackwars.rewrite.protocol.ClientGameSectionsProjection
 import com.hackwars.rewrite.protocol.ClientGameSnapshot
 import com.hackwars.rewrite.protocol.ClientProgramLifecycleStatus
 import com.hackwars.rewrite.protocol.ClientProgramUpdate
+import com.hackwars.rewrite.protocol.ClientTransferPayload
+import com.hackwars.rewrite.protocol.ClientTransferResponse
 import com.hackwars.rewrite.protocol.RewriteClientJson
 import com.hackwars.rewrite.protocol.RewriteFrames
 import com.hackwars.rewrite.protocol.RewriteService
 import hackwars.rewrite.v1.FrameEnvelope
+import hackwars.rewrite.v1.CommandResponseStatus
+import hackwars.rewrite.v1.ErrorEnvelope
 import java.time.Instant
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
+import kotlinx.coroutines.async
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -328,6 +335,130 @@ class RewriteClientTest {
         assertEquals(2, sessionGateway.sessionsFor(RewriteService.GAME).size)
         assertEquals("SESSION-TWO", secondSession.sentFrames.single().auth_request?.session_ticket)
         assertEquals(RewriteClientRoute.BOOTSTRAPPING_GAME, controller.route())
+    }
+
+    @Test
+    fun requestDepositResolvesByCommandIdAndKeepsRawCommandResponseInInbox() = runTest {
+        val sessionGateway = FakeRewriteServiceSessionGateway()
+        val controller = testController(
+            authGateway = RecordingRewriteLoginAuthGateway(),
+            sessionGateway = sessionGateway,
+            scheduler = testScheduler,
+        )
+        controller.accept(
+            RewriteService.GAME,
+            RewriteFrames.authAccepted(
+                connectionId = "conn-1",
+                playFabId = "PF-LOCAL",
+                playerIp = "LOCAL-IP",
+                heartbeatInterval = kotlin.time.Duration.parse("15s"),
+                sessionStartedAt = Instant.parse("2026-03-25T00:00:00Z"),
+            ),
+        )
+
+        val pending = backgroundScope.async(UnconfinedTestDispatcher(testScheduler)) {
+            controller.requestDeposit(amount = 25.0, portNumber = 4)
+        }
+        runCurrent()
+
+        val session = sessionGateway.requireLatestSession(RewriteService.GAME)
+        val command = session.sentFrames.single().command!!
+        val payload = RewriteClientJson.decode(
+            ClientDepositPayload.serializer(),
+            command.payload.toByteArray(),
+        )
+        assertEquals("deposit", command.command_name)
+        assertEquals(25.0, payload.amount)
+        assertEquals("LOCAL-IP", payload.ip)
+        assertEquals(4, payload.port)
+
+        controller.accept(
+            RewriteService.GAME,
+            RewriteFrames.commandResponse(
+                commandId = command.command_id,
+                payload = RewriteClientJson.encode(
+                    ClientBankTransactionResponse.serializer(),
+                    ClientBankTransactionResponse(
+                        stateId = "LOCAL-IP",
+                        operation = "deposit",
+                        portNumber = 4,
+                        requestedAmount = 25.0,
+                        appliedAmount = 25.0,
+                        pettyCashAfter = 100.0,
+                        bankMoneyAfter = 50.0,
+                        version = 8,
+                    ),
+                ),
+            ),
+        )
+        advanceUntilIdle()
+
+        val result = pending.await()
+        assertIs<RewriteGameCommandResult.Success<ClientBankTransactionResponse>>(result)
+        assertEquals(25.0, result.value.appliedAmount)
+        assertEquals(command.command_id, controller.snapshot().game.inbox.lastCommandResponse?.metadata?.commandId)
+    }
+
+    @Test
+    fun requestTransferSurfacesServerErrorAndTimeoutAsFailures() = runTest {
+        val sessionGateway = FakeRewriteServiceSessionGateway()
+        val controller = testController(
+            authGateway = RecordingRewriteLoginAuthGateway(),
+            sessionGateway = sessionGateway,
+            config = RewriteGameConnectionConfig(bootstrapTimeout = kotlin.time.Duration.parse("100ms")),
+            scheduler = testScheduler,
+        )
+        controller.accept(
+            RewriteService.GAME,
+            RewriteFrames.authAccepted(
+                connectionId = "conn-1",
+                playFabId = "PF-LOCAL",
+                playerIp = "LOCAL-IP",
+                heartbeatInterval = kotlin.time.Duration.parse("15s"),
+                sessionStartedAt = Instant.parse("2026-03-25T00:00:00Z"),
+            ),
+        )
+
+        val failedRequest = backgroundScope.async(UnconfinedTestDispatcher(testScheduler)) {
+            controller.requestTransfer(amount = 15.0, targetIp = "TARGET-IP", portNumber = 4)
+        }
+        runCurrent()
+
+        val session = sessionGateway.requireLatestSession(RewriteService.GAME)
+        val transferCommand = session.sentFrames.single().command!!
+        val transferPayload = RewriteClientJson.decode(
+            ClientTransferPayload.serializer(),
+            transferCommand.payload.toByteArray(),
+        )
+        assertEquals("TARGET-IP", transferPayload.targetIp)
+        controller.accept(
+            RewriteService.GAME,
+            RewriteFrames.commandResponse(
+                commandId = transferCommand.command_id,
+                status = CommandResponseStatus.COMMAND_RESPONSE_STATUS_ERROR,
+                error = ErrorEnvelope(
+                    code = "INVALID_TARGET",
+                    message = "Transfer target does not exist.",
+                    retryable = false,
+                ),
+            ),
+        )
+        advanceUntilIdle()
+
+        val failedResult = failedRequest.await()
+        assertIs<RewriteGameCommandResult.Failure>(failedResult)
+        assertEquals("Transfer target does not exist.", failedResult.message)
+
+        val timedOutRequest = backgroundScope.async(UnconfinedTestDispatcher(testScheduler)) {
+            controller.requestTransfer(amount = 20.0, targetIp = "TARGET-IP", portNumber = 4)
+        }
+        runCurrent()
+        advanceTimeBy(5_001)
+        advanceUntilIdle()
+
+        val timedOutResult = timedOutRequest.await()
+        assertIs<RewriteGameCommandResult.Failure>(timedOutResult)
+        assertEquals("The rewrite game server did not respond in time.", timedOutResult.message)
     }
 
     @Test

@@ -1,5 +1,9 @@
 package com.hackwars.rewrite.client
 
+import com.hackwars.rewrite.client.economy.RewriteDepositWindow
+import com.hackwars.rewrite.client.economy.RewriteTransferWindow
+import com.hackwars.rewrite.client.economy.RewriteWithdrawWindow
+import com.hackwars.rewrite.client.shell.RewritePlaceholderInternalFrame
 import com.hackwars.rewrite.client.shell.RewriteShellCommand
 import com.hackwars.rewrite.client.shell.RewriteShellWindowCoordinator
 import com.hackwars.rewrite.client.shell.RewriteShellWindowHost
@@ -10,12 +14,18 @@ import com.hackwars.rewrite.clientmodel.RewriteClientStore
 import com.hackwars.rewrite.clientmodel.RewriteDecodedGameState
 import com.hackwars.rewrite.clientmodel.RewriteDecodedGameUiNotice
 import com.hackwars.rewrite.clientmodel.RewriteServiceState
+import com.hackwars.rewrite.protocol.ClientBankTransactionResponse
+import com.hackwars.rewrite.protocol.ClientDepositPayload
 import com.hackwars.rewrite.protocol.ClientGameSnapshot
 import com.hackwars.rewrite.protocol.ClientProgramUpdate
+import com.hackwars.rewrite.protocol.ClientTransferPayload
+import com.hackwars.rewrite.protocol.ClientTransferResponse
+import com.hackwars.rewrite.protocol.ClientWithdrawPayload
 import com.hackwars.rewrite.protocol.RewriteFrames
 import com.hackwars.rewrite.protocol.RewriteService
 import hackwars.rewrite.v1.FrameEnvelope
 import java.time.Instant
+import javax.swing.JInternalFrame
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -35,7 +45,10 @@ class RewriteRootController(
     private val workerScope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
 ) {
     private val sessions = mutableMapOf<RewriteService, RewriteServiceSession>()
-    private val shellWindows = RewriteShellWindowCoordinator()
+    private val gameCommandBroker = RewriteGameCommandBroker(
+        sendFrame = { frame -> send(RewriteService.GAME, frame) },
+    )
+    private val shellWindows = RewriteShellWindowCoordinator(::createShellWindow)
     private val bootstrapLock = Any()
     private var loginAttemptId: Long = 0
     private var activeLoginJob: Job? = null
@@ -95,8 +108,70 @@ class RewriteRootController(
         shellWindows.attachHost(host)
     }
 
-    fun launchShellCommand(command: RewriteShellCommand) {
-        shellWindows.open(command)
+    fun launchShellCommand(
+        command: RewriteShellCommand,
+        preferredPort: Int? = null,
+    ) {
+        shellWindows.open(command, preferredPort)
+    }
+
+    internal suspend fun requestDeposit(
+        amount: Double,
+        portNumber: Int,
+    ): RewriteGameCommandResult<ClientBankTransactionResponse> {
+        val playerIp = authenticatedPlayerIp()
+            ?: return RewriteGameCommandResult.Failure("Not connected to a rewrite game session.")
+        return gameCommandBroker.request(
+            commandName = "deposit",
+            payloadSerializer = ClientDepositPayload.serializer(),
+            payload = ClientDepositPayload(
+                amount = amount,
+                ip = playerIp,
+                port = portNumber,
+            ),
+            responseSerializer = ClientBankTransactionResponse.serializer(),
+            targetStateIds = listOf(playerIp),
+        )
+    }
+
+    internal suspend fun requestWithdraw(
+        amount: Double,
+        portNumber: Int,
+    ): RewriteGameCommandResult<ClientBankTransactionResponse> {
+        val playerIp = authenticatedPlayerIp()
+            ?: return RewriteGameCommandResult.Failure("Not connected to a rewrite game session.")
+        return gameCommandBroker.request(
+            commandName = "withdraw",
+            payloadSerializer = ClientWithdrawPayload.serializer(),
+            payload = ClientWithdrawPayload(
+                amount = amount,
+                ip = playerIp,
+                port = portNumber,
+            ),
+            responseSerializer = ClientBankTransactionResponse.serializer(),
+            targetStateIds = listOf(playerIp),
+        )
+    }
+
+    internal suspend fun requestTransfer(
+        amount: Double,
+        targetIp: String,
+        portNumber: Int,
+    ): RewriteGameCommandResult<ClientTransferResponse> {
+        val playerIp = authenticatedPlayerIp()
+            ?: return RewriteGameCommandResult.Failure("Not connected to a rewrite game session.")
+        return gameCommandBroker.request(
+            commandName = "transfer",
+            payloadSerializer = ClientTransferPayload.serializer(),
+            payload = ClientTransferPayload(
+                amount = amount,
+                ip = playerIp,
+                targetIp = targetIp,
+                port = portNumber,
+            ),
+            responseSerializer = ClientTransferResponse.serializer(),
+            targetStateIds = listOf(playerIp, targetIp),
+        )
     }
 
     fun submitLogin(email: String, password: CharArray) {
@@ -162,6 +237,7 @@ class RewriteRootController(
     fun accept(service: RewriteService, frame: FrameEnvelope) {
         store.recordInboundFrame(service = service, frame = frame, receivedAt = clock())
         if (service == RewriteService.GAME) {
+            gameCommandBroker.accept(frame)
             handleGameBootstrapFrame(frame)
         }
     }
@@ -248,7 +324,7 @@ class RewriteRootController(
                 frame.error != null -> {
                     pendingGameBootstrap = null
                     pending.completion to GameBootstrapOutcome.Failed(
-                        sanitizeTransportFailure(
+                        sanitizeGameTransportFailure(
                             code = frame.error!!.code,
                             message = frame.error!!.message,
                         ),
@@ -324,6 +400,9 @@ class RewriteRootController(
     private fun closeService(service: RewriteService) {
         val session = sessions.remove(service) ?: return
         runCatching { session.close() }
+        if (service == RewriteService.GAME) {
+            gameCommandBroker.failAll("The rewrite game server closed the connection.", "SERVER_DISCONNECTED")
+        }
         store.noteClosed(service)
     }
 
@@ -335,11 +414,30 @@ class RewriteRootController(
         return attemptId == loginAttemptId
     }
 
-    private fun sanitizeTransportFailure(code: String, message: String): String = when (code) {
-        "MALFORMED_FRAME" -> "The rewrite game server sent an invalid response."
-        "SERVER_DISCONNECTED" -> "The rewrite game server closed the connection."
-        "CLIENT_IO_ERROR" -> "The rewrite game connection failed."
-        else -> message.ifBlank { "The rewrite game connection failed." }
+    private fun authenticatedPlayerIp(): String? {
+        return snapshot().game.latestAcceptedSession?.playerIp?.takeIf { it.isNotBlank() }
+    }
+
+    private fun createShellWindow(
+        command: RewriteShellCommand,
+        preferredPort: Int?,
+    ): JInternalFrame = when (command) {
+        RewriteShellCommand.DEPOSIT -> RewriteDepositWindow(
+            controller = this,
+            preferredPort = preferredPort,
+        )
+
+        RewriteShellCommand.WITHDRAW -> RewriteWithdrawWindow(
+            controller = this,
+            preferredPort = preferredPort,
+        )
+
+        RewriteShellCommand.TRANSFER -> RewriteTransferWindow(
+            controller = this,
+            preferredPort = preferredPort,
+        )
+
+        else -> RewritePlaceholderInternalFrame(command)
     }
 
     private data class PendingGameBootstrap(

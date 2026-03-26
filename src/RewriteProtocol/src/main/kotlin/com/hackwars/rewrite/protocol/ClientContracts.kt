@@ -249,6 +249,53 @@ data class ClientProgramProgress(
 )
 
 @Serializable
+data class ClientDepositPayload(
+    val amount: Double,
+    val ip: String,
+    val port: Int,
+)
+
+@Serializable
+data class ClientWithdrawPayload(
+    val amount: Double,
+    val ip: String,
+    val port: Int,
+)
+
+@Serializable
+data class ClientTransferPayload(
+    val amount: Double,
+    val ip: String,
+    val targetIp: String,
+    val port: Int,
+)
+
+@Serializable
+data class ClientBankTransactionResponse(
+    val stateId: String,
+    val operation: String,
+    val portNumber: Int,
+    val requestedAmount: Double,
+    val appliedAmount: Double,
+    val pettyCashAfter: Double,
+    val bankMoneyAfter: Double,
+    val version: Long,
+)
+
+@Serializable
+data class ClientTransferResponse(
+    val sourceStateId: String,
+    val targetStateId: String,
+    val portNumber: Int,
+    val requestedAmount: Double,
+    val appliedAmount: Double,
+    val sourcePettyCashAfter: Double,
+    val targetPettyCashAfter: Double,
+    val sourceVersion: Long,
+    val targetVersion: Long,
+)
+
+@Serializable
 sealed interface ClientGameUiEvent
 
 @Serializable

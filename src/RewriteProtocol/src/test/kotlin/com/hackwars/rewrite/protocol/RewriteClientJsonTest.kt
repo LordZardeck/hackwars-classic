@@ -184,4 +184,51 @@ class RewriteClientJsonTest {
         assertIs<ClientTextMessageUiEvent>(textMessage)
         assertTrue(textMessage.message.contains("Daily pay"))
     }
+
+    @Test
+    fun decodesCurrentRewriteEconomyCommandResponsePayloads() {
+        val bankTransactionPayload = """
+            {
+              "stateId":"LOCAL-IP",
+              "operation":"deposit",
+              "portNumber":4,
+              "requestedAmount":600.0,
+              "appliedAmount":500.0,
+              "pettyCashAfter":0.0,
+              "bankMoneyAfter":700.0,
+              "version":12,
+              "ignored":"ignored"
+            }
+        """.trimIndent().encodeToByteArray()
+        val transferPayload = """
+            {
+              "sourceStateId":"LOCAL-IP",
+              "targetStateId":"TARGET-IP",
+              "portNumber":4,
+              "requestedAmount":125.0,
+              "appliedAmount":125.0,
+              "sourcePettyCashAfter":375.0,
+              "targetPettyCashAfter":175.0,
+              "sourceVersion":10,
+              "targetVersion":9,
+              "ignored":"ignored"
+            }
+        """.trimIndent().encodeToByteArray()
+
+        val bankTransaction = RewriteClientJson.decode(
+            ClientBankTransactionResponse.serializer(),
+            bankTransactionPayload,
+        )
+        val transfer = RewriteClientJson.decode(
+            ClientTransferResponse.serializer(),
+            transferPayload,
+        )
+
+        assertEquals("LOCAL-IP", bankTransaction.stateId)
+        assertEquals("deposit", bankTransaction.operation)
+        assertEquals(500.0, bankTransaction.appliedAmount)
+        assertEquals("LOCAL-IP", transfer.sourceStateId)
+        assertEquals("TARGET-IP", transfer.targetStateId)
+        assertEquals(125.0, transfer.appliedAmount)
+    }
 }

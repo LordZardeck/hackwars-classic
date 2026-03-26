@@ -436,7 +436,7 @@ data class RewriteRawFrameMetadata(
     companion object {
         fun fromFrame(frame: FrameEnvelope, receivedAt: Instant): RewriteRawFrameMetadata {
             return RewriteRawFrameMetadata(
-                commandId = frame.command?.command_id,
+                commandId = frame.command?.command_id ?: frame.command_response?.command_id,
                 commandName = frame.command?.command_name,
                 gameStateId = frame.snapshot?.game_state_id ?: frame.delta?.game_state_id,
                 programId = frame.program_update?.program_id,

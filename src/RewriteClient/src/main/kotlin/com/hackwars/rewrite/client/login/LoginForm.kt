@@ -162,7 +162,8 @@ class LoginForm : JPanel(GridBagLayout()) {
             val rect = RoundRectangle2D.Float(outerX, outerY, outerW, outerH, OUTER_ARC, OUTER_ARC)
 
             for (index in 6 downTo 1) {
-                g2.color = Color(4, 12, 20, 60 - (index * 15).coerceAtLeast(0))
+                val alpha = (60 - (index * 15)).coerceIn(0, 255)
+                g2.color = Color(4, 12, 20, alpha)
                 g2.stroke = BasicStroke(index * 2.8f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND)
                 g2.draw(rect)
             }

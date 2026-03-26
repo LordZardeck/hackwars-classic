@@ -2,18 +2,29 @@ package com.hackwars.rewrite.client
 
 import com.hackwars.rewrite.client.shell.RewriteShellCommand
 import com.hackwars.rewrite.clientmodel.RewriteClientRoute
+import com.hackwars.rewrite.protocol.ClientBankTransactionResponse
 import com.hackwars.rewrite.protocol.ClientComputerIdentity
 import com.hackwars.rewrite.protocol.ClientEconomyState
 import com.hackwars.rewrite.protocol.ClientGameSnapshot
+import com.hackwars.rewrite.protocol.ClientInstalledApplication
+import com.hackwars.rewrite.protocol.ClientPortState
 import com.hackwars.rewrite.protocol.ClientRuntimeState
+import com.hackwars.rewrite.protocol.ClientTransferPayload
+import com.hackwars.rewrite.protocol.ClientWithdrawPayload
 import com.hackwars.rewrite.protocol.RewriteClientJson
 import com.hackwars.rewrite.protocol.RewriteFrames
 import com.hackwars.rewrite.protocol.RewriteService
+import hackwars.rewrite.v1.CommandResponseStatus
+import hackwars.rewrite.v1.ErrorEnvelope
 import hackwars.rewrite.v1.FrameEnvelope
 import java.awt.Component
 import java.awt.Container
 import java.awt.GraphicsEnvironment
 import java.time.Instant
+import javax.swing.JButton
+import javax.swing.JComboBox
+import javax.swing.JFormattedTextField
+import javax.swing.JInternalFrame
 import javax.swing.JLabel
 import javax.swing.SwingUtilities
 import kotlin.test.Test
@@ -239,9 +250,10 @@ class RewriteRootFrameUiTest {
                 frame.controller.launchShellCommand(RewriteShellCommand.DEPOSIT)
             }
             waitUntil { frame.desktopPane.allFrames.size == 1 }
-            val placeholderFrame = frame.desktopPane.allFrames.single()
+            val bankingFrame = frame.desktopPane.allFrames.single()
+            assertEquals("rewrite-economy-window-deposit", bankingFrame.name)
             SwingUtilities.invokeAndWait {
-                placeholderFrame.isIcon = true
+                bankingFrame.isIcon = true
             }
 
             waitUntil { frame.shellHost.menuBar.taskBar.minimizedApplicationCount() == 1 }
@@ -252,7 +264,7 @@ class RewriteRootFrameUiTest {
             }
             waitUntil {
                 frame.shellHost.menuBar.taskBar.minimizedApplicationCount() == 0 &&
-                    !placeholderFrame.isIcon
+                    !bankingFrame.isIcon
             }
             assertEquals(0, frame.shellHost.menuBar.taskBar.minimizedApplicationCount())
         } finally {
@@ -283,7 +295,7 @@ class RewriteRootFrameUiTest {
                 RewriteShellCommand.entries.take(10).forEach { command ->
                     frame.controller.launchShellCommand(command)
                     frame.desktopPane.allFrames
-                        .first { it.name == "rewrite-shell-window-${command.stableId}" }
+                        .first { it.name == expectedWindowName(command) }
                         .isIcon = true
                 }
             }
@@ -293,6 +305,174 @@ class RewriteRootFrameUiTest {
                     frame.shellHost.menuBar.taskBar.rightScrollButton.isEnabled
             }
             assertTrue(frame.shellHost.menuBar.taskBar.rightScrollButton.isEnabled)
+        } finally {
+            disposeFrame(frame)
+        }
+    }
+
+    @Test
+    fun bankingMenuLaunchesRealWindowsAndDepositAllClosesOnSuccess() {
+        assumeFalse(GraphicsEnvironment.isHeadless())
+
+        val sessionGateway = FakeUiSessionGateway()
+        val frame = bankingReadyFrame(sessionGateway = sessionGateway)
+        try {
+            SwingUtilities.invokeAndWait {
+                frame.controller.launchShellCommand(RewriteShellCommand.DEPOSIT)
+                frame.controller.launchShellCommand(RewriteShellCommand.WITHDRAW)
+                frame.controller.launchShellCommand(RewriteShellCommand.TRANSFER)
+            }
+            waitUntil {
+                frame.desktopPane.allFrames.map { it.name }.toSet().containsAll(
+                    setOf(
+                        "rewrite-economy-window-deposit",
+                        "rewrite-economy-window-withdraw",
+                        "rewrite-economy-window-transfer",
+                    ),
+                )
+            }
+
+            val depositFrame = frame.desktopPane.allFrames.first { it.name == "rewrite-economy-window-deposit" }
+            SwingUtilities.invokeAndWait {
+                button(depositFrame, "rewrite-economy-submit-all").doClick()
+            }
+
+            waitUntil {
+                sessionGateway.latestGameSession()?.sentFrames?.isNotEmpty() == true
+            }
+            val command = sessionGateway.latestGameSession()!!.sentFrames.single().command!!
+            val payload = RewriteClientJson.decode(
+                com.hackwars.rewrite.protocol.ClientDepositPayload.serializer(),
+                command.payload.toByteArray(),
+            )
+            assertEquals(125.5, payload.amount)
+            assertEquals(4, payload.port)
+
+            frame.controller.accept(
+                RewriteService.GAME,
+                RewriteFrames.commandResponse(
+                    commandId = command.command_id,
+                    payload = RewriteClientJson.encode(
+                        ClientBankTransactionResponse.serializer(),
+                        ClientBankTransactionResponse(
+                            stateId = "LOCAL-IP",
+                            operation = "deposit",
+                            portNumber = 4,
+                            requestedAmount = 125.5,
+                            appliedAmount = 125.5,
+                            pettyCashAfter = 0.0,
+                            bankMoneyAfter = 213.75,
+                            version = 2,
+                        ),
+                    ),
+                ),
+            )
+
+            waitUntil {
+                frame.desktopPane.allFrames.none { it.name == "rewrite-economy-window-deposit" }
+            }
+        } finally {
+            disposeFrame(frame)
+        }
+    }
+
+    @Test
+    fun bankingWindowsShowBoundBalancesAndRefreshWhenShellStateChanges() {
+        assumeFalse(GraphicsEnvironment.isHeadless())
+
+        val frame = bankingReadyFrame()
+        try {
+            SwingUtilities.invokeAndWait {
+                frame.controller.launchShellCommand(RewriteShellCommand.DEPOSIT)
+            }
+            val depositFrame = waitForWindow(frame, "rewrite-economy-window-deposit")
+            assertEquals("$125.50", label(depositFrame, "rewrite-economy-balance-value").text)
+            assertEquals(
+                "4: Integra...",
+                comboBox(depositFrame, "rewrite-economy-port-combo").getItemAt(0).toString(),
+            )
+
+            frame.controller.accept(
+                RewriteService.GAME,
+                snapshotFrame(
+                    bankingShellState(
+                        pettyCash = 200.0,
+                        bankMoney = 88.25,
+                        ports = listOf(
+                            bankingPort(4, "Primary"),
+                            bankingPort(7, "Second Bank"),
+                        ),
+                    ),
+                ),
+            )
+
+            waitUntil {
+                label(depositFrame, "rewrite-economy-balance-value").text == "$200.00" &&
+                    comboBox(depositFrame, "rewrite-economy-port-combo").itemCount == 2
+            }
+            assertEquals("4: Primary", comboBox(depositFrame, "rewrite-economy-port-combo").getItemAt(0).toString())
+        } finally {
+            disposeFrame(frame)
+        }
+    }
+
+    @Test
+    fun noBankPortStateDisablesSubmitControlsAndFailedRequestShowsInlineError() {
+        assumeFalse(GraphicsEnvironment.isHeadless())
+
+        val sessionGateway = FakeUiSessionGateway()
+        val frame = bankingReadyFrame(
+            sessionGateway = sessionGateway,
+            shellState = bankingShellState(ports = emptyList()),
+        )
+        try {
+            SwingUtilities.invokeAndWait {
+                frame.controller.launchShellCommand(RewriteShellCommand.WITHDRAW)
+            }
+            val withdrawFrame = waitForWindow(frame, "rewrite-economy-window-withdraw")
+            assertFalse(button(withdrawFrame, "rewrite-economy-submit").isEnabled)
+
+            frame.controller.accept(
+                RewriteService.GAME,
+                snapshotFrame(),
+            )
+            waitUntil {
+                button(withdrawFrame, "rewrite-economy-submit").isEnabled
+            }
+
+            SwingUtilities.invokeAndWait {
+                amountField(withdrawFrame).value = 10.0
+                button(withdrawFrame, "rewrite-economy-submit").doClick()
+            }
+            waitUntil {
+                sessionGateway.latestGameSession()?.sentFrames?.isNotEmpty() == true
+            }
+
+            val command = sessionGateway.latestGameSession()!!.sentFrames.single().command!!
+            val payload = RewriteClientJson.decode(
+                ClientWithdrawPayload.serializer(),
+                command.payload.toByteArray(),
+            )
+            assertEquals(10.0, payload.amount)
+
+            frame.controller.accept(
+                RewriteService.GAME,
+                RewriteFrames.commandResponse(
+                    commandId = command.command_id,
+                    status = CommandResponseStatus.COMMAND_RESPONSE_STATUS_ERROR,
+                    error = ErrorEnvelope(
+                        code = "NO_BANK_MONEY",
+                        message = "Not enough bank money to withdraw.",
+                        retryable = false,
+                    ),
+                ),
+            )
+
+            waitUntil {
+                label(withdrawFrame, "rewrite-economy-error").text == "Not enough bank money to withdraw."
+            }
+            assertTrue(withdrawFrame.isDisplayable)
+            assertEquals("Not enough bank money to withdraw.", label(withdrawFrame, "rewrite-economy-error").text)
         } finally {
             disposeFrame(frame)
         }
@@ -331,9 +511,102 @@ class RewriteRootFrameUiTest {
         )
     }
 
+    private fun snapshotFrame(): FrameEnvelope = snapshotFrame(bankingShellState())
+
+    private fun bankingShellState(
+        pettyCash: Double = 125.5,
+        bankMoney: Double = 88.25,
+        ports: List<ClientPortState> = listOf(
+            bankingPort(4, "Integration Bank", defaultPort = true),
+        ),
+    ): ClientGameSnapshot {
+        return ClientGameSnapshot(
+            id = "LOCAL-IP",
+            identity = ClientComputerIdentity(playerIp = "LOCAL-IP"),
+            economy = ClientEconomyState(
+                pettyCash = pettyCash,
+                bankMoney = bankMoney,
+                defaultBankPort = ports.firstOrNull { it.defaultPort }?.number,
+            ),
+            ports = ports,
+            runtime = ClientRuntimeState(),
+        )
+    }
+
+    private fun bankingPort(
+        portNumber: Int,
+        note: String,
+        defaultPort: Boolean = false,
+    ): ClientPortState {
+        return ClientPortState(
+            number = portNumber,
+            defaultPort = defaultPort,
+            note = note,
+            installedApplication = ClientInstalledApplication(kind = "BANKING"),
+        )
+    }
+
+    private fun bankingReadyFrame(
+        sessionGateway: RewriteServiceSessionGateway = NoOpRewriteServiceSessionGateway,
+        shellState: ClientGameSnapshot = bankingShellState(),
+    ): RewriteRootFrame {
+        val frame = invokeAndWaitResult {
+            RewriteRootFrame(
+                controller = RewriteRootController(
+                    authGateway = DeterministicRewriteLoginAuthGateway(),
+                    sessionGateway = sessionGateway,
+                ),
+            ).apply { isVisible = true }
+        }
+        frame.controller.store.showDesktop()
+        frame.controller.accept(
+            RewriteService.GAME,
+            RewriteFrames.authAccepted(
+                connectionId = "conn-1",
+                playFabId = "PF-LOCAL",
+                playerIp = "LOCAL-IP",
+                heartbeatInterval = kotlin.time.Duration.parse("15s"),
+                sessionStartedAt = Instant.parse("2026-03-25T00:00:00Z"),
+            ),
+        )
+        frame.controller.accept(RewriteService.GAME, snapshotFrame(shellState))
+        waitUntil { frame.desktopPane.isShowing && frame.jMenuBar != null }
+        return frame
+    }
+
     private fun label(root: Component, name: String): JLabel {
         return findComponent(root, name) as? JLabel
             ?: error("Unable to find JLabel named $name")
+    }
+
+    private fun comboBox(root: Component, name: String): JComboBox<*> {
+        return findComponent(root, name) as? JComboBox<*>
+            ?: error("Unable to find JComboBox named $name")
+    }
+
+    private fun button(root: Component, name: String): JButton {
+        return findComponent(root, name) as? JButton
+            ?: error("Unable to find JButton named $name")
+    }
+
+    private fun amountField(root: Component): JFormattedTextField {
+        return findComponent(root, "rewrite-economy-amount-field") as? JFormattedTextField
+            ?: error("Unable to find amount field")
+    }
+
+    private fun waitForWindow(
+        frame: RewriteRootFrame,
+        windowName: String,
+    ): JInternalFrame {
+        waitUntil { frame.desktopPane.allFrames.any { it.name == windowName } }
+        return frame.desktopPane.allFrames.first { it.name == windowName }
+    }
+
+    private fun expectedWindowName(command: RewriteShellCommand): String = when (command) {
+        RewriteShellCommand.DEPOSIT,
+        RewriteShellCommand.WITHDRAW,
+        RewriteShellCommand.TRANSFER -> "rewrite-economy-window-${command.stableId}"
+        else -> "rewrite-shell-window-${command.stableId}"
     }
 
     private fun findComponent(root: Component, name: String): Component? {
@@ -346,5 +619,37 @@ class RewriteRootFrameUiTest {
             }
         }
         return null
+    }
+
+    private class FakeUiSessionGateway : RewriteServiceSessionGateway {
+        private val sessions = mutableListOf<FakeUiSession>()
+
+        override fun open(
+            service: RewriteService,
+            onInboundFrame: (FrameEnvelope) -> Unit,
+        ): RewriteServiceSession {
+            return FakeUiSession(service, onInboundFrame).also { sessions += it }
+        }
+
+        fun latestGameSession(): FakeUiSession? = sessions.lastOrNull { it.service == RewriteService.GAME }
+    }
+
+    private class FakeUiSession(
+        override val service: RewriteService,
+        private val onInboundFrame: (FrameEnvelope) -> Unit,
+    ) : RewriteServiceSession {
+        val sentFrames = mutableListOf<FrameEnvelope>()
+
+        override suspend fun send(frame: FrameEnvelope) {
+            sentFrames += frame
+        }
+
+        override fun receive(frame: FrameEnvelope) {
+            onInboundFrame(frame)
+        }
+
+        override fun close() {
+            Unit
+        }
     }
 }
