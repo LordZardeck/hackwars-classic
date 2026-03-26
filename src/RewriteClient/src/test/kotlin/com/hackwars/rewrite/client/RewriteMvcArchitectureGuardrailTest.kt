@@ -2,288 +2,274 @@ package com.hackwars.rewrite.client
 
 import java.nio.file.Files
 import java.nio.file.Path
+import java.nio.file.Paths
 import kotlin.io.path.exists
 import kotlin.io.path.invariantSeparatorsPathString
 import kotlin.io.path.name
 import kotlin.io.path.readText
+import kotlin.streams.asSequence
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 class RewriteMvcArchitectureGuardrailTest {
     @Test
-    fun retainedPostLoginViewFilesStayAccountedForByGuardrailSuite() {
-        assertEquals(expectedViewFiles, scanRetainedViewFiles().map(::relativeSourcePath).toSet())
+    fun retainedViewAuditInventoryCoversCurrentVisualFiles() {
+        assertEquals(
+            retainedViewViolationInventory.keys,
+            retainedViewCandidateFiles(),
+            buildString {
+                appendLine("Retained MVC audit inventory is out of date.")
+                appendLine("Expected:")
+                retainedViewViolationInventory.keys.forEach { appendLine("  $it") }
+                appendLine("Actual:")
+                retainedViewCandidateFiles().forEach { appendLine("  $it") }
+            },
+        )
     }
 
     @Test
-    fun retainedPostLoginViewFilesStayWithinKnownMvcDebtEnvelope() {
-        val actualViolations = scanRetainedViewFiles().associate { file ->
-            relativeSourcePath(file) to detectDebt(file)
-        }.filterValues { it.isNotEmpty() }
+    fun retainedViewViolationInventoryRemainsStable() {
+        val actualViolations = retainedViewViolationInventory.keys.associateWith { relativePath ->
+            detectViolations(sourcePath(relativePath).readText())
+        }
 
-        assertEquals(expectedDebtByFile, actualViolations)
-    }
-
-    private fun scanRetainedViewFiles(): List<Path> {
-        val sourceRoot = resolveClientSourceRoot()
-        return retainedPackages
-            .flatMap { packageName ->
-                Files.list(sourceRoot.resolve(packageName)).use { paths ->
-                    paths
-                        .filter { path -> path.fileName.toString().matches(viewFilePattern) }
-                        .toList()
+        assertEquals(
+            retainedViewViolationInventory,
+            actualViolations,
+            buildString {
+                appendLine("Retained MVC view violations changed.")
+                appendLine("Update the audited inventory only when the change is intentional.")
+                appendLine("Expected:")
+                retainedViewViolationInventory.forEach { (path, violations) ->
+                    appendLine("  $path -> ${violations.sorted()}")
                 }
-            }
-            .sortedBy(::relativeSourcePath)
-    }
-
-    private fun detectDebt(file: Path): Set<MvcDebt> {
-        val source = file.readText()
-        val debt = linkedSetOf<MvcDebt>()
-        if (controllerImportPattern.containsMatchIn(source)) {
-            debt += MvcDebt.CONTROLLER_IMPORT
-        }
-        if (protocolImportPattern.containsMatchIn(source)) {
-            debt += MvcDebt.PROTOCOL_IMPORT
-        }
-        if (clientModelImportPattern.containsMatchIn(source)) {
-            debt += MvcDebt.CLIENT_MODEL_IMPORT
-        }
-        if (coroutinesImportPattern.containsMatchIn(source)) {
-            debt += MvcDebt.COROUTINES_IMPORT
-        }
-        if (listenerRegistrationTokens.any(source::contains)) {
-            debt += MvcDebt.LISTENER_REGISTRATION
-        }
-        if (mixedControllerPattern.containsMatchIn(source)) {
-            debt += MvcDebt.MIXED_CONTROLLER_FILE
-        }
-        return debt
-    }
-
-    private fun resolveClientSourceRoot(): Path {
-        val moduleRootCandidate = Path.of(System.getProperty("user.dir"), "src", "main", "kotlin", "com", "hackwars", "rewrite", "client")
-        if (moduleRootCandidate.exists()) {
-            return moduleRootCandidate
-        }
-
-        val repoRootCandidate = Path.of(
-            System.getProperty("user.dir"),
-            "src",
-            "RewriteClient",
-            "src",
-            "main",
-            "kotlin",
-            "com",
-            "hackwars",
-            "rewrite",
-            "client",
+                appendLine("Actual:")
+                actualViolations.forEach { (path, violations) ->
+                    appendLine("  $path -> ${violations.sorted()}")
+                }
+            },
         )
-        if (repoRootCandidate.exists()) {
-            return repoRootCandidate
-        }
-
-        error("Unable to locate RewriteClient Kotlin source root from ${System.getProperty("user.dir")}")
     }
 
-    private fun relativeSourcePath(file: Path): String {
-        return retainedPackages.firstNotNullOfOrNull { packageName ->
-            if (file.parent?.name == packageName) {
-                "${packageName}/${file.fileName}"
-            } else {
-                null
+    @Test
+    fun mvcFoundationPackageStaysClean() {
+        val mvcFiles = Files.walk(mvcRoot())
+            .use { paths ->
+                paths.asSequence()
+                    .filter { Files.isRegularFile(it) }
+                    .filter { it.name.endsWith(".kt") }
+                    .sortedBy { it.invariantSeparatorsPathString }
+                    .toList()
             }
-        } ?: file.invariantSeparatorsPathString
+
+        assertTrue(mvcFiles.isNotEmpty(), "Expected rewrite MVC foundation files to exist.")
+
+        mvcFiles.forEach { file ->
+            val violations = detectViolations(file.readText())
+            assertTrue(
+                violations.isEmpty(),
+                "MVC foundation file ${relativeToModule(file)} must stay clean, found $violations",
+            )
+        }
     }
 
-    private enum class MvcDebt {
-        CONTROLLER_IMPORT,
-        PROTOCOL_IMPORT,
-        CLIENT_MODEL_IMPORT,
-        COROUTINES_IMPORT,
-        LISTENER_REGISTRATION,
-        MIXED_CONTROLLER_FILE,
+    private fun retainedViewCandidateFiles(): Set<String> {
+        val filePattern = Regex("""Rewrite.*(Window|Windows|Dialog|View|Browser|Rail|MenuBar|TaskBar)\.kt$""")
+        return Files.walk(clientRoot())
+            .use { paths ->
+                paths.asSequence()
+                    .filter { Files.isRegularFile(it) }
+                    .filter { path ->
+                        val relative = relativeToModule(path)
+                        relative.startsWith("src/main/kotlin/com/hackwars/rewrite/client/economy/") ||
+                            relative.startsWith("src/main/kotlin/com/hackwars/rewrite/client/files/") ||
+                            relative.startsWith("src/main/kotlin/com/hackwars/rewrite/client/network/") ||
+                            relative.startsWith("src/main/kotlin/com/hackwars/rewrite/client/systems/") ||
+                            relative.startsWith("src/main/kotlin/com/hackwars/rewrite/client/utilities/") ||
+                            relative.startsWith("src/main/kotlin/com/hackwars/rewrite/client/web/") ||
+                            relative.startsWith("src/main/kotlin/com/hackwars/rewrite/client/shell/")
+                    }
+                    .filter { path -> filePattern.matches(path.name) }
+                    .filterNot { path -> relativeToModule(path) == "src/main/kotlin/com/hackwars/rewrite/client/RewriteRootFrame.kt" }
+                    .map(::relativeToModule)
+                    .sorted()
+                    .toSet()
+            }
     }
+
+    private fun detectViolations(source: String): Set<String> {
+        val violations = linkedSetOf<String>()
+        if (source.contains("import com.hackwars.rewrite.client.RewriteRootController")) {
+            violations += "controller_import"
+        }
+        if (source.contains("import com.hackwars.rewrite.protocol.")) {
+            violations += "protocol_import"
+        }
+        if (source.contains("import com.hackwars.rewrite.clientmodel.")) {
+            violations += "clientmodel_import"
+        }
+        if (
+            source.contains("import kotlinx.coroutines.") ||
+            source.contains("CoroutineScope(") ||
+            source.contains("SupervisorJob(") ||
+            source.contains("launch(") ||
+            source.contains("collect(")
+        ) {
+            violations += "coroutine_api"
+        }
+        if (source.contains("selector(")) {
+            violations += "selector_subscription"
+        }
+        if (listenerRegistrationPattern.containsMatchIn(source)) {
+            violations += "listener_registration"
+        }
+        if (controllerDeclarationPattern.containsMatchIn(source)) {
+            violations += "mixed_controller_file"
+        }
+        return violations
+    }
+
+    private fun sourcePath(relativePath: String): Path {
+        val path = moduleRoot().resolve(relativePath)
+        assertTrue(path.exists(), "Expected source file $relativePath to exist.")
+        return path
+    }
+
+    private fun mvcRoot(): Path = moduleRoot().resolve("src/main/kotlin/com/hackwars/rewrite/client/mvc")
+
+    private fun clientRoot(): Path = moduleRoot().resolve("src/main/kotlin/com/hackwars/rewrite/client")
+
+    private fun moduleRoot(): Path = Paths.get("").toAbsolutePath()
+
+    private fun relativeToModule(path: Path): String =
+        moduleRoot().relativize(path.toAbsolutePath()).invariantSeparatorsPathString
 
     companion object {
-        private val retainedPackages = listOf(
-            "economy",
-            "files",
-            "network",
-            "systems",
-            "utilities",
-            "web",
-            "shell",
+        private val listenerRegistrationPattern = Regex(
+            """\badd[A-Z][A-Za-z0-9_]*Listener\b""",
+        )
+        private val controllerDeclarationPattern = Regex(
+            """\b(class|object)\s+[A-Za-z0-9_]*Controller\b""",
         )
 
-        private val viewFilePattern = Regex(""".*(Window|Windows|Dialog|Dialogs|View|Panel|Form|Bar|Rail|Frame|Browser)\.kt$""")
-
-        private val controllerImportPattern = Regex(
-            pattern = """^import .*RewriteRootController\s*$|^import .*\.\\w*Controller\s*$""",
-            options = setOf(RegexOption.MULTILINE),
-        )
-        private val protocolImportPattern = Regex(
-            pattern = """^import com\.hackwars\.rewrite\.protocol\..*$""",
-            options = setOf(RegexOption.MULTILINE),
-        )
-        private val clientModelImportPattern = Regex(
-            pattern = """^import com\.hackwars\.rewrite\.clientmodel\..*$""",
-            options = setOf(RegexOption.MULTILINE),
-        )
-        private val coroutinesImportPattern = Regex(
-            pattern = """^import kotlinx\.coroutines\..*$""",
-            options = setOf(RegexOption.MULTILINE),
-        )
-        private val mixedControllerPattern = Regex("""\b(?:class|object)\s+\w*Controller\b""")
-
-        private val listenerRegistrationTokens = setOf(
-            "addActionListener",
-            "addMouseListener",
-            "addFocusListener",
-            "addDocumentListener",
-            "addChangeListener",
-            "addHyperlinkListener",
-            "addInternalFrameListener",
-            "addWindowListener",
-        )
-
-        private val expectedViewFiles = setOf(
-            "economy/RewriteBankingWindows.kt",
-            "economy/RewriteBountyDialog.kt",
-            "files/RewriteFileWindows.kt",
-            "files/RewriteLocalDirectoryBrowser.kt",
-            "files/RewriteScriptEditorWindow.kt",
-            "network/RewriteAttackFollowupWindows.kt",
-            "network/RewriteAttackWindows.kt",
-            "network/RewriteFtpWindows.kt",
-            "network/RewriteNetworkWindows.kt",
-            "network/RewriteZombieAttackWindows.kt",
-            "systems/RewriteInventoryWindows.kt",
-            "systems/RewritePortManagementWindow.kt",
-            "systems/RewriteWatchManagerWindow.kt",
-            "utilities/RewriteUtilityWindows.kt",
-            "web/RewriteHtmlView.kt",
-            "web/RewriteSiteEditorWindow.kt",
-            "web/RewriteWebBrowserWindow.kt",
-            "shell/RewriteDesktopMenuBar.kt",
-            "shell/RewriteDesktopShellView.kt",
-            "shell/RewriteDesktopTaskBar.kt",
-            "shell/RewritePreferredPortWindow.kt",
-            "shell/RewriteShellStatsRail.kt",
-        )
-
-        private val expectedDebtByFile = mapOf(
-            "economy/RewriteBankingWindows.kt" to setOf(
-                MvcDebt.CONTROLLER_IMPORT,
-                MvcDebt.PROTOCOL_IMPORT,
-                MvcDebt.COROUTINES_IMPORT,
-                MvcDebt.LISTENER_REGISTRATION,
+        private val retainedViewViolationInventory: Map<String, Set<String>> = linkedMapOf(
+            "src/main/kotlin/com/hackwars/rewrite/client/economy/RewriteBankingWindows.kt" to setOf(
+                "controller_import",
+                "protocol_import",
+                "coroutine_api",
+                "listener_registration",
             ),
-            "economy/RewriteBountyDialog.kt" to setOf(
-                MvcDebt.CONTROLLER_IMPORT,
-                MvcDebt.PROTOCOL_IMPORT,
-                MvcDebt.COROUTINES_IMPORT,
-                MvcDebt.LISTENER_REGISTRATION,
+            "src/main/kotlin/com/hackwars/rewrite/client/economy/RewriteBountyDialog.kt" to setOf(
+                "controller_import",
+                "protocol_import",
+                "coroutine_api",
+                "listener_registration",
             ),
-            "files/RewriteFileWindows.kt" to setOf(
-                MvcDebt.PROTOCOL_IMPORT,
+            "src/main/kotlin/com/hackwars/rewrite/client/files/RewriteFileWindows.kt" to setOf(
+                "protocol_import",
             ),
-            "files/RewriteLocalDirectoryBrowser.kt" to setOf(
-                MvcDebt.CONTROLLER_IMPORT,
-                MvcDebt.PROTOCOL_IMPORT,
-                MvcDebt.CLIENT_MODEL_IMPORT,
-                MvcDebt.COROUTINES_IMPORT,
-                MvcDebt.LISTENER_REGISTRATION,
-                MvcDebt.MIXED_CONTROLLER_FILE,
+            "src/main/kotlin/com/hackwars/rewrite/client/files/RewriteLocalDirectoryBrowser.kt" to setOf(
+                "controller_import",
+                "protocol_import",
+                "clientmodel_import",
+                "coroutine_api",
+                "selector_subscription",
+                "listener_registration",
+                "mixed_controller_file",
             ),
-            "files/RewriteScriptEditorWindow.kt" to setOf(
-                MvcDebt.CONTROLLER_IMPORT,
-                MvcDebt.PROTOCOL_IMPORT,
-                MvcDebt.COROUTINES_IMPORT,
-                MvcDebt.LISTENER_REGISTRATION,
+            "src/main/kotlin/com/hackwars/rewrite/client/files/RewriteScriptEditorWindow.kt" to setOf(
+                "controller_import",
+                "protocol_import",
+                "coroutine_api",
+                "listener_registration",
             ),
-            "network/RewriteAttackFollowupWindows.kt" to setOf(
-                MvcDebt.CONTROLLER_IMPORT,
-                MvcDebt.PROTOCOL_IMPORT,
-                MvcDebt.CLIENT_MODEL_IMPORT,
-                MvcDebt.COROUTINES_IMPORT,
-                MvcDebt.LISTENER_REGISTRATION,
-                MvcDebt.MIXED_CONTROLLER_FILE,
+            "src/main/kotlin/com/hackwars/rewrite/client/network/RewriteAttackFollowupWindows.kt" to setOf(
+                "controller_import",
+                "protocol_import",
+                "clientmodel_import",
+                "coroutine_api",
+                "selector_subscription",
+                "listener_registration",
+                "mixed_controller_file",
             ),
-            "network/RewriteAttackWindows.kt" to setOf(
-                MvcDebt.CONTROLLER_IMPORT,
-                MvcDebt.PROTOCOL_IMPORT,
-                MvcDebt.CLIENT_MODEL_IMPORT,
-                MvcDebt.COROUTINES_IMPORT,
-                MvcDebt.LISTENER_REGISTRATION,
+            "src/main/kotlin/com/hackwars/rewrite/client/network/RewriteAttackWindows.kt" to setOf(
+                "controller_import",
+                "protocol_import",
+                "clientmodel_import",
+                "coroutine_api",
+                "listener_registration",
             ),
-            "network/RewriteFtpWindows.kt" to setOf(
-                MvcDebt.CONTROLLER_IMPORT,
-                MvcDebt.PROTOCOL_IMPORT,
-                MvcDebt.COROUTINES_IMPORT,
-                MvcDebt.LISTENER_REGISTRATION,
+            "src/main/kotlin/com/hackwars/rewrite/client/network/RewriteFtpWindows.kt" to setOf(
+                "controller_import",
+                "protocol_import",
+                "coroutine_api",
+                "selector_subscription",
+                "listener_registration",
             ),
-            "network/RewriteNetworkWindows.kt" to setOf(
-                MvcDebt.CONTROLLER_IMPORT,
-                MvcDebt.PROTOCOL_IMPORT,
-                MvcDebt.COROUTINES_IMPORT,
-                MvcDebt.LISTENER_REGISTRATION,
+            "src/main/kotlin/com/hackwars/rewrite/client/network/RewriteNetworkWindows.kt" to setOf(
+                "controller_import",
+                "protocol_import",
+                "coroutine_api",
+                "listener_registration",
             ),
-            "network/RewriteZombieAttackWindows.kt" to setOf(
-                MvcDebt.CONTROLLER_IMPORT,
-                MvcDebt.PROTOCOL_IMPORT,
-                MvcDebt.CLIENT_MODEL_IMPORT,
-                MvcDebt.COROUTINES_IMPORT,
-                MvcDebt.LISTENER_REGISTRATION,
+            "src/main/kotlin/com/hackwars/rewrite/client/network/RewriteZombieAttackWindows.kt" to setOf(
+                "controller_import",
+                "protocol_import",
+                "clientmodel_import",
+                "coroutine_api",
+                "listener_registration",
             ),
-            "systems/RewriteInventoryWindows.kt" to setOf(
-                MvcDebt.CONTROLLER_IMPORT,
-                MvcDebt.PROTOCOL_IMPORT,
-                MvcDebt.COROUTINES_IMPORT,
-                MvcDebt.LISTENER_REGISTRATION,
+            "src/main/kotlin/com/hackwars/rewrite/client/shell/RewriteDesktopMenuBar.kt" to setOf(
+                "listener_registration",
             ),
-            "systems/RewritePortManagementWindow.kt" to setOf(
-                MvcDebt.CONTROLLER_IMPORT,
-                MvcDebt.PROTOCOL_IMPORT,
-                MvcDebt.COROUTINES_IMPORT,
-                MvcDebt.LISTENER_REGISTRATION,
+            "src/main/kotlin/com/hackwars/rewrite/client/shell/RewriteDesktopShellView.kt" to setOf(
+                "listener_registration",
             ),
-            "systems/RewriteWatchManagerWindow.kt" to setOf(
-                MvcDebt.CONTROLLER_IMPORT,
-                MvcDebt.PROTOCOL_IMPORT,
-                MvcDebt.COROUTINES_IMPORT,
-                MvcDebt.LISTENER_REGISTRATION,
+            "src/main/kotlin/com/hackwars/rewrite/client/shell/RewriteDesktopTaskBar.kt" to setOf(
+                "listener_registration",
             ),
-            "utilities/RewriteUtilityWindows.kt" to setOf(
-                MvcDebt.CONTROLLER_IMPORT,
-                MvcDebt.PROTOCOL_IMPORT,
-                MvcDebt.CLIENT_MODEL_IMPORT,
-                MvcDebt.COROUTINES_IMPORT,
-                MvcDebt.LISTENER_REGISTRATION,
+            "src/main/kotlin/com/hackwars/rewrite/client/shell/RewritePreferredPortWindow.kt" to emptySet(),
+            "src/main/kotlin/com/hackwars/rewrite/client/shell/RewriteShellStatsRail.kt" to emptySet(),
+            "src/main/kotlin/com/hackwars/rewrite/client/systems/RewriteInventoryWindows.kt" to setOf(
+                "controller_import",
+                "protocol_import",
+                "coroutine_api",
+                "listener_registration",
             ),
-            "web/RewriteHtmlView.kt" to setOf(
-                MvcDebt.LISTENER_REGISTRATION,
+            "src/main/kotlin/com/hackwars/rewrite/client/systems/RewritePortManagementWindow.kt" to setOf(
+                "controller_import",
+                "protocol_import",
+                "coroutine_api",
+                "listener_registration",
             ),
-            "web/RewriteSiteEditorWindow.kt" to setOf(
-                MvcDebt.CONTROLLER_IMPORT,
-                MvcDebt.PROTOCOL_IMPORT,
-                MvcDebt.COROUTINES_IMPORT,
-                MvcDebt.LISTENER_REGISTRATION,
+            "src/main/kotlin/com/hackwars/rewrite/client/systems/RewriteWatchManagerWindow.kt" to setOf(
+                "controller_import",
+                "protocol_import",
+                "coroutine_api",
+                "listener_registration",
             ),
-            "web/RewriteWebBrowserWindow.kt" to setOf(
-                MvcDebt.CONTROLLER_IMPORT,
-                MvcDebt.PROTOCOL_IMPORT,
-                MvcDebt.COROUTINES_IMPORT,
-                MvcDebt.LISTENER_REGISTRATION,
+            "src/main/kotlin/com/hackwars/rewrite/client/utilities/RewriteUtilityWindows.kt" to setOf(
+                "controller_import",
+                "protocol_import",
+                "clientmodel_import",
+                "coroutine_api",
+                "listener_registration",
             ),
-            "shell/RewriteDesktopMenuBar.kt" to setOf(
-                MvcDebt.LISTENER_REGISTRATION,
+            "src/main/kotlin/com/hackwars/rewrite/client/web/RewriteHtmlView.kt" to setOf(
+                "listener_registration",
             ),
-            "shell/RewriteDesktopShellView.kt" to setOf(
-                MvcDebt.LISTENER_REGISTRATION,
+            "src/main/kotlin/com/hackwars/rewrite/client/web/RewriteSiteEditorWindow.kt" to setOf(
+                "controller_import",
+                "protocol_import",
+                "coroutine_api",
+                "listener_registration",
             ),
-            "shell/RewriteDesktopTaskBar.kt" to setOf(
-                MvcDebt.LISTENER_REGISTRATION,
+            "src/main/kotlin/com/hackwars/rewrite/client/web/RewriteWebBrowserWindow.kt" to setOf(
+                "controller_import",
+                "protocol_import",
+                "coroutine_api",
+                "listener_registration",
             ),
         )
     }
