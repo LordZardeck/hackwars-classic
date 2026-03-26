@@ -35,6 +35,8 @@ import com.hackwars.rewrite.protocol.ClientAttackCancelResponse
 import com.hackwars.rewrite.protocol.ClientAttackStartResponse
 import com.hackwars.rewrite.protocol.ClientBankTransactionResponse
 import com.hackwars.rewrite.protocol.ClientBountyCreatedResponse
+import com.hackwars.rewrite.protocol.ClientChangeDailyPayPayload
+import com.hackwars.rewrite.protocol.ClientChangeDailyPayResponse
 import com.hackwars.rewrite.protocol.ClientCompileFilePayload
 import com.hackwars.rewrite.protocol.ClientCompileFileResponse
 import com.hackwars.rewrite.protocol.ClientDecompileFilePayload
@@ -44,6 +46,8 @@ import com.hackwars.rewrite.protocol.ClientDirectoryListingResponse
 import com.hackwars.rewrite.protocol.ClientExitWebpagePayload
 import com.hackwars.rewrite.protocol.ClientFileContentsResponse
 import com.hackwars.rewrite.protocol.ClientFilesystemState
+import com.hackwars.rewrite.protocol.ClientFinalizeCancelledPayload
+import com.hackwars.rewrite.protocol.ClientFinalizeCancelledResponse
 import com.hackwars.rewrite.protocol.ClientGameSnapshot
 import com.hackwars.rewrite.protocol.ClientHookValue
 import com.hackwars.rewrite.protocol.ClientNetworkState
@@ -67,6 +71,7 @@ import com.hackwars.rewrite.protocol.ClientPageEditorResponse
 import com.hackwars.rewrite.protocol.ClientProgramUpdate
 import com.hackwars.rewrite.protocol.ClientRequestDirectoryPayload
 import com.hackwars.rewrite.protocol.ClientRequestFilePayload
+import com.hackwars.rewrite.protocol.ClientRequestSecondaryDirectoryPayload
 import com.hackwars.rewrite.protocol.ClientRequestPagePayload
 import com.hackwars.rewrite.protocol.ClientRequestPurchasePayload
 import com.hackwars.rewrite.protocol.ClientRequestWebpagePayload
@@ -75,6 +80,7 @@ import com.hackwars.rewrite.protocol.ClientSaveFilePayload
 import com.hackwars.rewrite.protocol.ClientSavePagePayload
 import com.hackwars.rewrite.protocol.ClientSavePageResponse
 import com.hackwars.rewrite.protocol.ClientStoredFile
+import com.hackwars.rewrite.protocol.ClientSecondaryDirectoryListingResponse
 import com.hackwars.rewrite.protocol.ClientSubmitWebpagePayload
 import com.hackwars.rewrite.protocol.ClientWatchListResponse
 import com.hackwars.rewrite.protocol.ClientWatchManagerState
@@ -438,6 +444,68 @@ class RewriteRootController(
             ),
             responseSerializer = ClientAttackCancelResponse.serializer(),
             targetStateIds = listOf(playerIp),
+        )
+    }
+
+    internal suspend fun requestSecondaryDirectory(
+        path: String?,
+        targetIp: String,
+        portNumber: Int,
+    ): RewriteGameCommandResult<ClientSecondaryDirectoryListingResponse> {
+        val playerIp = authenticatedPlayerIp()
+            ?: return RewriteGameCommandResult.Failure("Not connected to a rewrite game session.")
+        return gameCommandBroker.request(
+            commandName = "requestsecondarydirectory",
+            payloadSerializer = ClientRequestSecondaryDirectoryPayload.serializer(),
+            payload = ClientRequestSecondaryDirectoryPayload(
+                path = path,
+                targetIp = targetIp,
+                port = portNumber,
+            ),
+            responseSerializer = ClientSecondaryDirectoryListingResponse.serializer(),
+            targetStateIds = listOf(playerIp, targetIp),
+        )
+    }
+
+    internal suspend fun requestChangeDailyPay(
+        targetIp: String,
+        targetPort: Int,
+        revenueTargetIp: String,
+        attackPort: Int,
+    ): RewriteGameCommandResult<ClientChangeDailyPayResponse> {
+        val playerIp = authenticatedPlayerIp()
+            ?: return RewriteGameCommandResult.Failure("Not connected to a rewrite game session.")
+        return gameCommandBroker.request(
+            commandName = "changedailypay",
+            payloadSerializer = ClientChangeDailyPayPayload.serializer(),
+            payload = ClientChangeDailyPayPayload(
+                ip = targetIp,
+                port = targetPort,
+                change = revenueTargetIp,
+                finalizeIp = playerIp,
+                attackPort = attackPort,
+            ),
+            responseSerializer = ClientChangeDailyPayResponse.serializer(),
+            targetStateIds = listOf(playerIp, targetIp),
+        )
+    }
+
+    internal suspend fun requestFinalizeCancelled(
+        targetIp: String,
+        targetPort: Int,
+    ): RewriteGameCommandResult<ClientFinalizeCancelledResponse> {
+        val playerIp = authenticatedPlayerIp()
+            ?: return RewriteGameCommandResult.Failure("Not connected to a rewrite game session.")
+        return gameCommandBroker.request(
+            commandName = "finalizecancelled",
+            payloadSerializer = ClientFinalizeCancelledPayload.serializer(),
+            payload = ClientFinalizeCancelledPayload(
+                ip = playerIp,
+                targetIp = targetIp,
+                targetPort = targetPort,
+            ),
+            responseSerializer = ClientFinalizeCancelledResponse.serializer(),
+            targetStateIds = listOf(playerIp, targetIp),
         )
     }
 

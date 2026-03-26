@@ -6,25 +6,34 @@ import com.hackwars.rewrite.client.network.allowAttackChooserDirectory
 import com.hackwars.rewrite.client.network.allowAttackChooserFile
 import com.hackwars.rewrite.client.network.buildLegacyAttackExtraInfo
 import com.hackwars.rewrite.client.network.buildLegacyAttackScripts
+import com.hackwars.rewrite.client.network.clampRemoteFollowupPath
 import com.hackwars.rewrite.client.network.deriveAttackSourcePortOptions
 import com.hackwars.rewrite.client.network.reconcileAttackSourcePortSelection
+import com.hackwars.rewrite.client.network.supportedShowChoicesActions
 import com.hackwars.rewrite.protocol.ClientApplicationKind
 import com.hackwars.rewrite.protocol.ClientAttackCancelFailureCode
 import com.hackwars.rewrite.protocol.ClientAttackCancelResponse
-import com.hackwars.rewrite.protocol.ClientAttackPaneType
 import com.hackwars.rewrite.protocol.ClientAttackSessionKind
 import com.hackwars.rewrite.protocol.ClientAttackStartResponse
 import com.hackwars.rewrite.protocol.ClientAttackSessionState
+import com.hackwars.rewrite.protocol.ClientChangeDailyPayOutcome
+import com.hackwars.rewrite.protocol.ClientChangeDailyPayPayload
+import com.hackwars.rewrite.protocol.ClientChangeDailyPayResponse
 import com.hackwars.rewrite.protocol.ClientCompiledBinaryMetadata
 import com.hackwars.rewrite.protocol.ClientComputerIdentity
 import com.hackwars.rewrite.protocol.ClientDirectoryEntry
 import com.hackwars.rewrite.protocol.ClientFloatHookValue
+import com.hackwars.rewrite.protocol.ClientFinalizeCancelledOutcome
+import com.hackwars.rewrite.protocol.ClientFinalizeCancelledPayload
+import com.hackwars.rewrite.protocol.ClientFinalizeCancelledResponse
 import com.hackwars.rewrite.protocol.ClientGameSnapshot
 import com.hackwars.rewrite.protocol.ClientInstalledApplication
 import com.hackwars.rewrite.protocol.ClientPortState
-import com.hackwars.rewrite.protocol.ClientProgramLifecycleStatus
 import com.hackwars.rewrite.protocol.ClientRequestAttackPayload
 import com.hackwars.rewrite.protocol.ClientRequestCancelAttackPayload
+import com.hackwars.rewrite.protocol.ClientRequestSecondaryDirectoryPayload
+import com.hackwars.rewrite.protocol.ClientSecondaryDirectoryListingResponse
+import com.hackwars.rewrite.protocol.ClientShowChoicesType
 import com.hackwars.rewrite.protocol.ClientStoredFile
 import com.hackwars.rewrite.protocol.ClientStoredFileKind
 import com.hackwars.rewrite.protocol.ClientStringHookValue
@@ -140,6 +149,28 @@ class RewriteAttackWindowsTest {
                 ),
             ),
         )
+    }
+
+    @Test
+    fun showChoicesMappingAndRemoteRootClampingHonorLockedRules() {
+        assertEquals(
+            listOf("Open Public FTP"),
+            supportedShowChoicesActions(ClientShowChoicesType.FTP).map { it.label },
+        )
+        assertEquals(
+            listOf("Open Store FTP"),
+            supportedShowChoicesActions(ClientShowChoicesType.SHIPPING).map { it.label },
+        )
+        assertEquals(
+            listOf("Change Daily Pay Target"),
+            supportedShowChoicesActions(ClientShowChoicesType.HTTP).map { it.label },
+        )
+        assertTrue(supportedShowChoicesActions(ClientShowChoicesType.BANK).isEmpty())
+        assertTrue(supportedShowChoicesActions(ClientShowChoicesType.ATTACK).isEmpty())
+
+        assertEquals("/Public/docs", clampRemoteFollowupPath("/Public/docs", "/Public"))
+        assertEquals("/Public", clampRemoteFollowupPath("/Public/../..", "/Public"))
+        assertEquals("/Store", clampRemoteFollowupPath("/Secrets", "/Store"))
     }
 
     @Test
@@ -273,6 +304,142 @@ class RewriteAttackWindowsTest {
         val cancelResult = cancelPending.await()
         assertIs<RewriteGameCommandResult.Success<ClientAttackCancelResponse>>(cancelResult)
         assertFalse(cancelResult.value.accepted)
+    }
+
+    @Test
+    fun controllerHelpersSendExpectedShowChoicesFollowupPayloads() = runTest {
+        val sessionGateway = FakeAttackSessionGateway()
+        val controller = testController(sessionGateway = sessionGateway, scheduler = testScheduler)
+        acceptGameAuth(controller)
+
+        val secondaryDirectoryPending = backgroundScope.async(UnconfinedTestDispatcher(testScheduler)) {
+            controller.requestSecondaryDirectory(
+                path = "/Public",
+                targetIp = "TARGET-IP",
+                portNumber = 25,
+            )
+        }
+        runCurrent()
+
+        val session = sessionGateway.requireLatestGameSession()
+        val secondaryDirectoryCommand = session.sentFrames.last().command!!
+        val secondaryDirectoryPayload = RewriteClientJson.decode(
+            ClientRequestSecondaryDirectoryPayload.serializer(),
+            secondaryDirectoryCommand.payload.toByteArray(),
+        )
+
+        assertEquals("requestsecondarydirectory", secondaryDirectoryCommand.command_name)
+        assertEquals("/Public", secondaryDirectoryPayload.path)
+        assertEquals("TARGET-IP", secondaryDirectoryPayload.targetIp)
+        assertEquals(25, secondaryDirectoryPayload.port)
+
+        controller.accept(
+            RewriteService.GAME,
+            RewriteFrames.commandResponse(
+                commandId = secondaryDirectoryCommand.command_id,
+                payload = RewriteClientJson.encode(
+                    ClientSecondaryDirectoryListingResponse.serializer(),
+                    ClientSecondaryDirectoryListingResponse(
+                        requesterStateId = "LOCAL-IP",
+                        targetStateId = "TARGET-IP",
+                        portNumber = 25,
+                        path = "/Public",
+                        version = 3,
+                    ),
+                ),
+            ),
+        )
+        advanceUntilIdle()
+        assertIs<RewriteGameCommandResult.Success<ClientSecondaryDirectoryListingResponse>>(secondaryDirectoryPending.await())
+
+        val changeDailyPayPending = backgroundScope.async(UnconfinedTestDispatcher(testScheduler)) {
+            controller.requestChangeDailyPay(
+                targetIp = "TARGET-IP",
+                targetPort = 25,
+                revenueTargetIp = "REV-IP",
+                attackPort = 44,
+            )
+        }
+        runCurrent()
+
+        val changeDailyPayCommand = session.sentFrames.last().command!!
+        val changeDailyPayPayload = RewriteClientJson.decode(
+            ClientChangeDailyPayPayload.serializer(),
+            changeDailyPayCommand.payload.toByteArray(),
+        )
+
+        assertEquals("changedailypay", changeDailyPayCommand.command_name)
+        assertEquals("TARGET-IP", changeDailyPayPayload.ip)
+        assertEquals(25, changeDailyPayPayload.port)
+        assertEquals("REV-IP", changeDailyPayPayload.change)
+        assertEquals("LOCAL-IP", changeDailyPayPayload.finalizeIp)
+        assertEquals(44, changeDailyPayPayload.attackPort)
+
+        controller.accept(
+            RewriteService.GAME,
+            RewriteFrames.commandResponse(
+                commandId = changeDailyPayCommand.command_id,
+                payload = RewriteClientJson.encode(
+                    ClientChangeDailyPayResponse.serializer(),
+                    ClientChangeDailyPayResponse(
+                        actorStateId = "LOCAL-IP",
+                        targetStateId = "TARGET-IP",
+                        targetPort = 25,
+                        requestedRevenueTargetStateId = "REV-IP",
+                        accepted = true,
+                        outcome = ClientChangeDailyPayOutcome.SUCCESS,
+                        message = "Daily pay successfully changed.",
+                        reductionMultiplierAfter = 1.0,
+                        revenueTargetStateIdAfter = "REV-IP",
+                        requesterHttpExperienceAfter = 20.0,
+                        actorVersion = 4,
+                        targetVersion = 7,
+                    ),
+                ),
+            ),
+        )
+        advanceUntilIdle()
+        assertIs<RewriteGameCommandResult.Success<ClientChangeDailyPayResponse>>(changeDailyPayPending.await())
+
+        val finalizeCancelledPending = backgroundScope.async(UnconfinedTestDispatcher(testScheduler)) {
+            controller.requestFinalizeCancelled(
+                targetIp = "TARGET-IP",
+                targetPort = 25,
+            )
+        }
+        runCurrent()
+
+        val finalizeCancelledCommand = session.sentFrames.last().command!!
+        val finalizeCancelledPayload = RewriteClientJson.decode(
+            ClientFinalizeCancelledPayload.serializer(),
+            finalizeCancelledCommand.payload.toByteArray(),
+        )
+
+        assertEquals("finalizecancelled", finalizeCancelledCommand.command_name)
+        assertEquals("LOCAL-IP", finalizeCancelledPayload.ip)
+        assertEquals("TARGET-IP", finalizeCancelledPayload.targetIp)
+        assertEquals(25, finalizeCancelledPayload.targetPort)
+
+        controller.accept(
+            RewriteService.GAME,
+            RewriteFrames.commandResponse(
+                commandId = finalizeCancelledCommand.command_id,
+                payload = RewriteClientJson.encode(
+                    ClientFinalizeCancelledResponse.serializer(),
+                    ClientFinalizeCancelledResponse(
+                        actorStateId = "LOCAL-IP",
+                        targetStateId = "TARGET-IP",
+                        targetPort = 25,
+                        accepted = true,
+                        outcome = ClientFinalizeCancelledOutcome.SUCCESS,
+                        message = "finalizecancelled-succeeded",
+                        targetVersion = 8,
+                    ),
+                ),
+            ),
+        )
+        advanceUntilIdle()
+        assertIs<RewriteGameCommandResult.Success<ClientFinalizeCancelledResponse>>(finalizeCancelledPending.await())
     }
 
     private fun testController(

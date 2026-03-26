@@ -8,7 +8,14 @@ import com.hackwars.rewrite.protocol.ClientAttackPaneType
 import com.hackwars.rewrite.protocol.ClientAttackSessionKind
 import com.hackwars.rewrite.protocol.ClientAttackStartResponse
 import com.hackwars.rewrite.protocol.ClientAttackSessionState
+import com.hackwars.rewrite.protocol.ClientChangeDailyPayOutcome
+import com.hackwars.rewrite.protocol.ClientChangeDailyPayPayload
+import com.hackwars.rewrite.protocol.ClientChangeDailyPayResponse
 import com.hackwars.rewrite.protocol.ClientCompiledBinaryMetadata
+import com.hackwars.rewrite.protocol.ClientDirectoryEntry
+import com.hackwars.rewrite.protocol.ClientFinalizeCancelledOutcome
+import com.hackwars.rewrite.protocol.ClientFinalizeCancelledPayload
+import com.hackwars.rewrite.protocol.ClientFinalizeCancelledResponse
 import com.hackwars.rewrite.protocol.ClientGameSnapshot
 import com.hackwars.rewrite.protocol.ClientInstalledApplication
 import com.hackwars.rewrite.protocol.ClientProgramLifecycleStatus
@@ -16,7 +23,11 @@ import com.hackwars.rewrite.protocol.ClientProgramUpdate
 import com.hackwars.rewrite.protocol.ClientRequestAttackPayload
 import com.hackwars.rewrite.protocol.ClientRequestCancelAttackPayload
 import com.hackwars.rewrite.protocol.ClientRequestDirectoryPayload
+import com.hackwars.rewrite.protocol.ClientRequestSecondaryDirectoryPayload
 import com.hackwars.rewrite.protocol.ClientDirectoryListingResponse
+import com.hackwars.rewrite.protocol.ClientSecondaryDirectoryListingResponse
+import com.hackwars.rewrite.protocol.ClientShowChoicesType
+import com.hackwars.rewrite.protocol.ClientShowChoicesUiEvent
 import com.hackwars.rewrite.protocol.ClientStoredFile
 import com.hackwars.rewrite.protocol.ClientStoredFileKind
 import com.hackwars.rewrite.protocol.ClientPortState
@@ -35,7 +46,6 @@ import javax.swing.JDialog
 import javax.swing.JInternalFrame
 import javax.swing.JLabel
 import javax.swing.JList
-import javax.swing.JTable
 import javax.swing.JTextArea
 import javax.swing.JTextField
 import javax.swing.JSpinner
@@ -331,6 +341,284 @@ class RewriteAttackWindowsUiTest {
         }
     }
 
+    @Test
+    fun showChoicesOpensRemoteBrowserAndReusesSingleChoicesWindow() {
+        assumeFalse(GraphicsEnvironment.isHeadless())
+
+        val sessionGateway = FakeAttackUiSessionGateway()
+        val frame = attackReadyFrame(sessionGateway = sessionGateway)
+        try {
+            val attackSession = startAcceptedAttackSession(
+                frame = frame,
+                sessionGateway = sessionGateway,
+                command = RewriteShellCommand.ATTACK_PORT,
+                targetIp = "10.0.0.8",
+                targetPort = 4,
+                sourcePort = 6,
+                programId = "attack-program-followup-1",
+            )
+
+            sendShowChoicesEvent(
+                frame = frame,
+                targetIp = "10.0.0.8",
+                targetPort = 4,
+                choiceType = ClientShowChoicesType.FTP,
+                windowHandle = attackSession.windowHandle,
+            )
+            val choicesWindow = waitForWindow(frame, "rewrite-show-choices-window")
+            waitUntil {
+                comboBox(choicesWindow, "rewrite-show-choices-action-combo").itemCount == 1 &&
+                    comboBox(choicesWindow, "rewrite-show-choices-action-combo").selectedItem.toString() == "Open Public FTP"
+            }
+
+            sendShowChoicesEvent(
+                frame = frame,
+                targetIp = "10.0.0.8",
+                targetPort = 4,
+                choiceType = ClientShowChoicesType.FTP,
+                windowHandle = attackSession.windowHandle,
+            )
+            waitUntil {
+                frame.desktopPane.allFrames.count { it.name == "rewrite-show-choices-window" } == 1
+            }
+
+            SwingUtilities.invokeAndWait {
+                button(choicesWindow, "rewrite-show-choices-go-button").doClick()
+            }
+
+            waitUntil { sessionGateway.latestGameSession()!!.sentFrames.last().command!!.command_name == "requestsecondarydirectory" }
+            val initialDirectoryCommand = sessionGateway.latestGameSession()!!.sentFrames.last().command!!
+            val initialDirectoryPayload = RewriteClientJson.decode(
+                ClientRequestSecondaryDirectoryPayload.serializer(),
+                initialDirectoryCommand.payload.toByteArray(),
+            )
+
+            assertEquals("/Public", initialDirectoryPayload.path)
+            assertEquals("10.0.0.8", initialDirectoryPayload.targetIp)
+            assertEquals(4, initialDirectoryPayload.port)
+            assertFalse(
+                sessionGateway.latestGameSession()!!.sentFrames
+                    .mapNotNull { it.command?.command_name }
+                    .contains("finalizecancelled"),
+            )
+
+            frame.controller.accept(
+                RewriteService.GAME,
+                RewriteFrames.commandResponse(
+                    commandId = initialDirectoryCommand.command_id,
+                    payload = RewriteClientJson.encode(
+                        ClientSecondaryDirectoryListingResponse.serializer(),
+                        ClientSecondaryDirectoryListingResponse(
+                            requesterStateId = "LOCAL-IP",
+                            targetStateId = "10.0.0.8",
+                            portNumber = 4,
+                            path = "/Public",
+                            directories = listOf(
+                                ClientDirectoryEntry(path = "/Public/docs", name = "docs"),
+                            ),
+                            files = listOf(
+                                ClientStoredFile(path = "/Public/readme.txt", name = "readme.txt", kind = ClientStoredFileKind.TEXT),
+                            ),
+                            version = 5,
+                        ),
+                    ),
+                ),
+            )
+
+            val remoteBrowser = waitForWindow(frame, "rewrite-remote-directory-browser-window-public_ftp")
+            waitUntil {
+                text(remoteBrowser, "rewrite-remote-files-path-label") == "/Public" &&
+                    list(remoteBrowser, "rewrite-remote-files-entry-list").model.size == 2 &&
+                    !button(remoteBrowser, "rewrite-remote-files-up-button").isEnabled
+            }
+
+            SwingUtilities.invokeAndWait {
+                list(remoteBrowser, "rewrite-remote-files-entry-list").selectedIndex = 0
+                button(remoteBrowser, "rewrite-remote-files-open-button").doClick()
+            }
+
+            waitUntil { sessionGateway.latestGameSession()!!.sentFrames.last().command!!.command_name == "requestsecondarydirectory" && sessionGateway.latestGameSession()!!.sentFrames.last().command!!.command_id != initialDirectoryCommand.command_id }
+            val nestedDirectoryCommand = sessionGateway.latestGameSession()!!.sentFrames.last().command!!
+            val nestedDirectoryPayload = RewriteClientJson.decode(
+                ClientRequestSecondaryDirectoryPayload.serializer(),
+                nestedDirectoryCommand.payload.toByteArray(),
+            )
+            assertEquals("/Public/docs", nestedDirectoryPayload.path)
+
+            frame.controller.accept(
+                RewriteService.GAME,
+                RewriteFrames.commandResponse(
+                    commandId = nestedDirectoryCommand.command_id,
+                    payload = RewriteClientJson.encode(
+                        ClientSecondaryDirectoryListingResponse.serializer(),
+                        ClientSecondaryDirectoryListingResponse(
+                            requesterStateId = "LOCAL-IP",
+                            targetStateId = "10.0.0.8",
+                            portNumber = 4,
+                            path = "/Public/docs",
+                            version = 6,
+                        ),
+                    ),
+                ),
+            )
+
+            waitUntil {
+                text(remoteBrowser, "rewrite-remote-files-path-label") == "/Public/docs" &&
+                    button(remoteBrowser, "rewrite-remote-files-up-button").isEnabled
+            }
+
+            SwingUtilities.invokeAndWait {
+                button(remoteBrowser, "rewrite-remote-files-up-button").doClick()
+            }
+
+            waitUntil { sessionGateway.latestGameSession()!!.sentFrames.last().command!!.command_name == "requestsecondarydirectory" && sessionGateway.latestGameSession()!!.sentFrames.last().command!!.command_id != nestedDirectoryCommand.command_id }
+            val backUpCommand = sessionGateway.latestGameSession()!!.sentFrames.last().command!!
+            val backUpPayload = RewriteClientJson.decode(
+                ClientRequestSecondaryDirectoryPayload.serializer(),
+                backUpCommand.payload.toByteArray(),
+            )
+            assertEquals("/Public", backUpPayload.path)
+        } finally {
+            disposeFrame(frame)
+        }
+    }
+
+    @Test
+    fun showChoicesHttpDialogAndExplicitCancelUseRewriteFollowupCommands() {
+        assumeFalse(GraphicsEnvironment.isHeadless())
+
+        val sessionGateway = FakeAttackUiSessionGateway()
+        val frame = attackReadyFrame(sessionGateway = sessionGateway)
+        try {
+            val attackSession = startAcceptedAttackSession(
+                frame = frame,
+                sessionGateway = sessionGateway,
+                command = RewriteShellCommand.ATTACK_PORT,
+                targetIp = "10.0.0.8",
+                targetPort = 4,
+                sourcePort = 6,
+                programId = "attack-program-followup-2",
+            )
+
+            sendShowChoicesEvent(
+                frame = frame,
+                targetIp = "10.0.0.8",
+                targetPort = 4,
+                choiceType = ClientShowChoicesType.HTTP,
+                windowHandle = attackSession.windowHandle,
+            )
+            val httpChoicesWindow = waitForWindow(frame, "rewrite-show-choices-window")
+            waitUntil {
+                comboBox(httpChoicesWindow, "rewrite-show-choices-action-combo").selectedItem.toString() == "Change Daily Pay Target"
+            }
+            SwingUtilities.invokeAndWait {
+                button(httpChoicesWindow, "rewrite-show-choices-go-button").doClick()
+            }
+
+            val dialog = waitForDialog("rewrite-change-daily-pay-dialog")
+            waitUntil { text(dialog, "rewrite-change-daily-pay-ip-field") == "LOCAL-IP" }
+            SwingUtilities.invokeAndWait {
+                textField(dialog, "rewrite-change-daily-pay-ip-field").text = "REV-IP"
+                button(dialog, "rewrite-change-daily-pay-submit-button").doClick()
+            }
+
+            waitUntil { sessionGateway.latestGameSession()!!.sentFrames.last().command!!.command_name == "changedailypay" }
+            val changeDailyPayCommand = sessionGateway.latestGameSession()!!.sentFrames.last().command!!
+            val changeDailyPayPayload = RewriteClientJson.decode(
+                ClientChangeDailyPayPayload.serializer(),
+                changeDailyPayCommand.payload.toByteArray(),
+            )
+
+            assertEquals("10.0.0.8", changeDailyPayPayload.ip)
+            assertEquals(4, changeDailyPayPayload.port)
+            assertEquals("REV-IP", changeDailyPayPayload.change)
+            assertEquals("LOCAL-IP", changeDailyPayPayload.finalizeIp)
+            assertEquals(attackSession.windowHandle, changeDailyPayPayload.attackPort)
+
+            frame.controller.accept(
+                RewriteService.GAME,
+                RewriteFrames.commandResponse(
+                    commandId = changeDailyPayCommand.command_id,
+                    payload = RewriteClientJson.encode(
+                        ClientChangeDailyPayResponse.serializer(),
+                        ClientChangeDailyPayResponse(
+                            actorStateId = "LOCAL-IP",
+                            targetStateId = "10.0.0.8",
+                            targetPort = 4,
+                            requestedRevenueTargetStateId = "REV-IP",
+                            accepted = true,
+                            outcome = ClientChangeDailyPayOutcome.SUCCESS,
+                            message = "Daily pay successfully changed.",
+                            reductionMultiplierAfter = 1.0,
+                            revenueTargetStateIdAfter = "REV-IP",
+                            requesterHttpExperienceAfter = 20.0,
+                            actorVersion = 7,
+                            targetVersion = 9,
+                        ),
+                    ),
+                ),
+            )
+
+            waitUntil {
+                Window.getWindows().filterIsInstance<JDialog>().none { it.name == "rewrite-change-daily-pay-dialog" && it.isShowing } &&
+                    text(attackSession.window, "rewrite-attack-status") == "Daily pay successfully changed."
+            }
+
+            sendShowChoicesEvent(
+                frame = frame,
+                targetIp = "10.0.0.8",
+                targetPort = 4,
+                choiceType = ClientShowChoicesType.BANK,
+                windowHandle = attackSession.windowHandle,
+            )
+            val bankChoicesWindow = waitForWindow(frame, "rewrite-show-choices-window")
+            waitUntil {
+                !button(bankChoicesWindow, "rewrite-show-choices-go-button").isEnabled &&
+                    text(bankChoicesWindow, "rewrite-show-choices-info").contains("No rewrite follow-up actions")
+            }
+
+            SwingUtilities.invokeAndWait {
+                button(bankChoicesWindow, "rewrite-show-choices-cancel-button").doClick()
+            }
+
+            waitUntil { sessionGateway.latestGameSession()!!.sentFrames.last().command!!.command_name == "finalizecancelled" }
+            val finalizeCancelledCommand = sessionGateway.latestGameSession()!!.sentFrames.last().command!!
+            val finalizeCancelledPayload = RewriteClientJson.decode(
+                ClientFinalizeCancelledPayload.serializer(),
+                finalizeCancelledCommand.payload.toByteArray(),
+            )
+
+            assertEquals("LOCAL-IP", finalizeCancelledPayload.ip)
+            assertEquals("10.0.0.8", finalizeCancelledPayload.targetIp)
+            assertEquals(4, finalizeCancelledPayload.targetPort)
+
+            frame.controller.accept(
+                RewriteService.GAME,
+                RewriteFrames.commandResponse(
+                    commandId = finalizeCancelledCommand.command_id,
+                    payload = RewriteClientJson.encode(
+                        ClientFinalizeCancelledResponse.serializer(),
+                        ClientFinalizeCancelledResponse(
+                            actorStateId = "LOCAL-IP",
+                            targetStateId = "10.0.0.8",
+                            targetPort = 4,
+                            accepted = true,
+                            outcome = ClientFinalizeCancelledOutcome.SUCCESS,
+                            message = "finalizecancelled-succeeded",
+                            targetVersion = 10,
+                        ),
+                    ),
+                ),
+            )
+
+            waitUntil {
+                frame.desktopPane.allFrames.none { it.name == "rewrite-show-choices-window" }
+            }
+        } finally {
+            disposeFrame(frame)
+        }
+    }
+
     private fun attackReadyFrame(
         sessionGateway: FakeAttackUiSessionGateway,
     ): RewriteRootFrame {
@@ -386,6 +674,96 @@ class RewriteAttackWindowsUiTest {
             gameStateId = snapshot.id,
             sequence = 1,
             payload = RewriteClientJson.encode(ClientGameSnapshot.serializer(), snapshot),
+        )
+    }
+
+    private fun startAcceptedAttackSession(
+        frame: RewriteRootFrame,
+        sessionGateway: FakeAttackUiSessionGateway,
+        command: RewriteShellCommand,
+        targetIp: String,
+        targetPort: Int,
+        sourcePort: Int,
+        programId: String,
+    ): StartedAttackSession {
+        SwingUtilities.invokeAndWait {
+            frame.controller.launchShellCommand(command)
+        }
+        val windowName = when (command) {
+            RewriteShellCommand.ATTACK_PORT -> "rewrite-shell-window-attack_port"
+            RewriteShellCommand.REDIRECT_PORT -> "rewrite-shell-window-redirect_port"
+            else -> error("Unsupported attack command ${command.name}")
+        }
+        val window = waitForWindow(frame, windowName)
+        SwingUtilities.invokeAndWait {
+            setSegmentedIp(window, targetIp)
+            spinner(window, "rewrite-attack-target-port-spinner").value = targetPort
+            button(window, "rewrite-attack-primary-button").doClick()
+        }
+
+        waitUntil { sessionGateway.latestGameSession()!!.sentFrames.last().command!!.command_name == "requestattack" }
+        val attackCommand = sessionGateway.latestGameSession()!!.sentFrames.last().command!!
+        val attackPayload = RewriteClientJson.decode(
+            ClientRequestAttackPayload.serializer(),
+            attackCommand.payload.toByteArray(),
+        )
+
+        frame.controller.accept(
+            RewriteService.GAME,
+            RewriteFrames.commandResponse(
+                commandId = attackCommand.command_id,
+                payload = RewriteClientJson.encode(
+                    ClientAttackStartResponse.serializer(),
+                    ClientAttackStartResponse(
+                        attackerStateId = "LOCAL-IP",
+                        sourcePort = sourcePort,
+                        targetStateId = targetIp,
+                        targetPort = targetPort,
+                        accepted = true,
+                        message = if (command == RewriteShellCommand.ATTACK_PORT) "Attack accepted." else "Redirect accepted.",
+                        session = ClientAttackSessionState(
+                            programId = programId,
+                            sourcePort = sourcePort,
+                            targetStateId = targetIp,
+                            targetPort = targetPort,
+                            sessionKind = if (command == RewriteShellCommand.ATTACK_PORT) ClientAttackSessionKind.ATTACK else ClientAttackSessionKind.REDIRECT,
+                            windowHandle = attackPayload.windowHandle ?: 0,
+                        ),
+                        version = 3,
+                    ),
+                ),
+            ),
+        )
+
+        waitUntil { button(window, "rewrite-attack-primary-button").text == "Cancel" }
+        return StartedAttackSession(
+            window = window,
+            windowHandle = attackPayload.windowHandle ?: 0,
+        )
+    }
+
+    private fun sendShowChoicesEvent(
+        frame: RewriteRootFrame,
+        targetIp: String,
+        targetPort: Int,
+        choiceType: ClientShowChoicesType,
+        windowHandle: Int,
+    ) {
+        frame.controller.accept(
+            RewriteService.GAME,
+            RewriteFrames.gameUiEvent(
+                eventId = "show-choices-$choiceType-$windowHandle",
+                eventType = "show_choices",
+                payload = RewriteClientJson.encode(
+                    com.hackwars.rewrite.protocol.ClientGameUiEvent.serializer(),
+                    ClientShowChoicesUiEvent(
+                        targetIp = targetIp,
+                        targetPort = targetPort,
+                        choiceType = choiceType,
+                        windowHandle = windowHandle,
+                    ),
+                ),
+            ),
         )
     }
 
@@ -535,4 +913,9 @@ class RewriteAttackWindowsUiTest {
             Unit
         }
     }
+
+    private data class StartedAttackSession(
+        val window: JInternalFrame,
+        val windowHandle: Int,
+    )
 }

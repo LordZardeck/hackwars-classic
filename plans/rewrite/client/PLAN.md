@@ -262,7 +262,7 @@
   - Replaces the `Network` and `Port Scan` placeholders with real rewrite-owned windows.
 
 ### RW-CLIENT-W5B1 - Attack Port and Redirect Port panes plus local attack-file chooser
-- Status: `in_progress`
+- Status: `done`
 - Owner: `unassigned`
 - Depends on: `RW-CLIENT-W5A`, `RW-CLIENT-W2A`
 - Allowed write scope: `:RewriteProtocol`, `:RewriteClient/client/network/**`, `:RewriteClient`
@@ -274,7 +274,7 @@
   - Keeps `show_choices` and remote follow-up browsing out of scope so the first attack tranche stays focused on the real pane/runtime loop.
 
 ### RW-CLIENT-W5B2 - show_choices, requestsecondarydirectory, and shared remote follow-up browser
-- Status: `todo`
+- Status: `in_progress`
 - Owner: `unassigned`
 - Depends on: `RW-CLIENT-W5B1`, `RW-CLIENT-W2A`
 - Allowed write scope: `:RewriteProtocol`, `:RewriteClient/client/network/**`, `:RewriteClient`

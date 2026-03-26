@@ -401,7 +401,9 @@ class RewriteRootFrameUiTest {
             )
 
             waitUntil {
-                frame.desktopPane.allFrames.toList().none { it.name == "rewrite-economy-window-deposit" }
+                invokeAndWaitResult {
+                    frame.desktopPane.allFrames.toList().none { it.name == "rewrite-economy-window-deposit" }
+                }
             }
         } finally {
             disposeFrame(frame)

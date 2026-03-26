@@ -830,6 +830,89 @@ class RewriteClientJsonTest {
     }
 
     @Test
+    fun decodesCurrentRewriteShowChoicesFollowupPayloadsAndResponses() {
+        val secondaryDirectoryPayload = """
+            {
+              "requesterStateId":"LOCAL-IP",
+              "targetStateId":"TARGET-IP",
+              "portNumber":25,
+              "path":"/Public",
+              "directories":[
+                {
+                  "path":"/Public/docs",
+                  "name":"docs",
+                  "description":"remote docs"
+                }
+              ],
+              "files":[
+                {
+                  "path":"/Public/readme.txt",
+                  "name":"readme.txt",
+                  "kind":"TEXT",
+                  "contents":"hello"
+                }
+              ],
+              "version":14,
+              "ignored":"ignored"
+            }
+        """.trimIndent().encodeToByteArray()
+        val changeDailyPayPayload = """
+            {
+              "actorStateId":"LOCAL-IP",
+              "targetStateId":"TARGET-IP",
+              "targetPort":25,
+              "requestedRevenueTargetStateId":"REV-IP",
+              "accepted":true,
+              "outcome":"SUCCESS",
+              "message":"Daily pay successfully changed.",
+              "reductionMultiplierAfter":1.0,
+              "revenueTargetStateIdAfter":"REV-IP",
+              "requesterHttpExperienceAfter":20.0,
+              "actorVersion":11,
+              "targetVersion":9,
+              "ignored":"ignored"
+            }
+        """.trimIndent().encodeToByteArray()
+        val finalizeCancelledPayload = """
+            {
+              "actorStateId":"LOCAL-IP",
+              "targetStateId":"TARGET-IP",
+              "targetPort":25,
+              "accepted":true,
+              "outcome":"SUCCESS",
+              "message":"finalizecancelled-succeeded",
+              "targetHealthAfter":100.0,
+              "targetHealCountAfter":4,
+              "targetVersion":17,
+              "ignored":"ignored"
+            }
+        """.trimIndent().encodeToByteArray()
+
+        val secondaryDirectory = RewriteClientJson.decode(
+            ClientSecondaryDirectoryListingResponse.serializer(),
+            secondaryDirectoryPayload,
+        )
+        val changeDailyPay = RewriteClientJson.decode(
+            ClientChangeDailyPayResponse.serializer(),
+            changeDailyPayPayload,
+        )
+        val finalizeCancelled = RewriteClientJson.decode(
+            ClientFinalizeCancelledResponse.serializer(),
+            finalizeCancelledPayload,
+        )
+
+        assertEquals("TARGET-IP", secondaryDirectory.targetStateId)
+        assertEquals("/Public", secondaryDirectory.path)
+        assertEquals(listOf("docs"), secondaryDirectory.directories.map { it.name })
+        assertTrue(changeDailyPay.accepted)
+        assertEquals(ClientChangeDailyPayOutcome.SUCCESS, changeDailyPay.outcome)
+        assertEquals("REV-IP", changeDailyPay.revenueTargetStateIdAfter)
+        assertTrue(finalizeCancelled.accepted)
+        assertEquals(ClientFinalizeCancelledOutcome.SUCCESS, finalizeCancelled.outcome)
+        assertEquals(100.0, finalizeCancelled.targetHealthAfter)
+    }
+
+    @Test
     fun decodesCurrentRewriteWebAndStoreCommandPayloadsAndResponses() {
         val webpagePayload = """
             {

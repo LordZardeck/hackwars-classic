@@ -22,6 +22,7 @@ import com.hackwars.rewrite.protocol.ClientHookValue
 import com.hackwars.rewrite.protocol.ClientPortState
 import com.hackwars.rewrite.protocol.ClientProgramLifecycleStatus
 import com.hackwars.rewrite.protocol.ClientProgramUpdate
+import com.hackwars.rewrite.protocol.ClientShowChoicesUiEvent
 import com.hackwars.rewrite.protocol.ClientStoredFile
 import com.hackwars.rewrite.protocol.ClientStoredFileKind
 import com.hackwars.rewrite.protocol.ClientStringHookValue
@@ -257,11 +258,15 @@ internal class RewriteAttackWindow(
     private var pendingPreferredPort: Int? = preferredPort
     private var requestInFlight: Boolean = false
     private var activeProgramId: String? = null
+    private var latestWindowHandle: Int? = null
     private var activeWindowHandle: Int? = null
     private var activeSourcePort: Int? = null
     private var bankingSelection: RewriteAttackBankingScriptSelection? = null
     private var selectedSecondaryPorts: List<Int> = emptyList()
     private var chooserWindow: JInternalFrame? = null
+    private var choicesWindow: RewriteShowChoicesWindow? = null
+    private val followupWindowsByKey = linkedMapOf<String, JInternalFrame>()
+    private val dailyPayDialogsByKey = linkedMapOf<String, RewriteChangeDailyPayDialog>()
     private val processedUiNoticeKeys = mutableSetOf<String>()
 
     init {
@@ -276,7 +281,7 @@ internal class RewriteAttackWindow(
         }
         addInternalFrameListener(object : InternalFrameAdapter() {
             override fun internalFrameClosed(event: InternalFrameEvent) {
-                chooserWindow?.dispose()
+                disposeFollowupWindows()
                 windowScope.cancel()
             }
         })
@@ -545,12 +550,25 @@ internal class RewriteAttackWindow(
                         if (!processedUiNoticeKeys.add(key)) {
                             return@forEach
                         }
-                        val attackMessage = notice.event as? ClientAttackMessageUiEvent ?: return@forEach
-                        val windowHandle = activeWindowHandle ?: return@forEach
-                        if (attackMessage.windowHandle != windowHandle || attackMessage.paneType != mode.paneType) {
-                            return@forEach
+                        when (val event = notice.event) {
+                            is ClientAttackMessageUiEvent -> {
+                                val windowHandle = activeWindowHandle ?: return@forEach
+                                if (event.windowHandle != windowHandle || event.paneType != mode.paneType) {
+                                    return@forEach
+                                }
+                                appendTranscript(event.message)
+                            }
+
+                            is ClientShowChoicesUiEvent -> {
+                                val windowHandle = latestWindowHandle ?: activeWindowHandle ?: return@forEach
+                                if (event.windowHandle != windowHandle) {
+                                    return@forEach
+                                }
+                                openOrFocusShowChoicesWindow(event)
+                            }
+
+                            else -> Unit
                         }
-                        appendTranscript(attackMessage.message)
                     }
                 }
             }
@@ -606,7 +624,9 @@ internal class RewriteAttackWindow(
         }
         val targetPort = (targetPortSpinner.value as Number).toInt()
         val windowHandle = controller.allocateAttackWindowHandle()
+        disposeFollowupWindows()
         requestInFlight = true
+        latestWindowHandle = windowHandle
         activeWindowHandle = windowHandle
         clearError()
         transcriptArea.text = ""
@@ -682,10 +702,12 @@ internal class RewriteAttackWindow(
                 if (response.accepted && session != null) {
                     activeProgramId = session.programId
                     activeWindowHandle = session.windowHandle.takeIf { it > 0 } ?: activeWindowHandle
+                    latestWindowHandle = activeWindowHandle
                     activeSourcePort = response.sourcePort
                     clearError()
                     statusLabel.text = response.message.ifBlank { "${mode.primaryActionLabel} started." }
                 } else {
+                    latestWindowHandle = null
                     activeWindowHandle = null
                     activeSourcePort = null
                     activeProgramId = null
@@ -694,6 +716,7 @@ internal class RewriteAttackWindow(
             }
 
             is RewriteGameCommandResult.Failure -> {
+                latestWindowHandle = null
                 activeWindowHandle = null
                 activeSourcePort = null
                 activeProgramId = null
@@ -797,6 +820,122 @@ internal class RewriteAttackWindow(
             renderState()
         }
     }
+
+    private fun openOrFocusShowChoicesWindow(
+        event: ClientShowChoicesUiEvent,
+    ) {
+        val existing = choicesWindow
+        if (existing != null && existing.isDisplayable && !existing.isClosed) {
+            existing.updateChoice(event)
+            onFocusAuxiliaryWindow(existing)
+            return
+        }
+        val window = RewriteShowChoicesWindow(
+            controller = controller,
+            initialChoice = event,
+            onPerformAction = ::handleShowChoicesAction,
+            onClosed = { closedWindow ->
+                if (choicesWindow === closedWindow) {
+                    choicesWindow = null
+                }
+            },
+        )
+        choicesWindow = window
+        onOpenAuxiliaryWindow(window)
+    }
+
+    private fun handleShowChoicesAction(
+        event: ClientShowChoicesUiEvent,
+        action: RewriteShowChoicesActionKind,
+    ) {
+        when (action) {
+            RewriteShowChoicesActionKind.OPEN_PUBLIC_FTP,
+            RewriteShowChoicesActionKind.OPEN_STORE_FTP -> openRemoteFollowupBrowser(event, action)
+            RewriteShowChoicesActionKind.CHANGE_DAILY_PAY_TARGET -> openChangeDailyPayDialog(event)
+        }
+    }
+
+    private fun openRemoteFollowupBrowser(
+        event: ClientShowChoicesUiEvent,
+        action: RewriteShowChoicesActionKind,
+    ) {
+        val key = followupWindowKey(event.windowHandle, action)
+        val existing = followupWindowsByKey[key]
+        if (existing != null && existing.isDisplayable && !existing.isClosed) {
+            onFocusAuxiliaryWindow(existing)
+            return
+        }
+        val window = RewriteRemoteDirectoryBrowserWindow(
+            controller = controller,
+            actionKind = action,
+            targetIp = event.targetIp,
+            targetPort = event.targetPort,
+            onClosed = { closedWindow ->
+                followupWindowsByKey.remove(key, closedWindow)
+            },
+        )
+        followupWindowsByKey[key] = window
+        onOpenAuxiliaryWindow(window)
+    }
+
+    private fun openChangeDailyPayDialog(
+        event: ClientShowChoicesUiEvent,
+    ) {
+        val key = followupWindowKey(event.windowHandle, RewriteShowChoicesActionKind.CHANGE_DAILY_PAY_TARGET)
+        val existing = dailyPayDialogsByKey[key]
+        if (existing != null && existing.isDisplayable) {
+            existing.toFront()
+            existing.requestFocus()
+            return
+        }
+        val dialog = RewriteChangeDailyPayDialog(
+            owner = SwingUtilities.getWindowAncestor(this),
+            controller = controller,
+            targetIp = event.targetIp,
+            targetPort = event.targetPort,
+            attackPort = event.windowHandle,
+            initialRevenueTargetIp = controller.currentAuthenticatedPlayerIp().orEmpty(),
+            onSucceeded = { message ->
+                clearError()
+                statusLabel.text = message
+                appendTranscript(message)
+            },
+            onClosed = { closedDialog ->
+                dailyPayDialogsByKey.remove(key, closedDialog)
+            },
+        )
+        dailyPayDialogsByKey[key] = dialog
+        dialog.setLocationRelativeTo(SwingUtilities.getWindowAncestor(this))
+        dialog.isVisible = true
+        dialog.toFront()
+        dialog.requestFocus()
+    }
+
+    private fun disposeFollowupWindows() {
+        chooserWindow?.let { window ->
+            chooserWindow = null
+            runCatching { window.dispose() }
+        }
+        choicesWindow?.let { window ->
+            choicesWindow = null
+            runCatching { window.dispose() }
+        }
+        val windows = followupWindowsByKey.values.toList()
+        followupWindowsByKey.clear()
+        windows.forEach { window ->
+            runCatching { window.dispose() }
+        }
+        val dialogs = dailyPayDialogsByKey.values.toList()
+        dailyPayDialogsByKey.clear()
+        dialogs.forEach { dialog ->
+            runCatching { dialog.dispose() }
+        }
+    }
+
+    private fun followupWindowKey(
+        windowHandle: Int,
+        action: RewriteShowChoicesActionKind,
+    ): String = "$windowHandle|${action.name}"
 
     private fun clearActiveSession() {
         activeProgramId = null

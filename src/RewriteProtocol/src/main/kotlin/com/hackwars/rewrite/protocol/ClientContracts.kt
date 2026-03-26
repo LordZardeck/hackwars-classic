@@ -531,6 +531,24 @@ enum class ClientAttackCancelFailureCode {
 }
 
 @Serializable
+enum class ClientChangeDailyPayOutcome {
+    SUCCESS,
+    ALREADY_CONTROLLED,
+    WRONG_PORT_TYPE,
+    FIREWALL_NOOP,
+    BOUNTY_GUARD,
+}
+
+@Serializable
+enum class ClientFinalizeCancelledOutcome {
+    SUCCESS,
+    TARGET_NOT_FOUND,
+    INVALID_TARGET_PORT,
+    NOT_WEAKENED,
+    ACCESS_DENIED,
+}
+
+@Serializable
 sealed interface ClientGameDeltaProjection
 
 @Serializable
@@ -674,6 +692,31 @@ data class ClientRequestCancelAttackPayload(
 )
 
 @Serializable
+data class ClientRequestSecondaryDirectoryPayload(
+    val path: String? = null,
+    val targetIp: String,
+    val port: Int,
+)
+
+@Serializable
+data class ClientChangeDailyPayPayload(
+    val ip: String,
+    val port: Int,
+    val change: String? = null,
+    @SerialName("finalizeIP")
+    val finalizeIp: String? = null,
+    val attackPort: Int? = null,
+)
+
+@Serializable
+data class ClientFinalizeCancelledPayload(
+    val ip: String,
+    @SerialName("targetIP")
+    val targetIp: String,
+    val targetPort: Int,
+)
+
+@Serializable
 data class ClientScanResponse(
     val requesterStateId: String,
     val targetStateId: String,
@@ -713,6 +756,35 @@ data class ClientAttackCancelResponse(
     val hadActiveSession: Boolean,
     val message: String,
     val version: Long,
+)
+
+@Serializable
+data class ClientChangeDailyPayResponse(
+    val actorStateId: String,
+    val targetStateId: String,
+    val targetPort: Int,
+    val requestedRevenueTargetStateId: String,
+    val accepted: Boolean,
+    val outcome: ClientChangeDailyPayOutcome,
+    val message: String,
+    val reductionMultiplierAfter: Double,
+    val revenueTargetStateIdAfter: String,
+    val requesterHttpExperienceAfter: Double,
+    val actorVersion: Long,
+    val targetVersion: Long,
+)
+
+@Serializable
+data class ClientFinalizeCancelledResponse(
+    val actorStateId: String,
+    val targetStateId: String,
+    val targetPort: Int,
+    val accepted: Boolean,
+    val outcome: ClientFinalizeCancelledOutcome,
+    val message: String,
+    val targetHealthAfter: Double? = null,
+    val targetHealCountAfter: Int? = null,
+    val targetVersion: Long? = null,
 )
 
 @Serializable
@@ -922,6 +994,17 @@ data class ClientRequestPurchasePayload(
 @Serializable
 data class ClientDirectoryListingResponse(
     val stateId: String,
+    val path: String,
+    val directories: List<ClientDirectoryEntry> = emptyList(),
+    val files: List<ClientStoredFile> = emptyList(),
+    val version: Long,
+)
+
+@Serializable
+data class ClientSecondaryDirectoryListingResponse(
+    val requesterStateId: String,
+    val targetStateId: String,
+    val portNumber: Int,
     val path: String,
     val directories: List<ClientDirectoryEntry> = emptyList(),
     val files: List<ClientStoredFile> = emptyList(),
