@@ -165,7 +165,7 @@
 ### RW-CLIENT-W2C - Shop FTP and Public FTP remote-directory plus transfer UI
 - Status: `todo`
 - Owner: `unassigned`
-- Depends on: `RW-CLIENT-W2A`, `RW-CLIENT-W5B`
+- Depends on: `RW-CLIENT-W2A`, `RW-CLIENT-W5B2`
 - Allowed write scope: `:RewriteClient/client/files/**`, `:RewriteClient/client/network/**`
 - Verification command: `./gradlew :RewriteClient:test :RewriteClient:uiTest`
 - Artifacts: `build/reports/rewrite/ui`
@@ -250,7 +250,7 @@
   - Selector updates must be fine-grained by watched value, not whole-state blasts.
 
 ### RW-CLIENT-W5A - Network window, network-state decode, and port scan foundation
-- Status: `in_progress`
+- Status: `done`
 - Owner: `unassigned`
 - Depends on: `RW-CLIENT-003A`
 - Allowed write scope: `:RewriteProtocol`, `:RewriteClientModel`, `:RewriteClient/client/network/**`, `:RewriteClient`
@@ -261,8 +261,8 @@
   - Owns decoded rewrite `network` state, `changenetwork`, and one-shot `requestscan`.
   - Replaces the `Network` and `Port Scan` placeholders with real rewrite-owned windows.
 
-### RW-CLIENT-W5B - Attack Port and Redirect Port windows plus attack-file chooser follow-up
-- Status: `todo`
+### RW-CLIENT-W5B1 - Attack Port and Redirect Port panes plus local attack-file chooser
+- Status: `in_progress`
 - Owner: `unassigned`
 - Depends on: `RW-CLIENT-W5A`, `RW-CLIENT-W2A`
 - Allowed write scope: `:RewriteProtocol`, `:RewriteClient/client/network/**`, `:RewriteClient`
@@ -270,7 +270,19 @@
 - Artifacts: `build/reports/rewrite/ui`
 - Commit rule: `single green commit only`
 - Notes:
-  - Owns `requestattack`, `requestcancelattack`, attack/redirect panes, `show_choices`, and the shared remote-target chooser follow-up.
+  - Owns `requestattack`, `requestcancelattack`, real rewrite `Attack Port` / `Redirect Port` panes, local attack loadout serialization, and window-handle correlation for pane messages.
+  - Keeps `show_choices` and remote follow-up browsing out of scope so the first attack tranche stays focused on the real pane/runtime loop.
+
+### RW-CLIENT-W5B2 - show_choices, requestsecondarydirectory, and shared remote follow-up browser
+- Status: `todo`
+- Owner: `unassigned`
+- Depends on: `RW-CLIENT-W5B1`, `RW-CLIENT-W2A`
+- Allowed write scope: `:RewriteProtocol`, `:RewriteClient/client/network/**`, `:RewriteClient`
+- Verification command: `./gradlew :RewriteProtocol:test :RewriteClient:test :RewriteClient:uiTest`
+- Artifacts: `build/reports/rewrite/ui`
+- Commit rule: `single green commit only`
+- Notes:
+  - Owns decoded `show_choices`, `requestsecondarydirectory`, and the shared remote-target chooser/browser follow-up.
   - `RW-CLIENT-W2C` depends on this slice because remote transfer and attack-family follow-up share the same secondary-directory targeting surface.
 
 ### RW-CLIENT-W5C - Zombie Attack launcher and pane

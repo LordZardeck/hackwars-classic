@@ -9,6 +9,7 @@ import com.hackwars.rewrite.client.files.RewriteHomeWindow
 import com.hackwars.rewrite.client.files.RewriteLocalFileOpenTarget
 import com.hackwars.rewrite.client.files.RewriteScriptEditorWindow
 import com.hackwars.rewrite.client.files.routeLocalFileTarget
+import com.hackwars.rewrite.client.network.RewriteAttackWindow
 import com.hackwars.rewrite.client.network.RewriteNetworkWindow
 import com.hackwars.rewrite.client.network.RewritePortScanWindow
 import com.hackwars.rewrite.client.shell.RewritePlaceholderInternalFrame
@@ -30,6 +31,8 @@ import com.hackwars.rewrite.clientmodel.RewriteClientStore
 import com.hackwars.rewrite.clientmodel.RewriteDecodedGameState
 import com.hackwars.rewrite.clientmodel.RewriteDecodedGameUiNotice
 import com.hackwars.rewrite.clientmodel.RewriteServiceState
+import com.hackwars.rewrite.protocol.ClientAttackCancelResponse
+import com.hackwars.rewrite.protocol.ClientAttackStartResponse
 import com.hackwars.rewrite.protocol.ClientBankTransactionResponse
 import com.hackwars.rewrite.protocol.ClientBountyCreatedResponse
 import com.hackwars.rewrite.protocol.ClientCompileFilePayload
@@ -42,9 +45,12 @@ import com.hackwars.rewrite.protocol.ClientExitWebpagePayload
 import com.hackwars.rewrite.protocol.ClientFileContentsResponse
 import com.hackwars.rewrite.protocol.ClientFilesystemState
 import com.hackwars.rewrite.protocol.ClientGameSnapshot
+import com.hackwars.rewrite.protocol.ClientHookValue
 import com.hackwars.rewrite.protocol.ClientNetworkState
 import com.hackwars.rewrite.protocol.ClientChangeNetworkPayload
 import com.hackwars.rewrite.protocol.ClientNetworkSwitchResponse
+import com.hackwars.rewrite.protocol.ClientRequestAttackPayload
+import com.hackwars.rewrite.protocol.ClientRequestCancelAttackPayload
 import com.hackwars.rewrite.protocol.ClientRequestScanPayload
 import com.hackwars.rewrite.protocol.ClientScanResponse
 import com.hackwars.rewrite.protocol.ClientMakeBountyPayload
@@ -128,6 +134,8 @@ class RewriteRootController(
     private var activeLoginJob: Job? = null
     private var pendingGameBootstrap: PendingGameBootstrap? = null
     private var shellHost: RewriteShellWindowHost? = null
+    private val attackWindowHandleLock = Any()
+    private var nextAttackWindowHandle: Int = 1
 
     fun snapshot(): RewriteClientState = store.snapshot()
 
@@ -384,6 +392,52 @@ class RewriteRootController(
             ),
             responseSerializer = ClientScanResponse.serializer(),
             targetStateIds = listOf(playerIp, targetIp),
+        )
+    }
+
+    internal suspend fun requestAttack(
+        targetIp: String,
+        targetPort: Int,
+        sourcePort: Int,
+        secondaryPorts: List<Int>,
+        scripts: List<List<String?>>,
+        extraInfo: List<ClientHookValue>,
+        windowHandle: Int,
+    ): RewriteGameCommandResult<ClientAttackStartResponse> {
+        val playerIp = authenticatedPlayerIp()
+            ?: return RewriteGameCommandResult.Failure("Not connected to a rewrite game session.")
+        return gameCommandBroker.request(
+            commandName = "requestattack",
+            payloadSerializer = ClientRequestAttackPayload.serializer(),
+            payload = ClientRequestAttackPayload(
+                targetIp = targetIp,
+                targetPort = targetPort,
+                sourceIp = playerIp,
+                sourcePort = sourcePort,
+                secondaryPorts = secondaryPorts,
+                scripts = scripts,
+                extraInfo = extraInfo,
+                windowHandle = windowHandle,
+            ),
+            responseSerializer = ClientAttackStartResponse.serializer(),
+            targetStateIds = listOf(playerIp, targetIp),
+        )
+    }
+
+    internal suspend fun requestCancelAttack(
+        sourcePort: Int,
+    ): RewriteGameCommandResult<ClientAttackCancelResponse> {
+        val playerIp = authenticatedPlayerIp()
+            ?: return RewriteGameCommandResult.Failure("Not connected to a rewrite game session.")
+        return gameCommandBroker.request(
+            commandName = "requestcancelattack",
+            payloadSerializer = ClientRequestCancelAttackPayload.serializer(),
+            payload = ClientRequestCancelAttackPayload(
+                ip = playerIp,
+                port = sourcePort,
+            ),
+            responseSerializer = ClientAttackCancelResponse.serializer(),
+            targetStateIds = listOf(playerIp),
         )
     }
 
@@ -1070,6 +1124,12 @@ class RewriteRootController(
 
     internal fun currentAuthenticatedPlayerIp(): String? = authenticatedPlayerIp()
 
+    internal fun allocateAttackWindowHandle(): Int = synchronized(attackWindowHandleLock) {
+        val current = nextAttackWindowHandle
+        nextAttackWindowHandle = if (nextAttackWindowHandle == Int.MAX_VALUE) 1 else nextAttackWindowHandle + 1
+        current
+    }
+
     internal fun openLocalFile(file: ClientStoredFile) {
         when (routeLocalFileTarget(file)) {
             RewriteLocalFileOpenTarget.SCRIPT_EDITOR -> openFileInScriptEditor(file)
@@ -1134,6 +1194,22 @@ class RewriteRootController(
 
         RewriteShellCommand.PORT_SCAN -> RewritePortScanWindow(
             controller = this,
+        )
+
+        RewriteShellCommand.ATTACK_PORT,
+        RewriteShellCommand.REDIRECT_PORT -> RewriteAttackWindow(
+            controller = this,
+            command = command,
+            preferredPort = preferredPort,
+            onOpenAuxiliaryWindow = { window ->
+                shellHost?.let { currentHost ->
+                    currentHost.showWindow(window)
+                    currentHost.focusWindow(window)
+                }
+            },
+            onFocusAuxiliaryWindow = { window ->
+                shellHost?.focusWindow(window)
+            },
         )
 
         RewriteShellCommand.PORT_MANAGEMENT -> RewritePortManagementWindow(

@@ -483,6 +483,54 @@ enum class ClientNetworkSwitchFailureCode {
 }
 
 @Serializable
+enum class ClientAttackSessionKind {
+    ATTACK,
+    REDIRECT,
+}
+
+@Serializable
+enum class ClientAttackMode {
+    DIRECT,
+    ZOMBIE,
+}
+
+@Serializable
+data class ClientAttackSessionState(
+    val programId: String,
+    val sourcePort: Int,
+    val targetStateId: String,
+    val targetPort: Int,
+    val sessionKind: ClientAttackSessionKind = ClientAttackSessionKind.ATTACK,
+    val attackMode: ClientAttackMode = ClientAttackMode.DIRECT,
+    val windowHandle: Int = 0,
+    val secondaryPorts: List<Int> = emptyList(),
+    val startedAtEpochMillis: Long = 0L,
+)
+
+@Serializable
+enum class ClientAttackStartFailureCode {
+    SOURCE_IP_MISMATCH,
+    SOURCE_PORT_NOT_FOUND,
+    INVALID_SOURCE_PORT,
+    SOURCE_ALREADY_ATTACKING,
+    SELF_TARGET,
+    TARGET_NOT_FOUND,
+    TARGET_PORT_NOT_FOUND,
+    INVALID_TARGET_PORT,
+    TARGET_ALREADY_UNDER_ATTACK,
+    ACTIVE_BANK_REQUIRED,
+    INSUFFICIENT_PETTY_CASH,
+    OVERHEATED,
+    CPU_HEADROOM_EXCEEDED,
+    DEFAULT_SOURCE_PORT_MISSING,
+}
+
+@Serializable
+enum class ClientAttackCancelFailureCode {
+    SOURCE_IP_MISMATCH,
+}
+
+@Serializable
 sealed interface ClientGameDeltaProjection
 
 @Serializable
@@ -606,6 +654,26 @@ data class ClientRequestScanPayload(
 )
 
 @Serializable
+data class ClientRequestAttackPayload(
+    @SerialName("targetIP")
+    val targetIp: String,
+    val targetPort: Int,
+    @SerialName("sourceIP")
+    val sourceIp: String,
+    val sourcePort: Int,
+    val secondaryPorts: List<Int> = emptyList(),
+    val scripts: List<List<String?>> = emptyList(),
+    val extraInfo: List<ClientHookValue> = emptyList(),
+    val windowHandle: Int? = null,
+)
+
+@Serializable
+data class ClientRequestCancelAttackPayload(
+    val ip: String,
+    val port: Int,
+)
+
+@Serializable
 data class ClientScanResponse(
     val requesterStateId: String,
     val targetStateId: String,
@@ -618,6 +686,33 @@ data class ClientScanResponse(
     val scanningExperienceAfter: Double? = null,
     val ports: List<ClientScannedPortView> = emptyList(),
     val requesterVersion: Long,
+)
+
+@Serializable
+data class ClientAttackStartResponse(
+    val attackerStateId: String,
+    val sourcePort: Int,
+    val targetStateId: String? = null,
+    val targetPort: Int? = null,
+    val accepted: Boolean,
+    val failureCode: ClientAttackStartFailureCode? = null,
+    val message: String,
+    val chargedAmount: Double = 0.0,
+    val pettyCashAfter: Double? = null,
+    val currentCpuLoadAfter: Double? = null,
+    val session: ClientAttackSessionState? = null,
+    val version: Long,
+)
+
+@Serializable
+data class ClientAttackCancelResponse(
+    val stateId: String,
+    val sourcePort: Int,
+    val accepted: Boolean,
+    val failureCode: ClientAttackCancelFailureCode? = null,
+    val hadActiveSession: Boolean,
+    val message: String,
+    val version: Long,
 )
 
 @Serializable

@@ -771,6 +771,65 @@ class RewriteClientJsonTest {
     }
 
     @Test
+    fun decodesCurrentRewriteAttackCommandResponsePayloads() {
+        val attackStartPayload = """
+            {
+              "attackerStateId":"LOCAL-IP",
+              "sourcePort":6,
+              "targetStateId":"TARGET-IP",
+              "targetPort":4,
+              "accepted":true,
+              "message":"Attack accepted.",
+              "chargedAmount":10.0,
+              "pettyCashAfter":90.0,
+              "currentCpuLoadAfter":4.0,
+              "session":{
+                "programId":"attack-program-1",
+                "sourcePort":6,
+                "targetStateId":"TARGET-IP",
+                "targetPort":4,
+                "sessionKind":"ATTACK",
+                "attackMode":"DIRECT",
+                "windowHandle":44,
+                "secondaryPorts":[9,10],
+                "startedAtEpochMillis":12,
+                "ignored":"ignored"
+              },
+              "version":8,
+              "ignored":"ignored"
+            }
+        """.trimIndent().encodeToByteArray()
+        val attackCancelPayload = """
+            {
+              "stateId":"LOCAL-IP",
+              "sourcePort":6,
+              "accepted":false,
+              "failureCode":"SOURCE_IP_MISMATCH",
+              "hadActiveSession":true,
+              "message":"Source ip mismatch.",
+              "version":9,
+              "ignored":"ignored"
+            }
+        """.trimIndent().encodeToByteArray()
+
+        val attackStart = RewriteClientJson.decode(
+            ClientAttackStartResponse.serializer(),
+            attackStartPayload,
+        )
+        val attackCancel = RewriteClientJson.decode(
+            ClientAttackCancelResponse.serializer(),
+            attackCancelPayload,
+        )
+
+        assertTrue(attackStart.accepted)
+        assertEquals("attack-program-1", attackStart.session?.programId)
+        assertEquals(ClientAttackSessionKind.ATTACK, attackStart.session?.sessionKind)
+        assertEquals(listOf(9, 10), attackStart.session?.secondaryPorts)
+        assertEquals(ClientAttackCancelFailureCode.SOURCE_IP_MISMATCH, attackCancel.failureCode)
+        assertFalse(attackCancel.accepted)
+    }
+
+    @Test
     fun decodesCurrentRewriteWebAndStoreCommandPayloadsAndResponses() {
         val webpagePayload = """
             {
