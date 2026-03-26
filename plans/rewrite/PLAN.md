@@ -3,7 +3,7 @@
 ## Status Dashboard
 - Active mode: `autonomous_rewrite_execution`
 - Current pass: `Pass 1 - Cross-cutting foundations`
-- Current milestone focus: `M8 - Client MVC and parity recovery`
+- Current milestone focus: `M2 - Evidence and inventory closure`
 - Coordinator stop rule: continue until `M11` is `done`, or until the only remaining work is `blocked_external`
 - Parallel saturation target: `8` active subagents, or the maximum safe non-overlapping count when fewer than `8` disjoint tasks exist
 
@@ -213,7 +213,7 @@
 - Verification scope: `rg -n "Autonomous Execution Contract|Autonomous Pass Board|Priority|Execution lane|Worker role|Ready when|Parallel with|Autonomous next|Fallback if blocked|Verification scope|blocked_external" plans/rewrite`
 
 ### RW-M2-001 - Complete retained feature row evidence and dependency closure
-- Status: `ready`
+- Status: `done`
 - Priority: `P1`
 - Execution lane: `evidence`
 - Worker role: `worker`
