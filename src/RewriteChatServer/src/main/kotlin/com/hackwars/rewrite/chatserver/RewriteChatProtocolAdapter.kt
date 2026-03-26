@@ -34,6 +34,11 @@ import com.hackwars.rewrite.protocol.ChatChannelTextPayload
 import com.hackwars.rewrite.protocol.ChatErrorEventPayload
 import com.hackwars.rewrite.protocol.ChatMutePayload
 import com.hackwars.rewrite.protocol.ChatParityEventType
+import com.hackwars.rewrite.protocol.ChatRelationAddEventPayload
+import com.hackwars.rewrite.protocol.ChatRelationAddPayload
+import com.hackwars.rewrite.protocol.ChatRelationFlagsPayload
+import com.hackwars.rewrite.protocol.ChatRelationListEventPayload
+import com.hackwars.rewrite.protocol.ChatRelationListPayload
 import com.hackwars.rewrite.protocol.ChatRequestType
 import com.hackwars.rewrite.protocol.ChatSubChannelsPayload
 import com.hackwars.rewrite.protocol.ChatWhisperEventPayload
@@ -345,14 +350,29 @@ class RewriteChatProtocolAdapter(
                 )
             }
 
-            ChatRequestType.RELATION_LIST,
-            ChatRequestType.RELATION_ADD,
-            -> requestErrorFrames(
+            ChatRequestType.RELATION_LIST -> decodeAndHandle<ChatRelationListPayload>(
+                command = command,
+                session = session,
+                serializer = ChatRelationListPayload.serializer(),
+            ) { payload ->
+                handleRelationList(
                     commandId = command.command_id,
-                    receiverPlayerId = session.playerId,
-                    code = "CHAT_REQUEST_OWNED_BY_RW_CHAT_004A",
-                    message = "Retained `${requestType.wireName}` lands in RW-CHAT-004A.",
+                    session = session,
+                    payload = payload,
                 )
+            }
+
+            ChatRequestType.RELATION_ADD -> decodeAndHandle<ChatRelationAddPayload>(
+                command = command,
+                session = session,
+                serializer = ChatRelationAddPayload.serializer(),
+            ) { payload ->
+                handleRelationAdd(
+                    commandId = command.command_id,
+                    session = session,
+                    payload = payload,
+                )
+            }
         }
     }
 
@@ -855,6 +875,90 @@ class RewriteChatProtocolAdapter(
         return listOf(RewriteFrames.commandResponse(commandId = commandId))
     }
 
+    private suspend fun handleRelationList(
+        commandId: String,
+        session: AuthenticatedChatSession,
+        payload: ChatRelationListPayload,
+    ): List<FrameEnvelope> {
+        if (payload.senderPlayerId != session.playerId) {
+            return requestErrorFrames(
+                commandId = commandId,
+                receiverPlayerId = session.playerId,
+                code = "CHAT_SENDER_MISMATCH",
+                message = "Retained chat sender identity must match the authenticated player.",
+            )
+        }
+        return listOf(
+            RewriteFrames.commandResponse(commandId = commandId),
+            relationListFrame(
+                receiverPlayerId = session.playerId,
+                relations = loadRelations(session.playerId),
+            ),
+        )
+    }
+
+    private suspend fun handleRelationAdd(
+        commandId: String,
+        session: AuthenticatedChatSession,
+        payload: ChatRelationAddPayload,
+    ): List<FrameEnvelope> {
+        if (payload.senderPlayerId != session.playerId) {
+            return requestErrorFrames(
+                commandId = commandId,
+                receiverPlayerId = session.playerId,
+                code = "CHAT_SENDER_MISMATCH",
+                message = "Retained chat sender identity must match the authenticated player.",
+            )
+        }
+        val targetPlayerId = payload.relation.targetPlayerId.trim()
+        if (targetPlayerId.isBlank()) {
+            return requestErrorFrames(
+                commandId = commandId,
+                receiverPlayerId = session.playerId,
+                code = "CHAT_RELATION_TARGET_BLANK",
+                message = "Retained chat relation target must not be blank.",
+            )
+        }
+        val comment = payload.relation.comment
+        if (comment.length > MAX_RELATION_COMMENT_LENGTH) {
+            return requestErrorFrames(
+                commandId = commandId,
+                receiverPlayerId = session.playerId,
+                code = "CHAT_RELATION_COMMENT_TOO_LONG",
+                message = "Retained chat relation comments must be at most $MAX_RELATION_COMMENT_LENGTH characters.",
+            )
+        }
+
+        val now = clock()
+        reconcileRelationKind(
+            playerId = session.playerId,
+            targetPlayerId = targetPlayerId,
+            relationKind = PersistedRelationKind.FRIEND,
+            enabled = payload.relation.friend,
+            comment = comment,
+            createdAt = now,
+        )
+        reconcileRelationKind(
+            playerId = session.playerId,
+            targetPlayerId = targetPlayerId,
+            relationKind = PersistedRelationKind.IGNORED,
+            enabled = payload.relation.ignore,
+            comment = comment,
+            createdAt = now,
+        )
+
+        return listOf(
+            RewriteFrames.commandResponse(commandId = commandId),
+            relationAddFrame(
+                receiverPlayerId = session.playerId,
+                relation = buildRelationFlagsPayload(
+                    playerId = session.playerId,
+                    targetPlayerId = targetPlayerId,
+                ),
+            ),
+        )
+    }
+
     private suspend fun handleChannelText(
         commandId: String,
         session: AuthenticatedChatSession,
@@ -1291,6 +1395,41 @@ class RewriteChatProtocolAdapter(
         )
     }
 
+    private fun relationListFrame(
+        receiverPlayerId: String,
+        relations: Collection<ChatRelation>,
+    ): FrameEnvelope {
+        return RewriteFrames.chatEvent(
+            eventId = UUID.randomUUID().toString(),
+            eventType = ChatParityEventType.RELATION_LIST,
+            payload = RewriteChatJson.encode(
+                serializer = ChatRelationListEventPayload.serializer(),
+                value = RetainedChatBootstrapPolicy.project(
+                    receiverPlayerId = PlayerId(receiverPlayerId),
+                    channelRosters = emptyList(),
+                    relations = relations,
+                ).relationList,
+            ),
+        )
+    }
+
+    private fun relationAddFrame(
+        receiverPlayerId: String,
+        relation: ChatRelationFlagsPayload,
+    ): FrameEnvelope {
+        return RewriteFrames.chatEvent(
+            eventId = UUID.randomUUID().toString(),
+            eventType = ChatParityEventType.RELATION_ADD,
+            payload = RewriteChatJson.encode(
+                serializer = ChatRelationAddEventPayload.serializer(),
+                value = ChatRelationAddEventPayload(
+                    receiverPlayerId = receiverPlayerId,
+                    relation = relation,
+                ),
+            ),
+        )
+    }
+
     private fun channelJoinFrame(
         receiverPlayerId: String,
         roster: ChatChannelRoster,
@@ -1502,6 +1641,51 @@ class RewriteChatProtocolAdapter(
         )
     }
 
+    private suspend fun reconcileRelationKind(
+        playerId: String,
+        targetPlayerId: String,
+        relationKind: PersistedRelationKind,
+        enabled: Boolean,
+        comment: String,
+        createdAt: Instant,
+    ) {
+        if (enabled) {
+            chatSocialRepository.upsertRelation(
+                PersistedChatRelation(
+                    playerId = playerId,
+                    targetPlayerId = targetPlayerId,
+                    relationKind = relationKind,
+                    createdAt = createdAt,
+                    relationPayload = RewriteChatJson.codec.encodeToString(
+                        ChatRelationPayload.serializer(),
+                        ChatRelationPayload(comment = comment),
+                    ),
+                ),
+            )
+        } else {
+            chatSocialRepository.deleteRelation(
+                playerId = playerId,
+                targetPlayerId = targetPlayerId,
+                relationKind = relationKind,
+            )
+        }
+    }
+
+    private suspend fun buildRelationFlagsPayload(
+        playerId: String,
+        targetPlayerId: String,
+    ): ChatRelationFlagsPayload {
+        return RetainedChatBootstrapPolicy.project(
+            receiverPlayerId = PlayerId(playerId),
+            channelRosters = emptyList(),
+            relations = loadRelations(playerId),
+        ).relationList.relations.firstOrNull { it.targetPlayerId == targetPlayerId }
+            ?: ChatRelationFlagsPayload(
+                targetPlayerId = targetPlayerId,
+                online = chatSocialRepository.listActivePresence(targetPlayerId).isNotEmpty(),
+            )
+    }
+
     private suspend fun logoutPlayerFromChannels(playerId: String) {
         val memberships = loadMembershipsForPlayer(playerId)
         for (membership in memberships) {
@@ -1583,6 +1767,7 @@ class RewriteChatProtocolAdapter(
         const val MAX_CHANNEL_USERS: Int = 120
         const val MAX_CHANNEL_NAME_LENGTH: Int = 18
         const val MAX_CHANNEL_PASSWORD_LENGTH: Int = 18
+        const val MAX_RELATION_COMMENT_LENGTH: Int = 14
         val VALID_CHANNEL_NAME: Regex = Regex("^[A-Za-z0-9 ._<>-]{1,18}$")
 
         fun errorResponse(

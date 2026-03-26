@@ -24,6 +24,10 @@ import com.hackwars.rewrite.protocol.ChatChannelTextPayload
 import com.hackwars.rewrite.protocol.ChatErrorEventPayload
 import com.hackwars.rewrite.protocol.ChatMutePayload
 import com.hackwars.rewrite.protocol.ChatParityEventType
+import com.hackwars.rewrite.protocol.ChatRelationAddEventPayload
+import com.hackwars.rewrite.protocol.ChatRelationAddPayload
+import com.hackwars.rewrite.protocol.ChatRelationFlagsPayload
+import com.hackwars.rewrite.protocol.ChatRelationListPayload
 import com.hackwars.rewrite.protocol.ChatRelationListEventPayload
 import com.hackwars.rewrite.protocol.ChatSubChannelsPayload
 import com.hackwars.rewrite.protocol.ChatSubChannelsEventPayload
@@ -216,6 +220,120 @@ class RewriteChatProtocolAdapterTest {
 
         assertEquals(CommandResponseStatus.COMMAND_RESPONSE_STATUS_OK, response.command_response?.status)
         assertEquals(listOf("General-0", "Trade-0", "Help-0"), refresh.channels.map { it.channelName })
+    }
+
+    @Test
+    fun relationListCommandReturnsMergedFlagsForActor() = runTest {
+        val fixture = createFixture()
+        val connection = fixture.authenticatedConnection()
+        connection.awaitFrame()
+        connection.awaitFrame()
+
+        val frames = connection.sendChatCommand(
+            commandName = "relation_list",
+            payload = ChatRelationListPayload(
+                senderPlayerId = "pf-localuser",
+            ),
+            serializer = ChatRelationListPayload.serializer(),
+        )
+
+        val relationList = frames.relationListEvent()
+        assertEquals(CommandResponseStatus.COMMAND_RESPONSE_STATUS_OK, frames.commandResponse().command_response?.status)
+        assertEquals("pf-localuser", relationList.receiverPlayerId)
+        assertEquals(listOf("alice"), relationList.relations.map { it.targetPlayerId })
+        assertTrue(relationList.relations.single().friend)
+        assertFalse(relationList.relations.single().ignore)
+        assertTrue(relationList.relations.single().online)
+        assertEquals("raid partner", relationList.relations.single().comment)
+    }
+
+    @Test
+    fun relationAddUpsertsFlagsAndReturnsActorLocalDelta() = runTest {
+        val fixture = createFixture()
+        val connection = fixture.authenticatedConnection()
+        connection.awaitFrame()
+        connection.awaitFrame()
+
+        val frames = connection.sendChatCommand(
+            commandName = "relation_add",
+            payload = ChatRelationAddPayload(
+                senderPlayerId = "pf-localuser",
+                relation = ChatRelationFlagsPayload(
+                    targetPlayerId = "bob",
+                    comment = "squadmate",
+                    friend = true,
+                    ignore = true,
+                    online = false,
+                ),
+            ),
+            serializer = ChatRelationAddPayload.serializer(),
+        )
+
+        val relationAdd = frames.relationAddEvent()
+        assertEquals(CommandResponseStatus.COMMAND_RESPONSE_STATUS_OK, frames.commandResponse().command_response?.status)
+        assertEquals("bob", relationAdd.relation.targetPlayerId)
+        assertEquals("squadmate", relationAdd.relation.comment)
+        assertTrue(relationAdd.relation.friend)
+        assertTrue(relationAdd.relation.ignore)
+        assertFalse(relationAdd.relation.online)
+        assertEquals(
+            listOf("alice", "bob"),
+            fixture.chatRepository.listRelations("pf-localuser", PersistedRelationKind.FRIEND)
+                .map { it.targetPlayerId }
+                .sorted(),
+        )
+        assertEquals(listOf("bob"), fixture.chatRepository.listRelations("pf-localuser", PersistedRelationKind.IGNORED).map { it.targetPlayerId })
+    }
+
+    @Test
+    fun relationAddRemovesFlagsTurnedOff() = runTest {
+        val fixture = createFixture()
+        fixture.chatRepository.upsertRelation(
+            PersistedChatRelation(
+                playerId = "pf-localuser",
+                targetPlayerId = "bob",
+                relationKind = PersistedRelationKind.FRIEND,
+                createdAt = Instant.parse("2026-03-26T10:06:00Z"),
+                relationPayload = """{"comment":"squadmate"}""",
+            ),
+        )
+        fixture.chatRepository.upsertRelation(
+            PersistedChatRelation(
+                playerId = "pf-localuser",
+                targetPlayerId = "bob",
+                relationKind = PersistedRelationKind.IGNORED,
+                createdAt = Instant.parse("2026-03-26T10:06:01Z"),
+                relationPayload = """{"comment":"squadmate"}""",
+            ),
+        )
+        val connection = fixture.authenticatedConnection()
+        connection.awaitFrame()
+        connection.awaitFrame()
+
+        val frames = connection.sendChatCommand(
+            commandName = "relation_add",
+            payload = ChatRelationAddPayload(
+                senderPlayerId = "pf-localuser",
+                relation = ChatRelationFlagsPayload(
+                    targetPlayerId = "bob",
+                    comment = "squadmate",
+                    friend = false,
+                    ignore = true,
+                    online = false,
+                ),
+            ),
+            serializer = ChatRelationAddPayload.serializer(),
+        )
+
+        val relationAdd = frames.relationAddEvent()
+        assertEquals(CommandResponseStatus.COMMAND_RESPONSE_STATUS_OK, frames.commandResponse().command_response?.status)
+        assertFalse(relationAdd.relation.friend)
+        assertTrue(relationAdd.relation.ignore)
+        assertEquals(
+            listOf("alice"),
+            fixture.chatRepository.listRelations("pf-localuser", PersistedRelationKind.FRIEND).map { it.targetPlayerId },
+        )
+        assertEquals(listOf("bob"), fixture.chatRepository.listRelations("pf-localuser", PersistedRelationKind.IGNORED).map { it.targetPlayerId })
     }
 
     @Test
@@ -898,6 +1016,22 @@ class RewriteChatProtocolAdapterTest {
         )
     }
 
+    private fun List<FrameEnvelope>.relationListEvent(): ChatRelationListEventPayload {
+        val frame = first { it.chat_event?.event_type == ChatParityEventType.RELATION_LIST.wireName }
+        return RewriteChatJson.decode(
+            serializer = ChatRelationListEventPayload.serializer(),
+            bytes = frame.chat_event!!.payload.toByteArray(),
+        )
+    }
+
+    private fun List<FrameEnvelope>.relationAddEvent(): ChatRelationAddEventPayload {
+        val frame = first { it.chat_event?.event_type == ChatParityEventType.RELATION_ADD.wireName }
+        return RewriteChatJson.decode(
+            serializer = ChatRelationAddEventPayload.serializer(),
+            bytes = frame.chat_event!!.payload.toByteArray(),
+        )
+    }
+
     private fun List<FrameEnvelope>.errorEvent(): ChatErrorEventPayload {
         val frame = first { it.chat_event?.event_type == ChatParityEventType.ERROR.wireName }
         return RewriteChatJson.decode(
@@ -1069,6 +1203,18 @@ private class InMemoryChatSocialRepository(
                 it.relationKind == relation.relationKind
         }
         relations += relation
+    }
+
+    override suspend fun deleteRelation(
+        playerId: String,
+        targetPlayerId: String,
+        relationKind: PersistedRelationKind,
+    ) {
+        relations.removeAll {
+            it.playerId == playerId &&
+                it.targetPlayerId == targetPlayerId &&
+                it.relationKind == relationKind
+        }
     }
 
     override suspend fun listRelations(

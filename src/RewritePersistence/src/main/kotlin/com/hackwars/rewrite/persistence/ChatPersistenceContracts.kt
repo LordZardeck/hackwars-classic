@@ -106,6 +106,12 @@ interface ChatSocialRepository {
 
     suspend fun upsertRelation(relation: PersistedChatRelation)
 
+    suspend fun deleteRelation(
+        playerId: String,
+        targetPlayerId: String,
+        relationKind: PersistedRelationKind,
+    )
+
     suspend fun listRelations(
         playerId: String,
         relationKind: PersistedRelationKind,

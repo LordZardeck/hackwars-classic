@@ -259,6 +259,28 @@ class JdbcChatSocialRepository(
         }
     }
 
+    override suspend fun deleteRelation(
+        playerId: String,
+        targetPlayerId: String,
+        relationKind: PersistedRelationKind,
+    ) {
+        connectionFactory().use { connection ->
+            connection.prepareStatement(
+                """
+                delete from rewrite_chat_relation
+                where player_id = ?
+                  and target_player_id = ?
+                  and relation_kind = ?
+                """.trimIndent(),
+            ).use { statement ->
+                statement.setString(1, playerId)
+                statement.setString(2, targetPlayerId)
+                statement.setString(3, relationKind.name)
+                statement.executeUpdate()
+            }
+        }
+    }
+
     override suspend fun listRelations(
         playerId: String,
         relationKind: PersistedRelationKind,

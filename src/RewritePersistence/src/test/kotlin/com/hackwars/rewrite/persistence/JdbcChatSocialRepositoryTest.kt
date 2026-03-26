@@ -11,6 +11,7 @@ import org.testcontainers.junit.jupiter.Testcontainers
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 @Testcontainers
 class JdbcChatSocialRepositoryTest {
@@ -176,6 +177,43 @@ class JdbcChatSocialRepositoryTest {
             )
         }
         assertEquals(emptyList(), runBlocking { repository.listActivePresence("alice") })
+    }
+
+    @Test
+    fun deletesSpecificRelationKind() {
+        resetDatabase()
+        seedPlayerAccount("alice", "PF-ALICE", "192.0.2.10")
+        seedPlayerAccount("bob", "PF-BOB", "192.0.2.11")
+        val repository = JdbcChatSocialRepository(connectionFactory = ::newConnection)
+
+        runBlocking {
+            repository.upsertRelation(
+                PersistedChatRelation(
+                    playerId = "alice",
+                    targetPlayerId = "bob",
+                    relationKind = PersistedRelationKind.FRIEND,
+                    createdAt = Instant.parse("2026-03-26T12:05:00Z"),
+                    relationPayload = """{"source":"import"}""",
+                ),
+            )
+            repository.upsertRelation(
+                PersistedChatRelation(
+                    playerId = "alice",
+                    targetPlayerId = "bob",
+                    relationKind = PersistedRelationKind.IGNORED,
+                    createdAt = Instant.parse("2026-03-26T12:06:00Z"),
+                    relationPayload = """{"source":"import"}""",
+                ),
+            )
+            repository.deleteRelation(
+                playerId = "alice",
+                targetPlayerId = "bob",
+                relationKind = PersistedRelationKind.FRIEND,
+            )
+        }
+
+        assertTrue(runBlocking { repository.listRelations("alice", PersistedRelationKind.FRIEND) }.isEmpty())
+        assertEquals(listOf("bob"), runBlocking { repository.listRelations("alice", PersistedRelationKind.IGNORED) }.map { it.targetPlayerId })
     }
 
     @Test

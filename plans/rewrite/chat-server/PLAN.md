@@ -126,7 +126,7 @@
 - Verification scope: `./gradlew :RewriteChatCore:test :RewriteChatServer:test`
 
 ### RW-CHAT-004A - Implement retained relations, ignore, friend, and mute model
-- Status: `ready`
+- Status: `done`
 - Priority: `P2`
 - Execution lane: `social`
 - Worker role: `worker`
@@ -137,9 +137,10 @@
 - Autonomous next: `RW-CHAT-004B`
 - Fallback if blocked: `RW-DATA-003D`
 - Verification scope: `./gradlew :RewriteChatCore:test :RewriteChatServer:test :RewritePersistence:test`
+- Locked scope note: this card closes retained `relation_list` and `relation_add`, including actor-local relation refresh, friend/ignore persistence reconciliation, retained comment payload storage, and single-kind delete support for boolean flag turnoff.
 
 ### RW-CHAT-004B - Implement retained online notifications and relation-driven fanout
-- Status: `todo`
+- Status: `ready`
 - Priority: `P2`
 - Execution lane: `social`
 - Worker role: `worker`
