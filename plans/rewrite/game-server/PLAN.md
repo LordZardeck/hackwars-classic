@@ -1,572 +1,255 @@
 # Rewrite Game Server Plan
 
 ## Scope
-- Own the rewrite game-server runtime and all server-side game behavior.
-- Never import legacy runtime code.
-- Preserve gameplay behavior from legacy evidence, not legacy architecture.
+- This plan covers retained rewrite GAME-server work that still backs the retained client roadmap.
+- Hacktendo server work is removed from rewrite scope.
+- Client blockers may only point at exact task IDs in this file; vague placeholder blockers are not allowed.
 
-## Architecture Checklist
-### RW-GS-001 - Define canonical server contracts
+## Locked Server Rules
+- Keep only retained server work that still backs the retained client, retained chat stack, or retained persistence roadmap.
+- Search and browser lookup support already landed as retained foundation and should not be reopened unless a retained downstream task names an exact parity gap.
+- New retained transport tasks must name the exact downstream client tasks they unblock.
+- Server tasks that only exist to support removed client scope must be marked `removed` instead of staying `todo`.
+
+## Execution Lanes
+| Lane | Scope | Primary write scope |
+| --- | --- | --- |
+| `core_runtime` | contracts, callbacks, scheduler, persistence hooks, interest fanout | `src/RewriteGameCore/**`, `src/RewriteGameServer/**` |
+| `retained_transports` | retained GAME commands and callback payloads that unblock client work | `src/RewriteGameCore/**`, `src/RewriteGameServer/**`, `src/RewriteProtocol/**` |
+| `combat_runtime` | attack, redirect, zombie, show-choices follow-up, runtime finalizers | `src/RewriteGameCore/**`, `src/RewriteGameServer/**`, `src/RewriteHackScript/**` |
+| `profile_help` | retained personal settings, help, tutorial, and public FTP password flows | `src/RewriteGameCore/**`, `src/RewriteGameServer/**`, `src/RewriteProtocol/**`, `src/RewritePersistence/**` |
+
+## Foundation Tasks
+### RW-GS-001 - Canonical server contracts foundation
 - Status: `done`
-- Owner: `codex`
+- Priority: `P0`
+- Execution lane: `core_runtime`
+- Worker role: `worker`
 - Depends on: `RW-M1-003`
-- Allowed write scope: `:RewriteGameCore`
-- Verification command: `./gradlew :RewriteGameCore:test`
-- Artifacts: `build/reports/tests/test`
-- Commit rule: `single green commit only`
-- Notes:
-  - Stabilize `GameStateStore`, `InterestRegistry`, `CommandContext`, `DeltaPublisher`, and `ProgramScheduler`.
-  - Freeze the minimum public interfaces before slice work fans out.
-  - Typed `ComputerState`, `ComputerEvent`, `ComputerDelta`, `ProgramUpdate`, and command contracts are now the canonical server surface.
+- Ready when: rewrite game-core contracts can be stabilized
+- Parallel with: `RW-GS-003`
+- Allowed write scope: `src/RewriteGameCore/**`, `src/RewriteProtocol/**`
+- Autonomous next: `RW-GS-004`
+- Fallback if blocked: `none`
+- Verification scope: `./gradlew :RewriteGameCore:test`
 
-### RW-GS-002 - Implement event-first state persistence hooks
+### RW-GS-002 - Event-first persistence hook foundation
 - Status: `done`
-- Owner: `codex`
+- Priority: `P0`
+- Execution lane: `core_runtime`
+- Worker role: `worker`
 - Depends on: `RW-GS-001`, `RW-DATA-002`
-- Allowed write scope: `:RewriteGameCore`, `:RewritePersistence`
-- Verification command: `./gradlew :RewriteGameCore:test :RewritePersistence:test`
-- Artifacts: `build/reports/tests/test`
-- Commit rule: `single green commit only`
-- Notes:
-  - Every mutation appends an event immediately.
-  - Snapshot save policy defaults to `50 events or 5 seconds`.
-  - JDBC repository coverage now proves typed event append, replay, JSON-byte roundtrip, and threshold-triggered snapshots.
+- Ready when: persistence adapters and event sinks can be exercised
+- Parallel with: `RW-GS-003`
+- Allowed write scope: `src/RewriteGameCore/**`, `src/RewritePersistence/**`
+- Autonomous next: `RW-GS-F1`
+- Fallback if blocked: `RW-GS-003`
+- Verification scope: `./gradlew :RewriteGameCore:test :RewritePersistence:test`
 
-### RW-GS-003 - Implement interest registry fanout
+### RW-GS-003 - Interest registry and fanout foundation
 - Status: `done`
-- Owner: `codex`
+- Priority: `P0`
+- Execution lane: `core_runtime`
+- Worker role: `worker`
 - Depends on: `RW-GS-001`
-- Allowed write scope: `:RewriteGameCore`
-- Verification command: `./gradlew :RewriteGameCore:test`
-- Artifacts: `build/reports/tests/test`
-- Commit rule: `single green commit only`
-- Notes:
-  - One connection may subscribe to multiple game states.
-  - All interested connections receive deltas for changed states.
-  - Reverse cleanup now removes leaked subscriptions when a connection is torn down.
+- Ready when: session fanout and subscription seams exist
+- Parallel with: `RW-GS-002`
+- Allowed write scope: `src/RewriteGameCore/**`, `src/RewriteGameServer/**`
+- Autonomous next: `RW-GS-004`
+- Fallback if blocked: `RW-GS-F1`
+- Verification scope: `./gradlew :RewriteGameCore:test`
 
-### RW-GS-004 - Implement request and callback command path
+### RW-GS-004 - Request and callback command path foundation
 - Status: `done`
-- Owner: `codex`
+- Priority: `P0`
+- Execution lane: `retained_transports`
+- Worker role: `worker`
 - Depends on: `RW-GS-001`, `RW-PROTO-002`
-- Allowed write scope: `:RewriteGameCore`, `:RewriteGameServer`
-- Verification command: `./gradlew :RewriteGameCore:test :RewriteGameServer:test`
-- Artifacts: `build/reports/tests/test`
-- Commit rule: `single green commit only`
-- Notes:
-  - Support fire-and-forget and request commands.
-  - Request commands return through callbacks and correlation IDs.
-  - `requestscan` and `setpreferences` now prove decode -> dispatch -> correlated response behavior through the rewrite harness.
+- Ready when: correlated request and callback handling can be validated
+- Parallel with: `RW-GS-005`
+- Allowed write scope: `src/RewriteGameCore/**`, `src/RewriteGameServer/**`, `src/RewriteProtocol/**`
+- Autonomous next: `RW-GS-F1`
+- Fallback if blocked: `RW-GS-005`
+- Verification scope: `./gradlew :RewriteGameCore:test :RewriteGameServer:test`
 
-### RW-GS-005 - Implement isolated program scheduler
+### RW-GS-005 - Isolated program scheduler foundation
 - Status: `done`
-- Owner: `codex`
+- Priority: `P0`
+- Execution lane: `core_runtime`
+- Worker role: `worker`
 - Depends on: `RW-GS-001`
-- Allowed write scope: `:RewriteGameCore`
-- Verification command: `./gradlew :RewriteGameCore:test`
-- Artifacts: `build/reports/tests/test`
-- Commit rule: `single green commit only`
-- Notes:
-  - Attack-like programs run in isolated coroutines with explicit lifetime and cancellation.
-  - Programs publish scoped status updates plus resulting deltas.
-  - Virtual-time tests now cover start, tick, completion, explicit cancellation, and lifetime expiry.
+- Ready when: retained program runtime can be scheduled deterministically
+- Parallel with: `RW-GS-004`
+- Allowed write scope: `src/RewriteGameCore/**`
+- Autonomous next: `RW-GS-F5`
+- Fallback if blocked: `RW-GS-F1`
+- Verification scope: `./gradlew :RewriteGameCore:test`
 
-## Vertical Slice Board
-### RW-GS-S1 - Session bootstrap, auth success path, initial snapshot, ping, reconnect
+### RW-GS-F1 - Session bootstrap, auth success path, initial snapshot, and reconnect foundation
+- Status: `done`
+- Priority: `P0`
+- Execution lane: `core_runtime`
+- Worker role: `worker`
+- Depends on: `RW-GS-002`, `RW-GS-003`, `RW-GS-004`
+- Ready when: retained bootstrap flow can complete end to end
+- Parallel with: `RW-GS-F2`
+- Allowed write scope: `src/RewriteGameCore/**`, `src/RewriteGameServer/**`, `src/RewriteProtocol/**`
+- Autonomous next: `RW-GS-F2`
+- Fallback if blocked: `RW-GS-F3`
+- Verification scope: `./gradlew :RewriteGameServer:test`
+
+### RW-GS-F2 - Filesystem, economy, website, browser, and store foundation
+- Status: `done`
+- Priority: `P0`
+- Execution lane: `retained_transports`
+- Worker role: `worker`
+- Depends on: `RW-GS-F1`
+- Ready when: retained filesystem and economy command set is stable
+- Parallel with: `RW-GS-F3`, `RW-GS-T1`, `RW-GS-T3`, `RW-GS-T5`
+- Allowed write scope: `src/RewriteGameCore/**`, `src/RewriteGameServer/**`, `src/RewriteProtocol/**`, `src/RewritePersistence/**`
+- Autonomous next: `RW-GS-F3`
+- Fallback if blocked: `RW-GS-T1`
+- Verification scope: `./gradlew :RewriteGameCore:test :RewritePersistence:test :RewriteGameServer:test :RewriteTestKit:integrationTest`
+
+### RW-GS-F3 - Network, scan, search, world lookup, and watch foundation
+- Status: `done`
+- Priority: `P0`
+- Execution lane: `retained_transports`
+- Worker role: `worker`
+- Depends on: `RW-GS-F1`
+- Ready when: retained network and search flows are stable
+- Parallel with: `RW-GS-T5`
+- Allowed write scope: `src/RewriteGameCore/**`, `src/RewriteGameServer/**`, `src/RewriteProtocol/**`, `src/RewritePersistence/**`
+- Autonomous next: `RW-GS-F4`
+- Fallback if blocked: `RW-GS-T5`
+- Verification scope: `./gradlew :RewriteGameCore:test :RewritePersistence:test :RewriteGameServer:test :RewriteTestKit:integrationTest`
+
+### RW-GS-F4 - Watch manager and trigger engine foundation
+- Status: `done`
+- Priority: `P1`
+- Execution lane: `core_runtime`
+- Worker role: `worker`
+- Depends on: `RW-GS-F2`, `RW-GS-F3`, `RW-GS-005`
+- Ready when: retained watch flows and trigger execution are stable
+- Parallel with: `RW-GS-F5`
+- Allowed write scope: `src/RewriteGameCore/**`, `src/RewriteGameServer/**`, `src/RewriteHackScript/**`
+- Autonomous next: `RW-GS-F5`
+- Fallback if blocked: `RW-GS-T6`
+- Verification scope: `./gradlew :RewriteHackScript:test :RewriteGameCore:test :RewriteGameServer:test`
+
+### RW-GS-F5 - Attack, redirect, and zombie runtime foundation
 - Status: `in_progress`
-- Owner: `codex`
-- Depends on: `RW-GS-001`, `RW-PROTO-001`
-- Allowed write scope: `:RewriteGameServer`, `:RewriteGameCore`, `:RewritePersistence`
-- Verification command: `./gradlew :RewriteGameServer:test`
-- Artifacts: `build/reports/tests/test`
-- Commit rule: `single green commit only`
-- Notes:
-  - Send exactly one full snapshot after login.
-  - No deltas before session bootstrap completes.
-  - Proof slice landed for auth success plus one bootstrap snapshot.
-  - Reconnect and full persistence-backed profile loading still need follow-on slice work.
+- Priority: `P1`
+- Execution lane: `combat_runtime`
+- Worker role: `worker`
+- Depends on: `RW-GS-005`, `RW-GS-F4`
+- Ready when: retained combat runtime and callback correlation are stable enough to finish missing protocol gaps
+- Parallel with: `RW-GS-T1`, `RW-GS-T4`, `RW-GS-T5`
+- Allowed write scope: `src/RewriteGameCore/**`, `src/RewriteGameServer/**`, `src/RewriteHackScript/**`, `src/RewriteProtocol/**`
+- Autonomous next: `RW-GS-T6`
+- Fallback if blocked: `RW-GS-T1`
+- Verification scope: `./gradlew :RewriteHackScript:test :RewriteGameCore:test :RewritePersistence:test :RewriteGameServer:test :RewriteTestKit:integrationTest`
 
-### RW-GS-S2 - Filesystem, files, scripts, FTP, equipment install, firewall install
-- Status: `done`
-- Owner: `codex`
-- Depends on: `RW-GS-S1`
-- Allowed write scope: `:RewriteGameCore`, `:RewriteGameServer`, `:RewritePersistence`
-- Verification command: `./gradlew :RewriteGameCore:test :RewritePersistence:test :RewritePersistence:migrationTest :RewriteGameServer:test :RewriteTestKit:integrationTest`
-- Artifacts: `build/reports/tests/test`
-- Commit rule: `single green commit only`
-- Notes:
-  - Cover directory requests, file load/save, compile/decompile, and install flows.
-  - Separate one-shot responses from state deltas.
-  - Typed filesystem state now uses `currentPath`, `directoriesByPath`, and `filesByPath` with canonical slash-prefixed paths.
-  - Rewrite game-core tests now cover request-directory/request-file/request-secondary-directory, path normalization, save/create/delete/delete-multi, compile/decompile petty-cash and XP side effects, banking-app install, equipment install, and firewall replacement semantics.
-  - Rewrite game-server harness tests now prove one-shot read responses, targeted filesystem/economy/port deltas, banking default-port selection, and replaced-firewall return-to-disk behavior.
+## Retained Client-Unblocking Tasks
+### RW-GS-T1 - Implement retained FTP upload and download transport
+- Status: `ready`
+- Priority: `P1`
+- Execution lane: `retained_transports`
+- Worker role: `worker`
+- Depends on: `RW-GS-F2`
+- Ready when: retained filesystem foundation is complete
+- Parallel with: `RW-GS-T3`, `RW-GS-T4`, `RW-GS-T5`
+- Allowed write scope: `src/RewriteGameCore/**`, `src/RewriteGameServer/**`, `src/RewriteProtocol/**`, `src/RewritePersistence/**`
+- Autonomous next: `RW-GS-T2`
+- Fallback if blocked: `RW-GS-T3`
+- Verification scope: `./gradlew :RewriteGameCore:test :RewritePersistence:test :RewriteGameServer:test :RewriteTestKit:integrationTest`
 
-### RW-GS-S3A - Economy, banking, purchases, and resale
-- Status: `done`
-- Owner: `codex`
-- Depends on: `RW-GS-S1`, `RW-GS-S2`
-- Allowed write scope: `:RewriteGameCore`, `:RewriteGameServer`, `:RewritePersistence`
-- Verification command: `./gradlew :RewriteGameCore:test :RewritePersistence:test :RewritePersistence:migrationTest :RewriteGameServer:test :RewriteTestKit:integrationTest`
-- Artifacts: `build/reports/tests/test`
-- Commit rule: `single green commit only`
-- Notes:
-  - Covers deposit, withdraw, transfer, single-file pricing, multi-file liquidation, and request-purchase.
-  - Store inventory remains inside typed filesystem state, with canonical shard-store routing through `store$serverId`.
-  - Rewrite tests now prove canonical banking wires, shard-store delta fanout, explicit revenue-target credits, and typed JDBC replay for economy/store events.
-
-### RW-GS-S3B1 - Static website editor, browser core, fallback pages, and vote
-- Status: `done`
-- Owner: `codex`
-- Depends on: `RW-GS-S3A`
-- Allowed write scope: `:RewriteGameCore`, `:RewriteGameServer`, `:RewritePersistence`
-- Verification command: `./gradlew :RewriteGameCore:test :RewritePersistence:test :RewritePersistence:migrationTest :RewriteGameServer:test :RewriteTestKit:integrationTest`
-- Artifacts: `build/reports/tests/test`
-- Commit rule: `single green commit only`
-- Notes:
-  - Covers `requestpage`, `savepage`, `requestwebpage`, `submit`, `exit`, and `vote`.
-  - Browser/editor page loads remain correlated request responses; no rewrite `webpage` push command was introduced.
-  - Static page rendering now returns the canonical legacy fallback page when the target lacks an active default HTTP site.
-  - Vote handling is normalized into a clean hard-failure path and now updates voter website votes, target website vote count, and target HTTP/Webdesign XP in one typed transaction.
-
-### RW-GS-S3B2 - Programmable HTTP enter/submit/exit hook runtime
-- Status: `done`
-- Owner: `codex`
-- Depends on: `RW-GS-S3B1`
-- Allowed write scope: `:RewriteHackScript`, `:RewriteGameCore`, `:RewriteGameServer`, `:RewritePersistence`
-- Verification command: `./gradlew :RewriteHackScript:test :RewriteGameCore:test :RewritePersistence:test :RewritePersistence:migrationTest :RewriteGameServer:test :RewriteTestKit:integrationTest rewriteCheck`
-- Artifacts: `build/reports/tests/test`
-- Commit rule: `single green commit only`
-- Notes:
-  - Adds executable HTTP `enter`, `submit`, and `exit` behavior on top of the `HttpHookRuntime` seam introduced in `RW-GS-S3B1`.
-  - Static page serving, fallback handling, and vote behavior are already covered and must not regress.
-  - The rewrite now preserves three-slot HTTP script bundles across save/request/compile/decompile/install, persists them through snapshots/events/import seeds, and executes them through the Kotlin-only `:RewriteHackScript` module.
-  - `submit` now runs `submit` then `enter` against a shared mutable body/include-store state, while parse/runtime failures fall back to the static `RW-GS-S3B1` render path.
-  - Daily pay, empty-petty-cash, and later zombie-adjacent helper work remain outside this slice.
-
-### RW-GS-S3B3A - HTTP hook side-effect seams
-- Status: `done`
-- Owner: `codex`
-- Depends on: `RW-GS-S3B2`
-- Allowed write scope: `:RewriteHackScript`, `:RewriteGameCore`, `:RewriteGameServer`, `:RewriteProtocol`, `:RewritePersistence`
-- Verification command: `./gradlew :RewriteHackScript:test :RewriteGameCore:test :RewritePersistence:test :RewritePersistence:migrationTest :RewriteGameServer:test :RewriteTestKit:integrationTest rewriteCheck`
-- Artifacts: `build/reports/tests/test`
-- Commit rule: `single green commit only`
-- Notes:
-  - Implements `logMessage`, `popUp`, and `triggerWatch`/`triggerWatchRemote` as rewrite-safe side-effect seams on top of the phased HTTP hook runtime.
-  - `logMessage` now appends persisted bounded host log state and emits `logs` deltas to host listeners.
-  - `popUp` now emits typed transient `GameUiEventEnvelope` frames to the requesting connection only and preserves the legacy four-popup cap per hook execution slot.
-  - `triggerWatch` and `triggerWatchRemote` now record typed `WatchTriggerIntent` objects through `HookSideEffectSink`; explicit execution binding now lives in `RW-GS-S5A2` while passive and combat-oriented watch behavior remains deferred.
-  - Request/submit flush order is now fixed to deltas, then UI events, then correlated response. Exit remains fire-and-forget with side effects only.
-
-### RW-GS-S3B3B - Bind HTTP watch-trigger intents into the real watch engine
-- Status: `done`
-- Owner: `codex`
-- Depends on: `RW-GS-S3B3A`, `RW-GS-S5A2`
-- Allowed write scope: `:RewriteGameCore`, `:RewriteGameServer`
-- Verification command: `./gradlew :RewriteGameCore:test :RewriteGameServer:test`
-- Artifacts: `build/reports/tests/test`
-- Commit rule: `single green commit only`
-- Notes:
-  - Consumes `WatchTriggerIntent` from the seam introduced in `RW-GS-S3B3A` and binds it into synchronous installed-watch execution during `requestwebpage`, `submit`, and `exit`.
-  - Preserves the NPC-only gate on `triggerWatchRemote`, the non-fatal hook failure rules from `RW-GS-S3B2` and `RW-GS-S3B3A`, and the existing correlated browser response ordering.
-
-### RW-GS-S3B3C - Broader HackScript side-effect helpers and client/system-message parity
+### RW-GS-T2 - Implement retained `malget` and theft-transfer transport
 - Status: `todo`
-- Owner: `unassigned`
-- Depends on: `RW-GS-S3B3A`
-- Allowed write scope: `:RewriteHackScript`, `:RewriteGameCore`, `:RewriteGameServer`, `:RewriteProtocol`, `:RewriteClient`
-- Verification command: `./gradlew :RewriteHackScript:test :RewriteGameCore:test :RewriteGameServer:test :RewriteClient:test`
-- Artifacts: `build/reports/tests/test`
-- Commit rule: `single green commit only`
-- Notes:
-  - Owns any remaining side-effectful linker helpers beyond the `RW-GS-S3B3A` seam, including richer system-message and popup parity work once the rewrite client utility/message slices exist.
-  - May broaden HackScript compatibility only after preserving the render-path and side-effect ordering guarantees already covered by `RW-GS-S3B2` and `RW-GS-S3B3A`.
+- Priority: `P1`
+- Execution lane: `retained_transports`
+- Worker role: `worker`
+- Depends on: `RW-GS-T1`, `RW-GS-F5`
+- Ready when: retained FTP upload or download transport and retained combat filesystem hooks are complete
+- Parallel with: `RW-GS-T4`, `RW-GS-T5`
+- Allowed write scope: `src/RewriteGameCore/**`, `src/RewriteGameServer/**`, `src/RewriteProtocol/**`, `src/RewritePersistence/**`
+- Autonomous next: `RW-CLIENT-W2C2`
+- Fallback if blocked: `RW-GS-T1`
+- Verification scope: `./gradlew :RewriteHackScript:test :RewriteGameCore:test :RewritePersistence:test :RewriteGameServer:test :RewriteTestKit:integrationTest`
 
-### RW-GS-S4A - Quest progress, save files, clue compatibility, bounty creation, and trigger seams
-- Status: `done`
-- Owner: `codex`
-- Depends on: `RW-GS-S1`, `RW-GS-S2`, `RW-GS-S3A`, `RW-GS-S3B3A`
-- Allowed write scope: `:RewriteGameCore`, `:RewriteGameServer`, `:RewritePersistence`
-- Verification command: `./gradlew :RewriteGameCore:test :RewritePersistence:test :RewritePersistence:migrationTest :RewriteGameServer:test :RewriteTestKit:integrationTest rewriteCheck`
-- Artifacts: `build/reports/tests/test`
-- Commit rule: `single green commit only`
-- Notes:
-  - Covers `requesttask`, `requestsave`, `cluedata`, `makebounty`, `requesttrigger`, and internal `requesttriggernote` compatibility.
-  - Quest state now tracks active quest progress, completed quest ids, and passive clue payload compatibility state.
-  - Save files now persist typed scalar metadata plus locked legacy text serialization, and bounty creation now writes typed bounty files into canonical shard-store inventory while debiting creator petty cash.
-  - Explicit trigger requests now route into the shared typed `WatchTriggerIntentSink` seam without executing the watch system yet.
+### RW-GS-T3 - Implement retained public FTP password transport
+- Status: `ready`
+- Priority: `P1`
+- Execution lane: `profile_help`
+- Worker role: `worker`
+- Depends on: `RW-GS-F2`
+- Ready when: retained FTP foundation and persistence hooks are stable
+- Parallel with: `RW-GS-T1`, `RW-GS-T4`, `RW-GS-T5`
+- Allowed write scope: `src/RewriteGameCore/**`, `src/RewriteGameServer/**`, `src/RewriteProtocol/**`, `src/RewritePersistence/**`
+- Autonomous next: `RW-CLIENT-W2C2`
+- Fallback if blocked: `RW-GS-T1`
+- Verification scope: `./gradlew :RewriteGameCore:test :RewritePersistence:test :RewriteGameServer:test :RewriteTestKit:integrationTest`
 
-### RW-GS-S4B1 - Current-network state, switching, and typed scan parity
-- Status: `done`
-- Owner: `codex`
-- Depends on: `RW-GS-S1`
-- Allowed write scope: `:RewriteGameCore`, `:RewriteGameServer`, `:RewritePersistence`
-- Verification command: `./gradlew :RewriteGameCore:test :RewritePersistence:test :RewritePersistence:migrationTest :RewriteGameServer:test :RewriteTestKit:integrationTest rewriteCheck`
-- Artifacts: `build/reports/tests/test`
-- Commit rule: `single green commit only`
-- Notes:
-  - Adds authoritative typed `NetworkState` on the player state, including the resolved shard-store state id, cooldown timestamp, allowed-network set, and current-network NPC directory lists.
-  - Covers public `changenetwork`, internal-only `changenetwork2` compatibility via `ChangeNetworkDirectCommand`, and typed `requestscan` parity with requester petty-cash and scanning-XP side effects.
-  - `requestscan` remains a single correlated response, now uses typed masked port/firewall views, and publishes requester `economy` plus `stats` deltas before the response.
-  - `requestgame` is intentionally excluded from this slice; the rewrite network view is derived from session snapshot plus targeted `network` deltas instead of a one-shot fetch command.
+### RW-GS-T4 - Implement retained personal-settings and profile-mutation transport
+- Status: `blocked`
+- Priority: `P2`
+- Execution lane: `profile_help`
+- Worker role: `worker`
+- Depends on: `RW-GS-F1`, `RW-DATA-003B`
+- Ready when: retained session bootstrap and player or computer schema slices are stable
+- Parallel with: `RW-GS-T1`, `RW-GS-T3`, `RW-GS-T5`
+- Allowed write scope: `src/RewriteGameCore/**`, `src/RewriteGameServer/**`, `src/RewriteProtocol/**`, `src/RewritePersistence/**`
+- Autonomous next: `RW-CLIENT-W7B`
+- Fallback if blocked: `RW-GS-T5`
+- Verification scope: `./gradlew :RewriteGameCore:test :RewritePersistence:test :RewriteGameServer:test`
 
-### RW-GS-S4B2 - Rewrite-owned world directory and network access refresh
-- Status: `done`
-- Owner: `codex`
-- Depends on: `RW-GS-S4B1`, `RW-M4-001`
-- Allowed write scope: `:RewriteGameCore`, `:RewriteGameServer`, `:RewritePersistence`
-- Verification command: `./gradlew :RewriteGameCore:test :RewritePersistence:test :RewritePersistence:migrationTest :RewriteGameServer:test :RewriteTestKit:integrationTest rewriteCheck`
-- Artifacts: `build/reports/tests/test`
-- Commit rule: `single green commit only`
-- Notes:
-  - Replaces the default in-memory world stub with rewrite-owned world-directory tables, JDBC repository coverage, and importer/seed payloads.
-  - Adds internal-only `GrantNetworkAccessCommand` and `RefreshCurrentNetworkDirectoryCommand` so future quest/combat flows can unlock networks and refresh current-network directory state without adding new public transport commands.
-  - Game bootstrap now refreshes current-network store routing and NPC lists before returning the one required snapshot, while still emitting no pre-bootstrap delta frames.
-  - `changenetwork` continues to behave the same on the wire, but it now resolves switch validation text and destination directory data from rewrite-owned persistence rather than hardcoded defaults.
+### RW-GS-T5 - Implement retained Help and Tutorial content or query transport
+- Status: `ready`
+- Priority: `P2`
+- Execution lane: `profile_help`
+- Worker role: `worker`
+- Depends on: `RW-GS-F2`, `RW-GS-F3`
+- Ready when: retained browser, website, and search foundations are complete
+- Parallel with: `RW-GS-T1`, `RW-GS-T3`, `RW-GS-T4`
+- Allowed write scope: `src/RewriteGameCore/**`, `src/RewriteGameServer/**`, `src/RewriteProtocol/**`, `src/RewritePersistence/**`
+- Autonomous next: `RW-CLIENT-W3C2`
+- Fallback if blocked: `RW-GS-T4`
+- Verification scope: `./gradlew :RewriteGameCore:test :RewriteGameServer:test :RewriteTestKit:integrationTest`
 
-### RW-GS-S4C - Search and world/browser lookup flows
-- Status: `done`
-- Owner: `unassigned`
-- Depends on: `RW-GS-S4B2`
-- Allowed write scope: `:RewriteGameCore`, `:RewritePersistence`, `:RewriteGameServer`
-- Verification command: `./gradlew :RewriteGameCore:test :RewritePersistence:test :RewritePersistence:migrationTest :RewriteGameServer:test :RewriteTestKit:integrationTest rewriteCheck`
-- Artifacts: `build/reports/tests/test`
-- Commit rule: `single green commit only`
-- Notes:
-  - Owns rewrite ranked website search on the existing game connection and keeps results request/response-only with no discovery subscriptions.
-  - Preserves the legacy visibility gate: searchable sites must have active HTTP and belong to NPCs or players inactive for at least 14 days.
-  - Keeps browser lookup narrow in this slice: `requestsearch` returns normalized site addresses for later `requestwebpage`, while remote domain lookup and broader world discovery remain deferred.
+### RW-GS-T6 - Close retained attack and redirect runtime finalizers and protocol parity
+- Status: `blocked`
+- Priority: `P1`
+- Execution lane: `combat_runtime`
+- Worker role: `worker`
+- Depends on: `RW-GS-F5`
+- Ready when: retained combat runtime foundation is sufficiently stable to close remaining protocol gaps
+- Parallel with: `RW-GS-T1`, `RW-GS-T4`
+- Allowed write scope: `src/RewriteGameCore/**`, `src/RewriteGameServer/**`, `src/RewriteHackScript/**`, `src/RewriteProtocol/**`
+- Autonomous next: `RW-GS-T7`
+- Fallback if blocked: `RW-GS-T1`
+- Verification scope: `./gradlew :RewriteHackScript:test :RewriteGameCore:test :RewritePersistence:test :RewriteGameServer:test :RewriteTestKit:integrationTest`
 
-### RW-GS-S5A1 - Watch manager core
-- Status: `done`
-- Owner: `codex`
-- Depends on: `RW-GS-005`, `RW-GS-S4A`, `RW-GS-S2`
-- Allowed write scope: `:RewriteGameCore`, `:RewriteGameServer`, `:RewritePersistence`
-- Verification command: `./gradlew :RewriteGameCore:test :RewritePersistence:test :RewritePersistence:migrationTest :RewriteGameServer:test :RewriteTestKit:integrationTest rewriteCheck`
-- Artifacts: `build/reports/tests/test`
-- Commit rule: `single green commit only`
-- Notes:
-  - Covers `fetchwatches`, `installwatch`, `setwatchnote`, `setwatchonoff`, `setwatchquantity`, `setwatchobservedports`, `setwatchsearchfirewall`, `changewatchport`, `changewatchtype`, and `deletewatch`.
-  - Adds typed `WatchManagerState`, `InstalledWatch`, legacy-capacity rules, and CPU-load bookkeeping without executing installed watch programs yet.
-  - Public watch commands now persist first, publish typed `watches` and `runtime` deltas where required, and return correlated typed list/mutation responses on the rewrite game socket.
-  - `requesttrigger` and HTTP hook `triggerWatch*` remain seam-only in this slice and continue emitting `WatchTriggerIntent` without binding into execution.
+### RW-GS-T7 - Close retained zombie and show-choices follow-up parity transport
+- Status: `todo`
+- Priority: `P1`
+- Execution lane: `combat_runtime`
+- Worker role: `worker`
+- Depends on: `RW-GS-T6`
+- Ready when: retained attack or redirect protocol parity is closed and zombie follow-up correlation gaps can be addressed
+- Parallel with: `RW-GS-T2`
+- Allowed write scope: `src/RewriteGameCore/**`, `src/RewriteGameServer/**`, `src/RewriteHackScript/**`, `src/RewriteProtocol/**`
+- Autonomous next: `RW-CLIENT-C9B`
+- Fallback if blocked: `RW-GS-T6`
+- Verification scope: `./gradlew :RewriteHackScript:test :RewriteGameCore:test :RewriteGameServer:test :RewriteTestKit:integrationTest`
 
-### RW-GS-S5A2 - Explicit watch-trigger execution and binding
-- Status: `done`
-- Owner: `codex`
-- Depends on: `RW-GS-S5A1`, `RW-GS-S3B3A`
-- Allowed write scope: `:RewriteHackScript`, `:RewriteGameCore`, `:RewriteGameServer`, `:RewritePersistence`
-- Verification command: `./gradlew :RewriteHackScript:test :RewriteGameCore:test :RewritePersistence:test :RewritePersistence:migrationTest :RewriteGameServer:test :RewriteTestKit:integrationTest rewriteCheck`
-- Artifacts: `build/reports/tests/test`
-- Commit rule: `single green commit only`
-- Notes:
-  - Binds existing `WatchTriggerIntent` from explicit trigger commands and HTTP hook seams into real installed-watch execution rules that run synchronously in the current command flow.
-  - Keeps the supported helper surface intentionally narrow in this slice: explicit triggers can append host logs and deposit petty cash, while unsupported helpers fail that watch execution non-fatally.
-  - Preserves the manager/config guarantees from `RW-GS-S5A1` and keeps missing or disabled matches as successful no-ops.
+## Client Unblock Map
+| Client task | Upstream server task(s) |
+| --- | --- |
+| `RW-CLIENT-W2C2` | `RW-GS-T1`, `RW-GS-T2`, `RW-GS-T3` |
+| `RW-CLIENT-W3C2` | `RW-GS-T5` |
+| `RW-CLIENT-W7B` | `RW-GS-T4` |
+| `RW-CLIENT-C9B` | `RW-GS-T6`, `RW-GS-T7` |
 
-### RW-GS-S5A3A - Passive petty-cash and scan watches with fractional XP
-- Status: `done`
-- Owner: `unassigned`
-- Depends on: `RW-GS-S5A2`
-- Allowed write scope: `:RewriteHackScript`, `:RewriteGameCore`, `:RewriteGameServer`, `:RewritePersistence`
-- Verification command: `./gradlew :RewriteHackScript:test :RewriteGameCore:test :RewritePersistence:test :RewritePersistence:migrationTest :RewriteGameServer:test :RewriteTestKit:integrationTest rewriteCheck`
-- Artifacts: `build/reports/tests/test`
-- Commit rule: `single green commit only`
-- Notes:
-  - Adds single-pass passive petty-cash and scan auto-fire on top of the installed-watch execution path and keeps evaluation synchronous inside the originating command flow.
-  - Migrates rewrite XP storage and response surfaces to fractional `Double` values, including watch XP awarded once per passive trigger pass.
-  - Preserves the locked legacy petty-cash threshold and overheat gates, and keeps health-watch auto-fire deferred to `RW-GS-S5A3B`.
-
-### RW-GS-S5A3B - Passive health-watch auto-fire
-- Status: `done`
-- Owner: `codex`
-- Depends on: `RW-GS-S5A3A`, `RW-GS-S5B2A`
-- Allowed write scope: `:RewriteGameCore`, `:RewriteGameServer`
-- Verification command: `./gradlew :RewriteGameCore:test :RewriteGameServer:test`
-- Artifacts: `build/reports/tests/test`
-- Commit rule: `single green commit only`
-- Notes:
-  - Owns passive `WatchKind.HEALTH` auto-fire on combat-driven port-health loss using the same installed-watch runtime and single-pass evaluation model as the earlier watch slices.
-  - Health watchers now execute only from typed combat damage, refresh baselines on non-overheated matching ports, and keep heal or recovery-driven baseline resets deferred to a later runtime or heal slice.
-  - Must not regress the explicit and passive petty-cash or scan behavior from earlier watch slices while the richer post-`RW-GS-S5B2A` combat-helper work remains deferred.
-
-### RW-GS-S5B1 - Attack start/cancel program foundation
-- Status: `done`
-- Owner: `codex`
-- Depends on: `RW-GS-005`
-- Allowed write scope: `:RewriteGameCore`, `:RewriteGameServer`, `:RewritePersistence`
-- Verification command: `./gradlew :RewriteGameCore:test :RewritePersistence:test :RewritePersistence:migrationTest :RewriteGameServer:test :RewriteTestKit:integrationTest rewriteCheck`
-- Artifacts: `build/reports/tests/test`
-- Commit rule: `single green commit only`
-- Notes:
-  - Owns public `requestattack` and `requestcancelattack`, internal `requestattackdefault`, and scheduler-backed typed attack sessions on the attacker state only.
-  - Preserves the locked start fee, CPU reservation, and source-port attacking bookkeeping while deferring target mutation, damage, rewards, and attack-script side effects.
-  - Keeps `ProgramUpdate` as the only in-flight stream surface, with attacker-state deltas flushing before correlated start/cancel responses.
-
-### RW-GS-S5B2A - Deterministic target-side combat damage and resolution
-- Status: `done`
-- Owner: `codex`
-- Depends on: `RW-GS-S5B1`
-- Allowed write scope: `:RewriteGameCore`, `:RewriteGameServer`, `:RewritePersistence`
-- Verification command: `./gradlew :RewriteGameCore:test :RewritePersistence:test :RewriteGameServer:test :RewriteTestKit:integrationTest`
-- Artifacts: `build/reports/tests/test`
-- Commit rule: `single green commit only`
-- Notes:
-  - Adds bilateral combat admission and cleanup, deterministic target-port damage ticks, attacker attack-XP rewards, and target incoming-lock persistence without introducing attack-script runtime yet.
-  - Running ticks now mutate target port health, refresh attacker-side typed target views, and publish target deltas while keeping `ProgramUpdate` scoped to attacker-state listeners only.
-  - Emits typed passive health-change triggers on combat damage so `RW-GS-S5A3B` can bind health-watch auto-fire without reworking the combat loop.
-
-### RW-GS-S5B2B1 - Installed attack-script runtime core
-- Status: `done`
-- Owner: `codex`
-- Depends on: `RW-GS-S5B2A`
-- Allowed write scope: `:RewriteHackScript`, `:RewriteGameCore`, `:RewriteGameServer`, `:RewritePersistence`
-- Verification command: `./gradlew :RewriteHackScript:test :RewriteGameCore:test :RewritePersistence:test :RewriteGameServer:test :RewriteTestKit:integrationTest`
-- Artifacts: `build/reports/tests/test`
-- Commit rule: `single green commit only`
-- Notes:
-  - Runs installed attack-application `INITIALIZE`, `CONTINUE`, and `FINALIZE` script slots from `ProgramScriptBundle` using the rewrite-native HackScript runtime.
-  - Keeps the effect surface intentionally narrow in this tranche: attack scripts can read typed combat context and append attacker-side host logs only.
-  - Preserves the deterministic damage and attack-XP loop from `RW-GS-S5B2A`; parse/runtime failures are non-fatal and do not cancel the outer attack flow.
-
-### RW-GS-S5B2B2A - Attack log finalizers and continue-time cancel helper
-- Status: `in_progress`
-- Owner: `codex`
-- Depends on: `RW-GS-S5B2B1`
-- Allowed write scope: `:RewriteHackScript`, `:RewriteGameCore`, `:RewriteGameServer`, `:RewritePersistence`
-- Verification command: `./gradlew :RewriteHackScript:test :RewriteGameCore:test :RewritePersistence:test :RewriteGameServer:test :RewriteTestKit:integrationTest`
-- Artifacts: `build/reports/tests/test`
-- Commit rule: `single green commit only`
-- Notes:
-  - Adds the first target-side attack-script helper effects only: `editLogs(data, replace)`, `deleteLogs(ip)`, and a safe continue-time `cancelAttack()` helper.
-  - `CONTINUE` helper finalizers still allow the current deterministic damage, attack-XP, and health-watch pass before bilateral cleanup and an attacker-scoped `CANCELLED` update.
-  - `FINALIZE` helper effects are limited to target log mutation before normal completion cleanup and the attacker-scoped `COMPLETED` update.
-
-### RW-GS-S5B2B2B1 - Freeze helper and deterministic firewall combat core
-- Status: `in_progress`
-- Owner: `codex`
-- Depends on: `RW-GS-S5B2B2A`
-- Allowed write scope: `:RewriteHackScript`, `:RewriteGameCore`, `:RewriteGameServer`, `:RewritePersistence`
-- Verification command: `./gradlew :RewriteHackScript:test :RewriteGameCore:test :RewritePersistence:test :RewriteGameServer:test :RewriteTestKit:integrationTest`
-- Artifacts: `build/reports/tests/test`
-- Commit rule: `single green commit only`
-- Notes:
-  - Adds typed deterministic firewall combat data, fixed attack-back, target-port freeze state, equipment freeze immunity, and the installed attack-script `freeze()` helper.
-  - Preserves the deterministic base damage loop, attack XP, bilateral cleanup, and health-watch auto-fire already delivered in earlier combat and watch slices.
-  - Keeps richer control helpers and the heavier target-side mutation helpers deferred behind the next follow-on sub-slices.
-
-### RW-GS-S5B2B2B2 - Berserk and switchAttack retargeting
-- Status: `in_progress`
-- Owner: `codex`
-- Depends on: `RW-GS-S5B2B2B1`
-- Allowed write scope: `:RewriteHackScript`, `:RewriteGameCore`, `:RewriteGameServer`, `:RewritePersistence`
-- Verification command: `./gradlew :RewriteHackScript:test :RewriteGameCore:test :RewritePersistence:test :RewritePersistence:migrationTest :RewriteGameServer:test :RewriteTestKit:integrationTest rewriteCheck`
-- Artifacts: `build/reports/tests/test`
-- Commit rule: `single green commit only`
-- Notes:
-  - Adds the installed attack-script `berserk()` helper as an extra deterministic damage pass with self-damage and extra attack XP before the normal tick damage loop.
-  - Adds `switchAttack()` as same-state deterministic retargeting across the persisted target ring `[initialTargetPort] + secondaryPorts`, while preserving the running session, iteration count, fee, and reserved CPU state.
-  - Keeps broader target-side economy, watch, file, social, and redirect or zombie-linked behavior deferred to `RW-GS-S5B2B2B3`.
-
-### RW-GS-S5B2B2B3A - destroyWatches target-side finalizer
-- Status: `in_progress`
-- Owner: `codex`
-- Depends on: `RW-GS-S5B2B2B2`
-- Allowed write scope: `:RewriteHackScript`, `:RewriteGameCore`, `:RewriteGameServer`, `:RewritePersistence`
-- Verification command: `./gradlew :RewriteHackScript:test :RewriteGameCore:test :RewritePersistence:test :RewriteGameServer:test :RewriteTestKit:integrationTest`
-- Artifacts: `build/reports/tests/test`
-- Commit rule: `single green commit only`
-- Notes:
-  - Adds the narrow installed attack-script `destroyWatches()` helper as a target-side finalizer in `CONTINUE` and `FINALIZE`.
-  - Removes only enabled non-scan watches on the current target port, respects NPC and installed-equipment immunity, updates target watch/runtime state, and preserves same-tick deterministic damage before cleanup.
-  - Keeps the broader target-side economy, file, social, and redirect or zombie-linked helper work deferred to follow-on sub-slices.
-
-### RW-GS-S5B2B2B3B1 - emptyPettyCash target-side economy finalizer
-- Status: `in_progress`
-- Owner: `codex`
-- Depends on: `RW-GS-S5B2B2B3A`
-- Allowed write scope: `:RewriteHackScript`, `:RewriteGameCore`, `:RewriteGameServer`, `:RewritePersistence`
-- Verification command: `./gradlew :RewriteHackScript:test :RewriteGameCore:test :RewritePersistence:test :RewriteGameServer:test :RewriteTestKit:integrationTest`
-- Artifacts: `build/reports/tests/test`
-- Commit rule: `single green commit only`
-- Notes:
-  - Adds the installed attack-script `emptyPettyCash()` helper as a deterministic target-side economy finalizer in `CONTINUE` and `FINALIZE`.
-  - Uses typed firewall action profiles to resolve legacy petty-cash failure into a deterministic zero-amount steal, otherwise transfers a reduction-adjusted petty-cash amount from target to attacker and evaluates passive petty-cash watches on both sides before cleanup.
-  - Keeps file, social, message, zombie-linked, and redirect or shipping-port helper work deferred to follow-on sub-slices.
-
-### RW-GS-S5B2B2B3B2A - stealFile target-side filesystem finalizer
-- Status: `completed`
-- Owner: `codex`
-- Depends on: `RW-GS-S5B2B2B3B1`
-- Allowed write scope: `:RewriteHackScript`, `:RewriteGameCore`, `:RewriteGameServer`, `:RewritePersistence`
-- Verification command: `./gradlew :RewriteHackScript:test :RewriteGameCore:test :RewritePersistence:test :RewritePersistence:migrationTest :RewriteGameServer:test :RewriteTestKit:integrationTest rewriteCheck`
-- Artifacts: `build/reports/tests/test`
-- Commit rule: `single green commit only`
-- Notes:
-  - Adds the installed attack-script `stealFile()` helper as a deterministic target-side filesystem finalizer in `CONTINUE` and `FINALIZE`.
-  - Steals exactly one file unit from the first eligible `/Public` FTP listing entry in deterministic sorted order, copies it to the attacker root path `/`, preserves typed file metadata, and treats configured firewall steal-file failure as a deterministic no-transfer outcome.
-  - Keeps malicious install, daily-pay, message, zombie-linked, and other social/helper work deferred to follow-on sub-slices.
-
-### RW-GS-S5B2B2B3B2B - installScript malicious installed-program finalizer
-- Status: `in_progress`
-- Owner: `codex`
-- Depends on: `RW-GS-S5B2B2B3B2A`
-- Allowed write scope: `:RewriteHackScript`, `:RewriteGameCore`, `:RewriteGameServer`, `:RewritePersistence`
-- Verification command: `./gradlew :RewriteHackScript:test :RewriteGameCore:test :RewritePersistence:test :RewriteGameServer:test :RewriteTestKit:integrationTest`
-- Artifacts: `build/reports/tests/test`
-- Commit rule: `single green commit only`
-- Notes:
-  - Adds the installed attack-script `installScript()` helper as a deterministic target-side malicious installed-program finalizer in `CONTINUE` and `FINALIZE`.
-  - Consumes one compatible attacker binary before NPC, weakened, or deterministic firewall-fail gates, and only mutates the target port's existing installed script bundle plus minimal malicious config when the target is non-NPC and weakened.
-  - Keeps daily-pay, message, zombie-linked, and broader social/helper behavior deferred to follow-on sub-slices.
-
-### RW-GS-S5B2B2B3B2C1 - message targeted UI helper
-- Status: `done`
-- Owner: `codex`
-- Depends on: `RW-GS-S5B2B2B3B2B`
-- Allowed write scope: `:RewriteHackScript`, `:RewriteGameCore`, `:RewriteGameServer`, `:RewritePersistence`
-- Verification command: `./gradlew :RewriteHackScript:test :RewriteGameCore:test :RewritePersistence:test :RewriteGameServer:test :RewriteTestKit:integrationTest`
-- Artifacts: `build/reports/tests/test`
-- Commit rule: `single green commit only`
-- Notes:
-  - Adds the installed attack-script `message(ip, text)` helper as a targeted rewrite UI event for attacker or current-target subscribers only.
-  - Keeps `message()` non-finalizing and preserves the current deterministic damage, cleanup, and program-update ordering.
-  - Keeps daily-pay and zombie-linked behavior deferred to follow-on sub-slices.
-
-### RW-GS-S5B2B2B3B2C2A - shared changeDailyPay redirect core plus session-loaded daily income
-- Status: `done`
-- Owner: `codex`
-- Depends on: `RW-GS-S5B2B2B3B2C1`
-- Allowed write scope: `:RewriteHackScript`, `:RewriteGameCore`, `:RewriteGameServer`, `:RewritePersistence`, `:RewriteTestKit`
-- Verification command: `./gradlew :RewriteHackScript:test :RewriteGameCore:test :RewritePersistence:test :RewriteGameServer:test :RewriteTestKit:integrationTest`
-- Artifacts: `build/reports/tests/test`
-- Commit rule: `single green commit only`
-- Notes:
-  - Adds typed rewrite `DailyPayState`, the public `changedailypay` command, and the installed attack-script `changeDailyPay(targetIp)` helper over the same shared redirect resolver.
-  - Preserves deterministic firewall no-op handling, typed CHANGE-bounty consumption plus anti-immediate-retake guard, and HTTP-install reset of redirect ownership.
-  - Adds the hidden session-loaded daily-income runtime, including subscriber-scoped startup and shutdown, due-pay log/economy/vote/HTTP-XP side effects, and passive petty-cash watch evaluation on both affected states.
-
-### RW-GS-S5B2B2B3B2C2B - daily-pay UI and social polish
-- Status: `done`
-- Owner: `codex`
-- Depends on: `RW-GS-S5B2B2B3B2C2A`
-- Allowed write scope: `:RewriteGameCore`, `:RewriteGameServer`
-- Verification command: `./gradlew :RewriteGameCore:test :RewriteGameServer:test :RewriteTestKit:integrationTest`
-- Artifacts: `build/reports/tests/test`
-- Commit rule: `single green commit only`
-- Notes:
-  - Adds attacker-scoped rewrite UI parity for public `changedailypay` and the attack-script `changeDailyPay(targetIp)` helper using typed popup, text-message, and attack-message events.
-  - Preserves delta-first ordering before correlated responses or attacker-scoped program updates and keeps hidden daily-income runtime behavior unchanged.
-  - Keeps zombie-linked behavior deferred to the next slice.
-
-### RW-GS-S5B2B2B3B2C3A - zombie controller runtime foundation
-- Status: `done`
-- Owner: `codex`
-- Depends on: `RW-GS-S5B2B2B3B2C2B`
-- Allowed write scope: `:RewriteHackScript`, `:RewriteGameCore`, `:RewritePersistence`
-- Verification command: `./gradlew :RewriteHackScript:test :RewriteGameCore:test :RewritePersistence:test :RewritePersistence:migrationTest`
-- Artifacts: `build/reports/tests/test`
-- Commit rule: `single green commit only`
-- Notes:
-  - Adds typed zombie attack-session ownership with `AttackMode`, controller authorization state, and internal zombie start or cancel commands without exposing new public wires yet.
-  - Zombie admission now runs the host ATTACK initialize slot in a restricted authorization pass where `zombie(ip)` must approve the controller before the runtime session is admitted.
-  - Running zombie sessions keep CPU reservation, self-damage, overheat, and source-port lifecycle on the zombie host while routing target-facing helper effects, attack XP, and downstream target-side source attribution through the controller.
-  - Zombie-session `ProgramUpdate` frames are now controller-scoped only, while zombie-host subscribers still receive their own normal state deltas.
-
-### RW-GS-S5B2B2B3B2C3B - public zombie attack or cancel transport and UI
-- Status: `done`
-- Owner: `codex`
-- Depends on: `RW-GS-S5B2B2B3B2C3A`
-- Allowed write scope: `:RewriteHackScript`, `:RewriteGameCore`, `:RewriteGameServer`, `:RewritePersistence`
-- Verification command: `./gradlew :RewriteHackScript:test :RewriteGameCore:test :RewritePersistence:test :RewriteGameServer:test :RewriteTestKit:integrationTest`
-- Artifacts: `build/reports/tests/test`
-- Commit rule: `single green commit only`
-- Notes:
-  - Owns public `requestzombieattack` and `requestzombiecancelattack` transport, correlated responses, listener scoping, and zombie-specific UI now that controller identity and runtime source attribution are stable.
-  - Reuses the internal zombie runtime commands introduced in `RW-GS-S5B2B2B3B2C3A` instead of adding a second combat path.
-  - Publishes dedicated zombie start or cancel responses plus controller-scoped `zombie_attack` UI events while keeping running `ProgramUpdate` frames controller-only.
-  - Keeps watch-side zombie compatibility and broader zombie UX polish deferred to the next slice.
-
-### RW-GS-S5B2B2B3B2C3C - watch-side zombie compatibility and zombie UX polish
-- Status: `done`
-- Owner: `codex`
-- Depends on: `RW-GS-S5B2B2B3B2C3B`
-- Allowed write scope: `:RewriteHackScript`, `:RewriteGameCore`, `:RewriteGameServer`, `:RewritePersistence`
-- Verification command: `./gradlew :RewriteHackScript:test :RewriteGameCore:test :RewritePersistence:test :RewriteGameServer:test :RewriteTestKit:integrationTest`
-- Artifacts: `build/reports/tests/test`
-- Commit rule: `single green commit only`
-- Notes:
-  - Owns watch-side `zombieAttack(...)` compatibility and the remaining zombie-specific UX polish after the controller runtime foundation and public wires are stable.
-  - Adds typed `show_choices` UI delivery for direct and zombie attack sessions, including controller-only routing for zombie sessions and persisted once-per-session prompt state.
-  - Watch-triggered `zombieAttack(...)` now reuses the same internal zombie-session admission, charge, CPU reservation, and failure-UI mapping as the public zombie transport without adding a correlated response surface.
-  - Keeps `launchnetworkattack`, redirect UI parity, and broader shipping-port semantics deferred to `RW-GS-S5C2B`.
-
-### RW-GS-S5C1A - weakened-port access plus `healport` or `finalizecancelled` cleanup core
-- Status: `done`
-- Owner: `codex`
-- Depends on: `RW-GS-S5B2B2B3B2C3C`
-- Allowed write scope: `:RewriteGameCore`, `:RewriteGameServer`, `:RewritePersistence`
-- Verification command: `./gradlew :RewriteGameCore:test :RewritePersistence:test :RewritePersistence:migrationTest :RewriteGameServer:test :RewriteTestKit:integrationTest`
-- Artifacts: `build/reports/tests/test`
-- Commit rule: `single green commit only`
-- Notes:
-  - Adds typed weakened-port access persistence on breached choice-capable ports, grants ownership to the attacker or zombie controller, and keeps that access alive after the attack session is removed.
-  - Adds public rewrite `healport` and `finalizecancelled` commands with typed correlated responses and delta-first ordering.
-  - Successful post-breach helper finalizers now reuse the shared weakened-port reset helper to heal the target port back to `100.0`, clear weakened access, reset `healCount`, and refresh health-watch baselines.
-  - Adds explicit-heal equipment cost multiplier state while keeping passive heal timers and weakened-access expiry deferred.
-
-### RW-GS-S5C1B - passive heal, weakened-access timeout, and remaining combat-reset runtime cleanup
-- Status: `done`
-- Owner: `codex`
-- Depends on: `RW-GS-S5C1A`
-- Allowed write scope: `:RewriteGameCore`, `:RewriteGameServer`, `:RewritePersistence`
-- Verification command: `./gradlew :RewriteGameCore:test :RewritePersistence:test :RewriteGameServer:test :RewriteTestKit:integrationTest`
-- Artifacts: `build/reports/tests/test`
-- Commit rule: `single green commit only`
-- Notes:
-  - Adds the hidden session-loaded combat-maintenance runtime, with immediate start plus `2_000` ms refresh cadence and session-end teardown when the last subscriber disconnects.
-  - Persists passive-heal cadence state, weakened-access last-access timestamps, and overheat cooldown timestamps or port flags.
-  - Owns passive port healing, weakened-access expiry, persistent overheat cooldown, overheat-driven attack cancellation, and the remaining runtime combat-reset cleanup after the explicit `healport` / `finalizecancelled` core lands.
-  - Keeps redirect runtime, redirect UI parity, `launchnetworkattack`, and broader shipping-port cleanup deferred to `RW-GS-S5C2A` and `RW-GS-S5C2B`.
-
-### RW-GS-S5C2A - redirect runtime core on existing attack transport
-- Status: `in_progress`
-- Owner: `codex`
-- Depends on: `RW-GS-S5C1B`
-- Allowed write scope: `:RewriteHackScript`, `:RewriteGameCore`, `:RewriteGameServer`, `:RewritePersistence`
-- Verification command: `./gradlew :RewriteHackScript:test :RewriteGameCore:test :RewritePersistence:test :RewritePersistence:migrationTest :RewriteGameServer:test :RewriteTestKit:integrationTest`
-- Artifacts: `build/reports/tests/test`
-- Commit rule: `single green commit only`
-- Notes:
-  - Owns rewrite `ApplicationKind.REDIRECT`, redirect binary/install replay, `defaultRedirectPort`, `commodityRespawn`, and redirect-session persistence on the existing `requestattack` / `requestcancelattack` transport.
-  - Adds redirect-program runtime execution, redirect script commodity-selection helpers, deterministic commodity payout and redirect-XP gain, NPC commodity respawn, and requester-scoped `ProgramUpdate.programType = "redirect"`.
-  - Keeps redirect feedback parity, `launchnetworkattack` compatibility, zombie redirecting, and broader shipping-port UX polish deferred to `RW-GS-S5C2B1` and `RW-GS-S5C2B2`.
-
-### RW-GS-S5C2B1 - redirect feedback and protocol parity on existing attack transport
-- Status: `in_progress`
-- Owner: `unassigned`
-- Depends on: `RW-GS-S5C2A`
-- Allowed write scope: `:RewriteGameCore`, `:RewriteGameServer`
-- Verification command: `./gradlew :RewriteGameCore:test :RewriteGameServer:test :RewriteTestKit:integrationTest`
-- Artifacts: `build/reports/tests/test`
-- Commit rule: `single green commit only`
-- Notes:
-  - Owns redirect failure, receipt, timeout, completion, and pane-targeted feedback on the existing `requestattack` / `requestcancelattack` transport without adding new public wires.
-  - Keeps rewrite-client redirect window parity and broader shipping-choice consumption deferred to the reopened client combat/runtime parity lanes.
-
-### RW-GS-S5C2B2 - internal `launchnetworkattack` compatibility over note-trigger plumbing
-- Status: `in_progress`
-- Owner: `unassigned`
-- Depends on: `RW-GS-S5C2A`
-- Allowed write scope: `:RewriteGameCore`
-- Verification command: `./gradlew :RewriteGameCore:test`
-- Artifacts: `build/reports/tests/test`
-- Commit rule: `single green commit only`
-- Notes:
-  - Owns the internal-only `LaunchNetworkAttackCommand` compatibility helper that dispatches `RequestTriggerNoteCommand("netbomb")` with rewrite-resolved default attack, bank, HTTP, and redirect ports.
-  - Keeps full data-driven network attack scheduling and any public `launchnetworkattack` transport deferred.
-
-## Verification Gates
-- Every command gets mocked tests for accepted input, rejected input, lifetime expiry, emitted deltas, nested dispatch, and cancellation.
-- Every slice must add integration tests before its task can be marked `done`.
-- No slice is `done` until linked rows in `plans/rewrite/feature-inventory/PLAN.md` are updated.
+## Global Acceptance Gates
+- No retained server task is `done` until protocol tests, core tests, persistence tests where applicable, and retained integration tests are green.
+- A retained client blocker may only name tasks from the `Retained Client-Unblocking Tasks` section or `blocked_external`.

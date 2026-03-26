@@ -1,307 +1,275 @@
 # HackWars Rewrite Master Plan
 
 ## Status Dashboard
-- Program status: `in_progress`
-- Current milestone: `Milestone 8 client recovery and parity reset`
-- Last completed milestone: `Milestone 5 typed game-core tranche`
-- Locked architecture decisions: `accepted with client recovery amendments`
-- Living documents status: `active`
-- Rewrite scaffold status: `active`
+- Active mode: `autonomous_rewrite_execution`
+- Current pass: `Pass 1 - Cross-cutting foundations`
+- Current milestone focus: `M8 - Client MVC and parity recovery`
+- Coordinator stop rule: continue until `M11` is `done`, or until the only remaining work is `blocked_external`
+- Parallel saturation target: `8` active subagents, or the maximum safe non-overlapping count when fewer than `8` disjoint tasks exist
 
-## Locked Decisions
-- Rewrite beside legacy, never on top of it.
-- New application modules only: `:RewriteGameServer`, `:RewriteChatServer`, `:RewriteClient`.
-- Supporting rewrite modules are allowed and required: `:RewriteBuildLogic`, `:RewriteProtocol`, `:RewriteGameCore`, `:RewriteChatCore`, `:RewritePersistence`, `:RewriteClientModel`, `:RewriteTestKit`.
-- Rewrite modules are Kotlin-only. No Java source files are allowed.
-- Rewrite modules may not depend on legacy runtime modules.
-- Networking is framed TCP + protobuf, one bidirectional connection per service per client.
-- `:RewriteProtocol` owns the new wire contract and Kotlin-only generation.
-- Persistence is new PostgreSQL + Docker + Liquibase + legacy importer.
-- Login UI is the only code-copy exception.
-- All other runtime code is rewrite-only.
-- All post-login rewrite client UI must use strict MVC: host/dialog + view + immutable view-model + controller.
-- Post-login rewrite client views may only build Swing components and render supplied models.
-- Post-login rewrite client controllers own selector subscriptions, event binding, model derivation, command routing, and child-window launches.
-- Exact legacy visual parity is required for every retained client-facing surface.
-- Rewrite-owned copies of legacy static UI assets are allowed when exact parity requires them; legacy runtime classes remain forbidden.
-- Every rewrite computer identity must be a real dotted-quad IPv4 address.
+## Scope
+- This plan governs the retained rewrite program across game server, client, chat server, persistence, testing, and evidence tracking.
+- Hacktendo is out of rewrite scope everywhere.
+- Command Prompt is out of rewrite client scope everywhere.
+- Exact legacy parity, strict MVC, deterministic verification, and real dotted-quad IPv4 identity are locked completion gates for the retained rewrite client.
+
+## Autonomous Execution Contract
+- The coordinator must continue automatically until `M11` is `done`.
+- User questions are forbidden unless there is a true external blocker: missing credentials, contradictory locked decisions across plan files, or an unrecoverable external system failure.
+- Ready work is selected from the earliest unfinished milestone first, then by priority within that milestone, then by the smallest safe write scope, then by the highest unblock count.
+- The coordinator must keep as many subagents active as safely possible, up to `8`, and must refill idle capacity immediately after a task commits or becomes blocked.
+- No task may remain generically `blocked`; every blocked task must name exact upstream rewrite task IDs, or use `blocked_external` for a true outside-the-repo dependency.
+- One green commit is required per completed task card, and the corresponding plan status update must be included in the same commit.
+- The coordinator must continue to the next ready task immediately after each green commit.
+- Worker subagents may not own overlapping write scopes in the same scheduling wave.
+- Verifier subagents may overlap read-only with active workers.
+- The coordinator is non-compliant if it leaves safe parallel capacity unused for more than one scheduling cycle.
+
+## Status Vocabulary
+- `todo`: defined work with incomplete prerequisites
+- `ready`: unblocked work that can be started immediately
+- `in_progress`: actively owned by the coordinator or a subagent
+- `blocked`: waiting on exact upstream rewrite task IDs
+- `blocked_external`: waiting on a true external dependency outside the repo
+- `done`: implemented, verified, and committed
+- `removed`: intentionally dropped from retained rewrite scope
 
 ## Module Graph
-```mermaid
-flowchart LR
-  RewriteBuildLogic["RewriteBuildLogic"] --> RewriteProtocol["RewriteProtocol"]
-  RewriteProtocol --> RewriteGameCore["RewriteGameCore"]
-  RewriteProtocol --> RewriteChatCore["RewriteChatCore"]
-  RewriteProtocol --> RewriteClientModel["RewriteClientModel"]
-  RewriteGameCore --> RewritePersistence["RewritePersistence"]
-  RewriteChatCore --> RewritePersistence["RewritePersistence"]
-  RewriteProtocol --> RewriteTestKit["RewriteTestKit"]
-  RewriteGameCore --> RewriteGameServer["RewriteGameServer"]
-  RewritePersistence --> RewriteGameServer["RewriteGameServer"]
-  RewriteChatCore --> RewriteChatServer["RewriteChatServer"]
-  RewritePersistence --> RewriteChatServer["RewriteChatServer"]
-  RewriteClientModel --> RewriteClient["RewriteClient"]
-  RewriteProtocol --> RewriteClient["RewriteClient"]
-```
+- Master coordination: [plans/rewrite/PLAN.md](/Users/lordzardeck/.codex/worktrees/47a1/hackwars-classic-original/plans/rewrite/PLAN.md)
+- Client recovery and parity: [plans/rewrite/client/PLAN.md](/Users/lordzardeck/.codex/worktrees/47a1/hackwars-classic-original/plans/rewrite/client/PLAN.md)
+- Game-server retained transport and runtime: [plans/rewrite/game-server/PLAN.md](/Users/lordzardeck/.codex/worktrees/47a1/hackwars-classic-original/plans/rewrite/game-server/PLAN.md)
+- Chat-server retained stack: [plans/rewrite/chat-server/PLAN.md](/Users/lordzardeck/.codex/worktrees/47a1/hackwars-classic-original/plans/rewrite/chat-server/PLAN.md)
+- Persistence and importer: [plans/rewrite/data/PLAN.md](/Users/lordzardeck/.codex/worktrees/47a1/hackwars-classic-original/plans/rewrite/data/PLAN.md)
+- Feature evidence and parity inventory: [plans/rewrite/feature-inventory/PLAN.md](/Users/lordzardeck/.codex/worktrees/47a1/hackwars-classic-original/plans/rewrite/feature-inventory/PLAN.md)
+- Verification packs and gates: [plans/rewrite/testing/PLAN.md](/Users/lordzardeck/.codex/worktrees/47a1/hackwars-classic-original/plans/rewrite/testing/PLAN.md)
 
-## Dependency Rules
-- Allowed rewrite project dependencies are only other rewrite modules.
-- Forbidden dependencies include every legacy runtime module, especially `:GameServer`, `:ChatServer`, `:Client`, `:Networking`, `:HackWars`, and `:Data`.
-- Legacy code, tests, resources, and docs may be read as evidence only.
-- Legacy code may not be copied except the login UI exception.
-
-## Commit Policy
-- Each task card must be small enough for one worker or two workers with disjoint write scopes.
-- Every worker must update the relevant `PLAN.md` in the same commit as the code change.
-- Every worker must run the task’s verification command before commit.
-- No commit is allowed with failing tests in the owned scope.
-- Commit often, but only on green verification for the owned slice.
-
-## Subagent Policy
-- Explorer agents: evidence gathering only, no production writes.
-- Worker agents: explicit ownership, explicit write scope, explicit verification command.
-- Workers must not revert or overwrite unrelated changes.
-- Safe early parallel lanes:
-  - plan docs and feature inventory
-  - build logic and module scaffolding
-  - protocol layer
-  - PostgreSQL and migration tooling
-  - legacy importer analysis
-- Safe later parallel lanes:
-  - game command families with disjoint packages
-  - client window families with disjoint packages
-  - chat server lane once protocol is stable
-
-## Milestone Board
-| Milestone | Title | Status | Exit Criteria |
-| --- | --- | --- | --- |
-| M0 | Living plan documents | `done` | All `plans/rewrite/**/PLAN.md` files exist and use the common task-card template. |
-| M1 | Rewrite scaffold and enforcement | `done` | All rewrite modules exist, no-Java and no-legacy-dependency checks exist, rewrite lifecycle tasks exist, and the scaffold builds green. |
-| M2 | Feature inventory | `in_progress` | Every player-visible feature row exists with evidence, tests, and scope tags. |
-| M3 | Transport and auth foundation | `in_progress` | Framed TCP + protobuf + auth handshake + offline fake services are green. |
-| M4 | PostgreSQL + migrations + importer skeleton | `in_progress` | Dockerized Postgres, Liquibase, rollback validation, and importer skeleton are green. |
-| M5 | Game core | `done` | State store, interest registry, command dispatcher, request callbacks, snapshots, and program scheduler are green. |
-| M6 | Game feature slices | `in_progress` | Session, filesystem, economy, network, combat, website, and retained quest/search slices are green. |
-| M7 | Chat server parity | `todo` | Chat sessions, channels, relations, moderation, and fanout are green. |
-| M8 | Client recovery and parity reset | `in_progress` | Strict post-login MVC rules, real IPv4 identity, rewrite-owned parity asset policy, and deterministic screenshot harness are all green. |
-| M9 | Client window families | `todo` | All retained window families are ported with strict MVC, screenshot-backed legacy parity, and controller-level acceptance tests. |
-| M10 | Full rewrite integration | `todo` | Real servers + real Postgres + real client integration suite is green. |
-| M11 | Parity audit and closure | `todo` | Every required feature row is `done` and linked to passing tests. |
+## Ready-Queue Policy
+- The coordinator always selects the next task from the earliest unfinished milestone on the Milestone Board.
+- Within a milestone, `ready` tasks are ordered by `Priority`, then by the number of blocked downstream tasks they unlock, then by write-scope size.
+- When multiple `ready` tasks have disjoint write scopes, the coordinator should schedule them in parallel until either `8` subagents are active or the ready queue is exhausted.
+- When a task becomes `blocked`, the coordinator must immediately schedule its `Autonomous next` fallback if it is `ready`.
+- A milestone remains `in_progress` until every retained task mapped to it is `done`, `removed`, or `blocked_external`.
 
 ## Task Card Template
-```md
-### RW-XXX - Title
-- Status: `todo|in_progress|blocked|done`
-- Owner: `unassigned`
-- Depends on: `none`
-- Allowed write scope: `specific files/modules only`
-- Verification command: `./gradlew ...`
-- Artifacts: `build/reports/...` or `none`
-- Commit rule: `single green commit only`
-- Notes:
-  - detail 1
-  - detail 2
-```
 
-## Initial Tasks
+### RW-XXX - Title
+- Status: `todo|ready|in_progress|blocked|blocked_external|done|removed`
+- Priority: `P0|P1|P2|P3`
+- Execution lane: `lane_name`
+- Worker role: `explorer|worker|verifier|coordinator-owned`
+- Depends on: `none`
+- Ready when: concrete prerequisite statement using exact task IDs
+- Parallel with: exact task IDs or `none`
+- Allowed write scope: concrete repo paths or `none`
+- Autonomous next: exact next task ID after completion
+- Fallback if blocked: exact next task ID or `none`
+- Verification scope: exact commands, artifacts, or audit checks
+
+## Autonomous Pass Board
+| Pass | Goal | Primary plan files | Ready queue seed | Max safe workers |
+| --- | --- | --- | --- | --- |
+| `Pass 0` | Rewrite plans to the autonomous schema and remove stale scope | `PLAN.md`, `client/PLAN.md`, `game-server/PLAN.md`, `chat-server/PLAN.md`, `data/PLAN.md`, `feature-inventory/PLAN.md`, `testing/PLAN.md` | `RW-M0-003` | `1` |
+| `Pass 1` | Land cross-cutting foundations for MVC, look and feel, IPv4 identity, screenshot harness, and evidence closure | `client/PLAN.md`, `testing/PLAN.md`, `feature-inventory/PLAN.md` | `RW-CLIENT-X1`, `RW-CLIENT-X2`, `RW-CLIENT-X3`, `RW-CLIENT-X4`, `RW-TEST-005`, `RW-TEST-006` | `6` |
+| `Pass 2` | Recover login, shell chrome, stats rail, taskbar, and deterministic dev harness parity | `client/PLAN.md`, `testing/PLAN.md` | `RW-CLIENT-C0A`, `RW-CLIENT-C1A`, `RW-CLIENT-004B`, `RW-TEST-007` | `4` |
+| `Pass 3` | Recover network and system surfaces with MVC and legacy parity | `client/PLAN.md`, `testing/PLAN.md` | `RW-CLIENT-C6A`, `RW-CLIENT-C7A`, `RW-CLIENT-C8A`, `RW-TEST-008` | `5` |
+| `Pass 4` | Recover economy, files, FTP, browser, store, and editor families | `client/PLAN.md`, `game-server/PLAN.md`, `testing/PLAN.md` | `RW-CLIENT-C2A`, `RW-CLIENT-C3A`, `RW-CLIENT-C4A`, `RW-CLIENT-C5A`, `RW-TEST-009` | `8` |
+| `Pass 5` | Recover combat and runtime panes, plus any missing server transport they require | `client/PLAN.md`, `game-server/PLAN.md`, `testing/PLAN.md` | `RW-CLIENT-C9A`, `RW-GS-T6`, `RW-GS-T7`, `RW-TEST-010` | `8` |
+| `Pass 6` | Recover utilities, help/tutorial, personal settings, and client chat | `client/PLAN.md`, `game-server/PLAN.md`, `chat-server/PLAN.md`, `testing/PLAN.md` | `RW-CLIENT-C10A`, `RW-CLIENT-W3C2`, `RW-CLIENT-W7B`, `RW-CHAT-001A`, `RW-TEST-011` | `8` |
+| `Pass 7` | Close retained blockers, run full integration, and complete parity audit | `client/PLAN.md`, `game-server/PLAN.md`, `chat-server/PLAN.md`, `data/PLAN.md`, `feature-inventory/PLAN.md`, `testing/PLAN.md` | `RW-GS-T1`, `RW-GS-T2`, `RW-GS-T3`, `RW-GS-T4`, `RW-GS-T5`, `RW-TEST-012` | `8` |
+
+## Milestone Board
+| Milestone | Status | Exit criteria |
+| --- | --- | --- |
+| `M0` Planning normalization | `done` | All rewrite plan files use the autonomous task-card schema, the pass board is encoded, and no retained task uses vague blockers. |
+| `M1` Build and module foundations | `done` | Rewrite modules, Gradle conventions, and dependency guardrails are stable and green. |
+| `M2` Evidence and inventory closure | `in_progress` | Feature inventory rows are complete for retained scope, every row has legacy references and parity acceptance, and known gaps are tracked without ambiguity. |
+| `M3` Transport and offline harness foundations | `done` | Frame codec, fake auth, deterministic transport harness, and dev bootstrap seams exist and stay green. |
+| `M4` Persistence and importer foundations | `in_progress` | Canonical schema slices, importer scaffolding, and migration validation are complete for retained scope. |
+| `M5` Game-core and retained runtime foundations | `in_progress` | Typed contracts, scheduler/runtime basics, and retained server foundations are implemented and verified. |
+| `M6` Retained game-server transport completion | `in_progress` | Every retained client blocker that needs new GAME transport has a concrete game-server task and verified implementation. |
+| `M7` Chat-server completion | `todo` | Chat contracts, bootstrap, channels, moderation, messaging, relations, and parity events are implemented and verified. |
+| `M8` Client MVC and parity recovery foundations | `in_progress` | Strict MVC framework, look and feel, parity assets, IPv4 identity cleanup, screenshot harness, and shell/login recovery are in place. `Base MVC` means view-only Swing classes, immutable view models, and controller-owned listeners/state wiring. |
+| `M9` Retained client family parity completion | `todo` | Every retained client family reaches screenshot-backed legacy parity. `Ported` means screenshot-backed visual parity with deterministic workflow tests, not merely a functioning Kotlin window. |
+| `M10` Integration and blocker closure | `todo` | All retained blocked tasks are resolved or marked `blocked_external`, end-to-end rewrite flows are green, and feature inventory evidence is complete. |
+| `M11` Final parity audit and release closure | `todo` | The retained rewrite surface passes deterministic parity audit, MVC guardrails, UI workflow packs, and integration verification with no unresolved retained blockers. |
+
+## Historical Foundation Tasks
 ### RW-M0-001 - Create rewrite plan document set
 - Status: `done`
-- Owner: `codex`
+- Priority: `P0`
+- Execution lane: `planning`
+- Worker role: `coordinator-owned`
 - Depends on: `none`
+- Ready when: rewrite planning starts
+- Parallel with: `none`
 - Allowed write scope: `plans/rewrite/**`
-- Verification command: `test -f plans/rewrite/PLAN.md`
-- Artifacts: `plans/rewrite/**/PLAN.md`
-- Commit rule: `single green commit only`
-- Notes:
-  - Created the master plan, subsystem plans, testing plan, data plan, and feature inventory.
-  - Seeded every file with the common task-card template and status markers.
+- Autonomous next: `RW-M0-002`
+- Fallback if blocked: `none`
+- Verification scope: `test -f plans/rewrite/PLAN.md`
 
-### RW-M0-002 - Reset rewrite planning docs for strict MVC and exact client parity
+### RW-M0-002 - Reset rewrite plans for strict MVC, parity, and real IPv4 identity
 - Status: `done`
-- Owner: `codex`
+- Priority: `P0`
+- Execution lane: `planning`
+- Worker role: `coordinator-owned`
 - Depends on: `RW-M0-001`
+- Ready when: rewrite planning exists and client recovery rules need to be locked
+- Parallel with: `none`
 - Allowed write scope: `plans/rewrite/**`
-- Verification command: `rg -n "strict MVC|legacy visual parity|dotted-quad IPv4|Hacktendo" plans/rewrite/PLAN.md plans/rewrite/client/PLAN.md plans/rewrite/feature-inventory/PLAN.md plans/rewrite/testing/PLAN.md plans/rewrite/game-server/PLAN.md`
-- Artifacts: `plans/rewrite/**/PLAN.md`
-- Commit rule: `single green commit only`
-- Notes:
-  - Reclassified the current rewrite client as functional foundation work rather than parity-complete UI delivery.
-  - Removed Hacktendo and Command Prompt from rewrite client scope, reopened overclaimed client slices, and locked deterministic screenshot parity plus real-IP identity as completion gates.
+- Autonomous next: `RW-M0-003`
+- Fallback if blocked: `none`
+- Verification scope: `rg -n "strict MVC|legacy parity|IPv4" plans/rewrite`
 
 ### RW-M1-001 - Add rewrite module graph to Gradle
 - Status: `done`
-- Owner: `codex`
+- Priority: `P0`
+- Execution lane: `planning`
+- Worker role: `worker`
 - Depends on: `RW-M0-001`
-- Allowed write scope: `settings.gradle`, `build.gradle`, `src/Rewrite*/build.gradle`
-- Verification command: `./gradlew rewriteCheck`
-- Artifacts: `build/reports/tests`
-- Commit rule: `single green commit only`
-- Notes:
-  - Added all rewrite modules to `settings.gradle`.
-  - Added root rewrite lifecycle tasks and subproject wiring.
+- Ready when: rewrite modules can be modeled explicitly
+- Parallel with: `RW-M1-002`
+- Allowed write scope: `settings.gradle`, `build.gradle`, `src/**/build.gradle*`
+- Autonomous next: `RW-M1-002`
+- Fallback if blocked: `RW-M1-003`
+- Verification scope: `./gradlew rewriteCheck`
 
-### RW-M1-002 - Enforce no-Java and no-legacy-dependency rules
+### RW-M1-002 - Enforce no-Java and no-legacy runtime dependency rules
 - Status: `done`
-- Owner: `codex`
+- Priority: `P0`
+- Execution lane: `planning`
+- Worker role: `worker`
 - Depends on: `RW-M1-001`
-- Allowed write scope: `build.gradle`
-- Verification command: `./gradlew rewriteNoJava rewriteNoLegacyDeps`
-- Artifacts: `console output`
-- Commit rule: `single green commit only`
-- Notes:
-  - Rewrite modules now fail verification if Java sources are present.
-  - Rewrite modules now fail verification if they depend on legacy projects.
+- Ready when: rewrite module graph exists
+- Parallel with: `RW-M1-003`
+- Allowed write scope: `build-logic/**`, `gradle/**`, `build.gradle*`
+- Autonomous next: `RW-M1-003`
+- Fallback if blocked: `none`
+- Verification scope: `./gradlew rewriteNoJava rewriteNoLegacyDeps`
 
 ### RW-M1-003 - Stabilize rewrite build conventions
 - Status: `done`
-- Owner: `unassigned`
+- Priority: `P0`
+- Execution lane: `planning`
+- Worker role: `worker`
 - Depends on: `RW-M1-001`
-- Allowed write scope: `src/RewriteBuildLogic/**`, `src/Rewrite*/build.gradle`, `build.gradle`
-- Verification command: `./gradlew rewriteCheck`
-- Artifacts: `build/reports/tests`
-- Commit rule: `single green commit only`
-- Notes:
-  - Rewrite modules now use the shared rewrite conventions and Kotlin source roots.
-  - Wire, Liquibase, test source-set, and artifact conventions are scaffolded for the rewrite modules.
+- Ready when: rewrite module graph and dependency rules exist
+- Parallel with: `RW-M1-002`
+- Allowed write scope: `build-logic/**`, `gradle/**`, `build.gradle*`
+- Autonomous next: `RW-M2-001`
+- Fallback if blocked: `none`
+- Verification scope: `./gradlew rewriteCheck`
 
-### RW-M2-001 - Complete game feature inventory evidence lane
-- Status: `in_progress`
-- Owner: `unassigned`
+### RW-PROTO-001 - Freeze auth and bootstrap frame contract
+- Status: `done`
+- Priority: `P0`
+- Execution lane: `planning`
+- Worker role: `worker`
 - Depends on: `RW-M1-003`
-- Allowed write scope: `plans/rewrite/feature-inventory/PLAN.md`
-- Verification command: `rg -n "RequestAttackTest|RequestScanTest|RequestWebpageTest|DoChallengeTest|SetPreferencesTest" plans/rewrite/feature-inventory/PLAN.md`
-- Artifacts: `plans/rewrite/feature-inventory/PLAN.md`
-- Commit rule: `single green commit only`
-- Notes:
-  - Map the legacy game RPC and function tests to feature rows with concrete evidence.
-  - Keep player-visible game behavior, broken flows, and request/response semantics explicit.
+- Ready when: retained rewrite protocol module is stable
+- Parallel with: `RW-PROTO-002`
+- Allowed write scope: `src/RewriteProtocol/**`
+- Autonomous next: `RW-PROTO-002`
+- Fallback if blocked: `RW-PROTO-003`
+- Verification scope: `./gradlew :RewriteProtocol:test`
 
-### RW-M2-002 - Complete client UI evidence lane
-- Status: `in_progress`
-- Owner: `unassigned`
-- Depends on: `RW-M1-003`
-- Allowed write scope: `plans/rewrite/feature-inventory/PLAN.md`
-- Verification command: `rg -n "ClientWindowWorkflowTest|LoginSceneAuthGatewayTest|LoginBackgroundPanelTest" plans/rewrite/feature-inventory/PLAN.md`
-- Artifacts: `plans/rewrite/feature-inventory/PLAN.md`
-- Commit rule: `single green commit only`
-- Notes:
-  - Tie every desktop window family to the current integration UI workflow and login tests.
-  - Keep expected-failure browser workflows visible in the matrix until screenshot-backed parity replaces them.
-
-### RW-M2-003 - Complete chat and protocol evidence lane
-- Status: `in_progress`
-- Owner: `unassigned`
-- Depends on: `RW-M1-003`
-- Allowed write scope: `plans/rewrite/feature-inventory/PLAN.md`, `plans/rewrite/chat-server/PLAN.md`
-- Verification command: `rg -n "OfflineStackProtocolIntegrationTest|client-game-server-auth|00-current-protocol-audit|00b-chat-message-signatures" plans/rewrite/feature-inventory/PLAN.md plans/rewrite/chat-server/PLAN.md`
-- Artifacts: `plans/rewrite/feature-inventory/PLAN.md`
-- Commit rule: `single green commit only`
-- Notes:
-  - Capture the auth/session, ping, chat message, and fanout evidence in the parity ledger.
-  - Keep the protocol docs aligned with the rewrite transport assumptions.
-
-### RW-M2-004 - Track known broken workflows and parity gaps
-- Status: `in_progress`
-- Owner: `unassigned`
-- Depends on: `RW-M2-001`
-- Allowed write scope: `plans/rewrite/feature-inventory/PLAN.md`, `plans/rewrite/testing/PLAN.md`
-- Verification command: `rg -n "ExpectedFailure|known broken|web browser|screenshot parity" plans/rewrite/feature-inventory/PLAN.md plans/rewrite/testing/PLAN.md`
-- Artifacts: `plans/rewrite/feature-inventory/PLAN.md`
-- Commit rule: `single green commit only`
-- Notes:
-  - Ensure broken-but-required workflows remain visible rather than hidden or skipped.
-  - Keep parity gaps actionable for the reopened client recovery milestones.
-
-### RW-M3-001 - Freeze session-ticket auth contract and frame codec
+### RW-PROTO-002 - Freeze correlated callback and event envelope contract
 - Status: `done`
-- Owner: `codex`
-- Depends on: `RW-M1-003`
-- Allowed write scope: `:RewriteProtocol`
-- Verification command: `./gradlew :RewriteProtocol:test`
-- Artifacts: `src/RewriteProtocol/build/generated/source/wire`
-- Commit rule: `single green commit only`
-- Notes:
-  - Auth now uses `session_ticket` instead of JWT.
-  - Framed protobuf codec and connection state-machine primitives are implemented and tested.
+- Priority: `P0`
+- Execution lane: `planning`
+- Worker role: `worker`
+- Depends on: `RW-PROTO-001`
+- Ready when: bootstrap frame contract exists
+- Parallel with: `RW-PROTO-003`
+- Allowed write scope: `src/RewriteProtocol/**`
+- Autonomous next: `RW-PROTO-003`
+- Fallback if blocked: `none`
+- Verification scope: `./gradlew :RewriteProtocol:test`
 
-### RW-M3-002 - Build offline transport harness and fake auth services
+### RW-PROTO-003 - Freeze decoded GAME snapshot and section projection contract
 - Status: `done`
-- Owner: `codex`
-- Depends on: `RW-M3-001`
-- Allowed write scope: `:RewriteTestKit`
-- Verification command: `./gradlew :RewriteTestKit:integrationTest`
-- Artifacts: `src/RewriteTestKit/build/reports/tests/integrationTest`
-- Commit rule: `single green commit only`
-- Notes:
-  - In-memory service harness covers auth success/failure, ping, timeouts, request/response correlation, and push delivery.
-  - Shared fake session-ticket verifier and stub game/chat adapters are available for follow-on milestones.
+- Priority: `P0`
+- Execution lane: `planning`
+- Worker role: `worker`
+- Depends on: `RW-PROTO-001`
+- Ready when: rewrite protocol foundations exist
+- Parallel with: `RW-PROTO-002`
+- Allowed write scope: `src/RewriteProtocol/**`, `src/RewriteClientModel/**`
+- Autonomous next: `RW-CLIENT-001A`
+- Fallback if blocked: `none`
+- Verification scope: `./gradlew :RewriteProtocol:test :RewriteClientModel:test`
 
-### RW-M4-001 - Bootstrap rewrite PostgreSQL schema and rollback validation
+## Coordination Tasks
+### RW-M0-003 - Convert rewrite plans to the autonomous runbook schema
 - Status: `done`
-- Owner: `codex`
-- Depends on: `RW-M1-003`
-- Allowed write scope: `docker-compose.rewrite.yml`, `:RewritePersistence`
-- Verification command: `./gradlew :RewritePersistence:test :RewritePersistence:migrationTest`
-- Artifacts: `src/RewritePersistence/build/reports/tests`
-- Commit rule: `single green commit only`
-- Notes:
-  - Docker Compose runtime, Liquibase bootstrap schema, and rollback smoke coverage are in place.
-  - Event and snapshot tables now exist in the rewrite-owned schema.
-  - Rewrite-owned world-directory tables now cover network definitions, attached links, and current-network NPC directory rows.
+- Priority: `P0`
+- Execution lane: `planning`
+- Worker role: `coordinator-owned`
+- Depends on: `RW-M0-002`
+- Ready when: all seven rewrite plan files can be updated together
+- Parallel with: `none`
+- Allowed write scope: `plans/rewrite/**`
+- Autonomous next: `RW-M2-001`
+- Fallback if blocked: `none`
+- Verification scope: `rg -n "Autonomous Execution Contract|Autonomous Pass Board|Priority|Execution lane|Worker role|Ready when|Parallel with|Autonomous next|Fallback if blocked|Verification scope|blocked_external" plans/rewrite`
 
-### RW-M4-002 - Add importer planning skeleton and migration smoke coverage
-- Status: `done`
-- Owner: `codex`
-- Depends on: `RW-M4-001`
-- Allowed write scope: `:RewritePersistence`
-- Verification command: `./gradlew :RewritePersistence:test :RewritePersistence:migrationTest`
-- Artifacts: `src/RewritePersistence/build/reports/tests`
-- Commit rule: `single green commit only`
-- Notes:
-  - Legacy MySQL/XML/JSON descriptors now map to rewrite seed batches without touching legacy runtime code.
-  - JDBC-backed seed sink smoke coverage now writes minimal player, computer, inventory, and rewrite-owned world-directory slices into the rewrite schema.
-  - Canonical schema breadth and end-to-end migrated-login validation are still pending.
+### RW-M2-001 - Complete retained feature row evidence and dependency closure
+- Status: `ready`
+- Priority: `P1`
+- Execution lane: `evidence`
+- Worker role: `worker`
+- Depends on: `RW-M0-003`
+- Ready when: the feature inventory schema includes foundation, completion, legacy reference, parity acceptance, and upstream blocker fields
+- Parallel with: `RW-M2-002`, `RW-M2-003`, `RW-TEST-005`
+- Allowed write scope: `plans/rewrite/feature-inventory/PLAN.md`, `plans/rewrite/client/PLAN.md`, `plans/rewrite/game-server/PLAN.md`, `plans/rewrite/chat-server/PLAN.md`
+- Autonomous next: `RW-M2-004`
+- Fallback if blocked: `RW-M2-003`
+- Verification scope: `rg -n "Foundation task|Completion task|Legacy UI reference|Parity acceptance|Blocking upstream task" plans/rewrite/feature-inventory/PLAN.md`
 
-### RW-M5-001 - Land typed Kotlin game-core contracts and scheduler
-- Status: `done`
-- Owner: `codex`
-- Depends on: `RW-M3-001`, `RW-M4-001`
-- Allowed write scope: `:RewriteGameCore`
-- Verification command: `./gradlew :RewriteGameCore:test`
-- Artifacts: `src/RewriteGameCore/build/reports/tests/test`
-- Commit rule: `single green commit only`
-- Notes:
-  - `ComputerState`, `ComputerEvent`, `ComputerDelta`, `ProgramUpdate`, `CommandRegistry`, `InterestRegistry`, and typed commands now exist in Kotlin-first form.
-  - Request callbacks, stable lock ordering, and coroutine program scheduling are covered by unit tests.
+### RW-M2-002 - Close client UI evidence gaps and legacy reference coverage
+- Status: `ready`
+- Priority: `P1`
+- Execution lane: `evidence`
+- Worker role: `explorer`
+- Depends on: `RW-M0-003`
+- Ready when: the client recovery lanes and feature inventory rows both point at retained client families
+- Parallel with: `RW-M2-001`, `RW-M2-003`
+- Allowed write scope: `plans/rewrite/client/PLAN.md`, `plans/rewrite/feature-inventory/PLAN.md`
+- Autonomous next: `RW-M2-004`
+- Fallback if blocked: `RW-M2-001`
+- Verification scope: `rg -n "Legacy UI reference|Parity acceptance" plans/rewrite/client/PLAN.md plans/rewrite/feature-inventory/PLAN.md`
 
-### RW-M5-002 - Add typed persistence adapters for state, events, and snapshots
-- Status: `done`
-- Owner: `codex`
-- Depends on: `RW-M5-001`, `RW-DATA-002`
-- Allowed write scope: `:RewritePersistence`
-- Verification command: `./gradlew :RewritePersistence:test :RewritePersistence:migrationTest`
-- Artifacts: `src/RewritePersistence/build/reports/tests`
-- Commit rule: `single green commit only`
-- Notes:
-  - JDBC repository, JSON-byte serializer, snapshot threshold logic, and deterministic replay coverage are in place.
-  - Base-state imports remain structural and still need broader legacy schema mapping.
+### RW-M2-003 - Close retained chat, data, and protocol evidence gaps
+- Status: `ready`
+- Priority: `P2`
+- Execution lane: `evidence`
+- Worker role: `explorer`
+- Depends on: `RW-M0-003`
+- Ready when: chat-server, data, and testing plans all use the autonomous schema
+- Parallel with: `RW-M2-001`, `RW-M2-002`
+- Allowed write scope: `plans/rewrite/chat-server/PLAN.md`, `plans/rewrite/data/PLAN.md`, `plans/rewrite/testing/PLAN.md`
+- Autonomous next: `RW-M2-004`
+- Fallback if blocked: `RW-M2-001`
+- Verification scope: `rg -n "Execution lane|Worker role|Verification scope" plans/rewrite/chat-server/PLAN.md plans/rewrite/data/PLAN.md plans/rewrite/testing/PLAN.md`
 
-### RW-M5-003 - Prove typed bootstrap, scan, and preference mutation through the rewrite transport harness
-- Status: `done`
-- Owner: `codex`
-- Depends on: `RW-M5-001`, `RW-M3-002`
-- Allowed write scope: `:RewriteGameServer`, `:RewriteGameCore`
-- Verification command: `./gradlew :RewriteGameServer:test :RewriteTestKit:integrationTest`
-- Artifacts: `src/RewriteGameServer/build/reports/tests/test`
-- Commit rule: `single green commit only`
-- Notes:
-  - Session bootstrap now emits exactly one full snapshot after auth.
-  - `requestscan` is request/response-only, and `setpreferences` now proves event-first mutation plus delta fanout.
+### RW-M2-004 - Track retained parity gaps and unblock map without vague blockers
+- Status: `todo`
+- Priority: `P1`
+- Execution lane: `evidence`
+- Worker role: `coordinator-owned`
+- Depends on: `RW-M2-001`, `RW-M2-002`, `RW-M2-003`
+- Ready when: all retained feature rows and downstream plan cards name exact completion and blocker IDs
+- Parallel with: `none`
+- Allowed write scope: `plans/rewrite/**`
+- Autonomous next: `RW-CLIENT-X1`
+- Fallback if blocked: `RW-TEST-005`
+- Verification scope: `rg -n "blocked on future|deferred for later|later follow-up" plans/rewrite`
+
+## Global Acceptance Gates
+- No retained milestone may be marked `done` unless every retained task mapped to it is `done`, `removed`, or `blocked_external`.
+- No retained client family may be marked `done` without green controller tests, UI workflow tests, screenshot parity tests, MVC guardrail coverage, and valid IPv4 identity in deterministic fixtures.
+- The coordinator only stops when every retained milestone is `done`, or the remaining queue is exclusively `blocked_external`.
 
 ## Glossary
-- `Game state`: the authoritative server-side state for exactly one computer or IP-addressed entity.
-- `Snapshot`: full serialized state image written to PostgreSQL.
-- `Event`: append-only mutation record written immediately on accepted mutation.
-- `Delta`: targeted post-login state change payload for interested clients.
-- `Program command`: long-running isolated command such as attack or redirect.
-- `Selector`: fine-grained client subscription that only emits when its projected value changes.
+- `Legacy parity`: deterministic rewrite UI that matches the retained legacy Swing surface in layout, chrome, assets, wording, interaction flow, and screenshot output.
+- `Strict MVC`: view-only Swing classes, immutable view models, and controller-owned event wiring, routing, selector subscriptions, and lifecycle management.
+- `Retained scope`: rewrite functionality that remains in plan after removing Hacktendo and Command Prompt.
