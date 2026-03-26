@@ -76,7 +76,7 @@ data class PersistedSessionTicket(
     val issuedAt: Instant = Instant.EPOCH,
     val expiresAt: Instant? = null,
     val ticketPayload: String = "{}",
-)
+) : SeedPayload
 
 data class PersistedServiceSession(
     val serviceSessionId: String,
@@ -92,7 +92,7 @@ data class PersistedServiceSession(
     val lastSeenAt: Instant = authenticatedAt,
     val closedAt: Instant? = null,
     val sessionPayload: String = "{}",
-)
+) : SeedPayload
 
 interface AuthSessionRepository {
     suspend fun upsertSessionTicket(ticket: PersistedSessionTicket)

@@ -98,7 +98,7 @@
 - Verification scope: `./gradlew :RewritePersistence:test :RewritePersistence:migrationTest`
 
 ### RW-DATA-004A - Build importer slices for retained auth, player, and computer data
-- Status: `ready`
+- Status: `done`
 - Priority: `P2`
 - Execution lane: `importer`
 - Worker role: `worker`

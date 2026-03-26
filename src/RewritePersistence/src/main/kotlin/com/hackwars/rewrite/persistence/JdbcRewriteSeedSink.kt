@@ -50,6 +50,8 @@ class JdbcRewriteSeedSink(
                 insertImportBatch(connection, batch)
                 when (val payload = batch.seedPayload) {
                     is SeedPlayerAccount -> upsertPlayerAccount(connection, payload)
+                    is PersistedSessionTicket -> upsertSessionTicket(connection, payload)
+                    is PersistedServiceSession -> upsertServiceSession(connection, payload)
                     is SeedComputerState -> upsertComputerState(connection, payload)
                     is SeedWorldDirectory -> upsertWorldDirectory(connection, payload)
                     is SeedInventorySnapshot -> applyInventorySnapshot(connection, payload)
@@ -113,11 +115,100 @@ class JdbcRewriteSeedSink(
         }
     }
 
+    private fun upsertSessionTicket(
+        connection: Connection,
+        payload: PersistedSessionTicket,
+    ) {
+        connection.prepareStatement(
+            """
+            insert into rewrite_session_ticket(
+                session_ticket,
+                player_id,
+                playfab_id,
+                player_ip,
+                issued_at,
+                expires_at,
+                ticket_payload
+            )
+            values (?, ?, ?, ?, ?, ?, cast(? as jsonb))
+            on conflict (session_ticket) do update
+            set player_id = excluded.player_id,
+                playfab_id = excluded.playfab_id,
+                player_ip = excluded.player_ip,
+                issued_at = excluded.issued_at,
+                expires_at = excluded.expires_at,
+                ticket_payload = excluded.ticket_payload
+            """.trimIndent(),
+        ).use { statement ->
+            statement.setString(1, payload.sessionTicket)
+            statement.setString(2, payload.playerId)
+            statement.setString(3, payload.playFabId)
+            statement.setString(4, payload.playerIp)
+            statement.setTimestamp(5, Timestamp.from(payload.issuedAt))
+            statement.setTimestamp(6, payload.expiresAt?.let(Timestamp::from))
+            statement.setString(7, payload.ticketPayload)
+            statement.executeUpdate()
+        }
+    }
+
+    private fun upsertServiceSession(
+        connection: Connection,
+        payload: PersistedServiceSession,
+    ) {
+        connection.prepareStatement(
+            """
+            insert into rewrite_service_session(
+                service_session_id,
+                service_kind,
+                connection_id,
+                player_id,
+                playfab_id,
+                player_ip,
+                session_ticket,
+                client_build,
+                heartbeat_interval_millis,
+                authenticated_at,
+                last_seen_at,
+                closed_at,
+                session_payload
+            )
+            values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, cast(? as jsonb))
+            on conflict (service_kind, connection_id) do update
+            set service_session_id = excluded.service_session_id,
+                player_id = excluded.player_id,
+                playfab_id = excluded.playfab_id,
+                player_ip = excluded.player_ip,
+                session_ticket = excluded.session_ticket,
+                client_build = excluded.client_build,
+                heartbeat_interval_millis = excluded.heartbeat_interval_millis,
+                authenticated_at = excluded.authenticated_at,
+                last_seen_at = excluded.last_seen_at,
+                closed_at = excluded.closed_at,
+                session_payload = excluded.session_payload
+            """.trimIndent(),
+        ).use { statement ->
+            statement.setString(1, payload.serviceSessionId)
+            statement.setString(2, payload.serviceKind.name)
+            statement.setString(3, payload.connectionId)
+            statement.setString(4, payload.playerId)
+            statement.setString(5, payload.playFabId)
+            statement.setString(6, payload.playerIp)
+            statement.setString(7, payload.sessionTicket)
+            statement.setString(8, payload.clientBuild)
+            statement.setLong(9, payload.heartbeatIntervalMillis)
+            statement.setTimestamp(10, Timestamp.from(payload.authenticatedAt))
+            statement.setTimestamp(11, Timestamp.from(payload.lastSeenAt))
+            statement.setTimestamp(12, payload.closedAt?.let(Timestamp::from))
+            statement.setString(13, payload.sessionPayload)
+            statement.executeUpdate()
+        }
+    }
+
     private fun upsertComputerState(
         connection: Connection,
         payload: SeedComputerState,
     ) {
-        val stateId = GameStateId(payload.ipAddress)
+        val stateId = GameStateId(payload.computerId)
         val state = ComputerState.empty(
             id = stateId,
             playerIp = payload.ipAddress,
@@ -134,7 +225,7 @@ class JdbcRewriteSeedSink(
                 state_payload = excluded.state_payload
             """.trimIndent(),
         ).use { statement ->
-            statement.setString(1, payload.ipAddress)
+            statement.setString(1, payload.computerId)
             statement.setString(2, payload.playerId)
             statement.setString(3, payload.ipAddress)
             statement.setString(4, serializer.encodeStateJson(state))
@@ -617,6 +708,8 @@ class JdbcRewriteSeedSink(
     private fun seedPayloadJson(payload: SeedPayload): String {
         return when (payload) {
             is SeedPlayerAccount -> """{"type":"player","playerId":"${payload.playerId}","playFabId":"${payload.playFabId}","playerIp":"${payload.playerIp}"}"""
+            is PersistedSessionTicket -> """{"type":"session-ticket","sessionTicket":"${payload.sessionTicket}","playerId":"${payload.playerId}","playFabId":"${payload.playFabId}","playerIp":"${payload.playerIp}"}"""
+            is PersistedServiceSession -> """{"type":"service-session","serviceSessionId":"${payload.serviceSessionId}","serviceKind":"${payload.serviceKind.name}","connectionId":"${payload.connectionId}","playerId":"${payload.playerId}"}"""
             is SeedComputerState -> """{"type":"computer","computerId":"${payload.computerId}","playerId":"${payload.playerId}","ipAddress":"${payload.ipAddress}"}"""
             is SeedWorldDirectory -> {
                 val networksJson = payload.networks.joinToString(prefix = "[", postfix = "]") { network ->

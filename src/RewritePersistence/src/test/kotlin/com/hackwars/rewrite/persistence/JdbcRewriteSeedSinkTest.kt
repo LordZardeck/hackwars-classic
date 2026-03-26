@@ -15,6 +15,7 @@ import org.testcontainers.junit.jupiter.Container
 import org.testcontainers.junit.jupiter.Testcontainers
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 @Testcontainers
@@ -295,6 +296,161 @@ class JdbcRewriteSeedSinkTest {
         assertTrue(npcState.filesystem.filesByPath["/Public/http"]?.scriptBundle?.script(ProgramScriptSlot.ENTER)?.contains("triggerWatchRemote") == true)
     }
 
+    @Test
+    fun importerWritesAuthPlayerAndComputerRowsThroughSeedSink() {
+        resetDatabase()
+
+        writeBatch(
+            RewriteSeedBatch(
+                batchId = "player-auth",
+                source = LegacyMySqlDumpDescriptor("/legacy/local.sql", "hackwars"),
+                seedPayload = SeedPlayerAccount(
+                    playerId = "local-user",
+                    playFabId = "PF-LOCAL",
+                    playerIp = "198.51.100.10",
+                ),
+                createdAt = Instant.EPOCH,
+            ),
+        )
+        writeBatch(
+            RewriteSeedBatch(
+                batchId = "ticket-auth",
+                source = LegacyMySqlDumpDescriptor("/legacy/forum.sql", "hackwars"),
+                seedPayload = PersistedSessionTicket(
+                    sessionTicket = "SESSION-LOCAL",
+                    playerId = "local-user",
+                    playFabId = "PF-LOCAL",
+                    playerIp = "198.51.100.10",
+                    issuedAt = Instant.parse("2026-03-26T10:15:30Z"),
+                    expiresAt = Instant.parse("2026-03-26T11:15:30Z"),
+                    ticketPayload = """{"source":"legacy-auth"}""",
+                ),
+                createdAt = Instant.EPOCH,
+            ),
+        )
+        writeBatch(
+            RewriteSeedBatch(
+                batchId = "service-auth",
+                source = LegacyMySqlDumpDescriptor("/legacy/forum.sql", "hackwars"),
+                seedPayload = PersistedServiceSession(
+                    serviceSessionId = "svc-1",
+                    serviceKind = PersistedServiceKind.GAME,
+                    connectionId = "game-1",
+                    playerId = "local-user",
+                    playFabId = "PF-LOCAL",
+                    playerIp = "198.51.100.10",
+                    sessionTicket = "SESSION-LOCAL",
+                    clientBuild = "rewrite-dev",
+                    heartbeatIntervalMillis = 15_000L,
+                    authenticatedAt = Instant.parse("2026-03-26T10:16:00Z"),
+                    lastSeenAt = Instant.parse("2026-03-26T10:17:00Z"),
+                    sessionPayload = """{"bootstrapStateId":"198.51.100.10"}""",
+                ),
+                createdAt = Instant.EPOCH,
+            ),
+        )
+        writeBatch(
+            RewriteSeedBatch(
+                batchId = "computer-auth",
+                source = LegacyXmlDescriptor("/legacy/local.xml", "computer"),
+                seedPayload = SeedComputerState(
+                    computerId = "198.51.100.10",
+                    playerId = "local-user",
+                    ipAddress = "198.51.100.10",
+                ),
+                createdAt = Instant.EPOCH,
+            ),
+        )
+        writeBatch(
+            RewriteSeedBatch(
+                batchId = "inventory-auth",
+                source = LegacyJsonDescriptor("/legacy/local-inventory.json", "inventory"),
+                seedPayload = SeedInventorySnapshot(
+                    computerId = "198.51.100.10",
+                    notes = listOf("auth note"),
+                    websiteTitle = "Auth Projection Title",
+                    websiteBody = "<html>Auth Projection Body</html>",
+                    pettyCash = 500.0,
+                ),
+                createdAt = Instant.EPOCH,
+            ),
+        )
+
+        val authRepository = JdbcAuthSessionRepository(connectionFactory = ::newConnection)
+        val ticket = kotlinx.coroutines.runBlocking { authRepository.findSessionTicket("SESSION-LOCAL") }
+        val session = kotlinx.coroutines.runBlocking {
+            authRepository.findServiceSession(PersistedServiceKind.GAME, "game-1")
+        }
+        val state = loadStatePayload("198.51.100.10")
+
+        assertEquals(5, countRows("rewrite_import_batch"))
+        assertEquals(1, countRows("rewrite_player_account"))
+        assertEquals(1, countRows("rewrite_session_ticket"))
+        assertEquals(1, countRows("rewrite_service_session"))
+        assertEquals(1, countRows("rewrite_computer_state"))
+
+        assertNotNull(ticket)
+        assertEquals("local-user", ticket.playerId)
+        assertEquals("198.51.100.10", ticket.playerIp)
+        assertNotNull(session)
+        assertEquals("SESSION-LOCAL", session.sessionTicket)
+        assertEquals("198.51.100.10", session.playerIp)
+        assertEquals("Auth Projection Title", state.website.title)
+        assertEquals(500.0, state.economy.pettyCash)
+    }
+
+    @Test
+    fun importerKeepsDistinctComputerIdWhenItDiffersFromIpAddress() {
+        resetDatabase()
+
+        writeBatch(
+            RewriteSeedBatch(
+                batchId = "player-distinct",
+                source = LegacyMySqlDumpDescriptor("/legacy/local.sql", "hackwars"),
+                seedPayload = SeedPlayerAccount(
+                    playerId = "local-user",
+                    playFabId = "PF-LOCAL",
+                    playerIp = "198.51.100.10",
+                ),
+                createdAt = Instant.EPOCH,
+            ),
+        )
+        writeBatch(
+            RewriteSeedBatch(
+                batchId = "computer-distinct",
+                source = LegacyXmlDescriptor("/legacy/local.xml", "computer"),
+                seedPayload = SeedComputerState(
+                    computerId = "computer-local",
+                    playerId = "local-user",
+                    ipAddress = "198.51.100.10",
+                ),
+                createdAt = Instant.EPOCH,
+            ),
+        )
+        writeBatch(
+            RewriteSeedBatch(
+                batchId = "inventory-distinct",
+                source = LegacyJsonDescriptor("/legacy/local-inventory.json", "inventory"),
+                seedPayload = SeedInventorySnapshot(
+                    computerId = "computer-local",
+                    notes = listOf("distinct id note"),
+                    websiteTitle = "Distinct Computer",
+                    websiteBody = "<html>Distinct</html>",
+                ),
+                createdAt = Instant.EPOCH,
+            ),
+        )
+
+        val state = loadStatePayload("computer-local")
+
+        assertEquals(1, countRows("rewrite_computer_state"))
+        assertEquals("198.51.100.10", loadComputerIpAddress("computer-local"))
+        assertTrue(!computerStateExists("198.51.100.10"))
+        assertEquals(GameStateId("computer-local"), state.id)
+        assertEquals("198.51.100.10", state.identity.playerIp)
+        assertEquals("Distinct Computer", state.website.title)
+    }
+
     private fun worldDirectoryBatch(): RewriteSeedBatch {
         return RewriteSeedBatch(
             batchId = "world-1",
@@ -382,6 +538,38 @@ class JdbcRewriteSeedSinkTest {
             statement.executeQuery().use { resultSet ->
                 resultSet.next()
                 resultSet.getInt(1)
+            }
+        }
+    }
+
+    private fun loadComputerIpAddress(computerId: String): String = newConnection().use { connection ->
+        connection.prepareStatement(
+            """
+            select ip_address
+            from rewrite_computer_state
+            where computer_id = ?
+            """.trimIndent(),
+        ).use { statement ->
+            statement.setString(1, computerId)
+            statement.executeQuery().use { resultSet ->
+                resultSet.next()
+                resultSet.getString(1)
+            }
+        }
+    }
+
+    private fun computerStateExists(computerId: String): Boolean = newConnection().use { connection ->
+        connection.prepareStatement(
+            """
+            select count(*)
+            from rewrite_computer_state
+            where computer_id = ?
+            """.trimIndent(),
+        ).use { statement ->
+            statement.setString(1, computerId)
+            statement.executeQuery().use { resultSet ->
+                resultSet.next()
+                resultSet.getInt(1) > 0
             }
         }
     }
