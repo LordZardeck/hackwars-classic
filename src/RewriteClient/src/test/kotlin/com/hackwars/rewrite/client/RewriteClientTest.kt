@@ -1,14 +1,22 @@
 package com.hackwars.rewrite.client
 
 import com.hackwars.rewrite.client.files.RewriteLocalFileOpenTarget
+import com.hackwars.rewrite.client.files.RewriteScriptEditorTemplate
 import com.hackwars.rewrite.client.files.buildReadOnlyEditorTabs
+import com.hackwars.rewrite.client.files.buildNewEditorDocumentSpec
 import com.hackwars.rewrite.client.files.routeLocalFileTarget
 import com.hackwars.rewrite.clientmodel.RewriteClientRoute
 import com.hackwars.rewrite.clientmodel.RewriteDecodedGameState
 import com.hackwars.rewrite.clientmodel.RewriteDecodedGameUiNotice
+import com.hackwars.rewrite.protocol.ClientApplicationKind
 import com.hackwars.rewrite.protocol.ClientAttackMessageUiEvent
 import com.hackwars.rewrite.protocol.ClientBankTransactionResponse
 import com.hackwars.rewrite.protocol.ClientBountyCreatedResponse
+import com.hackwars.rewrite.protocol.ClientCompileFilePayload
+import com.hackwars.rewrite.protocol.ClientCompileFileResponse
+import com.hackwars.rewrite.protocol.ClientCompiledBinaryMetadata
+import com.hackwars.rewrite.protocol.ClientDecompileFilePayload
+import com.hackwars.rewrite.protocol.ClientDecompileFileResponse
 import com.hackwars.rewrite.protocol.ClientDepositPayload
 import com.hackwars.rewrite.protocol.ClientEconomyState
 import com.hackwars.rewrite.protocol.ClientFileContentsResponse
@@ -16,11 +24,14 @@ import com.hackwars.rewrite.protocol.ClientGameDeltaProjection
 import com.hackwars.rewrite.protocol.ClientGameSectionsProjection
 import com.hackwars.rewrite.protocol.ClientGameSnapshot
 import com.hackwars.rewrite.protocol.ClientMakeBountyPayload
+import com.hackwars.rewrite.protocol.ClientMutationAcceptedResponse
 import com.hackwars.rewrite.protocol.ClientProgramScriptBundle
 import com.hackwars.rewrite.protocol.ClientProgramScriptSlot
 import com.hackwars.rewrite.protocol.ClientProgramLifecycleStatus
 import com.hackwars.rewrite.protocol.ClientProgramUpdate
 import com.hackwars.rewrite.protocol.ClientRequestFilePayload
+import com.hackwars.rewrite.protocol.ClientSaveFilePayload
+import com.hackwars.rewrite.protocol.ClientScriptFamily
 import com.hackwars.rewrite.protocol.ClientStoredFile
 import com.hackwars.rewrite.protocol.ClientStoredFileKind
 import com.hackwars.rewrite.protocol.ClientTransferPayload
@@ -544,6 +555,177 @@ class RewriteClientTest {
         assertIs<RewriteGameCommandResult.Success<ClientFileContentsResponse>>(result)
         assertEquals("/Scripts/attack.src", result.value.file?.path)
         assertEquals(command.command_id, controller.snapshot().game.inbox.lastCommandResponse?.metadata?.commandId)
+    }
+
+    @Test
+    fun newTemplateSpecsProduceExpectedKindsSlotsAndCompileMetadata() {
+        val banking = buildNewEditorDocumentSpec(RewriteScriptEditorTemplate.BANKING)
+        val attack = buildNewEditorDocumentSpec(RewriteScriptEditorTemplate.ATTACK)
+        val ftp = buildNewEditorDocumentSpec(RewriteScriptEditorTemplate.FTP)
+        val watch = buildNewEditorDocumentSpec(RewriteScriptEditorTemplate.WATCH)
+        val http = buildNewEditorDocumentSpec(RewriteScriptEditorTemplate.HTTP)
+        val redirect = buildNewEditorDocumentSpec(RewriteScriptEditorTemplate.REDIRECT)
+        val text = buildNewEditorDocumentSpec(RewriteScriptEditorTemplate.TEXT)
+
+        assertEquals(ClientStoredFileKind.SCRIPT_SOURCE, banking.kind)
+        assertEquals(listOf("Deposit", "Withdraw", "Transfer"), banking.tabDefinitions.map { it.title })
+        assertEquals(ClientScriptFamily.BANKING, banking.compiledBinary?.scriptFamily)
+        assertEquals(ClientApplicationKind.BANKING, banking.compiledBinary?.applicationKind)
+
+        assertEquals(listOf("Initialize", "Finalize", "Continue"), attack.tabDefinitions.map { it.title })
+        assertEquals(ClientScriptFamily.ATTACK, attack.scriptBundleFamily)
+        assertEquals(ClientApplicationKind.ATTACK, attack.compiledBinary?.applicationKind)
+
+        assertEquals(listOf("Put", "Get"), ftp.tabDefinitions.map { it.title })
+        assertEquals(ClientScriptFamily.GENERAL, ftp.scriptBundleFamily)
+        assertEquals(ClientApplicationKind.FTP, ftp.compiledBinary?.applicationKind)
+
+        assertEquals(listOf("Fire"), watch.tabDefinitions.map { it.title })
+        assertEquals(ClientScriptFamily.WATCH, watch.compiledBinary?.scriptFamily)
+
+        assertEquals(listOf("Enter", "Exit", "Submit"), http.tabDefinitions.map { it.title })
+        assertEquals(ClientScriptFamily.HTTP, http.compiledBinary?.scriptFamily)
+
+        assertEquals(listOf("Initialize", "Finalize", "Continue"), redirect.tabDefinitions.map { it.title })
+        assertEquals(ClientScriptFamily.REDIRECT, redirect.compiledBinary?.scriptFamily)
+
+        assertEquals(ClientStoredFileKind.TEXT, text.kind)
+        assertEquals(listOf("Content"), text.tabDefinitions.map { it.title })
+        assertNull(text.compiledBinary)
+    }
+
+    @Test
+    fun requestSaveCompileAndDecompileUseExpectedPayloads() = runTest {
+        val sessionGateway = FakeRewriteServiceSessionGateway()
+        val controller = testController(
+            authGateway = RecordingRewriteLoginAuthGateway(),
+            sessionGateway = sessionGateway,
+            scheduler = testScheduler,
+        )
+        controller.accept(
+            RewriteService.GAME,
+            RewriteFrames.authAccepted(
+                connectionId = "conn-1",
+                playFabId = "PF-LOCAL",
+                playerIp = "LOCAL-IP",
+                heartbeatInterval = kotlin.time.Duration.parse("15s"),
+                sessionStartedAt = Instant.parse("2026-03-25T00:00:00Z"),
+            ),
+        )
+
+        val sourceFile = ClientStoredFile(
+            path = "/Scripts/attack.src",
+            name = "attack.src",
+            kind = ClientStoredFileKind.SCRIPT_SOURCE,
+            contents = "[Initialize]\nint main(){}",
+            compiledBinary = ClientCompiledBinaryMetadata(
+                scriptFamily = ClientScriptFamily.ATTACK,
+                applicationKind = ClientApplicationKind.ATTACK,
+            ),
+            scriptBundle = ClientProgramScriptBundle(
+                family = ClientScriptFamily.ATTACK,
+                scriptsBySlot = mapOf(
+                    ClientProgramScriptSlot.INITIALIZE to "int main(){}",
+                ),
+            ),
+        )
+
+        val savePending = backgroundScope.async(UnconfinedTestDispatcher(testScheduler)) {
+            controller.requestSaveFile(path = "/Scripts", file = sourceFile)
+        }
+        runCurrent()
+
+        val session = sessionGateway.requireLatestSession(RewriteService.GAME)
+        val saveCommand = session.sentFrames.last().command!!
+        val savePayload = RewriteClientJson.decode(
+            ClientSaveFilePayload.serializer(),
+            saveCommand.payload.toByteArray(),
+        )
+        assertEquals("savefile", saveCommand.command_name)
+        assertEquals("/Scripts", savePayload.path)
+        assertEquals("attack.src", savePayload.file.name)
+        controller.accept(
+            RewriteService.GAME,
+            RewriteFrames.commandResponse(
+                commandId = saveCommand.command_id,
+                payload = RewriteClientJson.encode(
+                    ClientMutationAcceptedResponse.serializer(),
+                    ClientMutationAcceptedResponse(
+                        stateId = "LOCAL-IP",
+                        version = 10,
+                        message = "file-saved",
+                    ),
+                ),
+            ),
+        )
+        advanceUntilIdle()
+        assertIs<RewriteGameCommandResult.Success<ClientMutationAcceptedResponse>>(savePending.await())
+
+        val compilePending = backgroundScope.async(UnconfinedTestDispatcher(testScheduler)) {
+            controller.requestCompileFile(path = "/Scripts", name = "attack.src")
+        }
+        runCurrent()
+        val compileCommand = session.sentFrames.last().command!!
+        val compilePayload = RewriteClientJson.decode(
+            ClientCompileFilePayload.serializer(),
+            compileCommand.payload.toByteArray(),
+        )
+        assertEquals("compilefile", compileCommand.command_name)
+        assertEquals("/Scripts", compilePayload.path)
+        assertEquals("attack.src", compilePayload.name)
+        controller.accept(
+            RewriteService.GAME,
+            RewriteFrames.commandResponse(
+                commandId = compileCommand.command_id,
+                payload = RewriteClientJson.encode(
+                    ClientCompileFileResponse.serializer(),
+                    ClientCompileFileResponse(
+                        stateId = "LOCAL-IP",
+                        compiledFile = sourceFile.copy(
+                            path = "/Scripts/attack.bin",
+                            name = "attack.bin",
+                            kind = ClientStoredFileKind.APPLICATION_BINARY,
+                        ),
+                        pettyCashAfter = 95.0,
+                        experienceAfter = 2.0,
+                        version = 11,
+                    ),
+                ),
+            ),
+        )
+        advanceUntilIdle()
+        assertIs<RewriteGameCommandResult.Success<ClientCompileFileResponse>>(compilePending.await())
+
+        val decompilePending = backgroundScope.async(UnconfinedTestDispatcher(testScheduler)) {
+            controller.requestDecompileFile(path = "/Scripts", name = "attack.bin")
+        }
+        runCurrent()
+        val decompileCommand = session.sentFrames.last().command!!
+        val decompilePayload = RewriteClientJson.decode(
+            ClientDecompileFilePayload.serializer(),
+            decompileCommand.payload.toByteArray(),
+        )
+        assertEquals("decompilefile", decompileCommand.command_name)
+        assertEquals("/Scripts", decompilePayload.path)
+        assertEquals("attack.bin", decompilePayload.name)
+        controller.accept(
+            RewriteService.GAME,
+            RewriteFrames.commandResponse(
+                commandId = decompileCommand.command_id,
+                payload = RewriteClientJson.encode(
+                    ClientDecompileFileResponse.serializer(),
+                    ClientDecompileFileResponse(
+                        stateId = "LOCAL-IP",
+                        decompiledFile = sourceFile,
+                        pettyCashAfter = 100.0,
+                        experienceAfter = 1.0,
+                        version = 12,
+                    ),
+                ),
+            ),
+        )
+        advanceUntilIdle()
+        assertIs<RewriteGameCommandResult.Success<ClientDecompileFileResponse>>(decompilePending.await())
     }
 
     @Test

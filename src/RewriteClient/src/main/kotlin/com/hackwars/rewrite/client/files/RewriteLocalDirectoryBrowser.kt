@@ -60,6 +60,11 @@ internal data class RewriteLocalFileSelection(
     val file: ClientStoredFile,
 )
 
+internal data class RewriteLocalFileSaveSelection(
+    val directoryPath: String,
+    val fileName: String,
+)
+
 internal data class RewriteLocalDirectoryBrowserState(
     val displayedPath: String = "/",
     val listing: ClientDirectoryListingResponse? = null,
@@ -88,8 +93,10 @@ internal class RewriteLocalDirectoryBrowserController(
 
     fun selector(): Flow<RewriteLocalDirectoryBrowserState> = store.selector { it }
 
-    fun activate() {
-        requestDirectory(null)
+    fun activate(
+        initialPath: String? = null,
+    ) {
+        requestDirectory(initialPath)
     }
 
     fun navigateHome() {
@@ -289,6 +296,10 @@ internal class RewriteLocalDirectoryBrowserPanel(
     private val secondaryActionName: String? = null,
     private val onSecondaryAction: (() -> Unit)? = null,
     private val canRunSecondaryAction: ((RewriteLocalDirectoryBrowserState) -> Boolean)? = null,
+    private val tertiaryActionLabel: String? = null,
+    private val tertiaryActionName: String? = null,
+    private val onTertiaryAction: (() -> Unit)? = null,
+    private val canRunTertiaryAction: ((RewriteLocalDirectoryBrowserState) -> Boolean)? = null,
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
 ) : JPanel(BorderLayout()) {
     private val pathValueLabel = JLabel("/").apply {
@@ -328,6 +339,14 @@ internal class RewriteLocalDirectoryBrowserPanel(
             }
         }
     }
+    val tertiaryButton = tertiaryActionLabel?.let { label ->
+        JButton(label).apply {
+            name = tertiaryActionName
+            addActionListener {
+                onTertiaryAction?.invoke()
+            }
+        }
+    }
 
     init {
         name = "rewrite-files-browser-panel"
@@ -343,6 +362,7 @@ internal class RewriteLocalDirectoryBrowserPanel(
             add(homeButton)
             add(primaryButton)
             secondaryButton?.let { add(it) }
+            tertiaryButton?.let { add(it) }
         }
         val footer = JPanel(BorderLayout(0, 4)).apply {
             isOpaque = false
@@ -409,6 +429,7 @@ internal class RewriteLocalDirectoryBrowserPanel(
         val primaryEnabled = !state.requestInFlight && canRunPrimaryAction(state)
         primaryButton.isEnabled = primaryEnabled
         secondaryButton?.isEnabled = !state.requestInFlight && (canRunSecondaryAction?.invoke(state) == true)
+        tertiaryButton?.isEnabled = !state.requestInFlight && (canRunTertiaryAction?.invoke(state) == true)
         entryList.isEnabled = !state.requestInFlight
         upButton.isEnabled = !state.requestInFlight
         homeButton.isEnabled = !state.requestInFlight
@@ -448,6 +469,16 @@ internal class RewriteHomeWindow(
         onSecondaryAction = { showProperties(controller) },
         canRunSecondaryAction = { state ->
             state.entries.firstOrNull { it.path == state.selectedPath }?.file != null
+        },
+        tertiaryActionLabel = "Decompile",
+        tertiaryActionName = "rewrite-files-decompile-button",
+        onTertiaryAction = { decompileSelection(controller) },
+        canRunTertiaryAction = { state ->
+            state.entries.firstOrNull { it.path == state.selectedPath }?.file?.kind in setOf(
+                com.hackwars.rewrite.protocol.ClientStoredFileKind.APPLICATION_BINARY,
+                com.hackwars.rewrite.protocol.ClientStoredFileKind.FIREWALL_BINARY,
+                com.hackwars.rewrite.protocol.ClientStoredFileKind.EQUIPMENT_BINARY,
+            )
         },
     )
 
@@ -530,6 +561,36 @@ internal class RewriteHomeWindow(
             }
         }
     }
+
+    private fun decompileSelection(controller: RewriteRootController) {
+        val file = browserController.selectedEntry()?.file ?: return
+        val confirmed = javax.swing.JOptionPane.showConfirmDialog(
+            this,
+            "Decompile ${file.name}?",
+            "Decompile",
+            javax.swing.JOptionPane.YES_NO_OPTION,
+            javax.swing.JOptionPane.QUESTION_MESSAGE,
+        )
+        if (confirmed != javax.swing.JOptionPane.YES_OPTION) {
+            return
+        }
+        browserController.showInlineError(null)
+        windowScope.launch {
+            val result = controller.requestDecompileFile(
+                path = parentDirectoryPath(file.path),
+                name = file.name,
+            )
+            SwingUtilities.invokeLater {
+                if (isClosed || !isDisplayable) {
+                    return@invokeLater
+                }
+                when (result) {
+                    is RewriteGameCommandResult.Success -> browserController.showInlineError(null)
+                    is RewriteGameCommandResult.Failure -> browserController.showInlineError(result.message)
+                }
+            }
+        }
+    }
 }
 
 internal class RewriteLocalFileChooserWindow(
@@ -568,6 +629,108 @@ internal class RewriteLocalFileChooserWindow(
             }
         })
         browserController.activate()
+    }
+}
+
+internal class RewriteLocalFileSaveChooserWindow(
+    controller: RewriteRootController,
+    title: String,
+    initialPath: String? = null,
+    initialFileName: String = "",
+    private val onSaveSelected: (RewriteLocalFileSaveSelection) -> Unit,
+    directoryFilter: (ClientDirectoryEntry) -> Boolean = { true },
+    fileFilter: (ClientStoredFile) -> Boolean = { true },
+) : JInternalFrame(title, true, true, true, true) {
+    private val browserController = RewriteLocalDirectoryBrowserController(
+        rootController = controller,
+        directoryFilter = directoryFilter,
+        fileFilter = fileFilter,
+    )
+    private val browserPanel = RewriteLocalDirectoryBrowserPanel(
+        browserController = browserController,
+        primaryActionLabel = "Open",
+        primaryActionName = "rewrite-files-open-directory-button",
+        onPrimaryAction = { openSelection() },
+        canRunPrimaryAction = { state ->
+            state.entries.any { it.path == state.selectedPath }
+        },
+    )
+    private val fileNameField = javax.swing.JTextField(initialFileName).apply {
+        name = "rewrite-files-save-name-field"
+        columns = 24
+    }
+    private val saveButton = JButton("Save").apply {
+        name = "rewrite-files-save-button"
+        addActionListener { submitSelection() }
+    }
+    private val cancelButton = JButton("Cancel").apply {
+        name = "rewrite-files-save-cancel-button"
+        addActionListener { dispose() }
+    }
+
+    init {
+        name = "rewrite-local-file-save-chooser-window"
+        defaultCloseOperation = DISPOSE_ON_CLOSE
+        size = Dimension(560, 460)
+        contentPane = JPanel(BorderLayout(0, 8)).apply {
+            border = BorderFactory.createEmptyBorder(10, 10, 10, 10)
+            add(browserPanel, BorderLayout.CENTER)
+            add(
+                JPanel(BorderLayout(8, 0)).apply {
+                    isOpaque = false
+                    add(JLabel("File Name:"), BorderLayout.WEST)
+                    add(fileNameField, BorderLayout.CENTER)
+                    add(
+                        JPanel(FlowLayout(FlowLayout.RIGHT, 8, 0)).apply {
+                            isOpaque = false
+                            add(saveButton)
+                            add(cancelButton)
+                        },
+                        BorderLayout.EAST,
+                    )
+                },
+                BorderLayout.SOUTH,
+            )
+        }
+        browserPanel.entryList.addListSelectionListener {
+            browserController.selectedEntry()?.file?.let { file ->
+                fileNameField.text = file.name
+            }
+        }
+        fileNameField.addActionListener { submitSelection() }
+        addInternalFrameListener(object : InternalFrameAdapter() {
+            override fun internalFrameClosed(event: InternalFrameEvent) {
+                browserPanel.close()
+                browserController.close()
+            }
+        })
+        browserController.activate(initialPath)
+    }
+
+    private fun openSelection() {
+        val entry = browserController.selectedEntry() ?: return
+        if (entry.isDirectory) {
+            browserController.openSelectedDirectory()
+            return
+        }
+        entry.file?.let { fileNameField.text = it.name }
+    }
+
+    private fun submitSelection() {
+        val fileName = fileNameField.text.trim()
+        if (fileName.isBlank()) {
+            browserController.showInlineError("File name is required.")
+            return
+        }
+        val directoryPath = browserController.snapshot().listing?.path ?: browserController.snapshot().displayedPath
+        browserController.showInlineError(null)
+        onSaveSelected(
+            RewriteLocalFileSaveSelection(
+                directoryPath = directoryPath,
+                fileName = fileName,
+            ),
+        )
+        dispose()
     }
 }
 

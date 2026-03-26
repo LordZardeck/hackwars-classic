@@ -5,7 +5,6 @@ import com.hackwars.rewrite.protocol.ClientStoredFile
 import com.hackwars.rewrite.protocol.ClientStoredFileKind
 import java.awt.BorderLayout
 import java.awt.Dimension
-import java.awt.Font
 import java.awt.GridBagConstraints
 import java.awt.GridBagLayout
 import java.awt.Insets
@@ -16,7 +15,6 @@ import javax.swing.JInternalFrame
 import javax.swing.JLabel
 import javax.swing.JPanel
 import javax.swing.JScrollPane
-import javax.swing.JTabbedPane
 import javax.swing.JTextArea
 
 internal enum class RewriteLocalFileOpenTarget {
@@ -203,93 +201,6 @@ internal class RewriteFilePropertiesWindow(
 
         private fun valueLabel(name: String): JLabel {
             return JLabel("-").apply { this.name = name }
-        }
-    }
-}
-
-internal class RewriteScriptEditorWindow : JInternalFrame("Script Editor", true, true, true, true) {
-    private val emptyStateLabel = JLabel("Open a file from Home to view it.").apply {
-        name = "rewrite-script-editor-empty-state"
-        horizontalAlignment = JLabel.CENTER
-    }
-    private val fileTabs = JTabbedPane().apply {
-        name = "rewrite-script-editor-file-tabs"
-    }
-    private val openDocumentsByPath = linkedMapOf<String, RewriteEditorDocumentView>()
-
-    init {
-        name = "rewrite-script-editor-window"
-        defaultCloseOperation = DISPOSE_ON_CLOSE
-        size = Dimension(760, 520)
-        contentPane = JPanel(BorderLayout()).apply {
-            add(emptyStateLabel, BorderLayout.CENTER)
-            add(fileTabs, BorderLayout.SOUTH)
-        }
-        fileTabs.removeAll()
-        fileTabs.isVisible = false
-        fileTabs.tabLayoutPolicy = JTabbedPane.SCROLL_TAB_LAYOUT
-        renderState()
-    }
-
-    fun openFile(file: ClientStoredFile) {
-        val existing = openDocumentsByPath[file.path]
-        if (existing != null) {
-            existing.update(file)
-            fileTabs.selectedComponent = existing.container
-            renderState()
-            return
-        }
-
-        val documentView = RewriteEditorDocumentView(file)
-        openDocumentsByPath[file.path] = documentView
-        fileTabs.addTab(file.name, documentView.container)
-        fileTabs.selectedComponent = documentView.container
-        renderState()
-    }
-
-    private fun renderState() {
-        val hasDocuments = openDocumentsByPath.isNotEmpty()
-        emptyStateLabel.isVisible = !hasDocuments
-        fileTabs.isVisible = hasDocuments
-        contentPane.removeAll()
-        if (hasDocuments) {
-            contentPane.add(fileTabs, BorderLayout.CENTER)
-        } else {
-            contentPane.add(emptyStateLabel, BorderLayout.CENTER)
-        }
-        contentPane.revalidate()
-        contentPane.repaint()
-    }
-}
-
-private class RewriteEditorDocumentView(
-    file: ClientStoredFile,
-) {
-    val container = JPanel(BorderLayout())
-    private val tabbedPane = JTabbedPane().apply {
-        name = "rewrite-script-editor-document-tabs-${sanitizeWindowKey(file.path)}"
-    }
-
-    init {
-        container.add(tabbedPane, BorderLayout.CENTER)
-        update(file)
-    }
-
-    fun update(file: ClientStoredFile) {
-        tabbedPane.removeAll()
-        buildReadOnlyEditorTabs(file).forEach { tab ->
-            val area = JTextArea(tab.content).apply {
-                isEditable = false
-                lineWrap = false
-                wrapStyleWord = false
-                font = Font(Font.MONOSPACED, Font.PLAIN, 13)
-                name = "rewrite-script-editor-content-${sanitizeWindowKey(file.path)}-${sanitizeWindowKey(tab.title)}"
-                caretPosition = 0
-            }
-            tabbedPane.addTab(
-                tab.title,
-                JScrollPane(area),
-            )
         }
     }
 }

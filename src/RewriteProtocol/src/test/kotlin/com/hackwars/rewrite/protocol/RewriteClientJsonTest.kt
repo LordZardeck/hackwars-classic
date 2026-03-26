@@ -268,6 +268,79 @@ class RewriteClientJsonTest {
     }
 
     @Test
+    fun decodesCurrentRewriteSaveCompileAndDecompileResponseShapes() {
+        val savePayload = """
+            {
+              "stateId":"LOCAL-IP",
+              "version":17,
+              "message":"file-saved",
+              "ignored":"ignored"
+            }
+        """.trimIndent().encodeToByteArray()
+        val compilePayload = """
+            {
+              "stateId":"LOCAL-IP",
+              "compiledFile":{
+                "path":"/Scripts/attack.bin",
+                "name":"attack.bin",
+                "kind":"APPLICATION_BINARY",
+                "compiledBinary":{
+                  "scriptFamily":"ATTACK",
+                  "applicationKind":"ATTACK"
+                }
+              },
+              "pettyCashAfter":77.5,
+              "experienceAfter":12.0,
+              "version":18,
+              "ignored":"ignored"
+            }
+        """.trimIndent().encodeToByteArray()
+        val decompilePayload = """
+            {
+              "stateId":"LOCAL-IP",
+              "decompiledFile":{
+                "path":"/Scripts/attack.src",
+                "name":"attack.src",
+                "kind":"SCRIPT_SOURCE",
+                "scriptBundle":{
+                  "family":"ATTACK",
+                  "scriptsBySlot":{
+                    "INITIALIZE":"init()"
+                  }
+                }
+              },
+              "pettyCashAfter":90.0,
+              "experienceAfter":11.0,
+              "version":19,
+              "ignored":"ignored"
+            }
+        """.trimIndent().encodeToByteArray()
+
+        val saveResponse = RewriteClientJson.decode(
+            ClientMutationAcceptedResponse.serializer(),
+            savePayload,
+        )
+        val compileResponse = RewriteClientJson.decode(
+            ClientCompileFileResponse.serializer(),
+            compilePayload,
+        )
+        val decompileResponse = RewriteClientJson.decode(
+            ClientDecompileFileResponse.serializer(),
+            decompilePayload,
+        )
+
+        assertEquals("LOCAL-IP", saveResponse.stateId)
+        assertEquals("file-saved", saveResponse.message)
+        assertEquals(17, saveResponse.version)
+        assertEquals("attack.bin", compileResponse.compiledFile.name)
+        assertEquals(ClientApplicationKind.ATTACK, compileResponse.compiledFile.compiledBinary?.applicationKind)
+        assertEquals(77.5, compileResponse.pettyCashAfter)
+        assertEquals("attack.src", decompileResponse.decompiledFile.name)
+        assertEquals(ClientScriptFamily.ATTACK, decompileResponse.decompiledFile.scriptBundle?.family)
+        assertEquals(19, decompileResponse.version)
+    }
+
+    @Test
     fun decodesCurrentRewriteMakeBountyResponseShape() {
         val payload = """
             {

@@ -502,6 +502,24 @@ data class ClientRequestFilePayload(
 )
 
 @Serializable
+data class ClientSaveFilePayload(
+    val path: String? = null,
+    val file: ClientStoredFile,
+)
+
+@Serializable
+data class ClientCompileFilePayload(
+    val path: String? = null,
+    val name: String,
+)
+
+@Serializable
+data class ClientDecompileFilePayload(
+    val path: String? = null,
+    val name: String,
+)
+
+@Serializable
 data class ClientDirectoryListingResponse(
     val stateId: String,
     val path: String,
@@ -514,6 +532,31 @@ data class ClientDirectoryListingResponse(
 data class ClientFileContentsResponse(
     val stateId: String,
     val file: ClientStoredFile? = null,
+    val version: Long,
+)
+
+@Serializable
+data class ClientMutationAcceptedResponse(
+    val stateId: String,
+    val version: Long,
+    val message: String,
+)
+
+@Serializable
+data class ClientCompileFileResponse(
+    val stateId: String,
+    val compiledFile: ClientStoredFile,
+    val pettyCashAfter: Double,
+    val experienceAfter: Double,
+    val version: Long,
+)
+
+@Serializable
+data class ClientDecompileFileResponse(
+    val stateId: String,
+    val decompiledFile: ClientStoredFile,
+    val pettyCashAfter: Double,
+    val experienceAfter: Double,
     val version: Long,
 )
 

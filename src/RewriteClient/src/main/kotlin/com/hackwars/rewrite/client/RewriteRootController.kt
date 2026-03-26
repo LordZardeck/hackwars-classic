@@ -24,15 +24,21 @@ import com.hackwars.rewrite.clientmodel.RewriteDecodedGameUiNotice
 import com.hackwars.rewrite.clientmodel.RewriteServiceState
 import com.hackwars.rewrite.protocol.ClientBankTransactionResponse
 import com.hackwars.rewrite.protocol.ClientBountyCreatedResponse
+import com.hackwars.rewrite.protocol.ClientCompileFilePayload
+import com.hackwars.rewrite.protocol.ClientCompileFileResponse
+import com.hackwars.rewrite.protocol.ClientDecompileFilePayload
+import com.hackwars.rewrite.protocol.ClientDecompileFileResponse
 import com.hackwars.rewrite.protocol.ClientDepositPayload
 import com.hackwars.rewrite.protocol.ClientDirectoryListingResponse
 import com.hackwars.rewrite.protocol.ClientFileContentsResponse
 import com.hackwars.rewrite.protocol.ClientFilesystemState
 import com.hackwars.rewrite.protocol.ClientGameSnapshot
 import com.hackwars.rewrite.protocol.ClientMakeBountyPayload
+import com.hackwars.rewrite.protocol.ClientMutationAcceptedResponse
 import com.hackwars.rewrite.protocol.ClientProgramUpdate
 import com.hackwars.rewrite.protocol.ClientRequestDirectoryPayload
 import com.hackwars.rewrite.protocol.ClientRequestFilePayload
+import com.hackwars.rewrite.protocol.ClientSaveFilePayload
 import com.hackwars.rewrite.protocol.ClientStoredFile
 import com.hackwars.rewrite.protocol.ClientTransferPayload
 import com.hackwars.rewrite.protocol.ClientTransferResponse
@@ -238,6 +244,60 @@ class RewriteRootController(
                 name = name,
             ),
             responseSerializer = ClientFileContentsResponse.serializer(),
+            targetStateIds = listOf(playerIp),
+        )
+    }
+
+    internal suspend fun requestSaveFile(
+        path: String?,
+        file: ClientStoredFile,
+    ): RewriteGameCommandResult<ClientMutationAcceptedResponse> {
+        val playerIp = authenticatedPlayerIp()
+            ?: return RewriteGameCommandResult.Failure("Not connected to a rewrite game session.")
+        return gameCommandBroker.request(
+            commandName = "savefile",
+            payloadSerializer = ClientSaveFilePayload.serializer(),
+            payload = ClientSaveFilePayload(
+                path = path,
+                file = file,
+            ),
+            responseSerializer = ClientMutationAcceptedResponse.serializer(),
+            targetStateIds = listOf(playerIp),
+        )
+    }
+
+    internal suspend fun requestCompileFile(
+        path: String?,
+        name: String,
+    ): RewriteGameCommandResult<ClientCompileFileResponse> {
+        val playerIp = authenticatedPlayerIp()
+            ?: return RewriteGameCommandResult.Failure("Not connected to a rewrite game session.")
+        return gameCommandBroker.request(
+            commandName = "compilefile",
+            payloadSerializer = ClientCompileFilePayload.serializer(),
+            payload = ClientCompileFilePayload(
+                path = path,
+                name = name,
+            ),
+            responseSerializer = ClientCompileFileResponse.serializer(),
+            targetStateIds = listOf(playerIp),
+        )
+    }
+
+    internal suspend fun requestDecompileFile(
+        path: String?,
+        name: String,
+    ): RewriteGameCommandResult<ClientDecompileFileResponse> {
+        val playerIp = authenticatedPlayerIp()
+            ?: return RewriteGameCommandResult.Failure("Not connected to a rewrite game session.")
+        return gameCommandBroker.request(
+            commandName = "decompilefile",
+            payloadSerializer = ClientDecompileFilePayload.serializer(),
+            payload = ClientDecompileFilePayload(
+                path = path,
+                name = name,
+            ),
+            responseSerializer = ClientDecompileFileResponse.serializer(),
             targetStateIds = listOf(playerIp),
         )
     }
@@ -519,6 +579,8 @@ class RewriteRootController(
         return snapshot().game.latestAcceptedSession?.playerIp?.takeIf { it.isNotBlank() }
     }
 
+    internal fun currentAuthenticatedPlayerIp(): String? = authenticatedPlayerIp()
+
     internal fun openLocalFile(file: ClientStoredFile) {
         when (routeLocalFileTarget(file)) {
             RewriteLocalFileOpenTarget.SCRIPT_EDITOR -> openFileInScriptEditor(file)
@@ -577,7 +639,18 @@ class RewriteRootController(
             controller = this,
         )
 
-        RewriteShellCommand.SCRIPT_EDITOR -> RewriteScriptEditorWindow()
+        RewriteShellCommand.SCRIPT_EDITOR -> RewriteScriptEditorWindow(
+            controller = this,
+            onOpenAuxiliaryWindow = { window ->
+                shellHost?.let { currentHost ->
+                    currentHost.showWindow(window)
+                    currentHost.focusWindow(window)
+                }
+            },
+            onFocusAuxiliaryWindow = { window ->
+                shellHost?.focusWindow(window)
+            },
+        )
 
         else -> RewritePlaceholderInternalFrame(command)
     }

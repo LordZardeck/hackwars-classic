@@ -2,8 +2,12 @@ package com.hackwars.rewrite.client
 
 import com.hackwars.rewrite.client.shell.RewriteShellCommand
 import com.hackwars.rewrite.protocol.ClientBountyCreatedResponse
+import com.hackwars.rewrite.protocol.ClientCompileFilePayload
+import com.hackwars.rewrite.protocol.ClientCompileFileResponse
 import com.hackwars.rewrite.protocol.ClientDirectoryEntry
 import com.hackwars.rewrite.protocol.ClientDirectoryListingResponse
+import com.hackwars.rewrite.protocol.ClientDecompileFilePayload
+import com.hackwars.rewrite.protocol.ClientDecompileFileResponse
 import com.hackwars.rewrite.protocol.ClientFileContentsResponse
 import com.hackwars.rewrite.clientmodel.RewriteClientRoute
 import com.hackwars.rewrite.protocol.ClientBankTransactionResponse
@@ -13,9 +17,12 @@ import com.hackwars.rewrite.protocol.ClientGameSnapshot
 import com.hackwars.rewrite.protocol.ClientInstalledApplication
 import com.hackwars.rewrite.protocol.ClientPortState
 import com.hackwars.rewrite.protocol.ClientMakeBountyPayload
+import com.hackwars.rewrite.protocol.ClientMutationAcceptedResponse
 import com.hackwars.rewrite.protocol.ClientProgramScriptBundle
 import com.hackwars.rewrite.protocol.ClientProgramScriptSlot
 import com.hackwars.rewrite.protocol.ClientRequestDirectoryPayload
+import com.hackwars.rewrite.protocol.ClientSaveFilePayload
+import com.hackwars.rewrite.protocol.ClientScriptFamily
 import com.hackwars.rewrite.protocol.ClientRuntimeState
 import com.hackwars.rewrite.protocol.ClientStoredFileKind
 import com.hackwars.rewrite.protocol.ClientStoredFile
@@ -41,6 +48,7 @@ import javax.swing.JFormattedTextField
 import javax.swing.JInternalFrame
 import javax.swing.JList
 import javax.swing.JLabel
+import javax.swing.JScrollPane
 import javax.swing.JSpinner
 import javax.swing.SwingUtilities
 import javax.swing.JTabbedPane
@@ -700,13 +708,56 @@ class RewriteRootFrameUiTest {
                 "Open a file from Home to view it.",
                 label(editorWindow, "rewrite-script-editor-empty-state").text,
             )
+            button(editorWindow, "rewrite-script-editor-new-button")
+            button(editorWindow, "rewrite-script-editor-save-button")
+            button(editorWindow, "rewrite-script-editor-save-as-button")
+            button(editorWindow, "rewrite-script-editor-compile-button")
+            button(editorWindow, "rewrite-script-editor-close-tab-button")
         } finally {
             disposeFrame(frame)
         }
     }
 
     @Test
-    fun homeOpenOnSourceFileLoadsReadOnlyScriptEditorAndReusesTab() {
+    fun scriptEditorNewTemplatesOpenWithExpectedTabLabels() {
+        assumeFalse(GraphicsEnvironment.isHeadless())
+
+        val frame = bankingReadyFrame()
+        try {
+            SwingUtilities.invokeAndWait {
+                frame.controller.launchShellCommand(RewriteShellCommand.SCRIPT_EDITOR)
+            }
+
+            val editorWindow = waitForWindow(frame, "rewrite-script-editor-window")
+            SwingUtilities.invokeAndWait {
+                @Suppress("UNCHECKED_CAST")
+                (comboBox(editorWindow, "rewrite-script-editor-new-template") as JComboBox<Any>).selectedIndex = 0
+                button(editorWindow, "rewrite-script-editor-new-button").doClick()
+            }
+            waitUntil { editorFileTabCount(editorWindow) == 1 }
+            assertEquals(
+                listOf("Deposit", "Withdraw", "Transfer"),
+                selectedDocumentTabTitles(editorWindow),
+            )
+            assertEquals("Untitled *", editorFileTabTitle(editorWindow, 0))
+
+            SwingUtilities.invokeAndWait {
+                @Suppress("UNCHECKED_CAST")
+                (comboBox(editorWindow, "rewrite-script-editor-new-template") as JComboBox<Any>).selectedIndex = 4
+                button(editorWindow, "rewrite-script-editor-new-button").doClick()
+            }
+            waitUntil { editorFileTabCount(editorWindow) == 2 }
+            assertEquals(
+                listOf("Enter", "Exit", "Submit"),
+                selectedDocumentTabTitles(editorWindow),
+            )
+        } finally {
+            disposeFrame(frame)
+        }
+    }
+
+    @Test
+    fun homeOpenOnSourceFileLoadsEditableScriptEditorAndReusesTab() {
         assumeFalse(GraphicsEnvironment.isHeadless())
 
         val sessionGateway = FakeUiSessionGateway()
@@ -776,18 +827,15 @@ class RewriteRootFrameUiTest {
             )
 
             val editorWindow = waitForWindow(frame, "rewrite-script-editor-window")
-            waitUntil {
-                tabbedPane(editorWindow, "rewrite-script-editor-file-tabs").tabCount == 1
-            }
+            waitUntil { editorFileTabCount(editorWindow) == 1 }
             val fileTabs = tabbedPane(editorWindow, "rewrite-script-editor-file-tabs")
             assertEquals(1, fileTabs.tabCount)
             assertEquals("attack.src", fileTabs.getTitleAt(0))
 
-            val documentTabs = tabbedPane(editorWindow, "rewrite-script-editor-document-tabs-scripts-attack-src")
-            assertEquals(listOf("Initialize", "Finalize", "Continue"), (0 until documentTabs.tabCount).map(documentTabs::getTitleAt))
-            val area = textArea(editorWindow, "rewrite-script-editor-content-scripts-attack-src-initialize")
+            assertEquals(listOf("Initialize", "Finalize", "Continue"), selectedDocumentTabTitles(editorWindow))
+            val area = selectedDocumentTextArea(editorWindow)
             assertEquals("init()", area.text)
-            assertFalse(area.isEditable)
+            assertTrue(area.isEditable)
 
             SwingUtilities.invokeAndWait {
                 button(homeFrame, "rewrite-files-open-button").doClick()
@@ -820,10 +868,201 @@ class RewriteRootFrameUiTest {
                 ),
             )
 
-            waitUntil {
-                tabbedPane(editorWindow, "rewrite-script-editor-file-tabs").tabCount == 1
+            waitUntil { editorFileTabCount(editorWindow) == 1 }
+            assertEquals(1, editorFileTabCount(editorWindow))
+        } finally {
+            disposeFrame(frame)
+        }
+    }
+
+    @Test
+    fun compileOnDirtyUnsavedSourceSavesFirstThenCompiles() {
+        assumeFalse(GraphicsEnvironment.isHeadless())
+
+        val sessionGateway = FakeUiSessionGateway()
+        val frame = bankingReadyFrame(sessionGateway = sessionGateway)
+        try {
+            SwingUtilities.invokeAndWait {
+                frame.controller.launchShellCommand(RewriteShellCommand.SCRIPT_EDITOR)
             }
-            assertEquals(1, tabbedPane(editorWindow, "rewrite-script-editor-file-tabs").tabCount)
+
+            val editorWindow = waitForWindow(frame, "rewrite-script-editor-window")
+            SwingUtilities.invokeAndWait {
+                @Suppress("UNCHECKED_CAST")
+                (comboBox(editorWindow, "rewrite-script-editor-new-template") as JComboBox<Any>).selectedIndex = 1
+                button(editorWindow, "rewrite-script-editor-new-button").doClick()
+            }
+            waitUntil { editorFileTabCount(editorWindow) == 1 }
+            SwingUtilities.invokeAndWait {
+                val tabs = tabbedPane(editorWindow, "rewrite-script-editor-file-tabs")
+                val selectedComponent = tabs.selectedComponent ?: error("No selected script editor document")
+                val innerTabs = findComponents(selectedComponent)
+                    .filterIsInstance<JTabbedPane>()
+                    .firstOrNull()
+                    ?: error("Unable to find inner script editor tabs")
+                val selectedScrollPane = innerTabs.selectedComponent as? JScrollPane
+                    ?: error("Selected document tab does not contain a scroll pane")
+                val area = selectedScrollPane.viewport.view as? JTextArea
+                    ?: error("Selected document tab does not contain a text area")
+                area.text = "int main(){\nreturn 1;\n}"
+                button(editorWindow, "rewrite-script-editor-compile-button").doClick()
+            }
+
+            val saveChooser = waitForWindow(frame, "rewrite-local-file-save-chooser-window")
+            SwingUtilities.invokeAndWait {
+                (findComponent(saveChooser, "rewrite-files-save-name-field") as JTextField).text = "attack.src"
+                button(saveChooser, "rewrite-files-save-button").doClick()
+            }
+
+            waitUntilForCommand(sessionGateway, "savefile", 1)
+            val saveCommand = latestSentCommand(sessionGateway, "savefile")
+            val savePayload = RewriteClientJson.decode(
+                ClientSaveFilePayload.serializer(),
+                saveCommand.payload.toByteArray(),
+            )
+            assertEquals("savefile", saveCommand.command_name)
+            assertEquals("/", savePayload.path)
+            assertEquals("attack.src", savePayload.file.name)
+
+            frame.controller.accept(
+                RewriteService.GAME,
+                RewriteFrames.commandResponse(
+                    commandId = saveCommand.command_id,
+                    payload = RewriteClientJson.encode(
+                        ClientMutationAcceptedResponse.serializer(),
+                        ClientMutationAcceptedResponse(
+                            stateId = "LOCAL-IP",
+                            version = 3,
+                            message = "file-saved",
+                        ),
+                    ),
+                ),
+            )
+
+            waitUntilForCommand(sessionGateway, "compilefile", 1)
+            val compileCommand = latestSentCommand(sessionGateway, "compilefile")
+            val compilePayload = RewriteClientJson.decode(
+                ClientCompileFilePayload.serializer(),
+                compileCommand.payload.toByteArray(),
+            )
+            assertEquals("compilefile", compileCommand.command_name)
+            assertEquals("/", compilePayload.path)
+            assertEquals("attack.src", compilePayload.name)
+
+            frame.controller.accept(
+                RewriteService.GAME,
+                RewriteFrames.commandResponse(
+                    commandId = compileCommand.command_id,
+                    payload = RewriteClientJson.encode(
+                        ClientCompileFileResponse.serializer(),
+                        ClientCompileFileResponse(
+                            stateId = "LOCAL-IP",
+                            compiledFile = ClientStoredFile(
+                                path = "/attack.bin",
+                                name = "attack.bin",
+                                kind = ClientStoredFileKind.APPLICATION_BINARY,
+                            ),
+                            pettyCashAfter = 120.0,
+                            experienceAfter = 1.0,
+                            version = 4,
+                        ),
+                    ),
+                ),
+            )
+
+            waitUntil { editorFileTabTitle(editorWindow, 0) == "attack.src" }
+            assertEquals(1, editorFileTabCount(editorWindow))
+            assertEquals("attack.src", editorFileTabTitle(editorWindow, 0))
+        } finally {
+            disposeFrame(frame)
+        }
+    }
+
+    @Test
+    fun saveAsToExistingPathReusesSingleEditorTab() {
+        assumeFalse(GraphicsEnvironment.isHeadless())
+
+        val sessionGateway = FakeUiSessionGateway()
+        val frame = bankingReadyFrame(sessionGateway = sessionGateway)
+        try {
+            SwingUtilities.invokeAndWait {
+                frame.controller.launchShellCommand(RewriteShellCommand.SCRIPT_EDITOR)
+            }
+
+            val editorWindow = waitForWindow(frame, "rewrite-script-editor-window")
+            repeat(2) {
+                SwingUtilities.invokeAndWait {
+                    @Suppress("UNCHECKED_CAST")
+                    (comboBox(editorWindow, "rewrite-script-editor-new-template") as JComboBox<Any>).selectedIndex = 6
+                    button(editorWindow, "rewrite-script-editor-new-button").doClick()
+                    button(editorWindow, "rewrite-script-editor-save-as-button").doClick()
+                }
+                val saveChooser = waitForWindow(frame, "rewrite-local-file-save-chooser-window")
+                SwingUtilities.invokeAndWait {
+                    (findComponent(saveChooser, "rewrite-files-save-name-field") as JTextField).text = "notes.txt"
+                    button(saveChooser, "rewrite-files-save-button").doClick()
+                }
+                waitUntilForCommand(sessionGateway, "savefile", it + 1)
+                val saveCommand = sentCommands(sessionGateway, "savefile").last()
+                frame.controller.accept(
+                    RewriteService.GAME,
+                    RewriteFrames.commandResponse(
+                        commandId = saveCommand.command_id,
+                        payload = RewriteClientJson.encode(
+                            ClientMutationAcceptedResponse.serializer(),
+                            ClientMutationAcceptedResponse(
+                                stateId = "LOCAL-IP",
+                                version = (10 + it).toLong(),
+                                message = "file-saved",
+                            ),
+                        ),
+                    ),
+                )
+            }
+
+            waitUntil { editorFileTabCount(editorWindow) == 1 }
+            assertEquals(1, editorFileTabCount(editorWindow))
+            assertEquals("notes.txt", editorFileTabTitle(editorWindow, 0))
+        } finally {
+            disposeFrame(frame)
+        }
+    }
+
+    @Test
+    fun closeTabAndWindowPromptsHonorCancelAndDontSave() {
+        assumeFalse(GraphicsEnvironment.isHeadless())
+
+        val frame = bankingReadyFrame()
+        try {
+            SwingUtilities.invokeAndWait {
+                frame.controller.launchShellCommand(RewriteShellCommand.SCRIPT_EDITOR)
+            }
+
+            val editorWindow = waitForWindow(frame, "rewrite-script-editor-window")
+            SwingUtilities.invokeAndWait {
+                @Suppress("UNCHECKED_CAST")
+                (comboBox(editorWindow, "rewrite-script-editor-new-template") as JComboBox<Any>).selectedIndex = 6
+                button(editorWindow, "rewrite-script-editor-new-button").doClick()
+            }
+            waitUntil { editorFileTabCount(editorWindow) == 1 }
+
+            SwingUtilities.invokeLater {
+                button(editorWindow, "rewrite-script-editor-close-tab-button").doClick()
+            }
+            val closeTabDialog = waitForDialog("Unsaved Changes")
+            SwingUtilities.invokeAndWait {
+                buttonByText(closeTabDialog, "Cancel").doClick()
+            }
+            waitUntil { editorFileTabCount(editorWindow) == 1 }
+
+            SwingUtilities.invokeLater {
+                editorWindow.doDefaultCloseAction()
+            }
+            val windowDialog = waitForDialog("Unsaved Changes")
+            SwingUtilities.invokeAndWait {
+                buttonByText(windowDialog, "Don't Save").doClick()
+            }
+            waitUntil { !editorWindow.isDisplayable }
         } finally {
             disposeFrame(frame)
         }
@@ -999,6 +1238,119 @@ class RewriteRootFrameUiTest {
             waitUntil { label(homeFrame, "rewrite-files-error").text == "File does not exist." }
             assertTrue(homeFrame.isDisplayable)
             assertEquals("File does not exist.", label(homeFrame, "rewrite-files-error").text)
+        } finally {
+            disposeFrame(frame)
+        }
+    }
+
+    @Test
+    fun homeDecompileActionKeepsWindowOpenOnSuccessAndShowsInlineErrorOnFailure() {
+        assumeFalse(GraphicsEnvironment.isHeadless())
+
+        val sessionGateway = FakeUiSessionGateway()
+        val frame = bankingReadyFrame(sessionGateway = sessionGateway)
+        try {
+            SwingUtilities.invokeAndWait {
+                frame.controller.launchShellCommand(RewriteShellCommand.HOME)
+            }
+            val homeFrame = waitForWindow(frame, "rewrite-home-window")
+
+            waitUntil { sessionGateway.latestGameSession()?.sentFrames?.isNotEmpty() == true }
+            val directoryCommand = sessionGateway.latestGameSession()!!.sentFrames.last().command!!
+            frame.controller.accept(
+                RewriteService.GAME,
+                RewriteFrames.commandResponse(
+                    commandId = directoryCommand.command_id,
+                    payload = RewriteClientJson.encode(
+                        ClientDirectoryListingResponse.serializer(),
+                        ClientDirectoryListingResponse(
+                            stateId = "LOCAL-IP",
+                            path = "/Scripts",
+                            files = listOf(
+                                ClientStoredFile(
+                                    path = "/Scripts/attack.bin",
+                                    name = "attack.bin",
+                                    kind = ClientStoredFileKind.APPLICATION_BINARY,
+                                    compiledBinary = ClientCompiledBinaryMetadata(
+                                        scriptFamily = ClientScriptFamily.ATTACK,
+                                        applicationKind = ClientApplicationKind.ATTACK,
+                                    ),
+                                ),
+                            ),
+                            version = 2,
+                        ),
+                    ),
+                ),
+            )
+
+            waitUntil { entryList(homeFrame).model.size == 1 }
+            SwingUtilities.invokeLater {
+                entryList(homeFrame).selectedIndex = 0
+                button(homeFrame, "rewrite-files-decompile-button").doClick()
+            }
+            val confirmDialog = waitForDialog("Decompile")
+            SwingUtilities.invokeAndWait {
+                buttonByText(confirmDialog, "Yes").doClick()
+            }
+
+            waitUntil { sessionGateway.latestGameSession()!!.sentFrames.size >= 2 }
+            val successCommand = sessionGateway.latestGameSession()!!.sentFrames.last().command!!
+            val successPayload = RewriteClientJson.decode(
+                ClientDecompileFilePayload.serializer(),
+                successCommand.payload.toByteArray(),
+            )
+            assertEquals("decompilefile", successCommand.command_name)
+            assertEquals("/Scripts", successPayload.path)
+            assertEquals("attack.bin", successPayload.name)
+
+            frame.controller.accept(
+                RewriteService.GAME,
+                RewriteFrames.commandResponse(
+                    commandId = successCommand.command_id,
+                    payload = RewriteClientJson.encode(
+                        ClientDecompileFileResponse.serializer(),
+                        ClientDecompileFileResponse(
+                            stateId = "LOCAL-IP",
+                            decompiledFile = ClientStoredFile(
+                                path = "/Scripts/attack.src",
+                                name = "attack.src",
+                                kind = ClientStoredFileKind.SCRIPT_SOURCE,
+                            ),
+                            pettyCashAfter = 130.5,
+                            experienceAfter = 2.0,
+                            version = 3,
+                        ),
+                    ),
+                ),
+            )
+
+            waitUntil { label(homeFrame, "rewrite-files-error").text == " " }
+            assertTrue(homeFrame.isDisplayable)
+
+            SwingUtilities.invokeLater {
+                button(homeFrame, "rewrite-files-decompile-button").doClick()
+            }
+            val secondConfirmDialog = waitForDialog("Decompile")
+            SwingUtilities.invokeAndWait {
+                buttonByText(secondConfirmDialog, "Yes").doClick()
+            }
+            waitUntil { sessionGateway.latestGameSession()!!.sentFrames.size >= 3 }
+            val failedCommand = sessionGateway.latestGameSession()!!.sentFrames.last().command!!
+            frame.controller.accept(
+                RewriteService.GAME,
+                RewriteFrames.commandResponse(
+                    commandId = failedCommand.command_id,
+                    status = CommandResponseStatus.COMMAND_RESPONSE_STATUS_ERROR,
+                    error = ErrorEnvelope(
+                        code = "DECOMPILE_BLOCKED",
+                        message = "This file cannot be decompiled.",
+                        retryable = false,
+                    ),
+                ),
+            )
+
+            waitUntil { label(homeFrame, "rewrite-files-error").text == "This file cannot be decompiled." }
+            assertTrue(homeFrame.isDisplayable)
         } finally {
             disposeFrame(frame)
         }
@@ -1195,6 +1547,31 @@ class RewriteRootFrameUiTest {
         assertTrue(predicate())
     }
 
+    private fun waitUntilForCommand(
+        sessionGateway: FakeUiSessionGateway,
+        commandName: String,
+        count: Int,
+        timeoutMillis: Long = 3_000,
+    ) {
+        waitUntil(timeoutMillis) {
+            sentCommands(sessionGateway, commandName).size >= count
+        }
+    }
+
+    private fun latestSentCommand(
+        sessionGateway: FakeUiSessionGateway,
+        commandName: String,
+    ) = sentCommands(sessionGateway, commandName).last()
+
+    private fun sentCommands(
+        sessionGateway: FakeUiSessionGateway,
+        commandName: String,
+    ) = sessionGateway.latestGameSession()
+        ?.sentFrames
+        .orEmpty()
+        .mapNotNull { it.command }
+        .filter { it.command_name == commandName }
+
     private fun snapshotFrame(snapshot: ClientGameSnapshot): FrameEnvelope {
         return RewriteFrames.snapshot(
             gameStateId = snapshot.id,
@@ -1286,6 +1663,13 @@ class RewriteRootFrameUiTest {
             ?: error("Unable to find JButton named $name")
     }
 
+    private fun buttonByText(root: Component, text: String): JButton {
+        return findComponents(root)
+            .filterIsInstance<JButton>()
+            .firstOrNull { it.text == text }
+            ?: error("Unable to find JButton with text $text")
+    }
+
     private fun entryList(root: Component): JList<*> {
         return findComponent(root, "rewrite-files-entry-list") as? JList<*>
             ?: error("Unable to find entry list")
@@ -1304,6 +1688,47 @@ class RewriteRootFrameUiTest {
     private fun textArea(root: Component, name: String): JTextArea {
         return findComponent(root, name) as? JTextArea
             ?: error("Unable to find JTextArea named $name")
+    }
+
+    private fun selectedDocumentTabTitles(root: Component): List<String> {
+        return invokeAndWaitResult {
+            val tabs = selectedDocumentTabbedPane(root)
+            (0 until tabs.tabCount).map(tabs::getTitleAt)
+        }
+    }
+
+    private fun selectedDocumentTextArea(root: Component): JTextArea {
+        return invokeAndWaitResult {
+            val tabs = selectedDocumentTabbedPane(root)
+            val selectedComponent = tabs.selectedComponent as? JScrollPane
+                ?: error("Selected document tab does not contain a scroll pane")
+            selectedComponent.viewport.view as? JTextArea
+                ?: error("Selected document tab does not contain a text area")
+        }
+    }
+
+    private fun editorFileTabCount(root: Component): Int {
+        return invokeAndWaitResult {
+            tabbedPane(root, "rewrite-script-editor-file-tabs").tabCount
+        }
+    }
+
+    private fun editorFileTabTitle(
+        root: Component,
+        index: Int,
+    ): String {
+        return invokeAndWaitResult {
+            tabbedPane(root, "rewrite-script-editor-file-tabs").getTitleAt(index)
+        }
+    }
+
+    private fun selectedDocumentTabbedPane(root: Component): JTabbedPane {
+        val outerTabs = tabbedPane(root, "rewrite-script-editor-file-tabs")
+        val selectedComponent = outerTabs.selectedComponent ?: error("No selected script editor document")
+        return findComponents(selectedComponent)
+            .filterIsInstance<JTabbedPane>()
+            .firstOrNull()
+            ?: error("Unable to find inner script editor tabs")
     }
 
     private fun spinner(root: Component, name: String): JSpinner {
@@ -1376,6 +1801,13 @@ class RewriteRootFrameUiTest {
             }
         }
         return null
+    }
+
+    private fun findComponents(root: Component): List<Component> {
+        if (root !is Container) {
+            return listOf(root)
+        }
+        return listOf(root) + root.components.flatMap(::findComponents)
     }
 
     private class FakeUiSessionGateway : RewriteServiceSessionGateway {
