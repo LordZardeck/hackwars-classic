@@ -14,6 +14,7 @@ import com.hackwars.rewrite.protocol.ClientComputerIdentity
 import com.hackwars.rewrite.protocol.ClientEconomyState
 import com.hackwars.rewrite.protocol.ClientGameSnapshot
 import com.hackwars.rewrite.protocol.ClientInstalledApplication
+import com.hackwars.rewrite.protocol.ClientNetworkState
 import com.hackwars.rewrite.protocol.ClientPortState
 import com.hackwars.rewrite.protocol.ClientMakeBountyPayload
 import com.hackwars.rewrite.protocol.ClientMutationAcceptedResponse
@@ -166,7 +167,7 @@ class RewriteRootFrameUiTest {
                 RewriteFrames.authAccepted(
                     connectionId = "conn-1",
                     playFabId = "PF-LOCAL",
-                    playerIp = "LOCAL-IP",
+                    playerIp = "192.0.2.10",
                     heartbeatInterval = kotlin.time.Duration.parse("15s"),
                     sessionStartedAt = Instant.parse("2026-03-25T00:00:00Z"),
                 ),
@@ -175,7 +176,7 @@ class RewriteRootFrameUiTest {
                 RewriteService.GAME,
                 snapshotFrame(
                     ClientGameSnapshot(
-                        id = "LOCAL-IP",
+                        id = "192.0.2.10",
                         identity = ClientComputerIdentity(playerIp = ""),
                         economy = ClientEconomyState(
                             pettyCash = 125.5,
@@ -193,7 +194,7 @@ class RewriteRootFrameUiTest {
                     frame.title == "Server Shutdown in 1:30"
             }
 
-            assertEquals("LOCAL-IP", label(frame.shellHost.statsRail, "rewrite-shell-stats-ip").text)
+            assertEquals("192.0.2.10", label(frame.shellHost.statsRail, "rewrite-shell-stats-ip").text)
             assertEquals("$125.50", label(frame.shellHost.statsRail, "rewrite-shell-stats-petty-cash").text)
             assertEquals("$88.25", label(frame.shellHost.statsRail, "rewrite-shell-stats-bank").text)
             assertEquals("1", label(frame.shellHost.statsRail, "rewrite-shell-stats-commodity-duct-tape").text)
@@ -224,7 +225,7 @@ class RewriteRootFrameUiTest {
                 RewriteFrames.authAccepted(
                     connectionId = "conn-1",
                     playFabId = "PF-LOCAL",
-                    playerIp = "LOCAL-IP",
+                    playerIp = "192.0.2.10",
                     heartbeatInterval = kotlin.time.Duration.parse("15s"),
                     sessionStartedAt = Instant.parse("2026-03-25T00:00:00Z"),
                 ),
@@ -233,8 +234,8 @@ class RewriteRootFrameUiTest {
                 RewriteService.GAME,
                 snapshotFrame(
                     ClientGameSnapshot(
-                        id = "LOCAL-IP",
-                        identity = ClientComputerIdentity(playerIp = "LOCAL-IP"),
+                        id = "192.0.2.10",
+                        identity = ClientComputerIdentity(playerIp = "192.0.2.10"),
                         runtime = ClientRuntimeState(countdownSeconds = 5),
                     ),
                 ),
@@ -245,8 +246,8 @@ class RewriteRootFrameUiTest {
                 RewriteService.GAME,
                 snapshotFrame(
                     ClientGameSnapshot(
-                        id = "LOCAL-IP",
-                        identity = ClientComputerIdentity(playerIp = "LOCAL-IP"),
+                        id = "192.0.2.10",
+                        identity = ClientComputerIdentity(playerIp = "192.0.2.10"),
                         runtime = ClientRuntimeState(countdownSeconds = 0),
                     ),
                 ),
@@ -254,9 +255,9 @@ class RewriteRootFrameUiTest {
 
             waitUntil {
                 !frame.shellHost.countdownLabel.isVisible &&
-                    frame.title == "Hack Wars - LOCAL-IP"
+                    frame.title == "Hack Wars - 192.0.2.10"
             }
-            assertEquals("Hack Wars - LOCAL-IP", frame.title)
+            assertEquals("Hack Wars - 192.0.2.10", frame.title)
         } finally {
             disposeFrame(frame)
         }
@@ -392,7 +393,7 @@ class RewriteRootFrameUiTest {
                     payload = RewriteClientJson.encode(
                         ClientBankTransactionResponse.serializer(),
                         ClientBankTransactionResponse(
-                            stateId = "LOCAL-IP",
+                            stateId = "192.0.2.10",
                             operation = "deposit",
                             portNumber = 4,
                             requestedAmount = 125.5,
@@ -474,7 +475,7 @@ class RewriteRootFrameUiTest {
                     payload = RewriteClientJson.encode(
                         ClientDirectoryListingResponse.serializer(),
                         ClientDirectoryListingResponse(
-                            stateId = "LOCAL-IP",
+                            stateId = "192.0.2.10",
                             path = "/Scripts",
                             directories = listOf(
                                 ClientDirectoryEntry(path = "/Scripts/Public", name = "Public"),
@@ -537,8 +538,8 @@ class RewriteRootFrameUiTest {
                     payload = RewriteClientJson.encode(
                         ClientBountyCreatedResponse.serializer(),
                         ClientBountyCreatedResponse(
-                            creatorStateId = "LOCAL-IP",
-                            storeStateId = "store1",
+                            creatorStateId = "192.0.2.10",
+                            storeStateId = "198.51.100.40",
                             bountyFile = ClientStoredFile(
                                 path = "/Store/install-1.bnty",
                                 name = "install-1.bnty",
@@ -631,7 +632,7 @@ class RewriteRootFrameUiTest {
                     payload = RewriteClientJson.encode(
                         ClientDirectoryListingResponse.serializer(),
                         ClientDirectoryListingResponse(
-                            stateId = "LOCAL-IP",
+                            stateId = "192.0.2.10",
                             path = "/Public",
                             directories = listOf(
                                 ClientDirectoryEntry(
@@ -789,7 +790,7 @@ class RewriteRootFrameUiTest {
                     payload = RewriteClientJson.encode(
                         ClientDirectoryListingResponse.serializer(),
                         ClientDirectoryListingResponse(
-                            stateId = "LOCAL-IP",
+                            stateId = "192.0.2.10",
                             path = "/Scripts",
                             files = listOf(
                                 ClientStoredFile(
@@ -819,7 +820,7 @@ class RewriteRootFrameUiTest {
                     payload = RewriteClientJson.encode(
                         ClientFileContentsResponse.serializer(),
                         ClientFileContentsResponse(
-                            stateId = "LOCAL-IP",
+                            stateId = "192.0.2.10",
                             file = ClientStoredFile(
                                 path = "/Scripts/attack.src",
                                 name = "attack.src",
@@ -861,7 +862,7 @@ class RewriteRootFrameUiTest {
                     payload = RewriteClientJson.encode(
                         ClientFileContentsResponse.serializer(),
                         ClientFileContentsResponse(
-                            stateId = "LOCAL-IP",
+                            stateId = "192.0.2.10",
                             file = ClientStoredFile(
                                 path = "/Scripts/attack.src",
                                 name = "attack.src",
@@ -943,7 +944,7 @@ class RewriteRootFrameUiTest {
                     payload = RewriteClientJson.encode(
                         ClientMutationAcceptedResponse.serializer(),
                         ClientMutationAcceptedResponse(
-                            stateId = "LOCAL-IP",
+                            stateId = "192.0.2.10",
                             version = 3,
                             message = "file-saved",
                         ),
@@ -968,7 +969,7 @@ class RewriteRootFrameUiTest {
                     payload = RewriteClientJson.encode(
                         ClientCompileFileResponse.serializer(),
                         ClientCompileFileResponse(
-                            stateId = "LOCAL-IP",
+                            stateId = "192.0.2.10",
                             compiledFile = ClientStoredFile(
                                 path = "/attack.bin",
                                 name = "attack.bin",
@@ -1023,7 +1024,7 @@ class RewriteRootFrameUiTest {
                         payload = RewriteClientJson.encode(
                             ClientMutationAcceptedResponse.serializer(),
                             ClientMutationAcceptedResponse(
-                                stateId = "LOCAL-IP",
+                                stateId = "192.0.2.10",
                                 version = (10 + it).toLong(),
                                 message = "file-saved",
                             ),
@@ -1101,7 +1102,7 @@ class RewriteRootFrameUiTest {
                     payload = RewriteClientJson.encode(
                         ClientDirectoryListingResponse.serializer(),
                         ClientDirectoryListingResponse(
-                            stateId = "LOCAL-IP",
+                            stateId = "192.0.2.10",
                             path = "/Public",
                             files = listOf(
                                 ClientStoredFile(
@@ -1131,12 +1132,12 @@ class RewriteRootFrameUiTest {
                     payload = RewriteClientJson.encode(
                         ClientFileContentsResponse.serializer(),
                         ClientFileContentsResponse(
-                            stateId = "LOCAL-IP",
+                            stateId = "192.0.2.10",
                             file = ClientStoredFile(
                                 path = "/Public/http.bin",
                                 name = "http.bin",
                                 kind = ClientStoredFileKind.APPLICATION_BINARY,
-                                maker = "LOCAL-IP",
+                                maker = "192.0.2.10",
                                 price = 125.0,
                                 cpuCost = 3.5,
                                 quantity = 2,
@@ -1154,7 +1155,7 @@ class RewriteRootFrameUiTest {
             }
             assertEquals("File Properties -- http.bin", propertiesWindow.title)
             assertEquals("Application Binary", label(propertiesWindow, "rewrite-file-properties-type-value").text)
-            assertEquals("LOCAL-IP", label(propertiesWindow, "rewrite-file-properties-maker-value").text)
+            assertEquals("192.0.2.10", label(propertiesWindow, "rewrite-file-properties-maker-value").text)
             assertEquals("$125.00", label(propertiesWindow, "rewrite-file-properties-price-value").text)
 
             SwingUtilities.invokeAndWait {
@@ -1169,7 +1170,7 @@ class RewriteRootFrameUiTest {
                     payload = RewriteClientJson.encode(
                         ClientFileContentsResponse.serializer(),
                         ClientFileContentsResponse(
-                            stateId = "LOCAL-IP",
+                            stateId = "192.0.2.10",
                             file = ClientStoredFile(
                                 path = "/Public/http.bin",
                                 name = "http.bin",
@@ -1211,7 +1212,7 @@ class RewriteRootFrameUiTest {
                     payload = RewriteClientJson.encode(
                         ClientDirectoryListingResponse.serializer(),
                         ClientDirectoryListingResponse(
-                            stateId = "LOCAL-IP",
+                            stateId = "192.0.2.10",
                             path = "/Public",
                             files = listOf(
                                 ClientStoredFile(
@@ -1276,7 +1277,7 @@ class RewriteRootFrameUiTest {
                     payload = RewriteClientJson.encode(
                         ClientDirectoryListingResponse.serializer(),
                         ClientDirectoryListingResponse(
-                            stateId = "LOCAL-IP",
+                            stateId = "192.0.2.10",
                             path = "/Scripts",
                             files = listOf(
                                 ClientStoredFile(
@@ -1322,7 +1323,7 @@ class RewriteRootFrameUiTest {
                     payload = RewriteClientJson.encode(
                         ClientDecompileFileResponse.serializer(),
                         ClientDecompileFileResponse(
-                            stateId = "LOCAL-IP",
+                            stateId = "192.0.2.10",
                             decompiledFile = ClientStoredFile(
                                 path = "/Scripts/attack.src",
                                 name = "attack.src",
@@ -1401,7 +1402,7 @@ class RewriteRootFrameUiTest {
                     payload = RewriteClientJson.encode(
                         ClientDirectoryListingResponse.serializer(),
                         ClientDirectoryListingResponse(
-                            stateId = "LOCAL-IP",
+                            stateId = "192.0.2.10",
                             path = "/Public",
                             files = listOf(
                                 ClientStoredFile(
@@ -1561,8 +1562,8 @@ class RewriteRootFrameUiTest {
 
             assertEquals("Web Browser", browserWindow.title)
             assertEquals("Store", storeWindow.title)
-            assertEquals("LOCAL-IP", browserPayload.targetIp)
-            assertEquals("store", storePayload.targetIp)
+            assertEquals("192.0.2.10", browserPayload.targetIp)
+            assertEquals("198.51.100.40", storePayload.targetIp)
         } finally {
             disposeFrame(frame)
         }
@@ -1589,7 +1590,7 @@ class RewriteRootFrameUiTest {
                     payload = RewriteClientJson.encode(
                         ClientWebsiteRenderResponse.serializer(),
                         ClientWebsiteRenderResponse(
-                            resolvedTargetStateId = "LOCAL-IP",
+                            resolvedTargetStateId = "192.0.2.10",
                             title = "Homepage",
                             body = "<html><body><a href=\"/shop?buy=watch.bin\">Buy</a><form action=\"?checkout=1\"></form>Welcome</body></html>",
                             fallback = false,
@@ -1612,7 +1613,7 @@ class RewriteRootFrameUiTest {
                 ClientRequestWebpagePayload.serializer(),
                 latestSentCommand(sessionGateway, "requestwebpage").payload.toByteArray(),
             )
-            assertEquals("LOCAL-IP", hyperlinkPayload.targetIp)
+            assertEquals("192.0.2.10", hyperlinkPayload.targetIp)
             assertEquals("watch.bin", hyperlinkPayload.parameters["buy"])
 
             SwingUtilities.invokeAndWait {
@@ -1657,7 +1658,7 @@ class RewriteRootFrameUiTest {
                     payload = RewriteClientJson.encode(
                         ClientWebsiteRenderResponse.serializer(),
                         ClientWebsiteRenderResponse(
-                            resolvedTargetStateId = "STORE-IP",
+                            resolvedTargetStateId = "198.51.100.40",
                             title = "Storefront",
                             body = "<html><body>Storefront</body></html>",
                             storeFiles = listOf(
@@ -1665,7 +1666,7 @@ class RewriteRootFrameUiTest {
                                     path = "/Store/attack.bin",
                                     name = "attack.bin",
                                     kind = ClientStoredFileKind.APPLICATION_BINARY,
-                                    maker = "STORE-IP",
+                                    maker = "198.51.100.40",
                                     price = 25.0,
                                     quantity = 4,
                                 ),
@@ -1692,7 +1693,7 @@ class RewriteRootFrameUiTest {
                 ClientRequestPurchasePayload.serializer(),
                 latestSentCommand(sessionGateway, "requestpurchase").payload.toByteArray(),
             )
-            assertEquals("store", purchasePayload.targetIp)
+            assertEquals("198.51.100.40", purchasePayload.targetIp)
             assertEquals("attack.bin", purchasePayload.fileName)
             assertEquals(2, purchasePayload.quantity)
 
@@ -1704,9 +1705,9 @@ class RewriteRootFrameUiTest {
                     payload = RewriteClientJson.encode(
                         ClientPurchaseResponse.serializer(),
                         ClientPurchaseResponse(
-                            buyerStateId = "LOCAL-IP",
-                            sellerStateId = "STORE-IP",
-                            revenueTargetStateId = "STORE-IP",
+                            buyerStateId = "192.0.2.10",
+                            sellerStateId = "198.51.100.40",
+                            revenueTargetStateId = "198.51.100.40",
                             purchasedFile = ClientStoredFile(
                                 path = "/Store/attack.bin",
                                 name = "attack.bin",
@@ -1750,7 +1751,7 @@ class RewriteRootFrameUiTest {
                     payload = RewriteClientJson.encode(
                         ClientWebsiteRenderResponse.serializer(),
                         ClientWebsiteRenderResponse(
-                            resolvedTargetStateId = "LOCAL-IP",
+                            resolvedTargetStateId = "192.0.2.10",
                             title = "Homepage",
                             body = "<html><body>Homepage</body></html>",
                             fallback = false,
@@ -1776,7 +1777,7 @@ class RewriteRootFrameUiTest {
                 ClientRequestWebpagePayload.serializer(),
                 latestSentCommand(sessionGateway, "requestwebpage").payload.toByteArray(),
             )
-            assertEquals("LOCAL-IP", exitPayload.targetIp)
+            assertEquals("192.0.2.10", exitPayload.targetIp)
             assertEquals("elsewhere.hackwars.net", nextRequestPayload.targetIp)
         } finally {
             disposeFrame(frame)
@@ -1851,12 +1852,16 @@ class RewriteRootFrameUiTest {
         ),
     ): ClientGameSnapshot {
         return ClientGameSnapshot(
-            id = "LOCAL-IP",
-            identity = ClientComputerIdentity(playerIp = "LOCAL-IP"),
+            id = "192.0.2.10",
+            identity = ClientComputerIdentity(playerIp = "192.0.2.10"),
             economy = ClientEconomyState(
                 pettyCash = pettyCash,
                 bankMoney = bankMoney,
                 defaultBankPort = ports.firstOrNull { it.defaultPort }?.number,
+            ),
+            network = ClientNetworkState(
+                currentNetworkName = "UGOPNet",
+                storeStateId = "198.51.100.40",
             ),
             ports = ports,
             runtime = ClientRuntimeState(),
@@ -1894,7 +1899,7 @@ class RewriteRootFrameUiTest {
             RewriteFrames.authAccepted(
                 connectionId = "conn-1",
                 playFabId = "PF-LOCAL",
-                playerIp = "LOCAL-IP",
+                playerIp = "192.0.2.10",
                 heartbeatInterval = kotlin.time.Duration.parse("15s"),
                 sessionStartedAt = Instant.parse("2026-03-25T00:00:00Z"),
             ),

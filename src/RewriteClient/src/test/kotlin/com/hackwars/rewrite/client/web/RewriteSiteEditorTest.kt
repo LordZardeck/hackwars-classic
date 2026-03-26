@@ -44,7 +44,7 @@ class RewriteSiteEditorTest {
             RewriteFrames.authAccepted(
                 connectionId = "conn-1",
                 playFabId = "PF-LOCAL",
-                playerIp = "LOCAL-IP",
+                playerIp = "192.0.2.10",
                 heartbeatInterval = kotlin.time.Duration.parse("15s"),
                 sessionStartedAt = Instant.parse("2026-03-25T00:00:00Z"),
             ),
@@ -61,7 +61,7 @@ class RewriteSiteEditorTest {
             requestCommand.payload.toByteArray(),
         )
         assertEquals("requestpage", requestCommand.command_name)
-        assertEquals("LOCAL-IP", requestPayload.ip)
+        assertEquals("192.0.2.10", requestPayload.ip)
         controller.accept(
             RewriteService.GAME,
             RewriteFrames.commandResponse(
@@ -69,7 +69,7 @@ class RewriteSiteEditorTest {
                 payload = RewriteClientJson.encode(
                     ClientPageEditorResponse.serializer(),
                     ClientPageEditorResponse(
-                        stateId = "LOCAL-IP",
+                        stateId = "192.0.2.10",
                         title = "Homepage",
                         body = "<h1>Hello</h1>",
                         version = 3,
@@ -93,7 +93,7 @@ class RewriteSiteEditorTest {
             saveCommand.payload.toByteArray(),
         )
         assertEquals("savepage", saveCommand.command_name)
-        assertEquals("LOCAL-IP", savePayload.ip)
+        assertEquals("192.0.2.10", savePayload.ip)
         assertEquals("Homepage", savePayload.title)
         assertEquals("<center>Updated</center>", savePayload.body)
         controller.accept(
@@ -103,7 +103,7 @@ class RewriteSiteEditorTest {
                 payload = RewriteClientJson.encode(
                     ClientSavePageResponse.serializer(),
                     ClientSavePageResponse(
-                        stateId = "LOCAL-IP",
+                        stateId = "192.0.2.10",
                         title = "Homepage",
                         body = "<center>Updated</center>",
                         version = 4,
@@ -156,7 +156,7 @@ class RewriteSiteEditorTest {
             SwingUtilities.invokeAndWait {
                 window.loadPageForTest(
                     ClientPageEditorResponse(
-                        stateId = "LOCAL-IP",
+                        stateId = "192.0.2.10",
                         title = "Homepage",
                         body = "<h1>Hello</h1>",
                         version = 5,
@@ -174,7 +174,7 @@ class RewriteSiteEditorTest {
             SwingUtilities.invokeAndWait {
                 window.applySaveResultForTest(
                     ClientSavePageResponse(
-                        stateId = "LOCAL-IP",
+                        stateId = "192.0.2.10",
                         title = "Updated Homepage",
                         body = "<center>Updated</center>",
                         version = 6,

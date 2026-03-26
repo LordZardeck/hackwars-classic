@@ -33,7 +33,7 @@ class InMemoryRewriteServiceHarnessIntegrationTest {
                 sessionTicket = "SESSION-LOCALUSER",
                 clientBuild = "rewrite-it",
                 playFabIdHint = "PF-LOCALUSER",
-                requestedIp = "LOCAL-IP",
+                requestedIp = "192.0.2.10",
             ),
         )
 
@@ -76,7 +76,7 @@ class InMemoryRewriteServiceHarnessIntegrationTest {
             RewriteFrames.command(
                 commandId = "cmd-1",
                 commandName = "requestscan",
-                targetGameStateIds = listOf("LOCAL-IP"),
+                targetGameStateIds = listOf("192.0.2.10"),
                 expectsResponse = true,
             ),
         )
@@ -166,7 +166,7 @@ class InMemoryRewriteServiceHarnessIntegrationTest {
             RewriteFrames.command(
                 commandId = "scan-1",
                 commandName = "requestscan",
-                targetGameStateIds = listOf("LOCAL-IP"),
+                targetGameStateIds = listOf("192.0.2.10"),
                 expectsResponse = true,
             ),
         )
@@ -180,7 +180,7 @@ class InMemoryRewriteServiceHarnessIntegrationTest {
             RewriteFrames.command(
                 commandId = "mutate-1",
                 commandName = "mutate-state",
-                targetGameStateIds = listOf("LOCAL-IP"),
+                targetGameStateIds = listOf("192.0.2.10"),
                 expectsResponse = true,
             ),
         )
@@ -189,7 +189,7 @@ class InMemoryRewriteServiceHarnessIntegrationTest {
         val delta = connection.awaitFrame()
 
         assertEquals("mutate-1", mutateResponse.command_response?.command_id)
-        assertEquals("LOCAL-IP", delta.delta?.game_state_id)
+        assertEquals("192.0.2.10", delta.delta?.game_state_id)
         assertEquals(listOf("computer.cash"), delta.delta?.changed_paths)
         assertEquals(listOf("petty_cash"), delta.delta?.delta_keys)
     }
@@ -212,7 +212,7 @@ class InMemoryRewriteServiceHarnessIntegrationTest {
                 service = RewriteService.GAME,
                 sessionTicket = "SESSION-LOCALUSER",
                 clientBuild = "rewrite-it",
-                requestedIp = "LOCAL-IP",
+                requestedIp = "192.0.2.10",
             ),
         )
         chatConnection.send(
@@ -240,7 +240,7 @@ class InMemoryRewriteServiceHarnessIntegrationTest {
                 service = RewriteService.GAME,
                 sessionTicket = "SESSION-LOCALUSER",
                 clientBuild = "rewrite-it",
-                requestedIp = "LOCAL-IP",
+                requestedIp = "192.0.2.10",
             ),
         )
         connection.awaitFrame()

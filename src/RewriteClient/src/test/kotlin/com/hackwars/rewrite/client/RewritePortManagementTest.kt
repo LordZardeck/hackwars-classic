@@ -157,7 +157,7 @@ class RewritePortManagementTest {
                 healCommand.payload.toByteArray(),
             )
             assertEquals("healport", healCommand.command_name)
-            assertEquals("LOCAL-IP", healPayload.ip)
+            assertEquals("192.0.2.10", healPayload.ip)
             assertEquals(6, healPayload.port)
             controller.accept(
                 RewriteService.GAME,
@@ -166,7 +166,7 @@ class RewritePortManagementTest {
                     payload = RewriteClientJson.encode(
                         ClientHealPortResponse.serializer(),
                         ClientHealPortResponse(
-                            stateId = "LOCAL-IP",
+                            stateId = "192.0.2.10",
                             portNumber = 6,
                             accepted = true,
                             outcome = ClientHealPortOutcome.SUCCESS,
@@ -207,7 +207,7 @@ class RewritePortManagementTest {
                     payload = RewriteClientJson.encode(
                         ClientInstallApplicationResponse.serializer(),
                         ClientInstallApplicationResponse(
-                            stateId = "LOCAL-IP",
+                            stateId = "192.0.2.10",
                             portNumber = 6,
                             installedApplication = ClientInstalledApplication(
                                 name = "bank.bin",
@@ -247,7 +247,7 @@ class RewritePortManagementTest {
                     payload = RewriteClientJson.encode(
                         ClientInstallFirewallResponse.serializer(),
                         ClientInstallFirewallResponse(
-                            stateId = "LOCAL-IP",
+                            stateId = "192.0.2.10",
                             portNumber = 6,
                             installedFirewall = ClientInstalledFirewall(
                                 name = "guard.fw",
@@ -283,7 +283,7 @@ class RewritePortManagementTest {
             RewriteFrames.authAccepted(
                 connectionId = "conn-1",
                 playFabId = "PF-LOCAL",
-                playerIp = "LOCAL-IP",
+                playerIp = "192.0.2.10",
                 heartbeatInterval = kotlin.time.Duration.parse("15s"),
                 sessionStartedAt = Instant.parse("2026-03-25T00:00:00Z"),
             ),
@@ -291,11 +291,11 @@ class RewritePortManagementTest {
         controller.accept(
             RewriteService.GAME,
             RewriteFrames.snapshot(
-                gameStateId = "LOCAL-IP",
+                gameStateId = "192.0.2.10",
                 sequence = 1,
                 payload = RewriteClientJson.encode(
                     ClientGameSnapshot.serializer(),
-                    ClientGameSnapshot(id = "LOCAL-IP", version = 1),
+                    ClientGameSnapshot(id = "192.0.2.10", version = 1),
                 ),
             ),
         )

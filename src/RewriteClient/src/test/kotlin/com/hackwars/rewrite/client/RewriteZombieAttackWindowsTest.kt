@@ -52,20 +52,20 @@ class RewriteZombieAttackWindowsTest {
         controller.accept(
             RewriteService.GAME,
             RewriteFrames.snapshot(
-                gameStateId = "LOCAL-IP",
+                gameStateId = "192.0.2.10",
                 sequence = 1,
                 payload = RewriteClientJson.encode(
                     ClientGameSnapshot.serializer(),
-                    ClientGameSnapshot(id = "LOCAL-IP"),
+                    ClientGameSnapshot(id = "192.0.2.10"),
                 ),
             ),
         )
 
         val attackPending = backgroundScope.async(UnconfinedTestDispatcher(testScheduler)) {
             controller.requestZombieAttack(
-                targetIp = "TARGET-IP",
+                targetIp = "198.51.100.20",
                 targetPort = 4,
-                zombieIp = "ZOMBIE-IP",
+                zombieIp = "203.0.113.30",
                 zombiePort = 12,
                 secondaryPorts = listOf(9, 10),
                 extraInfo = buildZombieAttackExtraInfo(50.0),
@@ -81,12 +81,12 @@ class RewriteZombieAttackWindowsTest {
         )
 
         assertEquals("requestzombieattack", attackCommand.command_name)
-        assertEquals("TARGET-IP", attackPayload.targetIp)
-        assertEquals("ZOMBIE-IP", attackPayload.sourceIp)
+        assertEquals("198.51.100.20", attackPayload.targetIp)
+        assertEquals("203.0.113.30", attackPayload.sourceIp)
         assertEquals(12, attackPayload.sourcePort)
         assertEquals(listOf(9, 10), attackPayload.secondaryPorts)
         assertNull(attackPayload.scripts)
-        assertEquals("LOCAL-IP", attackPayload.parentIp)
+        assertEquals("192.0.2.10", attackPayload.parentIp)
         assertEquals(50.0, (attackPayload.extraInfo!![3] as ClientFloatHookValue).value)
 
         controller.accept(
@@ -96,10 +96,10 @@ class RewriteZombieAttackWindowsTest {
                 payload = RewriteClientJson.encode(
                     ClientZombieAttackStartResponse.serializer(),
                     ClientZombieAttackStartResponse(
-                        controllerStateId = "LOCAL-IP",
-                        zombieStateId = "ZOMBIE-IP",
+                        controllerStateId = "192.0.2.10",
+                        zombieStateId = "203.0.113.30",
                         sourcePort = 12,
-                        targetStateId = "TARGET-IP",
+                        targetStateId = "198.51.100.20",
                         targetPort = 4,
                         accepted = true,
                         message = "zombie-attack-started",
@@ -109,7 +109,7 @@ class RewriteZombieAttackWindowsTest {
                         session = ClientAttackSessionState(
                             programId = "zombie-program-1",
                             sourcePort = 12,
-                            targetStateId = "TARGET-IP",
+                            targetStateId = "198.51.100.20",
                             targetPort = 4,
                             sessionKind = ClientAttackSessionKind.ATTACK,
                             attackMode = ClientAttackMode.ZOMBIE,
@@ -127,7 +127,7 @@ class RewriteZombieAttackWindowsTest {
 
         val cancelPending = backgroundScope.async(UnconfinedTestDispatcher(testScheduler)) {
             controller.requestZombieCancelAttack(
-                zombieIp = "ZOMBIE-IP",
+                zombieIp = "203.0.113.30",
                 zombiePort = 12,
             )
         }
@@ -140,9 +140,9 @@ class RewriteZombieAttackWindowsTest {
         )
 
         assertEquals("requestzombiecancelattack", cancelCommand.command_name)
-        assertEquals("LOCAL-IP", cancelPayload.ip)
+        assertEquals("192.0.2.10", cancelPayload.ip)
         assertEquals(12, cancelPayload.port)
-        assertEquals("ZOMBIE-IP", cancelPayload.targetIp)
+        assertEquals("203.0.113.30", cancelPayload.targetIp)
 
         controller.accept(
             RewriteService.GAME,
@@ -151,8 +151,8 @@ class RewriteZombieAttackWindowsTest {
                 payload = RewriteClientJson.encode(
                     ClientZombieAttackCancelResponse.serializer(),
                     ClientZombieAttackCancelResponse(
-                        controllerStateId = "LOCAL-IP",
-                        zombieStateId = "ZOMBIE-IP",
+                        controllerStateId = "192.0.2.10",
+                        zombieStateId = "203.0.113.30",
                         sourcePort = 12,
                         accepted = true,
                         hadActiveSession = true,
@@ -184,7 +184,7 @@ class RewriteZombieAttackWindowsTest {
             RewriteFrames.authAccepted(
                 connectionId = "conn-1",
                 playFabId = "PF-LOCAL",
-                playerIp = "LOCAL-IP",
+                playerIp = "192.0.2.10",
                 heartbeatInterval = kotlin.time.Duration.parse("15s"),
                 sessionStartedAt = Instant.parse("2026-03-25T00:00:00Z"),
             ),

@@ -99,13 +99,13 @@ class RewriteNetworkWindowsUiTest {
                 command.payload.toByteArray(),
             )
             assertEquals("changenetwork", command.command_name)
-            assertEquals("LOCAL-IP", payload.ip)
+            assertEquals("192.0.2.10", payload.ip)
             assertEquals("ProgNet", payload.network)
 
             frame.controller.accept(
                 RewriteService.GAME,
                 RewriteFrames.delta(
-                    gameStateId = "LOCAL-IP",
+                    gameStateId = "192.0.2.10",
                     sequence = 2,
                     changedPaths = listOf("network.currentNetworkName"),
                     deltaKeys = listOf("network"),
@@ -117,7 +117,7 @@ class RewriteNetworkWindowsUiTest {
                                 allowedNetworks = setOf("UGOPNet"),
                                 regularNpcs = listOf(
                                     ClientNpcDirectoryEntry(
-                                        stateId = "PROG-ATTACK-1",
+                                        stateId = "203.0.113.101",
                                         displayName = "Prog Runner",
                                         title = "Attack NPC",
                                         category = ClientNpcCategory.REGULAR,
@@ -135,10 +135,10 @@ class RewriteNetworkWindowsUiTest {
                     payload = RewriteClientJson.encode(
                         ClientNetworkSwitchResponse.serializer(),
                         ClientNetworkSwitchResponse(
-                            stateId = "LOCAL-IP",
+                            stateId = "192.0.2.10",
                             requestedNetworkName = "ProgNet",
                             currentNetworkName = "ProgNet",
-                            storeStateId = "store1",
+                            storeStateId = "198.51.100.40",
                             accepted = true,
                             message = "Changed network to ProgNet.",
                             version = 2,
@@ -184,7 +184,7 @@ class RewriteNetworkWindowsUiTest {
                 successCommand.payload.toByteArray(),
             )
             assertEquals("requestscan", successCommand.command_name)
-            assertEquals("LOCAL-IP", successPayload.ip)
+            assertEquals("192.0.2.10", successPayload.ip)
             assertEquals("10.0.0.8", successPayload.targetIp)
             frame.controller.accept(
                 RewriteService.GAME,
@@ -193,7 +193,7 @@ class RewriteNetworkWindowsUiTest {
                     payload = RewriteClientJson.encode(
                         ClientScanResponse.serializer(),
                         ClientScanResponse(
-                            requesterStateId = "LOCAL-IP",
+                            requesterStateId = "192.0.2.10",
                             targetStateId = "10.0.0.8",
                             accepted = true,
                             chargedAmount = 10.0,
@@ -208,12 +208,12 @@ class RewriteNetworkWindowsUiTest {
                                     cpuCost = 3.0,
                                     maxCpuCost = 10.0,
                                     health = 88.0,
-                                    note = "LOCAL-IP",
+                                    note = "192.0.2.10",
                                     defaultVisibility = ClientDefaultPortVisibility.YES,
                                     firewall = ClientFirewallView(
                                         name = "Guard",
                                         kind = ClientFirewallKind.BASIC,
-                                        maker = "LOCAL-IP",
+                                        maker = "192.0.2.10",
                                         strength = 25,
                                         cpuCost = 1.5,
                                     ),
@@ -246,7 +246,7 @@ class RewriteNetworkWindowsUiTest {
                     payload = RewriteClientJson.encode(
                         ClientScanResponse.serializer(),
                         ClientScanResponse(
-                            requesterStateId = "LOCAL-IP",
+                            requesterStateId = "192.0.2.10",
                             targetStateId = "10.0.0.9",
                             accepted = false,
                             failureCode = ClientScanFailureCode.INSUFFICIENT_PETTY_CASH,
@@ -282,7 +282,7 @@ class RewriteNetworkWindowsUiTest {
             RewriteFrames.authAccepted(
                 connectionId = "conn-1",
                 playFabId = "PF-LOCAL",
-                playerIp = "LOCAL-IP",
+                playerIp = "192.0.2.10",
                 heartbeatInterval = kotlin.time.Duration.parse("15s"),
                 sessionStartedAt = Instant.parse("2026-03-25T00:00:00Z"),
             ),
@@ -294,13 +294,13 @@ class RewriteNetworkWindowsUiTest {
 
     private fun networkSnapshot(): ClientGameSnapshot {
         return ClientGameSnapshot(
-            id = "LOCAL-IP",
+            id = "192.0.2.10",
             network = ClientNetworkState(
                 currentNetworkName = "UGOPNet",
                 allowedNetworks = setOf("ProgNet"),
                 regularNpcs = listOf(
                     ClientNpcDirectoryEntry(
-                        stateId = "ATTACK-NPC-1",
+                        stateId = "198.51.100.101",
                         displayName = "Root Attacker",
                         title = "Attack NPC",
                         category = ClientNpcCategory.REGULAR,
@@ -308,7 +308,7 @@ class RewriteNetworkWindowsUiTest {
                 ),
                 questNpcs = listOf(
                     ClientNpcDirectoryEntry(
-                        stateId = "QUEST-NPC-1",
+                        stateId = "198.51.100.102",
                         displayName = "Quest Guide",
                         title = "Quest NPC",
                         category = ClientNpcCategory.QUEST,
@@ -316,7 +316,7 @@ class RewriteNetworkWindowsUiTest {
                 ),
                 miningNpcs = listOf(
                     ClientNpcDirectoryEntry(
-                        stateId = "MINE-NPC-1",
+                        stateId = "198.51.100.103",
                         displayName = "Miner One",
                         title = "Mining NPC",
                         category = ClientNpcCategory.MINING,
@@ -325,7 +325,7 @@ class RewriteNetworkWindowsUiTest {
                 ),
                 storeNpcs = listOf(
                     ClientNpcDirectoryEntry(
-                        stateId = "store1",
+                        stateId = "198.51.100.40",
                         displayName = "Shard Store",
                         title = "Store NPC",
                         category = ClientNpcCategory.STORE,

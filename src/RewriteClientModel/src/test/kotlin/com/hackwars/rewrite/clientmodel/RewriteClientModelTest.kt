@@ -66,7 +66,7 @@ class RewriteClientModelTest {
             frame = RewriteFrames.authAccepted(
                 connectionId = "game-1",
                 playFabId = "PF-LOCAL",
-                playerIp = "LOCAL-IP",
+                playerIp = "192.0.2.10",
                 heartbeatInterval = kotlin.time.Duration.parse("15s"),
                 sessionStartedAt = Instant.parse("2026-03-25T00:00:00Z"),
             ),
@@ -85,7 +85,7 @@ class RewriteClientModelTest {
             frame = RewriteFrames.authAccepted(
                 connectionId = "game-1",
                 playFabId = "PF-LOCAL",
-                playerIp = "LOCAL-IP",
+                playerIp = "192.0.2.10",
                 heartbeatInterval = kotlin.time.Duration.parse("15s"),
                 sessionStartedAt = Instant.parse("2026-03-25T00:00:00Z"),
             ),
@@ -108,18 +108,18 @@ class RewriteClientModelTest {
     fun rawFramesAreRecordedOpaqueByPayloadType() {
         val store = RewriteClientStore()
         val snapshotFrame = RewriteFrames.snapshot(
-            "LOCAL-IP",
+            "192.0.2.10",
             sequence = 7,
             payload = RewriteClientJson.encode(
                 ClientGameSnapshot.serializer(),
                 ClientGameSnapshot(
-                    id = "LOCAL-IP",
+                    id = "192.0.2.10",
                     version = 7,
                 ),
             ),
         )
         val deltaFrame = RewriteFrames.delta(
-            "LOCAL-IP",
+            "192.0.2.10",
             sequence = 8,
             changedPaths = listOf("/x"),
             deltaKeys = listOf("runtime"),
@@ -176,10 +176,10 @@ class RewriteClientModelTest {
     fun snapshotAndSectionDeltaProduceMergedDecodedShellState() {
         val store = RewriteClientStore()
         val snapshot = ClientGameSnapshot(
-            id = "LOCAL-IP",
+            id = "192.0.2.10",
             version = 7,
             identity = com.hackwars.rewrite.protocol.ClientComputerIdentity(
-                playerIp = "LOCAL-IP",
+                playerIp = "192.0.2.10",
                 displayName = "Local User",
             ),
             economy = com.hackwars.rewrite.protocol.ClientEconomyState(
@@ -248,7 +248,7 @@ class RewriteClientModelTest {
         store.recordInboundFrame(
             service = RewriteService.GAME,
             frame = RewriteFrames.snapshot(
-                gameStateId = "LOCAL-IP",
+                gameStateId = "192.0.2.10",
                 sequence = 7,
                 payload = RewriteClientJson.encode(ClientGameSnapshot.serializer(), snapshot),
             ),
@@ -256,7 +256,7 @@ class RewriteClientModelTest {
         store.recordInboundFrame(
             service = RewriteService.GAME,
             frame = RewriteFrames.delta(
-                gameStateId = "LOCAL-IP",
+                gameStateId = "192.0.2.10",
                 sequence = 8,
                 changedPaths = listOf(
                     "economy.pettyCash",
@@ -281,7 +281,7 @@ class RewriteClientModelTest {
     fun networkSnapshotAndDeltaMergeWithoutWipingOtherSections() {
         val store = RewriteClientStore()
         val snapshot = ClientGameSnapshot(
-            id = "LOCAL-IP",
+            id = "192.0.2.10",
             version = 7,
             economy = com.hackwars.rewrite.protocol.ClientEconomyState(
                 pettyCash = 125.0,
@@ -292,7 +292,7 @@ class RewriteClientModelTest {
                 allowedNetworks = setOf("ProgNet"),
                 regularNpcs = listOf(
                     ClientNpcDirectoryEntry(
-                        stateId = "ATTACK-NPC-1",
+                        stateId = "198.51.100.101",
                         displayName = "Root Attacker",
                         title = "Attack NPC",
                         category = ClientNpcCategory.REGULAR,
@@ -306,7 +306,7 @@ class RewriteClientModelTest {
                 allowedNetworks = setOf("UGOPNet"),
                 regularNpcs = listOf(
                     ClientNpcDirectoryEntry(
-                        stateId = "PROG-ATTACK-1",
+                        stateId = "203.0.113.101",
                         displayName = "Prog Runner",
                         title = "Attack NPC",
                         category = ClientNpcCategory.REGULAR,
@@ -318,7 +318,7 @@ class RewriteClientModelTest {
         store.recordInboundFrame(
             service = RewriteService.GAME,
             frame = RewriteFrames.snapshot(
-                gameStateId = "LOCAL-IP",
+                gameStateId = "192.0.2.10",
                 sequence = 7,
                 payload = RewriteClientJson.encode(ClientGameSnapshot.serializer(), snapshot),
             ),
@@ -326,7 +326,7 @@ class RewriteClientModelTest {
         store.recordInboundFrame(
             service = RewriteService.GAME,
             frame = RewriteFrames.delta(
-                gameStateId = "LOCAL-IP",
+                gameStateId = "192.0.2.10",
                 sequence = 8,
                 changedPaths = listOf("network.currentNetworkName"),
                 deltaKeys = listOf("network"),
@@ -345,7 +345,7 @@ class RewriteClientModelTest {
     fun malformedNetworkPayloadStaysRawAndDoesNotCorruptPriorDecodedState() {
         val store = RewriteClientStore()
         val snapshot = ClientGameSnapshot(
-            id = "LOCAL-IP",
+            id = "192.0.2.10",
             version = 7,
             network = ClientNetworkState(currentNetworkName = "UGOPNet"),
         )
@@ -353,7 +353,7 @@ class RewriteClientModelTest {
         store.recordInboundFrame(
             service = RewriteService.GAME,
             frame = RewriteFrames.snapshot(
-                gameStateId = "LOCAL-IP",
+                gameStateId = "192.0.2.10",
                 sequence = 7,
                 payload = RewriteClientJson.encode(ClientGameSnapshot.serializer(), snapshot),
             ),
@@ -361,7 +361,7 @@ class RewriteClientModelTest {
         store.recordInboundFrame(
             service = RewriteService.GAME,
             frame = RewriteFrames.delta(
-                gameStateId = "LOCAL-IP",
+                gameStateId = "192.0.2.10",
                 sequence = 8,
                 changedPaths = listOf("network.currentNetworkName"),
                 deltaKeys = listOf("network"),
@@ -381,14 +381,14 @@ class RewriteClientModelTest {
         store.recordInboundFrame(
             service = RewriteService.GAME,
             frame = RewriteFrames.snapshot(
-                gameStateId = "LOCAL-IP",
+                gameStateId = "192.0.2.10",
                 sequence = 7,
                 payload = RewriteClientJson.encode(
                     ClientGameSnapshot.serializer(),
                     ClientGameSnapshot(
-                        id = "LOCAL-IP",
+                        id = "192.0.2.10",
                         version = 7,
-                        identity = com.hackwars.rewrite.protocol.ClientComputerIdentity(playerIp = "LOCAL-IP"),
+                        identity = com.hackwars.rewrite.protocol.ClientComputerIdentity(playerIp = "192.0.2.10"),
                         economy = com.hackwars.rewrite.protocol.ClientEconomyState(pettyCash = 125.0),
                     ),
                 ),
@@ -397,7 +397,7 @@ class RewriteClientModelTest {
         store.recordInboundFrame(
             service = RewriteService.GAME,
             frame = RewriteFrames.delta(
-                gameStateId = "LOCAL-IP",
+                gameStateId = "192.0.2.10",
                 sequence = 8,
                 changedPaths = listOf("version"),
                 deltaKeys = listOf("identity"),
@@ -405,7 +405,7 @@ class RewriteClientModelTest {
                     ClientGameDeltaProjection.serializer(),
                     ClientGameStateSummaryProjection(
                         version = 9,
-                        playerIp = "LOCAL-IP",
+                        playerIp = "192.0.2.10",
                     ),
                 ),
             ),
@@ -437,7 +437,7 @@ class RewriteClientModelTest {
                     ClientAttackMessageUiEvent(
                         message = "Redirect receipt",
                         port = 9,
-                        ip = "TARGET-IP",
+                        ip = "198.51.100.20",
                     ),
                 ),
             ),
@@ -458,12 +458,12 @@ class RewriteClientModelTest {
         store.recordInboundFrame(
             service = RewriteService.GAME,
             frame = RewriteFrames.snapshot(
-                gameStateId = "LOCAL-IP",
+                gameStateId = "192.0.2.10",
                 sequence = 30,
                 payload = RewriteClientJson.encode(
                     ClientGameSnapshot.serializer(),
                     ClientGameSnapshot(
-                        id = "LOCAL-IP",
+                        id = "192.0.2.10",
                         version = 30,
                         economy = com.hackwars.rewrite.protocol.ClientEconomyState(pettyCash = 125.0),
                         watches = ClientWatchManagerState(
@@ -486,7 +486,7 @@ class RewriteClientModelTest {
         store.recordInboundFrame(
             service = RewriteService.GAME,
             frame = RewriteFrames.delta(
-                gameStateId = "LOCAL-IP",
+                gameStateId = "192.0.2.10",
                 sequence = 31,
                 changedPaths = listOf("watches.watches"),
                 deltaKeys = listOf("watches"),
@@ -522,12 +522,12 @@ class RewriteClientModelTest {
         store.recordInboundFrame(
             service = RewriteService.GAME,
             frame = RewriteFrames.snapshot(
-                gameStateId = "LOCAL-IP",
+                gameStateId = "192.0.2.10",
                 sequence = 7,
                 payload = RewriteClientJson.encode(
                     ClientGameSnapshot.serializer(),
                     ClientGameSnapshot(
-                        id = "LOCAL-IP",
+                        id = "192.0.2.10",
                         version = 7,
                         economy = com.hackwars.rewrite.protocol.ClientEconomyState(pettyCash = 125.0),
                     ),
@@ -559,12 +559,12 @@ class RewriteClientModelTest {
         store.recordInboundFrame(
             service = RewriteService.GAME,
             frame = RewriteFrames.snapshot(
-                gameStateId = "LOCAL-IP",
+                gameStateId = "192.0.2.10",
                 sequence = 7,
                 payload = RewriteClientJson.encode(
                     ClientGameSnapshot.serializer(),
                     ClientGameSnapshot(
-                        id = "LOCAL-IP",
+                        id = "192.0.2.10",
                         version = 7,
                         filesystem = ClientFilesystemState(
                             currentPath = "/Public",
@@ -583,7 +583,7 @@ class RewriteClientModelTest {
         store.recordInboundFrame(
             service = RewriteService.GAME,
             frame = RewriteFrames.delta(
-                gameStateId = "LOCAL-IP",
+                gameStateId = "192.0.2.10",
                 sequence = 8,
                 changedPaths = listOf("filesystem.filesByPath./Public/readme.txt"),
                 deltaKeys = listOf("filesystem"),
@@ -604,9 +604,9 @@ class RewriteClientModelTest {
         val uiEvents: List<ClientGameUiEvent> = listOf(
             ClientPopupUiEvent(message = "Warning", style = ClientPopupUiStyle.ERROR),
             ClientTextMessageUiEvent(message = "Daily pay successfully changed."),
-            ClientAttackMessageUiEvent(message = "Redirect receipt", port = 9, ip = "TARGET-IP"),
-            ClientZombieAttackUiEvent(message = "Computer at ZOMBIE-IP just overheated!", zombieIp = "ZOMBIE-IP", sourcePort = 8),
-            ClientShowChoicesUiEvent(targetIp = "TARGET-IP", targetPort = 6, choiceType = ClientShowChoicesType.HTTP, windowHandle = 99),
+            ClientAttackMessageUiEvent(message = "Redirect receipt", port = 9, ip = "198.51.100.20"),
+            ClientZombieAttackUiEvent(message = "Computer at 203.0.113.30 just overheated!", zombieIp = "203.0.113.30", sourcePort = 8),
+            ClientShowChoicesUiEvent(targetIp = "198.51.100.20", targetPort = 6, choiceType = ClientShowChoicesType.HTTP, windowHandle = 99),
         )
 
         uiEvents.forEachIndexed { index, event ->

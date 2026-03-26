@@ -94,7 +94,7 @@ class RewriteWatchManagerUiTest {
                 frame = frame,
                 sessionGateway = sessionGateway,
                 response = ClientDirectoryListingResponse(
-                    stateId = "LOCAL-IP",
+                    stateId = "192.0.2.10",
                     path = "/Programs",
                     files = listOf(
                         ClientStoredFile(
@@ -144,7 +144,7 @@ class RewriteWatchManagerUiTest {
                     payload = RewriteClientJson.encode(
                         ClientWatchMutationResponse.serializer(),
                         ClientWatchMutationResponse(
-                            stateId = "LOCAL-IP",
+                            stateId = "192.0.2.10",
                             operation = "installwatch",
                             accepted = true,
                             message = "installwatch-succeeded",
@@ -234,7 +234,7 @@ class RewriteWatchManagerUiTest {
                     payload = RewriteClientJson.encode(
                         ClientWatchMutationResponse.serializer(),
                         ClientWatchMutationResponse(
-                            stateId = "LOCAL-IP",
+                            stateId = "192.0.2.10",
                             operation = "setwatchonoff",
                             accepted = false,
                             message = "You cannot disable watches while overheated.",
@@ -269,7 +269,7 @@ class RewriteWatchManagerUiTest {
             RewriteFrames.authAccepted(
                 connectionId = "conn-1",
                 playFabId = "PF-LOCAL",
-                playerIp = "LOCAL-IP",
+                playerIp = "192.0.2.10",
                 heartbeatInterval = kotlin.time.Duration.parse("15s"),
                 sessionStartedAt = Instant.parse("2026-03-25T00:00:00Z"),
             ),
@@ -288,9 +288,9 @@ class RewriteWatchManagerUiTest {
 
     private fun watchSnapshot(): ClientGameSnapshot {
         return ClientGameSnapshot(
-            id = "LOCAL-IP",
+            id = "192.0.2.10",
             version = 1,
-            identity = ClientComputerIdentity(playerIp = "LOCAL-IP"),
+            identity = ClientComputerIdentity(playerIp = "192.0.2.10"),
             ports = listOf(
                 ClientPortState(number = 4),
                 ClientPortState(number = 6),
@@ -323,7 +323,7 @@ class RewriteWatchManagerUiTest {
 
     private fun watchListResponse(): ClientWatchListResponse {
         return ClientWatchListResponse(
-            stateId = "LOCAL-IP",
+            stateId = "192.0.2.10",
             watches = watchSnapshot().watches.watches,
             installedCount = 2,
             maximumInstalledCount = 21,

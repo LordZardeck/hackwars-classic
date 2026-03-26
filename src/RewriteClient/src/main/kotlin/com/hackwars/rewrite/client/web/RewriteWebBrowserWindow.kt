@@ -327,10 +327,8 @@ internal class RewriteWebBrowserWindow(
             }
         })
         renderState()
-        SwingUtilities.invokeLater {
-            if (!isClosed && isDisplayable) {
-                navigateInitial()
-            }
+        if (!isClosed) {
+            navigateInitial()
         }
     }
 
@@ -354,7 +352,7 @@ internal class RewriteWebBrowserWindow(
 
     private fun navigateInitial() {
         val initialTarget = when (command) {
-            RewriteShellCommand.STORE -> "store"
+            RewriteShellCommand.STORE -> controller.gameNetworkState()?.storeStateId
             else -> controller.currentAuthenticatedPlayerIp()
         }
         if (initialTarget.isNullOrBlank()) {

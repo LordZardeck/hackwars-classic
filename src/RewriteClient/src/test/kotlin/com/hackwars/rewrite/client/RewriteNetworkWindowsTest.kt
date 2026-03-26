@@ -44,7 +44,7 @@ class RewriteNetworkWindowsTest {
             allowedNetworks = setOf("ProgNet"),
             regularNpcs = listOf(
                 ClientNpcDirectoryEntry(
-                    stateId = "ATTACK-NPC-1",
+                    stateId = "198.51.100.101",
                     displayName = "Root Attacker",
                     title = "Attack NPC",
                     category = ClientNpcCategory.REGULAR,
@@ -52,7 +52,7 @@ class RewriteNetworkWindowsTest {
             ),
             questNpcs = listOf(
                 ClientNpcDirectoryEntry(
-                    stateId = "QUEST-NPC-1",
+                    stateId = "198.51.100.102",
                     displayName = "Quest Guide",
                     title = "Quest NPC",
                     category = ClientNpcCategory.QUEST,
@@ -60,7 +60,7 @@ class RewriteNetworkWindowsTest {
             ),
             miningNpcs = listOf(
                 ClientNpcDirectoryEntry(
-                    stateId = "MINE-NPC-1",
+                    stateId = "198.51.100.103",
                     displayName = "Miner One",
                     title = "Mining NPC",
                     category = ClientNpcCategory.MINING,
@@ -69,7 +69,7 @@ class RewriteNetworkWindowsTest {
             ),
             storeNpcs = listOf(
                 ClientNpcDirectoryEntry(
-                    stateId = "store1",
+                    stateId = "198.51.100.40",
                     displayName = "Shard Store",
                     title = "Store NPC",
                     category = ClientNpcCategory.STORE,
@@ -93,7 +93,7 @@ class RewriteNetworkWindowsTest {
     fun buildPortScanRowsReflectsCorrelatedScanResponse() {
         val rows = buildPortScanRows(
             ClientScanResponse(
-                requesterStateId = "LOCAL-IP",
+                requesterStateId = "192.0.2.10",
                 targetStateId = "10.0.0.8",
                 accepted = true,
                 chargedAmount = 10.0,
@@ -108,12 +108,12 @@ class RewriteNetworkWindowsTest {
                         cpuCost = 3.0,
                         maxCpuCost = 10.0,
                         health = 88.0,
-                        note = "LOCAL-IP",
+                        note = "192.0.2.10",
                         defaultVisibility = ClientDefaultPortVisibility.YES,
                         firewall = ClientFirewallView(
                             name = "Guard",
                             kind = ClientFirewallKind.BASIC,
-                            maker = "LOCAL-IP",
+                            maker = "192.0.2.10",
                             strength = 25,
                             cpuCost = 1.5,
                         ),
@@ -142,12 +142,12 @@ class RewriteNetworkWindowsTest {
         controller.accept(
             RewriteService.GAME,
             RewriteFrames.snapshot(
-                gameStateId = "LOCAL-IP",
+                gameStateId = "192.0.2.10",
                 sequence = 1,
                 payload = RewriteClientJson.encode(
                     ClientGameSnapshot.serializer(),
                     ClientGameSnapshot(
-                        id = "LOCAL-IP",
+                        id = "192.0.2.10",
                         network = ClientNetworkState(
                             currentNetworkName = "UGOPNet",
                             allowedNetworks = setOf("ProgNet"),
@@ -170,7 +170,7 @@ class RewriteNetworkWindowsTest {
             changeNetworkCommand.payload.toByteArray(),
         )
         assertEquals("changenetwork", changeNetworkCommand.command_name)
-        assertEquals("LOCAL-IP", changeNetworkPayload.ip)
+        assertEquals("192.0.2.10", changeNetworkPayload.ip)
         assertEquals("ProgNet", changeNetworkPayload.network)
         controller.accept(
             RewriteService.GAME,
@@ -179,10 +179,10 @@ class RewriteNetworkWindowsTest {
                 payload = RewriteClientJson.encode(
                     ClientNetworkSwitchResponse.serializer(),
                     ClientNetworkSwitchResponse(
-                        stateId = "LOCAL-IP",
+                        stateId = "192.0.2.10",
                         requestedNetworkName = "ProgNet",
                         currentNetworkName = "ProgNet",
-                        storeStateId = "store1",
+                        storeStateId = "198.51.100.40",
                         accepted = true,
                         message = "Changed network to ProgNet.",
                         version = 2,
@@ -203,7 +203,7 @@ class RewriteNetworkWindowsTest {
             scanCommand.payload.toByteArray(),
         )
         assertEquals("requestscan", scanCommand.command_name)
-        assertEquals("LOCAL-IP", scanPayload.ip)
+        assertEquals("192.0.2.10", scanPayload.ip)
         assertEquals("10.0.0.8", scanPayload.targetIp)
         controller.accept(
             RewriteService.GAME,
@@ -212,7 +212,7 @@ class RewriteNetworkWindowsTest {
                 payload = RewriteClientJson.encode(
                     ClientScanResponse.serializer(),
                     ClientScanResponse(
-                        requesterStateId = "LOCAL-IP",
+                        requesterStateId = "192.0.2.10",
                         targetStateId = "10.0.0.8",
                         accepted = true,
                         chargedAmount = 10.0,
@@ -227,7 +227,7 @@ class RewriteNetworkWindowsTest {
                                 cpuCost = 3.0,
                                 maxCpuCost = 10.0,
                                 health = 88.0,
-                                note = "LOCAL-IP",
+                                note = "192.0.2.10",
                                 defaultVisibility = ClientDefaultPortVisibility.YES,
                             ),
                         ),
@@ -257,7 +257,7 @@ class RewriteNetworkWindowsTest {
             RewriteFrames.authAccepted(
                 connectionId = "conn-1",
                 playFabId = "PF-LOCAL",
-                playerIp = "LOCAL-IP",
+                playerIp = "192.0.2.10",
                 heartbeatInterval = kotlin.time.Duration.parse("15s"),
                 sessionStartedAt = Instant.parse("2026-03-25T00:00:00Z"),
             ),

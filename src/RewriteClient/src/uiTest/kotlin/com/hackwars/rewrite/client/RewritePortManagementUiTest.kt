@@ -110,7 +110,7 @@ class RewritePortManagementUiTest {
                 command.payload.toByteArray(),
             )
             assertEquals("healport", command.command_name)
-            assertEquals("LOCAL-IP", payload.ip)
+            assertEquals("192.0.2.10", payload.ip)
             assertEquals(6, payload.port)
 
             frame.controller.accept(
@@ -120,7 +120,7 @@ class RewritePortManagementUiTest {
                     payload = RewriteClientJson.encode(
                         ClientHealPortResponse.serializer(),
                         ClientHealPortResponse(
-                            stateId = "LOCAL-IP",
+                            stateId = "192.0.2.10",
                             portNumber = 6,
                             accepted = true,
                             outcome = ClientHealPortOutcome.SUCCESS,
@@ -217,7 +217,7 @@ class RewritePortManagementUiTest {
                     payload = RewriteClientJson.encode(
                         ClientInstallApplicationResponse.serializer(),
                         ClientInstallApplicationResponse(
-                            stateId = "LOCAL-IP",
+                            stateId = "192.0.2.10",
                             portNumber = 6,
                             installedApplication = ClientInstalledApplication(
                                 name = "http.bin",
@@ -283,7 +283,7 @@ class RewritePortManagementUiTest {
                     payload = RewriteClientJson.encode(
                         ClientInstallFirewallResponse.serializer(),
                         ClientInstallFirewallResponse(
-                            stateId = "LOCAL-IP",
+                            stateId = "192.0.2.10",
                             portNumber = 6,
                             installedFirewall = ClientInstalledFirewall(
                                 name = "basic.fw",
@@ -321,7 +321,7 @@ class RewritePortManagementUiTest {
             RewriteFrames.authAccepted(
                 connectionId = "conn-1",
                 playFabId = "PF-LOCAL",
-                playerIp = "LOCAL-IP",
+                playerIp = "192.0.2.10",
                 heartbeatInterval = kotlin.time.Duration.parse("15s"),
                 sessionStartedAt = Instant.parse("2026-03-25T00:00:00Z"),
             ),
@@ -364,8 +364,8 @@ class RewritePortManagementUiTest {
         ),
     ): ClientGameSnapshot {
         return ClientGameSnapshot(
-            id = "LOCAL-IP",
-            identity = ClientComputerIdentity(playerIp = "LOCAL-IP"),
+            id = "192.0.2.10",
+            identity = ClientComputerIdentity(playerIp = "192.0.2.10"),
             ports = ports,
         )
     }
@@ -375,7 +375,7 @@ class RewritePortManagementUiTest {
         files: List<ClientStoredFile>,
     ): ClientDirectoryListingResponse {
         return ClientDirectoryListingResponse(
-            stateId = "LOCAL-IP",
+            stateId = "192.0.2.10",
             path = path,
             files = files,
             version = 5,

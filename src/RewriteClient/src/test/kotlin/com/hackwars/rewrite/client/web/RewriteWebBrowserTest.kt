@@ -50,7 +50,7 @@ class RewriteWebBrowserTest {
             RewriteFrames.authAccepted(
                 connectionId = "conn-1",
                 playFabId = "PF-LOCAL",
-                playerIp = "LOCAL-IP",
+                playerIp = "192.0.2.10",
                 heartbeatInterval = kotlin.time.Duration.parse("15s"),
                 sessionStartedAt = Instant.parse("2026-03-25T00:00:00Z"),
             ),
@@ -58,7 +58,7 @@ class RewriteWebBrowserTest {
 
         val webpagePending = backgroundScope.async(UnconfinedTestDispatcher(testScheduler)) {
             controller.requestWebpage(
-                targetIp = "store",
+                targetIp = "198.51.100.40",
                 parameters = mapOf("category" to "software"),
             )
         }
@@ -70,8 +70,8 @@ class RewriteWebBrowserTest {
             webpageCommand.payload.toByteArray(),
         )
         assertEquals("requestwebpage", webpageCommand.command_name)
-        assertEquals("store", webpagePayload.targetIp)
-        assertEquals("LOCAL-IP", webpagePayload.sourceIp)
+        assertEquals("198.51.100.40", webpagePayload.targetIp)
+        assertEquals("192.0.2.10", webpagePayload.sourceIp)
         assertEquals("software", webpagePayload.parameters["category"])
         controller.accept(
             RewriteService.GAME,
@@ -80,7 +80,7 @@ class RewriteWebBrowserTest {
                 payload = RewriteClientJson.encode(
                     ClientWebsiteRenderResponse.serializer(),
                     ClientWebsiteRenderResponse(
-                        resolvedTargetStateId = "STORE-IP",
+                        resolvedTargetStateId = "198.51.100.40",
                         title = "Store",
                         body = "<html><body>Store</body></html>",
                         version = 2,
@@ -93,7 +93,7 @@ class RewriteWebBrowserTest {
 
         val submitPending = backgroundScope.async(UnconfinedTestDispatcher(testScheduler)) {
             controller.submitWebpage(
-                targetIp = "STORE-IP",
+                targetIp = "198.51.100.40",
                 parameters = mapOf("buy" to "attack.bin"),
             )
         }
@@ -104,7 +104,7 @@ class RewriteWebBrowserTest {
             submitCommand.payload.toByteArray(),
         )
         assertEquals("submit", submitCommand.command_name)
-        assertEquals("STORE-IP", submitPayload.targetIp)
+        assertEquals("198.51.100.40", submitPayload.targetIp)
         assertEquals("attack.bin", submitPayload.parameters["buy"])
         controller.accept(
             RewriteService.GAME,
@@ -113,7 +113,7 @@ class RewriteWebBrowserTest {
                 payload = RewriteClientJson.encode(
                     ClientWebsiteRenderResponse.serializer(),
                     ClientWebsiteRenderResponse(
-                        resolvedTargetStateId = "STORE-IP",
+                        resolvedTargetStateId = "198.51.100.40",
                         title = "Submitted",
                         body = "<html><body>Submitted</body></html>",
                         version = 3,
@@ -125,7 +125,7 @@ class RewriteWebBrowserTest {
         assertIs<RewriteGameCommandResult.Success<ClientWebsiteRenderResponse>>(submitPending.await())
 
         val votePending = backgroundScope.async(UnconfinedTestDispatcher(testScheduler)) {
-            controller.voteForWebsite("STORE-IP")
+            controller.voteForWebsite("198.51.100.40")
         }
         runCurrent()
         val voteCommand = session.sentFrames.last().command!!
@@ -134,7 +134,7 @@ class RewriteWebBrowserTest {
             voteCommand.payload.toByteArray(),
         )
         assertEquals("vote", voteCommand.command_name)
-        assertEquals("STORE-IP", votePayload.targetIp)
+        assertEquals("198.51.100.40", votePayload.targetIp)
         controller.accept(
             RewriteService.GAME,
             RewriteFrames.commandResponse(
@@ -142,8 +142,8 @@ class RewriteWebBrowserTest {
                 payload = RewriteClientJson.encode(
                     ClientVoteResponse.serializer(),
                     ClientVoteResponse(
-                        voterStateId = "LOCAL-IP",
-                        targetStateId = "STORE-IP",
+                        voterStateId = "192.0.2.10",
+                        targetStateId = "198.51.100.40",
                         votesAvailableAfter = 1,
                         targetVoteCountAfter = 4,
                         targetHttpExperienceAfter = 12.0,
@@ -158,7 +158,7 @@ class RewriteWebBrowserTest {
 
         val purchasePending = backgroundScope.async(UnconfinedTestDispatcher(testScheduler)) {
             controller.requestPurchase(
-                targetIp = "store",
+                targetIp = "198.51.100.40",
                 fileName = "attack.bin",
                 quantity = 2,
             )
@@ -170,7 +170,7 @@ class RewriteWebBrowserTest {
             purchaseCommand.payload.toByteArray(),
         )
         assertEquals("requestpurchase", purchaseCommand.command_name)
-        assertEquals("store", purchasePayload.targetIp)
+        assertEquals("198.51.100.40", purchasePayload.targetIp)
         assertEquals("attack.bin", purchasePayload.fileName)
         assertEquals(2, purchasePayload.quantity)
         controller.accept(
@@ -180,9 +180,9 @@ class RewriteWebBrowserTest {
                 payload = RewriteClientJson.encode(
                     ClientPurchaseResponse.serializer(),
                     ClientPurchaseResponse(
-                        buyerStateId = "LOCAL-IP",
-                        sellerStateId = "STORE-IP",
-                        revenueTargetStateId = "STORE-IP",
+                        buyerStateId = "192.0.2.10",
+                        sellerStateId = "198.51.100.40",
+                        revenueTargetStateId = "198.51.100.40",
                         purchasedFile = ClientStoredFile(
                             path = "/Store/attack.bin",
                             name = "attack.bin",
@@ -200,7 +200,7 @@ class RewriteWebBrowserTest {
         advanceUntilIdle()
         assertIs<RewriteGameCommandResult.Success<ClientPurchaseResponse>>(purchasePending.await())
 
-        controller.exitWebpage("STORE-IP")
+        controller.exitWebpage("198.51.100.40")
         runCurrent()
         advanceUntilIdle()
 
@@ -212,7 +212,7 @@ class RewriteWebBrowserTest {
     @Test
     fun browserNormalizationHistoryAndNavigationParsingFollowLockedRules() {
         assertEquals("example.com", normalizeBrowserTarget(" https://Example.COM/shop/?a=1 "))
-        assertEquals("store", normalizeBrowserTarget("store/"))
+        assertEquals("198.51.100.40", normalizeBrowserTarget("198.51.100.40/"))
 
         val absolute = parseBrowserAddressNavigation("Example.com/store?buy=attack.bin&quantity=2")
         assertNotNull(absolute)
@@ -220,14 +220,14 @@ class RewriteWebBrowserTest {
         assertEquals("attack.bin", absolute.parameters["buy"])
         assertEquals("2", absolute.parameters["quantity"])
 
-        val relative = parseBrowserHyperlinkNavigation("/shop?buy=watch.bin", "STORE-IP")
+        val relative = parseBrowserHyperlinkNavigation("/shop?buy=watch.bin", "198.51.100.40")
         assertNotNull(relative)
-        assertEquals("STORE-IP", relative.target)
+        assertEquals("198.51.100.40", relative.target)
         assertEquals("watch.bin", relative.parameters["buy"])
 
         val submitted = parseBrowserFormNavigation(
             actionReference = "https://Store.HackWars.Net/checkout?view=cart",
-            currentResolvedTarget = "STORE-IP",
+            currentResolvedTarget = "198.51.100.40",
             parameters = mapOf("quantity" to "3"),
         )
         assertNotNull(submitted)

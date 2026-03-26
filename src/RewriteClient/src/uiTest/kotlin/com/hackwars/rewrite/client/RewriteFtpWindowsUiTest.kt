@@ -96,7 +96,7 @@ class RewriteFtpWindowsUiTest {
                     payload = RewriteClientJson.encode(
                         ClientDirectoryListingResponse.serializer(),
                         ClientDirectoryListingResponse(
-                            stateId = "LOCAL-IP",
+                            stateId = "192.0.2.10",
                             path = "/",
                             directories = listOf(
                                 ClientDirectoryEntry(path = "/Store", name = "Store"),
@@ -123,7 +123,7 @@ class RewriteFtpWindowsUiTest {
                 storeCommand.payload.toByteArray(),
             )
             assertEquals("/Store", storePayload.path)
-            assertEquals("LOCAL-IP", storePayload.targetIp)
+            assertEquals("192.0.2.10", storePayload.targetIp)
             assertEquals(9, storePayload.port)
 
             frame.controller.accept(
@@ -133,8 +133,8 @@ class RewriteFtpWindowsUiTest {
                     payload = RewriteClientJson.encode(
                         ClientSecondaryDirectoryListingResponse.serializer(),
                         ClientSecondaryDirectoryListingResponse(
-                            requesterStateId = "LOCAL-IP",
-                            targetStateId = "LOCAL-IP",
+                            requesterStateId = "192.0.2.10",
+                            targetStateId = "192.0.2.10",
                             portNumber = 9,
                             path = "/Store",
                             files = listOf(
@@ -182,7 +182,7 @@ class RewriteFtpWindowsUiTest {
                 ClientSellFilePayload.serializer(),
                 sellCommand.payload.toByteArray(),
             )
-            assertEquals("LOCAL-IP", sellPayload.ip)
+            assertEquals("192.0.2.10", sellPayload.ip)
             assertEquals("/", sellPayload.location)
             assertEquals("merchant.bin", sellPayload.fileName)
             assertEquals(1, sellPayload.quantity)
@@ -194,7 +194,7 @@ class RewriteFtpWindowsUiTest {
                     payload = RewriteClientJson.encode(
                         ClientSellFileResponse.serializer(),
                         ClientSellFileResponse(
-                            stateId = "LOCAL-IP",
+                            stateId = "192.0.2.10",
                             file = ClientStoredFile(
                                 path = "/Store/merchant.bin",
                                 name = "merchant.bin",
@@ -224,8 +224,8 @@ class RewriteFtpWindowsUiTest {
                     payload = RewriteClientJson.encode(
                         ClientSecondaryDirectoryListingResponse.serializer(),
                         ClientSecondaryDirectoryListingResponse(
-                            requesterStateId = "LOCAL-IP",
-                            targetStateId = "LOCAL-IP",
+                            requesterStateId = "192.0.2.10",
+                            targetStateId = "192.0.2.10",
                             portNumber = 9,
                             path = "/Store",
                             files = listOf(
@@ -269,7 +269,7 @@ class RewriteFtpWindowsUiTest {
 
             val publicWindow = waitForWindow(frame, "rewrite-shell-window-public_ftp")
             SwingUtilities.invokeAndWait {
-                textField(publicWindow, "rewrite-public-ftp-target-ip-field").text = "TARGET-IP"
+                textField(publicWindow, "rewrite-public-ftp-target-ip-field").text = "198.51.100.20"
                 spinner(publicWindow, "rewrite-public-ftp-target-port-spinner").value = 25
                 button(publicWindow, "rewrite-public-ftp-connect-button").doClick()
             }
@@ -281,7 +281,7 @@ class RewriteFtpWindowsUiTest {
                 connectCommand.payload.toByteArray(),
             )
             assertEquals("/Public", connectPayload.path)
-            assertEquals("TARGET-IP", connectPayload.targetIp)
+            assertEquals("198.51.100.20", connectPayload.targetIp)
             assertEquals(25, connectPayload.port)
 
             frame.controller.accept(
@@ -291,8 +291,8 @@ class RewriteFtpWindowsUiTest {
                     payload = RewriteClientJson.encode(
                         ClientSecondaryDirectoryListingResponse.serializer(),
                         ClientSecondaryDirectoryListingResponse(
-                            requesterStateId = "LOCAL-IP",
-                            targetStateId = "TARGET-IP",
+                            requesterStateId = "192.0.2.10",
+                            targetStateId = "198.51.100.20",
                             portNumber = 25,
                             path = "/Public",
                             directories = listOf(
@@ -389,7 +389,7 @@ class RewriteFtpWindowsUiTest {
             RewriteFrames.authAccepted(
                 connectionId = "conn-1",
                 playFabId = "PF-LOCAL",
-                playerIp = "LOCAL-IP",
+                playerIp = "192.0.2.10",
                 heartbeatInterval = kotlin.time.Duration.parse("15s"),
                 sessionStartedAt = Instant.parse("2026-03-25T00:00:00Z"),
             ),
@@ -401,7 +401,7 @@ class RewriteFtpWindowsUiTest {
 
     private fun ftpSnapshot(): ClientGameSnapshot {
         return ClientGameSnapshot(
-            id = "LOCAL-IP",
+            id = "192.0.2.10",
             ports = listOf(
                 ClientPortState(
                     number = 9,

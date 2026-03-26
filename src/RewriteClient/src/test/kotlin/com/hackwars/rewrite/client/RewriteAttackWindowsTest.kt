@@ -181,13 +181,13 @@ class RewriteAttackWindowsTest {
         controller.accept(
             RewriteService.GAME,
             RewriteFrames.snapshot(
-                gameStateId = "LOCAL-IP",
+                gameStateId = "192.0.2.10",
                 sequence = 1,
                 payload = RewriteClientJson.encode(
                     ClientGameSnapshot.serializer(),
                     ClientGameSnapshot(
-                        id = "LOCAL-IP",
-                        identity = ClientComputerIdentity(playerIp = "LOCAL-IP"),
+                        id = "192.0.2.10",
+                        identity = ClientComputerIdentity(playerIp = "192.0.2.10"),
                     ),
                 ),
             ),
@@ -195,7 +195,7 @@ class RewriteAttackWindowsTest {
 
         val attackPending = backgroundScope.async(UnconfinedTestDispatcher(testScheduler)) {
             controller.requestAttack(
-                targetIp = "TARGET-IP",
+                targetIp = "198.51.100.20",
                 targetPort = 4,
                 sourcePort = 6,
                 secondaryPorts = listOf(9, 10),
@@ -229,8 +229,8 @@ class RewriteAttackWindowsTest {
         )
 
         assertEquals("requestattack", attackCommand.command_name)
-        assertEquals("LOCAL-IP", attackPayload.sourceIp)
-        assertEquals("TARGET-IP", attackPayload.targetIp)
+        assertEquals("192.0.2.10", attackPayload.sourceIp)
+        assertEquals("198.51.100.20", attackPayload.targetIp)
         assertEquals(6, attackPayload.sourcePort)
         assertEquals(listOf(9, 10), attackPayload.secondaryPorts)
         assertEquals(listOf("/", "bank.bin"), attackPayload.scripts.first())
@@ -244,16 +244,16 @@ class RewriteAttackWindowsTest {
                 payload = RewriteClientJson.encode(
                     ClientAttackStartResponse.serializer(),
                     ClientAttackStartResponse(
-                        attackerStateId = "LOCAL-IP",
+                        attackerStateId = "192.0.2.10",
                         sourcePort = 6,
-                        targetStateId = "TARGET-IP",
+                        targetStateId = "198.51.100.20",
                         targetPort = 4,
                         accepted = true,
                         message = "Attack accepted.",
                         session = ClientAttackSessionState(
                             programId = "attack-program-1",
                             sourcePort = 6,
-                            targetStateId = "TARGET-IP",
+                            targetStateId = "198.51.100.20",
                             targetPort = 4,
                             sessionKind = ClientAttackSessionKind.ATTACK,
                             windowHandle = 44,
@@ -278,7 +278,7 @@ class RewriteAttackWindowsTest {
         )
 
         assertEquals("requestcancelattack", cancelCommand.command_name)
-        assertEquals("LOCAL-IP", cancelPayload.ip)
+        assertEquals("192.0.2.10", cancelPayload.ip)
         assertEquals(6, cancelPayload.port)
 
         controller.accept(
@@ -288,7 +288,7 @@ class RewriteAttackWindowsTest {
                 payload = RewriteClientJson.encode(
                     ClientAttackCancelResponse.serializer(),
                     ClientAttackCancelResponse(
-                        stateId = "LOCAL-IP",
+                        stateId = "192.0.2.10",
                         sourcePort = 6,
                         accepted = false,
                         failureCode = ClientAttackCancelFailureCode.SOURCE_IP_MISMATCH,
@@ -315,7 +315,7 @@ class RewriteAttackWindowsTest {
         val secondaryDirectoryPending = backgroundScope.async(UnconfinedTestDispatcher(testScheduler)) {
             controller.requestSecondaryDirectory(
                 path = "/Public",
-                targetIp = "TARGET-IP",
+                targetIp = "198.51.100.20",
                 portNumber = 25,
             )
         }
@@ -330,7 +330,7 @@ class RewriteAttackWindowsTest {
 
         assertEquals("requestsecondarydirectory", secondaryDirectoryCommand.command_name)
         assertEquals("/Public", secondaryDirectoryPayload.path)
-        assertEquals("TARGET-IP", secondaryDirectoryPayload.targetIp)
+        assertEquals("198.51.100.20", secondaryDirectoryPayload.targetIp)
         assertEquals(25, secondaryDirectoryPayload.port)
 
         controller.accept(
@@ -340,8 +340,8 @@ class RewriteAttackWindowsTest {
                 payload = RewriteClientJson.encode(
                     ClientSecondaryDirectoryListingResponse.serializer(),
                     ClientSecondaryDirectoryListingResponse(
-                        requesterStateId = "LOCAL-IP",
-                        targetStateId = "TARGET-IP",
+                        requesterStateId = "192.0.2.10",
+                        targetStateId = "198.51.100.20",
                         portNumber = 25,
                         path = "/Public",
                         version = 3,
@@ -354,9 +354,9 @@ class RewriteAttackWindowsTest {
 
         val changeDailyPayPending = backgroundScope.async(UnconfinedTestDispatcher(testScheduler)) {
             controller.requestChangeDailyPay(
-                targetIp = "TARGET-IP",
+                targetIp = "198.51.100.20",
                 targetPort = 25,
-                revenueTargetIp = "REV-IP",
+                revenueTargetIp = "198.51.100.60",
                 attackPort = 44,
             )
         }
@@ -369,10 +369,10 @@ class RewriteAttackWindowsTest {
         )
 
         assertEquals("changedailypay", changeDailyPayCommand.command_name)
-        assertEquals("TARGET-IP", changeDailyPayPayload.ip)
+        assertEquals("198.51.100.20", changeDailyPayPayload.ip)
         assertEquals(25, changeDailyPayPayload.port)
-        assertEquals("REV-IP", changeDailyPayPayload.change)
-        assertEquals("LOCAL-IP", changeDailyPayPayload.finalizeIp)
+        assertEquals("198.51.100.60", changeDailyPayPayload.change)
+        assertEquals("192.0.2.10", changeDailyPayPayload.finalizeIp)
         assertEquals(44, changeDailyPayPayload.attackPort)
 
         controller.accept(
@@ -382,15 +382,15 @@ class RewriteAttackWindowsTest {
                 payload = RewriteClientJson.encode(
                     ClientChangeDailyPayResponse.serializer(),
                     ClientChangeDailyPayResponse(
-                        actorStateId = "LOCAL-IP",
-                        targetStateId = "TARGET-IP",
+                        actorStateId = "192.0.2.10",
+                        targetStateId = "198.51.100.20",
                         targetPort = 25,
-                        requestedRevenueTargetStateId = "REV-IP",
+                        requestedRevenueTargetStateId = "198.51.100.60",
                         accepted = true,
                         outcome = ClientChangeDailyPayOutcome.SUCCESS,
                         message = "Daily pay successfully changed.",
                         reductionMultiplierAfter = 1.0,
-                        revenueTargetStateIdAfter = "REV-IP",
+                        revenueTargetStateIdAfter = "198.51.100.60",
                         requesterHttpExperienceAfter = 20.0,
                         actorVersion = 4,
                         targetVersion = 7,
@@ -403,7 +403,7 @@ class RewriteAttackWindowsTest {
 
         val finalizeCancelledPending = backgroundScope.async(UnconfinedTestDispatcher(testScheduler)) {
             controller.requestFinalizeCancelled(
-                targetIp = "TARGET-IP",
+                targetIp = "198.51.100.20",
                 targetPort = 25,
             )
         }
@@ -416,8 +416,8 @@ class RewriteAttackWindowsTest {
         )
 
         assertEquals("finalizecancelled", finalizeCancelledCommand.command_name)
-        assertEquals("LOCAL-IP", finalizeCancelledPayload.ip)
-        assertEquals("TARGET-IP", finalizeCancelledPayload.targetIp)
+        assertEquals("192.0.2.10", finalizeCancelledPayload.ip)
+        assertEquals("198.51.100.20", finalizeCancelledPayload.targetIp)
         assertEquals(25, finalizeCancelledPayload.targetPort)
 
         controller.accept(
@@ -427,8 +427,8 @@ class RewriteAttackWindowsTest {
                 payload = RewriteClientJson.encode(
                     ClientFinalizeCancelledResponse.serializer(),
                     ClientFinalizeCancelledResponse(
-                        actorStateId = "LOCAL-IP",
-                        targetStateId = "TARGET-IP",
+                        actorStateId = "192.0.2.10",
+                        targetStateId = "198.51.100.20",
                         targetPort = 25,
                         accepted = true,
                         outcome = ClientFinalizeCancelledOutcome.SUCCESS,
@@ -459,7 +459,7 @@ class RewriteAttackWindowsTest {
             RewriteFrames.authAccepted(
                 connectionId = "conn-1",
                 playFabId = "PF-LOCAL",
-                playerIp = "LOCAL-IP",
+                playerIp = "192.0.2.10",
                 heartbeatInterval = kotlin.time.Duration.parse("15s"),
                 sessionStartedAt = Instant.parse("2026-03-25T00:00:00Z"),
             ),

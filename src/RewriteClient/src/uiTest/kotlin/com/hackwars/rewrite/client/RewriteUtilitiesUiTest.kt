@@ -179,7 +179,7 @@ class RewriteUtilitiesUiTest {
                     ClientComputerLogEntry(
                         createdAtEpochMillis = 1L,
                         renderedLine = "Decoded log line",
-                        sourceIp = "LOCAL-IP",
+                        sourceIp = "192.0.2.10",
                     ),
                 ),
             ),
@@ -228,7 +228,7 @@ class RewriteUtilitiesUiTest {
                 RewriteFrames.authAccepted(
                     connectionId = "conn-1",
                     playFabId = "PF-LOCALUSER",
-                    playerIp = "LOCAL-IP",
+                    playerIp = "192.0.2.10",
                     heartbeatInterval = kotlin.time.Duration.parse("15s"),
                     sessionStartedAt = Instant.parse("2026-03-25T00:00:00Z"),
                 ),
@@ -242,7 +242,7 @@ class RewriteUtilitiesUiTest {
                             ClientComputerLogEntry(
                                 createdAtEpochMillis = 1L,
                                 renderedLine = "Startup log line",
-                                sourceIp = "LOCAL-IP",
+                                sourceIp = "192.0.2.10",
                             ),
                         ),
                     ),
@@ -284,7 +284,7 @@ class RewriteUtilitiesUiTest {
             RewriteFrames.authAccepted(
                 connectionId = "conn-1",
                 playFabId = "PF-LOCAL",
-                playerIp = "LOCAL-IP",
+                playerIp = "192.0.2.10",
                 heartbeatInterval = kotlin.time.Duration.parse("15s"),
                 sessionStartedAt = Instant.parse("2026-03-25T00:00:00Z"),
             ),
@@ -302,8 +302,8 @@ class RewriteUtilitiesUiTest {
         logs: List<ClientComputerLogEntry> = emptyList(),
     ): ClientGameSnapshot {
         return ClientGameSnapshot(
-            id = "LOCAL-IP",
-            identity = ClientComputerIdentity(playerIp = "LOCAL-IP"),
+            id = "192.0.2.10",
+            identity = ClientComputerIdentity(playerIp = "192.0.2.10"),
             preferences = ClientPreferenceState(values = preferences),
             logs = ClientLogState(entries = logs),
             network = ClientNetworkState(

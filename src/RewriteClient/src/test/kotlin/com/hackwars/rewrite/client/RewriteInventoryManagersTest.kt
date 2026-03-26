@@ -44,7 +44,7 @@ class RewriteInventoryManagersTest {
     fun buildEquipmentManagerRowsReflectDecodedInstalledItemsAndFixedSlotOrder() {
         val rows = buildEquipmentManagerRows(
             ClientGameSnapshot(
-                identity = ClientComputerIdentity(playerIp = "LOCAL-IP"),
+                identity = ClientComputerIdentity(playerIp = "192.0.2.10"),
                 hardware = ClientHardwareState(
                     equipmentSlots = mapOf(
                         "CPU" to ClientInstalledEquipment(
@@ -89,7 +89,7 @@ class RewriteInventoryManagersTest {
     fun buildFirewallManagerRowsReflectDecodedPortFlags() {
         val rows = buildFirewallManagerRows(
             ClientGameSnapshot(
-                identity = ClientComputerIdentity(playerIp = "LOCAL-IP"),
+                identity = ClientComputerIdentity(playerIp = "192.0.2.10"),
                 ports = listOf(
                     ClientPortState(
                         number = 9,
@@ -209,7 +209,7 @@ class RewriteInventoryManagersTest {
                     payload = RewriteClientJson.encode(
                         ClientInstallEquipmentResponse.serializer(),
                         ClientInstallEquipmentResponse(
-                            stateId = "LOCAL-IP",
+                            stateId = "192.0.2.10",
                             slot = ClientEquipmentSlot.CPU,
                             equipment = ClientInstalledEquipment(
                                 slot = "CPU",
@@ -247,7 +247,7 @@ class RewriteInventoryManagersTest {
             RewriteFrames.authAccepted(
                 connectionId = "conn-1",
                 playFabId = "PF-LOCAL",
-                playerIp = "LOCAL-IP",
+                playerIp = "192.0.2.10",
                 heartbeatInterval = kotlin.time.Duration.parse("15s"),
                 sessionStartedAt = Instant.parse("2026-03-25T00:00:00Z"),
             ),
@@ -255,14 +255,14 @@ class RewriteInventoryManagersTest {
         controller.accept(
             RewriteService.GAME,
             RewriteFrames.snapshot(
-                gameStateId = "LOCAL-IP",
+                gameStateId = "192.0.2.10",
                 sequence = 1,
                 payload = RewriteClientJson.encode(
                     ClientGameSnapshot.serializer(),
                     ClientGameSnapshot(
-                        id = "LOCAL-IP",
+                        id = "192.0.2.10",
                         version = 1,
-                        identity = ClientComputerIdentity(playerIp = "LOCAL-IP"),
+                        identity = ClientComputerIdentity(playerIp = "192.0.2.10"),
                     ),
                 ),
             ),

@@ -51,7 +51,7 @@ class RewriteWatchManagerTest {
     fun buildWatchManagerRowsReflectDecodedStateAndScanRules() {
         val rows = buildWatchManagerRows(
             ClientGameSnapshot(
-                identity = ClientComputerIdentity(playerIp = "LOCAL-IP"),
+                identity = ClientComputerIdentity(playerIp = "192.0.2.10"),
                 ports = listOf(
                     ClientPortState(number = 4),
                     ClientPortState(number = 6),
@@ -181,7 +181,7 @@ class RewriteWatchManagerTest {
                 fetchCommand.payload.toByteArray(),
             )
             assertEquals("fetchwatches", fetchCommand.command_name)
-            assertEquals("LOCAL-IP", fetchPayload.ip)
+            assertEquals("192.0.2.10", fetchPayload.ip)
             controller.accept(
                 RewriteService.GAME,
                 RewriteFrames.commandResponse(
@@ -345,7 +345,7 @@ class RewriteWatchManagerTest {
                 payload = RewriteClientJson.encode(
                     ClientWatchMutationResponse.serializer(),
                     ClientWatchMutationResponse(
-                        stateId = "LOCAL-IP",
+                        stateId = "192.0.2.10",
                         operation = operation,
                         accepted = true,
                         message = "$operation-succeeded",
@@ -358,7 +358,7 @@ class RewriteWatchManagerTest {
 
     private fun watchListResponse(): ClientWatchListResponse {
         return ClientWatchListResponse(
-            stateId = "LOCAL-IP",
+            stateId = "192.0.2.10",
             watches = listOf(
                 ClientInstalledWatch(
                     kind = ClientWatchKind.HEALTH,
@@ -396,7 +396,7 @@ class RewriteWatchManagerTest {
             RewriteFrames.authAccepted(
                 connectionId = "conn-1",
                 playFabId = "PF-LOCAL",
-                playerIp = "LOCAL-IP",
+                playerIp = "192.0.2.10",
                 heartbeatInterval = kotlin.time.Duration.parse("15s"),
                 sessionStartedAt = Instant.parse("2026-03-25T00:00:00Z"),
             ),
@@ -404,13 +404,13 @@ class RewriteWatchManagerTest {
         controller.accept(
             RewriteService.GAME,
             RewriteFrames.snapshot(
-                gameStateId = "LOCAL-IP",
+                gameStateId = "192.0.2.10",
                 sequence = 1,
                 payload = RewriteClientJson.encode(
                     ClientGameSnapshot.serializer(),
                     ClientGameSnapshot(
-                        id = "LOCAL-IP",
-                        identity = ClientComputerIdentity(playerIp = "LOCAL-IP"),
+                        id = "192.0.2.10",
+                        identity = ClientComputerIdentity(playerIp = "192.0.2.10"),
                     ),
                 ),
             ),

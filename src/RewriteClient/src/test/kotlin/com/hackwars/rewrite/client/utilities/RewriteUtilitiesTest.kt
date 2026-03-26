@@ -49,7 +49,7 @@ class RewriteUtilitiesTest {
             RewriteFrames.authAccepted(
                 connectionId = "conn-1",
                 playFabId = "PF-LOCAL",
-                playerIp = "LOCAL-IP",
+                playerIp = "192.0.2.10",
                 heartbeatInterval = kotlin.time.Duration.parse("15s"),
                 sessionStartedAt = Instant.parse("2026-03-25T00:00:00Z"),
             ),
@@ -107,8 +107,8 @@ class RewriteUtilitiesTest {
         val launchedCommands = mutableListOf<com.hackwars.rewrite.client.shell.RewriteShellCommand>()
         val coordinator = RewriteStartupUtilityCoordinator(launchedCommands::add)
         val shellState = ClientGameSnapshot(
-            id = "LOCAL-IP",
-            identity = ClientComputerIdentity(playerIp = "LOCAL-IP"),
+            id = "192.0.2.10",
+            identity = ClientComputerIdentity(playerIp = "192.0.2.10"),
             preferences = ClientPreferenceState(
                 values = mapOf(
                     "attacktutorial" to "false",
@@ -119,21 +119,21 @@ class RewriteUtilitiesTest {
                     ClientComputerLogEntry(
                         createdAtEpochMillis = 1L,
                         renderedLine = "Boot complete",
-                        sourceIp = "LOCAL-IP",
+                        sourceIp = "192.0.2.10",
                     ),
                 ),
             ),
         )
 
-        coordinator.noteAuthenticatedSessionReady("LOCAL-IP")
+        coordinator.noteAuthenticatedSessionReady("192.0.2.10")
         coordinator.maybeLaunch(
             route = com.hackwars.rewrite.clientmodel.RewriteClientRoute.DESKTOP,
-            playerIp = "LOCAL-IP",
+            playerIp = "192.0.2.10",
             shellState = shellState,
         )
         coordinator.maybeLaunch(
             route = com.hackwars.rewrite.clientmodel.RewriteClientRoute.DESKTOP,
-            playerIp = "LOCAL-IP",
+            playerIp = "192.0.2.10",
             shellState = shellState,
         )
 
@@ -158,7 +158,7 @@ class RewriteUtilitiesTest {
             RewriteFrames.authAccepted(
                 connectionId = "conn-1",
                 playFabId = "PF-LOCAL",
-                playerIp = "LOCAL-IP",
+                playerIp = "192.0.2.10",
                 heartbeatInterval = kotlin.time.Duration.parse("15s"),
                 sessionStartedAt = Instant.parse("2026-03-25T00:00:00Z"),
             ),
@@ -166,13 +166,13 @@ class RewriteUtilitiesTest {
         controller.accept(
             RewriteService.GAME,
             RewriteFrames.snapshot(
-                gameStateId = "LOCAL-IP",
+                gameStateId = "192.0.2.10",
                 sequence = 1,
                 payload = RewriteClientJson.encode(
                     ClientGameSnapshot.serializer(),
                     ClientGameSnapshot(
-                        id = "LOCAL-IP",
-                        identity = ClientComputerIdentity(playerIp = "LOCAL-IP"),
+                        id = "192.0.2.10",
+                        identity = ClientComputerIdentity(playerIp = "192.0.2.10"),
                         preferences = ClientPreferenceState(
                             values = mapOf(
                                 "network" to "true",
@@ -214,7 +214,7 @@ class RewriteUtilitiesTest {
             RewriteFrames.authAccepted(
                 connectionId = "conn-1",
                 playFabId = "PF-LOCAL",
-                playerIp = "LOCAL-IP",
+                playerIp = "192.0.2.10",
                 heartbeatInterval = kotlin.time.Duration.parse("15s"),
                 sessionStartedAt = Instant.parse("2026-03-25T00:00:00Z"),
             ),
@@ -222,24 +222,24 @@ class RewriteUtilitiesTest {
         controller.accept(
             RewriteService.GAME,
             RewriteFrames.snapshot(
-                gameStateId = "LOCAL-IP",
+                gameStateId = "192.0.2.10",
                 sequence = 1,
                 payload = RewriteClientJson.encode(
                     ClientGameSnapshot.serializer(),
                     ClientGameSnapshot(
-                        id = "LOCAL-IP",
-                        identity = ClientComputerIdentity(playerIp = "LOCAL-IP"),
+                        id = "192.0.2.10",
+                        identity = ClientComputerIdentity(playerIp = "192.0.2.10"),
                         logs = ClientLogState(
                             entries = listOf(
                                 ClientComputerLogEntry(
                                     createdAtEpochMillis = 1L,
                                     renderedLine = "First line",
-                                    sourceIp = "A",
+                                    sourceIp = "198.51.100.71",
                                 ),
                                 ClientComputerLogEntry(
                                     createdAtEpochMillis = 2L,
                                     renderedLine = "Second line",
-                                    sourceIp = "B",
+                                    sourceIp = "198.51.100.72",
                                 ),
                             ),
                         ),

@@ -140,7 +140,7 @@
 - Verification scope: `./gradlew :RewriteClientDev:test :RewriteClient:test :RewriteClient:uiTest`
 
 ### RW-CLIENT-004B - Deterministic dev parity harness and usable-state closure
-- Status: `todo`
+- Status: `ready`
 - Priority: `P1`
 - Execution lane: `auth_bootstrap`
 - Worker role: `worker`
@@ -179,7 +179,7 @@
 - Verification scope: `./gradlew :RewriteClient:test :RewriteClient:uiTest`
 
 ### RW-CLIENT-X3 - Canonical IPv4 identity cleanup
-- Status: `ready`
+- Status: `done`
 - Priority: `P0`
 - Execution lane: `cross_cutting`
 - Worker role: `worker`

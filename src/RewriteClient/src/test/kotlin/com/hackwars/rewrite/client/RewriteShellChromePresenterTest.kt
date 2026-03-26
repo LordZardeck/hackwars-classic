@@ -71,26 +71,26 @@ class RewriteShellChromePresenterTest {
     fun missingShellStateFallsBackSafely() {
         val presenter = RewriteShellChromePresenter()
         presenter.updateRoute(RewriteClientRoute.DESKTOP)
-        presenter.updateAcceptedPlayerIp("LOCAL-IP")
+        presenter.updateAcceptedPlayerIp("192.0.2.10")
         presenter.updateShellState(null)
 
         val chrome = presenter.currentState()
 
         assertTrue(chrome.statsVisible)
-        assertEquals("LOCAL-IP", chrome.stats.playerIp)
+        assertEquals("192.0.2.10", chrome.stats.playerIp)
         assertEquals("$0.00", chrome.stats.pettyCashText)
         assertEquals("$0.00", chrome.stats.bankMoneyText)
-        assertEquals("Hack Wars - LOCAL-IP", chrome.frameTitle)
+        assertEquals("Hack Wars - 192.0.2.10", chrome.frameTitle)
     }
 
     @Test
     fun countdownTicksToDisconnectedAndRouteResetClearsIt() {
         val presenter = RewriteShellChromePresenter()
         presenter.updateRoute(RewriteClientRoute.DESKTOP)
-        presenter.updateAcceptedPlayerIp("LOCAL-IP")
+        presenter.updateAcceptedPlayerIp("192.0.2.10")
         presenter.updateShellState(
             ClientGameSnapshot(
-                identity = ClientComputerIdentity(playerIp = "LOCAL-IP"),
+                identity = ClientComputerIdentity(playerIp = "192.0.2.10"),
                 runtime = ClientRuntimeState(countdownSeconds = 2),
             ),
         )
@@ -108,7 +108,7 @@ class RewriteShellChromePresenterTest {
 
         presenter.updateShellState(
             ClientGameSnapshot(
-                identity = ClientComputerIdentity(playerIp = "LOCAL-IP"),
+                identity = ClientComputerIdentity(playerIp = "192.0.2.10"),
                 runtime = ClientRuntimeState(countdownSeconds = 0),
             ),
         )
@@ -125,24 +125,24 @@ class RewriteShellChromePresenterTest {
     fun clearedCountdownResetsBackToPlayerTitleBeforeDisconnect() {
         val presenter = RewriteShellChromePresenter()
         presenter.updateRoute(RewriteClientRoute.DESKTOP)
-        presenter.updateAcceptedPlayerIp("LOCAL-IP")
+        presenter.updateAcceptedPlayerIp("192.0.2.10")
         presenter.updateShellState(
             ClientGameSnapshot(
-                identity = ClientComputerIdentity(playerIp = "LOCAL-IP"),
+                identity = ClientComputerIdentity(playerIp = "192.0.2.10"),
                 runtime = ClientRuntimeState(countdownSeconds = 75),
             ),
         )
 
         presenter.updateShellState(
             ClientGameSnapshot(
-                identity = ClientComputerIdentity(playerIp = "LOCAL-IP"),
+                identity = ClientComputerIdentity(playerIp = "192.0.2.10"),
                 runtime = ClientRuntimeState(countdownSeconds = 0),
             ),
         )
 
         val state = presenter.currentState()
         assertFalse(state.countdownVisible)
-        assertEquals("Hack Wars - LOCAL-IP", state.frameTitle)
+        assertEquals("Hack Wars - 192.0.2.10", state.frameTitle)
     }
 
     @Test

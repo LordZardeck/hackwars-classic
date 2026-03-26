@@ -143,7 +143,7 @@ class RewriteInventoryManagersUiTest {
                     payload = RewriteClientJson.encode(
                         ClientInstallEquipmentResponse.serializer(),
                         ClientInstallEquipmentResponse(
-                            stateId = "LOCAL-IP",
+                            stateId = "192.0.2.10",
                             slot = ClientEquipmentSlot.CPU,
                             equipment = ClientInstalledEquipment(
                                 slot = "CPU",
@@ -270,7 +270,7 @@ class RewriteInventoryManagersUiTest {
             RewriteFrames.authAccepted(
                 connectionId = "conn-1",
                 playFabId = "PF-LOCAL",
-                playerIp = "LOCAL-IP",
+                playerIp = "192.0.2.10",
                 heartbeatInterval = kotlin.time.Duration.parse("15s"),
                 sessionStartedAt = Instant.parse("2026-03-25T00:00:00Z"),
             ),
@@ -319,9 +319,9 @@ class RewriteInventoryManagersUiTest {
         ),
     ): ClientGameSnapshot {
         return ClientGameSnapshot(
-            id = "LOCAL-IP",
+            id = "192.0.2.10",
             version = 1,
-            identity = ClientComputerIdentity(playerIp = "LOCAL-IP"),
+            identity = ClientComputerIdentity(playerIp = "192.0.2.10"),
             hardware = hardware,
             ports = ports,
         )
@@ -332,7 +332,7 @@ class RewriteInventoryManagersUiTest {
         files: List<ClientStoredFile>,
     ): ClientDirectoryListingResponse {
         return ClientDirectoryListingResponse(
-            stateId = "LOCAL-IP",
+            stateId = "192.0.2.10",
             path = path,
             files = files,
             version = 5,

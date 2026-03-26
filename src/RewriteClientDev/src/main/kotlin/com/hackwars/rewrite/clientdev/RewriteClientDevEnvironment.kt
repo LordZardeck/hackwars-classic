@@ -80,10 +80,10 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 
 private const val SERVER_ID = "1"
-private const val LOCAL_PLAYER_IP = "LOCAL-IP"
-private const val TARGET_PLAYER_IP = "TARGET-IP"
-private const val ZOMBIE_PLAYER_IP = "ZOMBIE-IP"
-private const val STORE_PLAYER_IP = "store1"
+private const val LOCAL_PLAYER_IP = "192.0.2.10"
+private const val TARGET_PLAYER_IP = "198.51.100.20"
+private const val ZOMBIE_PLAYER_IP = "203.0.113.30"
+private const val STORE_PLAYER_IP = "198.51.100.40"
 private const val LOCAL_PLAYFAB_ID = "PF-LOCALUSER"
 private const val TARGET_PLAYFAB_ID = "PF-TARGET"
 private const val ZOMBIE_PLAYFAB_ID = "PF-ZOMBIE"
@@ -330,7 +330,7 @@ class RewriteClientDevEnvironment(
                     <body>
                     <h1>Rewrite Client Dev Mode</h1>
                     <p>This deterministic desktop is backed by the real rewrite GAME adapter.</p>
-                    <p>Try TARGET-IP for scans, attacks, Public FTP, and browser navigation.</p>
+                    <p>Try 198.51.100.20 for scans, attacks, Public FTP, and browser navigation.</p>
                     </body>
                     </html>
                 """.trimIndent(),
@@ -892,7 +892,7 @@ class RewriteClientDevEnvironment(
                 textFile(
                     directoryPath = "/Notes",
                     fileName = "ops.note",
-                    contents = "Targets to try: TARGET-IP for scan/attack/public FTP and ZOMBIE-IP for zombie runs.",
+                    contents = "Targets to try: 198.51.100.20 for scan/attack/public FTP and 203.0.113.30 for zombie runs.",
                     maker = "Alexander",
                     kind = StoredFileKind.NOTE,
                 ),

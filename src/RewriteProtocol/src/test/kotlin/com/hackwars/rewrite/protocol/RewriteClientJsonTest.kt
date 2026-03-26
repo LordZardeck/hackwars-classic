@@ -12,11 +12,11 @@ class RewriteClientJsonTest {
     fun decodesShellSnapshotPayloadsAndIgnoresUnknownFields() {
         val payload = """
             {
-              "id":"LOCAL-IP",
+              "id":"192.0.2.10",
               "version":7,
               "identity":{
                 "playFabId":"PF-LOCAL",
-                "playerIp":"LOCAL-IP",
+                "playerIp":"192.0.2.10",
                 "displayName":"Local User",
                 "isNpc":false,
                 "ignoredField":"ignored"
@@ -93,12 +93,12 @@ class RewriteClientJsonTest {
               },
               "network":{
                 "currentNetworkName":"UGOPNet",
-                "storeStateId":"store1",
+                "storeStateId":"198.51.100.40",
                 "allowedNetworks":["ProgNet"],
                 "lastNetworkSwitchAtEpochMillis":12,
                 "regularNpcs":[
                   {
-                    "stateId":"ATTACK-NPC-1",
+                    "stateId":"198.51.100.101",
                     "displayName":"Root Attacker",
                     "title":"Attack NPC",
                     "category":"REGULAR"
@@ -106,7 +106,7 @@ class RewriteClientJsonTest {
                 ],
                 "questNpcs":[
                   {
-                    "stateId":"QUEST-NPC-1",
+                    "stateId":"198.51.100.102",
                     "displayName":"Quest Guide",
                     "title":"Quest NPC",
                     "category":"QUEST"
@@ -114,7 +114,7 @@ class RewriteClientJsonTest {
                 ],
                 "miningNpcs":[
                   {
-                    "stateId":"MINE-NPC-1",
+                    "stateId":"198.51.100.103",
                     "displayName":"Miner One",
                     "title":"Mining NPC",
                     "category":"MINING",
@@ -123,7 +123,7 @@ class RewriteClientJsonTest {
                 ],
                 "storeNpcs":[
                   {
-                    "stateId":"store1",
+                    "stateId":"198.51.100.40",
                     "displayName":"Shard Store",
                     "title":"Store NPC",
                     "category":"STORE"
@@ -134,7 +134,7 @@ class RewriteClientJsonTest {
               "website":{"title":"Homepage","body":"Welcome","voteCount":3,"votesAvailable":1},
               "preferences":{"values":{"show_tutorials":"true"}},
               "stats":{"experienceByFamily":{"ATTACK":10.0},"totalLevel":2,"noobProtectionLevel":1},
-              "logs":{"entries":[{"createdAtEpochMillis":1,"renderedLine":"Hello","sourceIp":"TARGET-IP"}]},
+              "logs":{"entries":[{"createdAtEpochMillis":1,"renderedLine":"Hello","sourceIp":"198.51.100.20"}]},
               "runtime":{"countdownSeconds":12,"currentCpuLoad":8.5},
               "unknownRootField":"ignored"
             }
@@ -142,7 +142,7 @@ class RewriteClientJsonTest {
 
         val decoded = RewriteClientJson.decode(ClientGameSnapshot.serializer(), payload)
 
-        assertEquals("LOCAL-IP", decoded.id)
+        assertEquals("192.0.2.10", decoded.id)
         assertEquals(7, decoded.version)
         assertEquals("PF-LOCAL", decoded.identity.playFabId)
         assertEquals(125.0, decoded.economy.pettyCash)
@@ -178,7 +178,7 @@ class RewriteClientJsonTest {
             {
               "type":"state_summary",
               "version":9,
-              "playerIp":"LOCAL-IP",
+              "playerIp":"192.0.2.10",
               "extra":"ignored"
             }
         """.trimIndent().encodeToByteArray()
@@ -187,7 +187,7 @@ class RewriteClientJsonTest {
               "programId":"program-1",
               "programType":"attack",
               "status":"RUNNING",
-              "relatedStateIds":["LOCAL-IP","TARGET-IP"],
+              "relatedStateIds":["192.0.2.10","198.51.100.20"],
               "progress":{"message":"tick","completedSteps":1,"totalSteps":3},
               "ignored":"ignored"
             }
@@ -203,7 +203,7 @@ class RewriteClientJsonTest {
         val showChoicesPayload = """
             {
               "type":"show_choices",
-              "targetIp":"TARGET-IP",
+              "targetIp":"198.51.100.20",
               "targetPort":6,
               "choiceType":"HTTP",
               "windowHandle":99
@@ -222,7 +222,7 @@ class RewriteClientJsonTest {
         assertIs<ClientGameStateSummaryProjection>(summary)
         assertEquals(9, summary.version)
         assertEquals(ClientProgramLifecycleStatus.RUNNING, program.status)
-        assertEquals(setOf("LOCAL-IP", "TARGET-IP"), program.relatedStateIds)
+        assertEquals(setOf("192.0.2.10", "198.51.100.20"), program.relatedStateIds)
         assertIs<ClientPopupUiEvent>(popup)
         assertEquals(ClientPopupUiStyle.ERROR, popup.style)
         assertIs<ClientShowChoicesUiEvent>(showChoices)
@@ -233,7 +233,7 @@ class RewriteClientJsonTest {
     fun decodesCurrentRewriteDirectoryListingResponseShape() {
         val payload = """
             {
-              "stateId":"LOCAL-IP",
+              "stateId":"192.0.2.10",
               "path":"/Public",
               "directories":[
                 {
@@ -262,7 +262,7 @@ class RewriteClientJsonTest {
             payload,
         )
 
-        assertEquals("LOCAL-IP", response.stateId)
+        assertEquals("192.0.2.10", response.stateId)
         assertEquals("/Public", response.path)
         assertEquals("/Public/Archive", response.directories.single().path)
         assertEquals("readme.txt", response.files.single().name)
@@ -294,10 +294,10 @@ class RewriteClientJsonTest {
     fun decodesCurrentRewriteNetworkAndScanResponseShapes() {
         val networkSwitchPayload = """
             {
-              "stateId":"LOCAL-IP",
+              "stateId":"192.0.2.10",
               "requestedNetworkName":"ProgNet",
               "currentNetworkName":"ProgNet",
-              "storeStateId":"store1",
+              "storeStateId":"198.51.100.40",
               "accepted":true,
               "message":"Changed network to ProgNet.",
               "version":9,
@@ -306,7 +306,7 @@ class RewriteClientJsonTest {
         """.trimIndent().encodeToByteArray()
         val scanPayload = """
             {
-              "requesterStateId":"LOCAL-IP",
+              "requesterStateId":"192.0.2.10",
               "targetStateId":"10.0.0.8",
               "accepted":true,
               "chargedAmount":10.0,
@@ -323,12 +323,12 @@ class RewriteClientJsonTest {
                   "cpuCost":3.0,
                   "maxCpuCost":10.0,
                   "health":88.0,
-                  "note":"LOCAL-IP",
+                  "note":"192.0.2.10",
                   "defaultVisibility":"YES",
                   "firewall":{
                     "name":"Guard",
                     "kind":"BASIC",
-                    "maker":"LOCAL-IP",
+                    "maker":"192.0.2.10",
                     "strength":25,
                     "cpuCost":1.5
                   },
@@ -351,7 +351,7 @@ class RewriteClientJsonTest {
 
         assertTrue(networkSwitch.accepted)
         assertEquals("ProgNet", networkSwitch.currentNetworkName)
-        assertEquals("store1", networkSwitch.storeStateId)
+        assertEquals("198.51.100.40", networkSwitch.storeStateId)
         assertTrue(scan.accepted)
         assertEquals(10.0, scan.chargedAmount)
         assertEquals(ClientDefaultPortVisibility.YES, scan.ports.single().defaultVisibility)
@@ -362,14 +362,14 @@ class RewriteClientJsonTest {
     fun decodesCurrentRewriteRequestFileResponseShapeIncludingMissingFiles() {
         val filePayload = """
             {
-              "stateId":"LOCAL-IP",
+              "stateId":"192.0.2.10",
               "file":{
                 "path":"/Public/readme.txt",
                 "name":"readme.txt",
                 "kind":"TEXT",
                 "contents":"hello",
                 "description":"welcome",
-                "maker":"LOCAL-IP",
+                "maker":"192.0.2.10",
                 "price":12.5,
                 "cpuCost":1.25,
                 "quantity":2,
@@ -381,7 +381,7 @@ class RewriteClientJsonTest {
         """.trimIndent().encodeToByteArray()
         val missingPayload = """
             {
-              "stateId":"LOCAL-IP",
+              "stateId":"192.0.2.10",
               "file":null,
               "version":16,
               "ignored":"ignored"
@@ -397,11 +397,11 @@ class RewriteClientJsonTest {
             missingPayload,
         )
 
-        assertEquals("LOCAL-IP", response.stateId)
+        assertEquals("192.0.2.10", response.stateId)
         assertEquals("/Public/readme.txt", response.file?.path)
         assertEquals("TEXT", response.file?.kind?.name)
         assertEquals(15, response.version)
-        assertEquals("LOCAL-IP", missing.stateId)
+        assertEquals("192.0.2.10", missing.stateId)
         assertEquals(null, missing.file)
         assertEquals(16, missing.version)
     }
@@ -410,7 +410,7 @@ class RewriteClientJsonTest {
     fun decodesCurrentRewriteSaveCompileAndDecompileResponseShapes() {
         val savePayload = """
             {
-              "stateId":"LOCAL-IP",
+              "stateId":"192.0.2.10",
               "version":17,
               "message":"file-saved",
               "ignored":"ignored"
@@ -418,7 +418,7 @@ class RewriteClientJsonTest {
         """.trimIndent().encodeToByteArray()
         val compilePayload = """
             {
-              "stateId":"LOCAL-IP",
+              "stateId":"192.0.2.10",
               "compiledFile":{
                 "path":"/Scripts/attack.bin",
                 "name":"attack.bin",
@@ -436,7 +436,7 @@ class RewriteClientJsonTest {
         """.trimIndent().encodeToByteArray()
         val decompilePayload = """
             {
-              "stateId":"LOCAL-IP",
+              "stateId":"192.0.2.10",
               "decompiledFile":{
                 "path":"/Scripts/attack.src",
                 "name":"attack.src",
@@ -468,7 +468,7 @@ class RewriteClientJsonTest {
             decompilePayload,
         )
 
-        assertEquals("LOCAL-IP", saveResponse.stateId)
+        assertEquals("192.0.2.10", saveResponse.stateId)
         assertEquals("file-saved", saveResponse.message)
         assertEquals(17, saveResponse.version)
         assertEquals("attack.bin", compileResponse.compiledFile.name)
@@ -483,9 +483,9 @@ class RewriteClientJsonTest {
     fun decodesCurrentRewriteWatchSnapshotAndDeltaShapes() {
         val snapshotPayload = """
             {
-              "id":"LOCAL-IP",
+              "id":"192.0.2.10",
               "version":22,
-              "identity":{"playerIp":"LOCAL-IP"},
+              "identity":{"playerIp":"192.0.2.10"},
               "watches":{
                 "watches":[
                   {
@@ -544,7 +544,7 @@ class RewriteClientJsonTest {
     fun decodesCurrentRewriteWatchResponseAndPayloadShapesIncludingLegacyKeys() {
         val fetchPayload = """
             {
-              "stateId":"LOCAL-IP",
+              "stateId":"192.0.2.10",
               "watches":[
                 {
                   "kind":"PETTY_CASH",
@@ -569,14 +569,14 @@ class RewriteClientJsonTest {
         """.trimIndent().encodeToByteArray()
         val mutationPayload = """
             {
-              "stateId":"LOCAL-IP",
+              "stateId":"192.0.2.10",
               "operation":"setwatchnote",
               "accepted":false,
               "failureCode":"WATCH_NOT_FOUND",
               "message":"Missing watch.",
               "affectedWatchIndex":3,
               "snapshot":{
-                "stateId":"LOCAL-IP",
+                "stateId":"192.0.2.10",
                 "watches":[],
                 "installedCount":0,
                 "maximumInstalledCount":21,
@@ -589,14 +589,14 @@ class RewriteClientJsonTest {
         """.trimIndent().encodeToByteArray()
         val searchFirewallPayload = """
             {
-              "ip":"LOCAL-IP",
+              "ip":"192.0.2.10",
               "watchID":4,
               "searchFireWall":6
             }
         """.trimIndent().encodeToByteArray()
         val changeTypePayload = """
             {
-              "ip":"LOCAL-IP",
+              "ip":"192.0.2.10",
               "watchID":4,
               "portID":2
             }
@@ -607,7 +607,7 @@ class RewriteClientJsonTest {
         val searchFirewall = RewriteClientJson.decode(ClientSetWatchSearchFirewallPayload.serializer(), searchFirewallPayload)
         val changeType = RewriteClientJson.decode(ClientChangeWatchTypePayload.serializer(), changeTypePayload)
 
-        assertEquals("LOCAL-IP", fetchResponse.stateId)
+        assertEquals("192.0.2.10", fetchResponse.stateId)
         assertEquals(ClientWatchKind.PETTY_CASH, fetchResponse.watches.single().kind)
         assertEquals(21, fetchResponse.maximumInstalledCount)
         assertEquals("setwatchnote", mutationResponse.operation)
@@ -621,7 +621,7 @@ class RewriteClientJsonTest {
     fun decodesCurrentRewriteRequestPageAndSavePageResponseShapes() {
         val requestPagePayload = """
             {
-              "stateId":"LOCAL-IP",
+              "stateId":"192.0.2.10",
               "title":"Local Homepage",
               "body":"<h1>Hello</h1>",
               "version":20,
@@ -630,7 +630,7 @@ class RewriteClientJsonTest {
         """.trimIndent().encodeToByteArray()
         val savePagePayload = """
             {
-              "stateId":"LOCAL-IP",
+              "stateId":"192.0.2.10",
               "title":"Updated Homepage",
               "body":"<center>Updated</center>",
               "version":21,
@@ -647,11 +647,11 @@ class RewriteClientJsonTest {
             savePagePayload,
         )
 
-        assertEquals("LOCAL-IP", requestPageResponse.stateId)
+        assertEquals("192.0.2.10", requestPageResponse.stateId)
         assertEquals("Local Homepage", requestPageResponse.title)
         assertEquals("<h1>Hello</h1>", requestPageResponse.body)
         assertEquals(20, requestPageResponse.version)
-        assertEquals("LOCAL-IP", savePageResponse.stateId)
+        assertEquals("192.0.2.10", savePageResponse.stateId)
         assertEquals("Updated Homepage", savePageResponse.title)
         assertEquals("<center>Updated</center>", savePageResponse.body)
         assertEquals(21, savePageResponse.version)
@@ -661,21 +661,21 @@ class RewriteClientJsonTest {
     fun decodesCurrentRewriteMakeBountyResponseShape() {
         val payload = """
             {
-              "creatorStateId":"LOCAL-IP",
-              "storeStateId":"store1",
+              "creatorStateId":"192.0.2.10",
+              "storeStateId":"198.51.100.40",
               "bountyFile":{
-                "path":"/Store/LOCAL-IP-install-1.bnty",
-                "name":"LOCAL-IP-install-1.bnty",
+                "path":"/Store/192.0.2.10-install-1.bnty",
+                "name":"192.0.2.10-install-1.bnty",
                 "kind":"BOUNTY",
                 "contents":"bounty",
                 "description":"Install bounty",
                 "bountyMetadata":{
                   "type":2,
-                  "target":"ENEMY-IP",
+                  "target":"203.0.113.80",
                   "iterationsRemaining":3,
                   "reward":125.0,
-                  "bountySourceStateId":"LOCAL-IP",
-                  "requiredMaker":"LOCAL-IP",
+                  "bountySourceStateId":"192.0.2.10",
+                  "requiredMaker":"192.0.2.10",
                   "requiredScriptName":"installer.bin",
                   "anonymous":false
                 },
@@ -693,9 +693,9 @@ class RewriteClientJsonTest {
             payload,
         )
 
-        assertEquals("LOCAL-IP", response.creatorStateId)
-        assertEquals("store1", response.storeStateId)
-        assertEquals("/Store/LOCAL-IP-install-1.bnty", response.bountyFile.path)
+        assertEquals("192.0.2.10", response.creatorStateId)
+        assertEquals("198.51.100.40", response.storeStateId)
+        assertEquals("/Store/192.0.2.10-install-1.bnty", response.bountyFile.path)
         assertEquals(125.0, response.reward)
         assertEquals(12, response.creatorVersion)
         assertEquals(25, response.storeVersion)
@@ -710,7 +710,7 @@ class RewriteClientJsonTest {
                   "type":"attack_message",
                   "message":"Redirect receipt",
                   "port":9,
-                  "ip":"TARGET-IP",
+                  "ip":"198.51.100.20",
                   "windowHandle":44,
                   "paneType":"REDIRECT"
                 }
@@ -721,8 +721,8 @@ class RewriteClientJsonTest {
             """
                 {
                   "type":"zombie_attack",
-                  "message":"Computer at ZOMBIE-IP just overheated!",
-                  "zombieIp":"ZOMBIE-IP",
+                  "message":"Computer at 203.0.113.30 just overheated!",
+                  "zombieIp":"203.0.113.30",
                   "sourcePort":8
                 }
             """.trimIndent().encodeToByteArray(),
@@ -740,7 +740,7 @@ class RewriteClientJsonTest {
         assertIs<ClientAttackMessageUiEvent>(attackMessage)
         assertEquals(ClientAttackPaneType.REDIRECT, attackMessage.paneType)
         assertIs<ClientZombieAttackUiEvent>(zombieAttack)
-        assertEquals("ZOMBIE-IP", zombieAttack.zombieIp)
+        assertEquals("203.0.113.30", zombieAttack.zombieIp)
         assertIs<ClientTextMessageUiEvent>(textMessage)
         assertTrue(textMessage.message.contains("Daily pay"))
     }
@@ -749,7 +749,7 @@ class RewriteClientJsonTest {
     fun decodesCurrentRewriteEconomyCommandResponsePayloads() {
         val bankTransactionPayload = """
             {
-              "stateId":"LOCAL-IP",
+              "stateId":"192.0.2.10",
               "operation":"deposit",
               "portNumber":4,
               "requestedAmount":600.0,
@@ -762,8 +762,8 @@ class RewriteClientJsonTest {
         """.trimIndent().encodeToByteArray()
         val transferPayload = """
             {
-              "sourceStateId":"LOCAL-IP",
-              "targetStateId":"TARGET-IP",
+              "sourceStateId":"192.0.2.10",
+              "targetStateId":"198.51.100.20",
               "portNumber":4,
               "requestedAmount":125.0,
               "appliedAmount":125.0,
@@ -784,11 +784,11 @@ class RewriteClientJsonTest {
             transferPayload,
         )
 
-        assertEquals("LOCAL-IP", bankTransaction.stateId)
+        assertEquals("192.0.2.10", bankTransaction.stateId)
         assertEquals("deposit", bankTransaction.operation)
         assertEquals(500.0, bankTransaction.appliedAmount)
-        assertEquals("LOCAL-IP", transfer.sourceStateId)
-        assertEquals("TARGET-IP", transfer.targetStateId)
+        assertEquals("192.0.2.10", transfer.sourceStateId)
+        assertEquals("198.51.100.20", transfer.targetStateId)
         assertEquals(125.0, transfer.appliedAmount)
     }
 
@@ -796,7 +796,7 @@ class RewriteClientJsonTest {
     fun decodesCurrentRewriteSellFileResponsePayloads() {
         val sellFilePayload = """
             {
-              "stateId":"LOCAL-IP",
+              "stateId":"192.0.2.10",
               "file":{
                 "path":"/Store/http.bin",
                 "name":"http.bin",
@@ -817,7 +817,7 @@ class RewriteClientJsonTest {
             sellFilePayload,
         )
 
-        assertEquals("LOCAL-IP", sellFile.stateId)
+        assertEquals("192.0.2.10", sellFile.stateId)
         assertEquals("http.bin", sellFile.file.name)
         assertEquals(125.0, sellFile.file.price)
         assertEquals(18, sellFile.version)
@@ -827,9 +827,9 @@ class RewriteClientJsonTest {
     fun decodesCurrentRewriteAttackCommandResponsePayloads() {
         val attackStartPayload = """
             {
-              "attackerStateId":"LOCAL-IP",
+              "attackerStateId":"192.0.2.10",
               "sourcePort":6,
-              "targetStateId":"TARGET-IP",
+              "targetStateId":"198.51.100.20",
               "targetPort":4,
               "accepted":true,
               "message":"Attack accepted.",
@@ -839,7 +839,7 @@ class RewriteClientJsonTest {
               "session":{
                 "programId":"attack-program-1",
                 "sourcePort":6,
-                "targetStateId":"TARGET-IP",
+                "targetStateId":"198.51.100.20",
                 "targetPort":4,
                 "sessionKind":"ATTACK",
                 "attackMode":"DIRECT",
@@ -854,7 +854,7 @@ class RewriteClientJsonTest {
         """.trimIndent().encodeToByteArray()
         val attackCancelPayload = """
             {
-              "stateId":"LOCAL-IP",
+              "stateId":"192.0.2.10",
               "sourcePort":6,
               "accepted":false,
               "failureCode":"SOURCE_IP_MISMATCH",
@@ -886,10 +886,10 @@ class RewriteClientJsonTest {
     fun decodesCurrentRewriteZombieAttackCommandResponsePayloads() {
         val zombieAttackStartPayload = """
             {
-              "controllerStateId":"LOCAL-IP",
-              "zombieStateId":"ZOMBIE-IP",
+              "controllerStateId":"192.0.2.10",
+              "zombieStateId":"203.0.113.30",
               "sourcePort":12,
-              "targetStateId":"TARGET-IP",
+              "targetStateId":"198.51.100.20",
               "targetPort":4,
               "accepted":true,
               "message":"zombie-attack-started",
@@ -899,7 +899,7 @@ class RewriteClientJsonTest {
               "session":{
                 "programId":"zombie-program-1",
                 "sourcePort":12,
-                "targetStateId":"TARGET-IP",
+                "targetStateId":"198.51.100.20",
                 "targetPort":4,
                 "sessionKind":"ATTACK",
                 "attackMode":"ZOMBIE",
@@ -915,8 +915,8 @@ class RewriteClientJsonTest {
         """.trimIndent().encodeToByteArray()
         val zombieAttackCancelPayload = """
             {
-              "controllerStateId":"LOCAL-IP",
-              "zombieStateId":"ZOMBIE-IP",
+              "controllerStateId":"192.0.2.10",
+              "zombieStateId":"203.0.113.30",
               "sourcePort":12,
               "accepted":false,
               "failureCode":"CONTROLLER_IP_MISMATCH",
@@ -938,8 +938,8 @@ class RewriteClientJsonTest {
         )
 
         assertTrue(zombieAttackStart.accepted)
-        assertEquals("LOCAL-IP", zombieAttackStart.controllerStateId)
-        assertEquals("ZOMBIE-IP", zombieAttackStart.zombieStateId)
+        assertEquals("192.0.2.10", zombieAttackStart.controllerStateId)
+        assertEquals("203.0.113.30", zombieAttackStart.zombieStateId)
         assertEquals(ClientAttackMode.ZOMBIE, zombieAttackStart.session?.attackMode)
         assertEquals(listOf(9, 10), zombieAttackStart.session?.secondaryPorts)
         assertEquals(ClientZombieAttackCancelFailureCode.CONTROLLER_IP_MISMATCH, zombieAttackCancel.failureCode)
@@ -950,9 +950,9 @@ class RewriteClientJsonTest {
     fun decodesCurrentRewriteZombieAttackPayloadShapes() {
         val zombieAttackPayload = """
             {
-              "targetIP":"TARGET-IP",
+              "targetIP":"198.51.100.20",
               "targetPort":4,
-              "sourceIP":"ZOMBIE-IP",
+              "sourceIP":"203.0.113.30",
               "sourcePort":12,
               "I":[9,10],
               "S":null,
@@ -963,15 +963,15 @@ class RewriteClientJsonTest {
                 {"type":"float","value":50.0},
                 {"type":"string","value":""}
               ],
-              "parentIP":"LOCAL-IP",
+              "parentIP":"192.0.2.10",
               "ignored":"ignored"
             }
         """.trimIndent().encodeToByteArray()
         val zombieCancelPayload = """
             {
-              "ip":"LOCAL-IP",
+              "ip":"192.0.2.10",
               "port":12,
-              "targetIP":"ZOMBIE-IP",
+              "targetIP":"203.0.113.30",
               "ignored":"ignored"
             }
         """.trimIndent().encodeToByteArray()
@@ -985,21 +985,21 @@ class RewriteClientJsonTest {
             zombieCancelPayload,
         )
 
-        assertEquals("TARGET-IP", requestZombieAttack.targetIp)
-        assertEquals("ZOMBIE-IP", requestZombieAttack.sourceIp)
+        assertEquals("198.51.100.20", requestZombieAttack.targetIp)
+        assertEquals("203.0.113.30", requestZombieAttack.sourceIp)
         assertEquals(listOf(9, 10), requestZombieAttack.secondaryPorts)
         assertNull(requestZombieAttack.scripts)
-        assertEquals("LOCAL-IP", requestZombieAttack.parentIp)
-        assertEquals("LOCAL-IP", requestZombieCancel.ip)
-        assertEquals("ZOMBIE-IP", requestZombieCancel.targetIp)
+        assertEquals("192.0.2.10", requestZombieAttack.parentIp)
+        assertEquals("192.0.2.10", requestZombieCancel.ip)
+        assertEquals("203.0.113.30", requestZombieCancel.targetIp)
     }
 
     @Test
     fun decodesCurrentRewriteShowChoicesFollowupPayloadsAndResponses() {
         val secondaryDirectoryPayload = """
             {
-              "requesterStateId":"LOCAL-IP",
-              "targetStateId":"TARGET-IP",
+              "requesterStateId":"192.0.2.10",
+              "targetStateId":"198.51.100.20",
               "portNumber":25,
               "path":"/Public",
               "directories":[
@@ -1023,15 +1023,15 @@ class RewriteClientJsonTest {
         """.trimIndent().encodeToByteArray()
         val changeDailyPayPayload = """
             {
-              "actorStateId":"LOCAL-IP",
-              "targetStateId":"TARGET-IP",
+              "actorStateId":"192.0.2.10",
+              "targetStateId":"198.51.100.20",
               "targetPort":25,
-              "requestedRevenueTargetStateId":"REV-IP",
+              "requestedRevenueTargetStateId":"198.51.100.60",
               "accepted":true,
               "outcome":"SUCCESS",
               "message":"Daily pay successfully changed.",
               "reductionMultiplierAfter":1.0,
-              "revenueTargetStateIdAfter":"REV-IP",
+              "revenueTargetStateIdAfter":"198.51.100.60",
               "requesterHttpExperienceAfter":20.0,
               "actorVersion":11,
               "targetVersion":9,
@@ -1040,8 +1040,8 @@ class RewriteClientJsonTest {
         """.trimIndent().encodeToByteArray()
         val finalizeCancelledPayload = """
             {
-              "actorStateId":"LOCAL-IP",
-              "targetStateId":"TARGET-IP",
+              "actorStateId":"192.0.2.10",
+              "targetStateId":"198.51.100.20",
               "targetPort":25,
               "accepted":true,
               "outcome":"SUCCESS",
@@ -1066,12 +1066,12 @@ class RewriteClientJsonTest {
             finalizeCancelledPayload,
         )
 
-        assertEquals("TARGET-IP", secondaryDirectory.targetStateId)
+        assertEquals("198.51.100.20", secondaryDirectory.targetStateId)
         assertEquals("/Public", secondaryDirectory.path)
         assertEquals(listOf("docs"), secondaryDirectory.directories.map { it.name })
         assertTrue(changeDailyPay.accepted)
         assertEquals(ClientChangeDailyPayOutcome.SUCCESS, changeDailyPay.outcome)
-        assertEquals("REV-IP", changeDailyPay.revenueTargetStateIdAfter)
+        assertEquals("198.51.100.60", changeDailyPay.revenueTargetStateIdAfter)
         assertTrue(finalizeCancelled.accepted)
         assertEquals(ClientFinalizeCancelledOutcome.SUCCESS, finalizeCancelled.outcome)
         assertEquals(100.0, finalizeCancelled.targetHealthAfter)
@@ -1081,12 +1081,12 @@ class RewriteClientJsonTest {
     fun decodesLegacyCompatibleFtpTransferPayloadsAndResponses() {
         val getPayload = """
             {
-              "ip":"LOCAL-IP",
+              "ip":"192.0.2.10",
               "port":17,
               "name":"remote.log",
               "fetchPath":"/Docs",
               "putPath":"/Secrets",
-              "targetIP":"TARGET-IP",
+              "targetIP":"198.51.100.20",
               "password":"ignored",
               "quantity":2,
               "ignored":"ignored"
@@ -1094,32 +1094,32 @@ class RewriteClientJsonTest {
         """.trimIndent().encodeToByteArray()
         val putPayload = """
             {
-              "ip":"LOCAL-IP",
+              "ip":"192.0.2.10",
               "port":17,
               "name":"upload.txt",
               "fetchPath":"/Public",
               "putPath":"/Inbox",
-              "targetIP":"TARGET-IP",
+              "targetIP":"198.51.100.20",
               "quantity":1,
               "ignored":"ignored"
             }
         """.trimIndent().encodeToByteArray()
         val malGetPayload = """
             {
-              "ip":"TARGET-IP",
+              "ip":"198.51.100.20",
               "port":17,
               "name":"loot.bin",
               "fetchPath":"/Secrets",
               "putPath":"/Docs",
-              "targetIP":"LOCAL-IP",
+              "targetIP":"192.0.2.10",
               "attackPort":44,
               "ignored":"ignored"
             }
         """.trimIndent().encodeToByteArray()
         val responsePayload = """
             {
-              "requesterStateId":"LOCAL-IP",
-              "targetStateId":"TARGET-IP",
+              "requesterStateId":"192.0.2.10",
+              "targetStateId":"198.51.100.20",
               "targetPort":17,
               "operation":"get",
               "file":{
@@ -1154,13 +1154,13 @@ class RewriteClientJsonTest {
             responsePayload,
         )
 
-        assertEquals("TARGET-IP", get.targetIp)
+        assertEquals("198.51.100.20", get.targetIp)
         assertEquals("/Secrets", get.putPath)
         assertEquals("ignored", get.password)
-        assertEquals("TARGET-IP", put.targetIp)
+        assertEquals("198.51.100.20", put.targetIp)
         assertEquals("/Inbox", put.putPath)
-        assertEquals("TARGET-IP", malGet.ip)
-        assertEquals("LOCAL-IP", malGet.targetIp)
+        assertEquals("198.51.100.20", malGet.ip)
+        assertEquals("192.0.2.10", malGet.targetIp)
         assertEquals(44, malGet.attackPort)
         assertEquals("get", response.operation)
         assertEquals(2, response.fulfilledQuantity)
@@ -1171,14 +1171,14 @@ class RewriteClientJsonTest {
     fun decodesLegacyCompatibleSetFtpPasswordPayloadsAndResponses() {
         val payload = """
             {
-              "ip":"LOCAL-IP",
+              "ip":"192.0.2.10",
               "password":"letmein",
               "ignored":"ignored"
             }
         """.trimIndent().encodeToByteArray()
         val responsePayload = """
             {
-              "stateId":"LOCAL-IP",
+              "stateId":"192.0.2.10",
               "passwordSet":true,
               "ignored":"ignored"
             }
@@ -1193,9 +1193,9 @@ class RewriteClientJsonTest {
             responsePayload,
         )
 
-        assertEquals("LOCAL-IP", request.ip)
+        assertEquals("192.0.2.10", request.ip)
         assertEquals("letmein", request.password)
-        assertEquals("LOCAL-IP", response.stateId)
+        assertEquals("192.0.2.10", response.stateId)
         assertTrue(response.passwordSet)
     }
 
@@ -1203,7 +1203,7 @@ class RewriteClientJsonTest {
     fun decodesCurrentRewriteWebAndStoreCommandPayloadsAndResponses() {
         val webpagePayload = """
             {
-              "resolvedTargetStateId":"TARGET-IP",
+              "resolvedTargetStateId":"198.51.100.20",
               "title":"Remote Shop",
               "body":"<html><body><a href=\"?buy=1\">Buy</a></body></html>",
               "storeFiles":[
@@ -1211,7 +1211,7 @@ class RewriteClientJsonTest {
                   "path":"/Store/attack.bin",
                   "name":"attack.bin",
                   "kind":"APPLICATION_BINARY",
-                  "maker":"TARGET-IP",
+                  "maker":"198.51.100.20",
                   "price":25.0,
                   "quantity":3,
                   "compiledBinary":{
@@ -1227,9 +1227,9 @@ class RewriteClientJsonTest {
         """.trimIndent().encodeToByteArray()
         val purchasePayload = """
             {
-              "buyerStateId":"LOCAL-IP",
-              "sellerStateId":"TARGET-IP",
-              "revenueTargetStateId":"TARGET-IP",
+              "buyerStateId":"192.0.2.10",
+              "sellerStateId":"198.51.100.20",
+              "revenueTargetStateId":"198.51.100.20",
               "purchasedFile":{
                 "path":"/Store/attack.bin",
                 "name":"attack.bin",
@@ -1245,8 +1245,8 @@ class RewriteClientJsonTest {
         """.trimIndent().encodeToByteArray()
         val votePayload = """
             {
-              "voterStateId":"LOCAL-IP",
-              "targetStateId":"TARGET-IP",
+              "voterStateId":"192.0.2.10",
+              "targetStateId":"198.51.100.20",
               "votesAvailableAfter":1,
               "targetVoteCountAfter":4,
               "targetHttpExperienceAfter":12.5,
@@ -1269,19 +1269,19 @@ class RewriteClientJsonTest {
             votePayload,
         )
 
-        assertEquals("TARGET-IP", webpageResponse.resolvedTargetStateId)
+        assertEquals("198.51.100.20", webpageResponse.resolvedTargetStateId)
         assertEquals("Remote Shop", webpageResponse.title)
         assertEquals("attack.bin", webpageResponse.storeFiles.single().name)
         assertFalse(webpageResponse.fallback)
         assertEquals(21, webpageResponse.version)
 
-        assertEquals("LOCAL-IP", purchaseResponse.buyerStateId)
-        assertEquals("TARGET-IP", purchaseResponse.sellerStateId)
+        assertEquals("192.0.2.10", purchaseResponse.buyerStateId)
+        assertEquals("198.51.100.20", purchaseResponse.sellerStateId)
         assertEquals(2, purchaseResponse.fulfilledQuantity)
         assertEquals(50.0, purchaseResponse.totalPrice)
 
-        assertEquals("LOCAL-IP", voteResponse.voterStateId)
-        assertEquals("TARGET-IP", voteResponse.targetStateId)
+        assertEquals("192.0.2.10", voteResponse.voterStateId)
+        assertEquals("198.51.100.20", voteResponse.targetStateId)
         assertEquals(1, voteResponse.votesAvailableAfter)
         assertEquals(4, voteResponse.targetVoteCountAfter)
     }
@@ -1290,7 +1290,7 @@ class RewriteClientJsonTest {
     fun decodesCurrentRewriteHealPortResponseShape() {
         val payload = """
             {
-              "stateId":"LOCAL-IP",
+              "stateId":"192.0.2.10",
               "portNumber":6,
               "accepted":true,
               "outcome":"SUCCESS",
@@ -1309,7 +1309,7 @@ class RewriteClientJsonTest {
             payload,
         )
 
-        assertEquals("LOCAL-IP", response.stateId)
+        assertEquals("192.0.2.10", response.stateId)
         assertTrue(response.accepted)
         assertEquals(ClientHealPortOutcome.SUCCESS, response.outcome)
         assertEquals(6, response.portNumber)
@@ -1320,7 +1320,7 @@ class RewriteClientJsonTest {
     fun decodesCurrentRewriteInstallApplicationAndFirewallResponses() {
         val applicationPayload = """
             {
-              "stateId":"LOCAL-IP",
+              "stateId":"192.0.2.10",
               "portNumber":6,
               "installedApplication":{
                 "name":"bank.bin",
@@ -1335,7 +1335,7 @@ class RewriteClientJsonTest {
         """.trimIndent().encodeToByteArray()
         val firewallPayload = """
             {
-              "stateId":"LOCAL-IP",
+              "stateId":"192.0.2.10",
               "portNumber":6,
               "installedFirewall":{
                 "name":"guard.fw",
@@ -1368,7 +1368,7 @@ class RewriteClientJsonTest {
     fun decodesCurrentRewriteInstallEquipmentResponseShape() {
         val payload = """
             {
-              "stateId":"LOCAL-IP",
+              "stateId":"192.0.2.10",
               "slot":"CPU",
               "equipment":{
                 "slot":"CPU",
@@ -1392,7 +1392,7 @@ class RewriteClientJsonTest {
             payload,
         )
 
-        assertEquals("LOCAL-IP", response.stateId)
+        assertEquals("192.0.2.10", response.stateId)
         assertEquals(ClientEquipmentSlot.CPU, response.slot)
         assertEquals("cpu-card.bin", response.equipment.name)
         assertEquals(25, response.version)

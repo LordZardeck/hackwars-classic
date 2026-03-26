@@ -115,7 +115,7 @@ class RewriteZombieAttackWindowsUiTest {
             assertEquals("10.0.0.5", attackPayload.sourceIp)
             assertEquals(12, attackPayload.sourcePort)
             assertEquals("10.0.0.8", attackPayload.targetIp)
-            assertEquals("LOCAL-IP", attackPayload.parentIp)
+            assertEquals("192.0.2.10", attackPayload.parentIp)
 
             frame.controller.accept(
                 RewriteService.GAME,
@@ -124,7 +124,7 @@ class RewriteZombieAttackWindowsUiTest {
                     payload = RewriteClientJson.encode(
                         ClientZombieAttackStartResponse.serializer(),
                         ClientZombieAttackStartResponse(
-                            controllerStateId = "LOCAL-IP",
+                            controllerStateId = "192.0.2.10",
                             zombieStateId = "10.0.0.5",
                             sourcePort = 12,
                             targetStateId = "10.0.0.8",
@@ -243,7 +243,7 @@ class RewriteZombieAttackWindowsUiTest {
                     payload = RewriteClientJson.encode(
                         ClientZombieAttackStartResponse.serializer(),
                         ClientZombieAttackStartResponse(
-                            controllerStateId = "LOCAL-IP",
+                            controllerStateId = "192.0.2.10",
                             zombieStateId = "10.0.0.5",
                             sourcePort = 12,
                             targetStateId = "10.0.0.8",
@@ -285,7 +285,7 @@ class RewriteZombieAttackWindowsUiTest {
                 ClientRequestZombieCancelAttackPayload.serializer(),
                 cancelCommand.payload.toByteArray(),
             )
-            assertEquals("LOCAL-IP", cancelPayload.ip)
+            assertEquals("192.0.2.10", cancelPayload.ip)
             assertEquals(12, cancelPayload.port)
             assertEquals("10.0.0.5", cancelPayload.targetIp)
 
@@ -296,7 +296,7 @@ class RewriteZombieAttackWindowsUiTest {
                     payload = RewriteClientJson.encode(
                         ClientZombieAttackCancelResponse.serializer(),
                         ClientZombieAttackCancelResponse(
-                            controllerStateId = "LOCAL-IP",
+                            controllerStateId = "192.0.2.10",
                             zombieStateId = "10.0.0.5",
                             sourcePort = 12,
                             accepted = false,
@@ -336,7 +336,7 @@ class RewriteZombieAttackWindowsUiTest {
             RewriteFrames.authAccepted(
                 connectionId = "conn-1",
                 playFabId = "PF-LOCAL",
-                playerIp = "LOCAL-IP",
+                playerIp = "192.0.2.10",
                 heartbeatInterval = kotlin.time.Duration.parse("15s"),
                 sessionStartedAt = Instant.parse("2026-03-25T00:00:00Z"),
             ),
@@ -344,11 +344,11 @@ class RewriteZombieAttackWindowsUiTest {
         frame.controller.accept(
             RewriteService.GAME,
             RewriteFrames.snapshot(
-                gameStateId = "LOCAL-IP",
+                gameStateId = "192.0.2.10",
                 sequence = 1,
                 payload = RewriteClientJson.encode(
                     ClientGameSnapshot.serializer(),
-                    ClientGameSnapshot(id = "LOCAL-IP"),
+                    ClientGameSnapshot(id = "192.0.2.10"),
                 ),
             ),
         )

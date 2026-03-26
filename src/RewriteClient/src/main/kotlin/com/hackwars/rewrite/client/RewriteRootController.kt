@@ -160,6 +160,7 @@ class RewriteRootController(
     private val bootstrapLock = Any()
     private val filePropertiesWindowsByPath = mutableMapOf<String, RewriteFilePropertiesWindow>()
     private val zombieAttackWindowsByKey = mutableMapOf<String, RewriteZombieAttackWindow>()
+    private val sessionLock = Any()
     private var loginAttemptId: Long = 0
     private var activeLoginJob: Job? = null
     private var pendingGameBootstrap: PendingGameBootstrap? = null
@@ -1110,17 +1111,22 @@ class RewriteRootController(
     }
 
     fun connect(service: RewriteService): RewriteServiceSession {
-        sessions[service]?.let { return it }
+        synchronized(sessionLock) {
+            sessions[service]?.let { return it }
 
-        lateinit var sessionRef: RewriteServiceSession
-        sessionRef = sessionGateway.open(service) { frame ->
-            if (sessions[service] === sessionRef) {
-                accept(service, frame)
+            lateinit var sessionRef: RewriteServiceSession
+            sessionRef = sessionGateway.open(service) { frame ->
+                val stillActive = synchronized(sessionLock) {
+                    sessions[service] === sessionRef
+                }
+                if (stillActive) {
+                    accept(service, frame)
+                }
             }
+            sessions[service] = sessionRef
+            store.noteConnected(service)
+            return sessionRef
         }
-        sessions[service] = sessionRef
-        store.noteConnected(service)
-        return sessionRef
     }
 
     suspend fun send(service: RewriteService, frame: FrameEnvelope) {
@@ -1302,7 +1308,9 @@ class RewriteRootController(
     }
 
     private fun closeService(service: RewriteService) {
-        val session = sessions.remove(service) ?: return
+        val session = synchronized(sessionLock) {
+            sessions.remove(service)
+        } ?: return
         runCatching { session.close() }
         if (service == RewriteService.GAME) {
             startupUtilityCoordinator.reset()

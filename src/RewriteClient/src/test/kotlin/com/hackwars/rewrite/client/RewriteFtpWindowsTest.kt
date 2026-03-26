@@ -60,7 +60,7 @@ class RewriteFtpWindowsTest {
         )
 
         assertEquals("sellfile", command.command_name)
-        assertEquals("LOCAL-IP", payload.ip)
+        assertEquals("192.0.2.10", payload.ip)
         assertEquals("/Programs", payload.location)
         assertEquals("merchant.bin", payload.fileName)
         assertEquals(25.0, payload.compileCost)
@@ -73,7 +73,7 @@ class RewriteFtpWindowsTest {
                 payload = RewriteClientJson.encode(
                     ClientSellFileResponse.serializer(),
                     ClientSellFileResponse(
-                        stateId = "LOCAL-IP",
+                        stateId = "192.0.2.10",
                         file = ClientStoredFile(
                             path = "/Store/merchant.bin",
                             name = "merchant.bin",
@@ -169,7 +169,7 @@ class RewriteFtpWindowsTest {
             RewriteFrames.authAccepted(
                 connectionId = "conn-1",
                 playFabId = "PF-LOCAL",
-                playerIp = "LOCAL-IP",
+                playerIp = "192.0.2.10",
                 heartbeatInterval = kotlin.time.Duration.parse("15s"),
                 sessionStartedAt = Instant.parse("2026-03-25T00:00:00Z"),
             ),

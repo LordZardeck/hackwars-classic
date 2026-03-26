@@ -117,7 +117,7 @@ class RewriteAttackWindowsUiTest {
                     payload = RewriteClientJson.encode(
                         ClientDirectoryListingResponse.serializer(),
                         ClientDirectoryListingResponse(
-                            stateId = "LOCAL-IP",
+                            stateId = "192.0.2.10",
                             path = "/",
                             directories = listOf(
                                 com.hackwars.rewrite.protocol.ClientDirectoryEntry(path = "/Store", name = "Store"),
@@ -166,7 +166,7 @@ class RewriteAttackWindowsUiTest {
                 ClientRequestAttackPayload.serializer(),
                 attackCommand.payload.toByteArray(),
             )
-            assertEquals("LOCAL-IP", attackPayload.sourceIp)
+            assertEquals("192.0.2.10", attackPayload.sourceIp)
             assertEquals("10.0.0.8", attackPayload.targetIp)
             assertEquals(4, attackPayload.targetPort)
             assertEquals(listOf("/", "bank.bin"), attackPayload.scripts.first())
@@ -179,7 +179,7 @@ class RewriteAttackWindowsUiTest {
                     payload = RewriteClientJson.encode(
                         ClientAttackStartResponse.serializer(),
                         ClientAttackStartResponse(
-                            attackerStateId = "LOCAL-IP",
+                            attackerStateId = "192.0.2.10",
                             sourcePort = 6,
                             targetStateId = "10.0.0.8",
                             targetPort = 4,
@@ -279,7 +279,7 @@ class RewriteAttackWindowsUiTest {
                     payload = RewriteClientJson.encode(
                         ClientAttackStartResponse.serializer(),
                         ClientAttackStartResponse(
-                            attackerStateId = "LOCAL-IP",
+                            attackerStateId = "192.0.2.10",
                             sourcePort = 7,
                             targetStateId = "10.0.0.8",
                             targetPort = 4,
@@ -310,7 +310,7 @@ class RewriteAttackWindowsUiTest {
                 ClientRequestCancelAttackPayload.serializer(),
                 cancelCommand.payload.toByteArray(),
             )
-            assertEquals("LOCAL-IP", cancelPayload.ip)
+            assertEquals("192.0.2.10", cancelPayload.ip)
             assertEquals(7, cancelPayload.port)
 
             frame.controller.accept(
@@ -320,7 +320,7 @@ class RewriteAttackWindowsUiTest {
                     payload = RewriteClientJson.encode(
                         ClientAttackCancelResponse.serializer(),
                         ClientAttackCancelResponse(
-                            stateId = "LOCAL-IP",
+                            stateId = "192.0.2.10",
                             sourcePort = 7,
                             accepted = false,
                             hadActiveSession = true,
@@ -409,7 +409,7 @@ class RewriteAttackWindowsUiTest {
                     payload = RewriteClientJson.encode(
                         ClientSecondaryDirectoryListingResponse.serializer(),
                         ClientSecondaryDirectoryListingResponse(
-                            requesterStateId = "LOCAL-IP",
+                            requesterStateId = "192.0.2.10",
                             targetStateId = "10.0.0.8",
                             portNumber = 4,
                             path = "/Public",
@@ -452,7 +452,7 @@ class RewriteAttackWindowsUiTest {
                     payload = RewriteClientJson.encode(
                         ClientSecondaryDirectoryListingResponse.serializer(),
                         ClientSecondaryDirectoryListingResponse(
-                            requesterStateId = "LOCAL-IP",
+                            requesterStateId = "192.0.2.10",
                             targetStateId = "10.0.0.8",
                             portNumber = 4,
                             path = "/Public/docs",
@@ -516,9 +516,9 @@ class RewriteAttackWindowsUiTest {
             }
 
             val dialog = waitForDialog("rewrite-change-daily-pay-dialog")
-            waitUntil { text(dialog, "rewrite-change-daily-pay-ip-field") == "LOCAL-IP" }
+            waitUntil { text(dialog, "rewrite-change-daily-pay-ip-field") == "192.0.2.10" }
             SwingUtilities.invokeAndWait {
-                textField(dialog, "rewrite-change-daily-pay-ip-field").text = "REV-IP"
+                textField(dialog, "rewrite-change-daily-pay-ip-field").text = "198.51.100.60"
                 button(dialog, "rewrite-change-daily-pay-submit-button").doClick()
             }
 
@@ -531,8 +531,8 @@ class RewriteAttackWindowsUiTest {
 
             assertEquals("10.0.0.8", changeDailyPayPayload.ip)
             assertEquals(4, changeDailyPayPayload.port)
-            assertEquals("REV-IP", changeDailyPayPayload.change)
-            assertEquals("LOCAL-IP", changeDailyPayPayload.finalizeIp)
+            assertEquals("198.51.100.60", changeDailyPayPayload.change)
+            assertEquals("192.0.2.10", changeDailyPayPayload.finalizeIp)
             assertEquals(attackSession.windowHandle, changeDailyPayPayload.attackPort)
 
             frame.controller.accept(
@@ -542,15 +542,15 @@ class RewriteAttackWindowsUiTest {
                     payload = RewriteClientJson.encode(
                         ClientChangeDailyPayResponse.serializer(),
                         ClientChangeDailyPayResponse(
-                            actorStateId = "LOCAL-IP",
+                            actorStateId = "192.0.2.10",
                             targetStateId = "10.0.0.8",
                             targetPort = 4,
-                            requestedRevenueTargetStateId = "REV-IP",
+                            requestedRevenueTargetStateId = "198.51.100.60",
                             accepted = true,
                             outcome = ClientChangeDailyPayOutcome.SUCCESS,
                             message = "Daily pay successfully changed.",
                             reductionMultiplierAfter = 1.0,
-                            revenueTargetStateIdAfter = "REV-IP",
+                            revenueTargetStateIdAfter = "198.51.100.60",
                             requesterHttpExperienceAfter = 20.0,
                             actorVersion = 7,
                             targetVersion = 9,
@@ -588,7 +588,7 @@ class RewriteAttackWindowsUiTest {
                 finalizeCancelledCommand.payload.toByteArray(),
             )
 
-            assertEquals("LOCAL-IP", finalizeCancelledPayload.ip)
+            assertEquals("192.0.2.10", finalizeCancelledPayload.ip)
             assertEquals("10.0.0.8", finalizeCancelledPayload.targetIp)
             assertEquals(4, finalizeCancelledPayload.targetPort)
 
@@ -599,7 +599,7 @@ class RewriteAttackWindowsUiTest {
                     payload = RewriteClientJson.encode(
                         ClientFinalizeCancelledResponse.serializer(),
                         ClientFinalizeCancelledResponse(
-                            actorStateId = "LOCAL-IP",
+                            actorStateId = "192.0.2.10",
                             targetStateId = "10.0.0.8",
                             targetPort = 4,
                             accepted = true,
@@ -636,7 +636,7 @@ class RewriteAttackWindowsUiTest {
             RewriteFrames.authAccepted(
                 connectionId = "conn-1",
                 playFabId = "PF-LOCAL",
-                playerIp = "LOCAL-IP",
+                playerIp = "192.0.2.10",
                 heartbeatInterval = kotlin.time.Duration.parse("15s"),
                 sessionStartedAt = Instant.parse("2026-03-25T00:00:00Z"),
             ),
@@ -648,7 +648,7 @@ class RewriteAttackWindowsUiTest {
 
     private fun attackSnapshot(): ClientGameSnapshot {
         return ClientGameSnapshot(
-            id = "LOCAL-IP",
+            id = "192.0.2.10",
             ports = listOf(
                 ClientPortState(
                     number = 6,
@@ -715,7 +715,7 @@ class RewriteAttackWindowsUiTest {
                 payload = RewriteClientJson.encode(
                     ClientAttackStartResponse.serializer(),
                     ClientAttackStartResponse(
-                        attackerStateId = "LOCAL-IP",
+                        attackerStateId = "192.0.2.10",
                         sourcePort = sourcePort,
                         targetStateId = targetIp,
                         targetPort = targetPort,

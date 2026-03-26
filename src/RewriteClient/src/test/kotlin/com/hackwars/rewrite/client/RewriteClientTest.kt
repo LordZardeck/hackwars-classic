@@ -87,7 +87,7 @@ class RewriteClientTest {
             RewriteFrames.authAccepted(
                 connectionId = "game-1",
                 playFabId = "PF-LOCAL",
-                playerIp = "LOCAL-IP",
+                playerIp = "192.0.2.10",
                 heartbeatInterval = kotlin.time.Duration.parse("15s"),
                 sessionStartedAt = Instant.parse("2026-03-25T00:00:00Z"),
             ),
@@ -129,12 +129,12 @@ class RewriteClientTest {
         controller.connect(RewriteService.GAME)
         sessionGateway.requireLatestSession(RewriteService.GAME).receive(
             RewriteFrames.snapshot(
-                gameStateId = "LOCAL-IP",
+                gameStateId = "192.0.2.10",
                 sequence = 7,
                 payload = RewriteClientJson.encode(
                     ClientGameSnapshot.serializer(),
                     ClientGameSnapshot(
-                        id = "LOCAL-IP",
+                        id = "192.0.2.10",
                         version = 7,
                         economy = ClientEconomyState(pettyCash = 125.0),
                     ),
@@ -143,7 +143,7 @@ class RewriteClientTest {
         )
         sessionGateway.requireLatestSession(RewriteService.GAME).receive(
             RewriteFrames.delta(
-                gameStateId = "LOCAL-IP",
+                gameStateId = "192.0.2.10",
                 sequence = 8,
                 changedPaths = listOf("economy.pettyCash"),
                 deltaKeys = listOf("economy"),
@@ -179,7 +179,7 @@ class RewriteClientTest {
                     ClientAttackMessageUiEvent(
                         message = "Redirect receipt",
                         port = 9,
-                        ip = "TARGET-IP",
+                        ip = "198.51.100.20",
                     ),
                 ),
             ),
@@ -254,7 +254,7 @@ class RewriteClientTest {
             RewriteFrames.authAccepted(
                 connectionId = "conn-1",
                 playFabId = "PF-LOCALUSER",
-                playerIp = "LOCAL-IP",
+                playerIp = "192.0.2.10",
                 heartbeatInterval = kotlin.time.Duration.parse("15s"),
                 sessionStartedAt = Instant.parse("2026-03-25T00:00:00Z"),
             ),
@@ -264,12 +264,12 @@ class RewriteClientTest {
 
         session.receive(
             RewriteFrames.snapshot(
-                gameStateId = "LOCAL-IP",
+                gameStateId = "192.0.2.10",
                 sequence = 1,
                 payload = RewriteClientJson.encode(
                     ClientGameSnapshot.serializer(),
                     ClientGameSnapshot(
-                        id = "LOCAL-IP",
+                        id = "192.0.2.10",
                         version = 1,
                         economy = ClientEconomyState(pettyCash = 100.0),
                     ),
@@ -279,8 +279,8 @@ class RewriteClientTest {
         advanceUntilIdle()
 
         assertEquals(RewriteClientRoute.DESKTOP, controller.route())
-        assertEquals("LOCAL-IP", controller.snapshot().game.latestAcceptedSession?.playerIp)
-        assertEquals("LOCAL-IP", controller.gameShellState()?.id)
+        assertEquals("192.0.2.10", controller.snapshot().game.latestAcceptedSession?.playerIp)
+        assertEquals("192.0.2.10", controller.gameShellState()?.id)
     }
 
     @Test
@@ -373,7 +373,7 @@ class RewriteClientTest {
             RewriteFrames.authAccepted(
                 connectionId = "conn-1",
                 playFabId = "PF-LOCAL",
-                playerIp = "LOCAL-IP",
+                playerIp = "192.0.2.10",
                 heartbeatInterval = kotlin.time.Duration.parse("15s"),
                 sessionStartedAt = Instant.parse("2026-03-25T00:00:00Z"),
             ),
@@ -392,7 +392,7 @@ class RewriteClientTest {
         )
         assertEquals("deposit", command.command_name)
         assertEquals(25.0, payload.amount)
-        assertEquals("LOCAL-IP", payload.ip)
+        assertEquals("192.0.2.10", payload.ip)
         assertEquals(4, payload.port)
 
         controller.accept(
@@ -402,7 +402,7 @@ class RewriteClientTest {
                 payload = RewriteClientJson.encode(
                     ClientBankTransactionResponse.serializer(),
                     ClientBankTransactionResponse(
-                        stateId = "LOCAL-IP",
+                        stateId = "192.0.2.10",
                         operation = "deposit",
                         portNumber = 4,
                         requestedAmount = 25.0,
@@ -435,7 +435,7 @@ class RewriteClientTest {
             RewriteFrames.authAccepted(
                 connectionId = "conn-1",
                 playFabId = "PF-LOCAL",
-                playerIp = "LOCAL-IP",
+                playerIp = "192.0.2.10",
                 heartbeatInterval = kotlin.time.Duration.parse("15s"),
                 sessionStartedAt = Instant.parse("2026-03-25T00:00:00Z"),
             ),
@@ -461,7 +461,7 @@ class RewriteClientTest {
             command.payload.toByteArray(),
         )
         assertEquals("makebounty", command.command_name)
-        assertEquals("LOCAL-IP", payload.sourceIp)
+        assertEquals("192.0.2.10", payload.sourceIp)
         assertTrue(payload.anonymous)
         assertEquals("*", payload.target)
         assertEquals(2, payload.type)
@@ -477,11 +477,11 @@ class RewriteClientTest {
                 payload = RewriteClientJson.encode(
                     ClientBountyCreatedResponse.serializer(),
                     ClientBountyCreatedResponse(
-                        creatorStateId = "LOCAL-IP",
-                        storeStateId = "store1",
+                        creatorStateId = "192.0.2.10",
+                        storeStateId = "198.51.100.40",
                         bountyFile = ClientStoredFile(
-                            path = "/Store/LOCAL-IP-install-1.bnty",
-                            name = "LOCAL-IP-install-1.bnty",
+                            path = "/Store/192.0.2.10-install-1.bnty",
+                            name = "192.0.2.10-install-1.bnty",
                         ),
                         reward = 125.0,
                         creatorVersion = 4,
@@ -494,7 +494,7 @@ class RewriteClientTest {
 
         val result = pending.await()
         assertIs<RewriteGameCommandResult.Success<ClientBountyCreatedResponse>>(result)
-        assertEquals("/Store/LOCAL-IP-install-1.bnty", result.value.bountyFile.path)
+        assertEquals("/Store/192.0.2.10-install-1.bnty", result.value.bountyFile.path)
     }
 
     @Test
@@ -510,7 +510,7 @@ class RewriteClientTest {
             RewriteFrames.authAccepted(
                 connectionId = "conn-1",
                 playFabId = "PF-LOCAL",
-                playerIp = "LOCAL-IP",
+                playerIp = "192.0.2.10",
                 heartbeatInterval = kotlin.time.Duration.parse("15s"),
                 sessionStartedAt = Instant.parse("2026-03-25T00:00:00Z"),
             ),
@@ -538,7 +538,7 @@ class RewriteClientTest {
                 payload = RewriteClientJson.encode(
                     ClientFileContentsResponse.serializer(),
                     ClientFileContentsResponse(
-                        stateId = "LOCAL-IP",
+                        stateId = "192.0.2.10",
                         file = ClientStoredFile(
                             path = "/Scripts/attack.src",
                             name = "attack.src",
@@ -608,7 +608,7 @@ class RewriteClientTest {
             RewriteFrames.authAccepted(
                 connectionId = "conn-1",
                 playFabId = "PF-LOCAL",
-                playerIp = "LOCAL-IP",
+                playerIp = "192.0.2.10",
                 heartbeatInterval = kotlin.time.Duration.parse("15s"),
                 sessionStartedAt = Instant.parse("2026-03-25T00:00:00Z"),
             ),
@@ -652,7 +652,7 @@ class RewriteClientTest {
                 payload = RewriteClientJson.encode(
                     ClientMutationAcceptedResponse.serializer(),
                     ClientMutationAcceptedResponse(
-                        stateId = "LOCAL-IP",
+                        stateId = "192.0.2.10",
                         version = 10,
                         message = "file-saved",
                     ),
@@ -681,7 +681,7 @@ class RewriteClientTest {
                 payload = RewriteClientJson.encode(
                     ClientCompileFileResponse.serializer(),
                     ClientCompileFileResponse(
-                        stateId = "LOCAL-IP",
+                        stateId = "192.0.2.10",
                         compiledFile = sourceFile.copy(
                             path = "/Scripts/attack.bin",
                             name = "attack.bin",
@@ -716,7 +716,7 @@ class RewriteClientTest {
                 payload = RewriteClientJson.encode(
                     ClientDecompileFileResponse.serializer(),
                     ClientDecompileFileResponse(
-                        stateId = "LOCAL-IP",
+                        stateId = "192.0.2.10",
                         decompiledFile = sourceFile,
                         pettyCashAfter = 100.0,
                         experienceAfter = 1.0,
@@ -790,14 +790,14 @@ class RewriteClientTest {
             RewriteFrames.authAccepted(
                 connectionId = "conn-1",
                 playFabId = "PF-LOCAL",
-                playerIp = "LOCAL-IP",
+                playerIp = "192.0.2.10",
                 heartbeatInterval = kotlin.time.Duration.parse("15s"),
                 sessionStartedAt = Instant.parse("2026-03-25T00:00:00Z"),
             ),
         )
 
         val failedRequest = backgroundScope.async(UnconfinedTestDispatcher(testScheduler)) {
-            controller.requestTransfer(amount = 15.0, targetIp = "TARGET-IP", portNumber = 4)
+            controller.requestTransfer(amount = 15.0, targetIp = "198.51.100.20", portNumber = 4)
         }
         runCurrent()
 
@@ -807,7 +807,7 @@ class RewriteClientTest {
             ClientTransferPayload.serializer(),
             transferCommand.payload.toByteArray(),
         )
-        assertEquals("TARGET-IP", transferPayload.targetIp)
+        assertEquals("198.51.100.20", transferPayload.targetIp)
         controller.accept(
             RewriteService.GAME,
             RewriteFrames.commandResponse(
@@ -827,7 +827,7 @@ class RewriteClientTest {
         assertEquals("Transfer target does not exist.", failedResult.message)
 
         val timedOutRequest = backgroundScope.async(UnconfinedTestDispatcher(testScheduler)) {
-            controller.requestTransfer(amount = 20.0, targetIp = "TARGET-IP", portNumber = 4)
+            controller.requestTransfer(amount = 20.0, targetIp = "198.51.100.20", portNumber = 4)
         }
         runCurrent()
         advanceTimeBy(5_001)

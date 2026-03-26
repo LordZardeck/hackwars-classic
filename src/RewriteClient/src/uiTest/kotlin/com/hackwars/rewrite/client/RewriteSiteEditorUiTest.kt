@@ -52,7 +52,7 @@ class RewriteSiteEditorUiTest {
                 requestCommand.payload.toByteArray(),
             )
             assertEquals("requestpage", requestCommand.command_name)
-            assertEquals("LOCAL-IP", requestPayload.ip)
+            assertEquals("192.0.2.10", requestPayload.ip)
             waitUntil {
                 frame.desktopPane.allFrames.toList().count { it.name == "rewrite-site-editor-window" } == 1
             }
@@ -64,7 +64,7 @@ class RewriteSiteEditorUiTest {
                     payload = RewriteClientJson.encode(
                         ClientPageEditorResponse.serializer(),
                         ClientPageEditorResponse(
-                            stateId = "LOCAL-IP",
+                            stateId = "192.0.2.10",
                             title = "Homepage",
                             body = "<h1>Hello</h1>",
                             version = 2,
@@ -101,15 +101,15 @@ class RewriteSiteEditorUiTest {
 
             val dialog = waitForDialog("Insert Link")
             SwingUtilities.invokeAndWait {
-                textField(dialog, "rewrite-site-editor-link-url-field").text = "store"
+                textField(dialog, "rewrite-site-editor-link-url-field").text = "198.51.100.40"
                 textField(dialog, "rewrite-site-editor-link-name-field").text = "Store"
                 button(dialog, "rewrite-site-editor-link-insert-button").doClick()
             }
 
             waitUntil {
-                textArea(editorWindow, "rewrite-site-editor-source-area").text.contains("<a href=\"store\">Store</a>")
+                textArea(editorWindow, "rewrite-site-editor-source-area").text.contains("<a href=\"198.51.100.40\">Store</a>")
             }
-            assertTrue(textArea(editorWindow, "rewrite-site-editor-source-area").text.contains("<a href=\"store\">Store</a>"))
+            assertTrue(textArea(editorWindow, "rewrite-site-editor-source-area").text.contains("<a href=\"198.51.100.40\">Store</a>"))
         } finally {
             disposeFrame(frame)
         }
@@ -136,7 +136,7 @@ class RewriteSiteEditorUiTest {
                 saveCommand.payload.toByteArray(),
             )
             assertEquals("savepage", saveCommand.command_name)
-            assertEquals("LOCAL-IP", savePayload.ip)
+            assertEquals("192.0.2.10", savePayload.ip)
             assertEquals("<center>Updated</center>", savePayload.body)
 
             frame.controller.accept(
@@ -146,7 +146,7 @@ class RewriteSiteEditorUiTest {
                     payload = RewriteClientJson.encode(
                         ClientSavePageResponse.serializer(),
                         ClientSavePageResponse(
-                            stateId = "LOCAL-IP",
+                            stateId = "192.0.2.10",
                             title = "Homepage",
                             body = "<center>Updated</center>",
                             version = 3,
@@ -234,7 +234,7 @@ class RewriteSiteEditorUiTest {
                 payload = RewriteClientJson.encode(
                     ClientPageEditorResponse.serializer(),
                     ClientPageEditorResponse(
-                        stateId = "LOCAL-IP",
+                        stateId = "192.0.2.10",
                         title = "Homepage",
                         body = "<h1>Hello</h1>",
                         version = 2,
@@ -263,7 +263,7 @@ class RewriteSiteEditorUiTest {
             RewriteFrames.authAccepted(
                 connectionId = "conn-1",
                 playFabId = "PF-LOCAL",
-                playerIp = "LOCAL-IP",
+                playerIp = "192.0.2.10",
                 heartbeatInterval = kotlin.time.Duration.parse("15s"),
                 sessionStartedAt = Instant.parse("2026-03-25T00:00:00Z"),
             ),
@@ -272,8 +272,8 @@ class RewriteSiteEditorUiTest {
             RewriteService.GAME,
             snapshotFrame(
                 ClientGameSnapshot(
-                    id = "LOCAL-IP",
-                    identity = ClientComputerIdentity(playerIp = "LOCAL-IP"),
+                    id = "192.0.2.10",
+                    identity = ClientComputerIdentity(playerIp = "192.0.2.10"),
                 ),
             ),
         )

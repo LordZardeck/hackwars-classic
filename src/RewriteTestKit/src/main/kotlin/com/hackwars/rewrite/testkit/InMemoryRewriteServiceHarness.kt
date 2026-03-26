@@ -379,7 +379,7 @@ class FakeSessionCatalog(
             accounts = listOf(
                 FakePlayerAccount(
                     playFabId = "PF-LOCALUSER",
-                    playerIp = "LOCAL-IP",
+                    playerIp = "192.0.2.10",
                     sessionTicket = "SESSION-LOCALUSER",
                 ),
             ),
@@ -418,7 +418,7 @@ class FakeSessionTicketVerifier(
 
 object StubRewriteAdapters {
     fun game(
-        bootstrapStateId: String = "LOCAL-IP",
+        bootstrapStateId: String = "192.0.2.10",
         bootstrapPayload: ByteArray = """{"bootstrap":"game-state"}""".toByteArray(),
     ): RewriteServiceAdapter = object : RewriteServiceAdapter {
         override val service: RewriteService = RewriteService.GAME

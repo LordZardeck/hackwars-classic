@@ -41,7 +41,7 @@ class RewriteClientDevTest {
             assertEquals(RewriteClientRoute.DESKTOP, controller.route())
             val shellState = controller.gameShellState()
             assertNotNull(shellState)
-            assertEquals("LOCAL-IP", shellState.id)
+            assertEquals("192.0.2.10", shellState.id)
             assertEquals("Local Development Site", shellState.website.title)
             assertTrue(shellState.filesystem.filesByPath.isNotEmpty())
             assertTrue(shellState.ports.isNotEmpty())
@@ -87,8 +87,8 @@ class RewriteClientDevTest {
                     payload = RewriteGameJson.encode(
                         RequestWebpagePayload.serializer(),
                         RequestWebpagePayload(
-                            targetIp = "TARGET-IP",
-                            sourceIp = "LOCAL-IP",
+                            targetIp = "198.51.100.20",
+                            sourceIp = "192.0.2.10",
                         ),
                     ),
                     expectsResponse = true,
@@ -109,7 +109,7 @@ class RewriteClientDevTest {
                         RequestSecondaryDirectoryPayload.serializer(),
                         RequestSecondaryDirectoryPayload(
                             path = "/Public",
-                            targetIp = "TARGET-IP",
+                            targetIp = "198.51.100.20",
                             port = 17,
                         ),
                     ),
