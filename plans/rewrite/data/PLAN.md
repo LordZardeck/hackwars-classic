@@ -72,7 +72,7 @@
 - Verification scope: `./gradlew :RewritePersistence:test :RewritePersistence:migrationTest`
 
 ### RW-DATA-003C - Define retained world, network, NPC, and website schema slice
-- Status: `in_progress`
+- Status: `done`
 - Priority: `P1`
 - Execution lane: `schema`
 - Worker role: `worker`
@@ -111,7 +111,7 @@
 - Verification scope: `./gradlew :RewritePersistence:test :RewritePersistence:migrationTest`
 
 ### RW-DATA-004B - Build importer slices for retained world, website, chat, and social data
-- Status: `todo`
+- Status: `ready`
 - Priority: `P2`
 - Execution lane: `importer`
 - Worker role: `worker`

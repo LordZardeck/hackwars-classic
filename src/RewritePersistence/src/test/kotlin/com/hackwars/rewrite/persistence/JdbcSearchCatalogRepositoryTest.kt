@@ -88,6 +88,55 @@ class JdbcSearchCatalogRepositoryTest {
         assertFalse(byAddress.getValue("no-http-ip").searchable)
     }
 
+    @Test
+    fun searchCatalogRemainsBlobBackedWhenWebsiteProjectionRowsDiffer() {
+        resetDatabase()
+        seedSearchState(
+            batchId = "active",
+            playerId = "active-user",
+            playFabId = "PF-ACTIVE",
+            ip = "ACTIVE-IP",
+            title = "Blob Title",
+            body = "<html>blob body</html>",
+            isNpc = false,
+            lastLoginAtEpochMillis = 1_000L,
+            enableHttp = true,
+        )
+        newConnection().use { connection ->
+            connection.prepareStatement(
+                """
+                insert into rewrite_website_projection(
+                    state_id,
+                    canonical_address,
+                    title,
+                    body_html,
+                    vote_count,
+                    votes_available,
+                    store_revenue_target_state_id,
+                    website_payload
+                )
+                values (?, ?, ?, ?, ?, ?, ?, cast(? as jsonb))
+                """.trimIndent(),
+            ).use { statement ->
+                statement.setString(1, "ACTIVE-IP")
+                statement.setString(2, "active-ip")
+                statement.setString(3, "Projection Title")
+                statement.setString(4, "<html>projection body</html>")
+                statement.setInt(5, 9)
+                statement.setInt(6, 4)
+                statement.setString(7, null)
+                statement.setString(8, """{"source":"projection"}""")
+                statement.executeUpdate()
+            }
+        }
+
+        val repository = JdbcSearchCatalogRepository(connectionFactory = ::newConnection)
+        val activeDocument = runBlocking { repository.loadDocuments() }.single()
+
+        assertEquals("Blob Title", activeDocument.title)
+        assertEquals("<html>blob body</html>", activeDocument.body)
+    }
+
     private fun seedSearchState(
         batchId: String,
         playerId: String,

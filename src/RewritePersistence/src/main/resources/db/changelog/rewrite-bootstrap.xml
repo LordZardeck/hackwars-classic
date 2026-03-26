@@ -761,4 +761,77 @@
             <dropTable tableName="rewrite_player_profile"/>
         </rollback>
     </changeSet>
+
+    <changeSet id="rewrite-0006-world-website-projection" author="codex">
+        <comment>Constrain retained world directory rows and add an additive website projection table for importer work.</comment>
+
+        <sql>
+            alter table rewrite_network_npc
+                add constraint ck_rewrite_network_npc_category
+                check (category in ('REGULAR', 'QUEST', 'MINING', 'STORE'))
+        </sql>
+
+        <sql>
+            alter table rewrite_network_npc
+                add constraint ck_rewrite_network_npc_sort_nonnegative
+                check (sort_order &gt;= 0)
+        </sql>
+
+        <addUniqueConstraint
+            tableName="rewrite_network_npc"
+            columnNames="network_name, category, sort_order"
+            constraintName="uq_rewrite_network_npc_category_sort"/>
+
+        <createTable tableName="rewrite_website_projection">
+            <column name="state_id" type="varchar(64)">
+                <constraints primaryKey="true" nullable="false" primaryKeyName="pk_rewrite_website_projection"/>
+            </column>
+            <column name="canonical_address" type="varchar(255)">
+                <constraints nullable="false" unique="true" uniqueConstraintName="uq_rewrite_website_projection_address"/>
+            </column>
+            <column name="title" type="text">
+                <constraints nullable="false"/>
+            </column>
+            <column name="body_html" type="text">
+                <constraints nullable="false"/>
+            </column>
+            <column name="vote_count" type="integer">
+                <constraints nullable="false"/>
+            </column>
+            <column name="votes_available" type="integer">
+                <constraints nullable="false"/>
+            </column>
+            <column name="store_revenue_target_state_id" type="varchar(64)"/>
+            <column name="website_payload" type="jsonb">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <sql>
+            alter table rewrite_website_projection
+                add constraint ck_rewrite_website_projection_vote_count_nonnegative
+                check (vote_count &gt;= 0)
+        </sql>
+
+        <sql>
+            alter table rewrite_website_projection
+                add constraint ck_rewrite_website_projection_votes_available_nonnegative
+                check (votes_available &gt;= 0)
+        </sql>
+
+        <rollback>
+            <dropTable tableName="rewrite_website_projection"/>
+            <dropUniqueConstraint
+                tableName="rewrite_network_npc"
+                constraintName="uq_rewrite_network_npc_category_sort"/>
+            <sql>
+                alter table rewrite_network_npc
+                    drop constraint ck_rewrite_network_npc_sort_nonnegative
+            </sql>
+            <sql>
+                alter table rewrite_network_npc
+                    drop constraint ck_rewrite_network_npc_category
+            </sql>
+        </rollback>
+    </changeSet>
 </databaseChangeLog>

@@ -41,6 +41,14 @@ class RewritePersistenceMigrationSmokeTest {
             assertTrue(tableExists(connection, "rewrite_computer_projection"))
             assertTrue(tableExists(connection, "rewrite_computer_preference"))
             assertTrue(tableExists(connection, "rewrite_computer_skill_stat"))
+            assertTrue(tableExists(connection, "rewrite_website_projection"))
+
+            RewriteLiquibase.rollback(connection, 1)
+            assertTrue(tableExists(connection, "rewrite_player_profile"))
+            assertTrue(tableExists(connection, "rewrite_computer_projection"))
+            assertTrue(tableExists(connection, "rewrite_computer_preference"))
+            assertTrue(tableExists(connection, "rewrite_computer_skill_stat"))
+            assertEquals(false, tableExists(connection, "rewrite_website_projection"))
 
             RewriteLiquibase.rollback(connection, 1)
             assertTrue(tableExists(connection, "rewrite_chat_channel"))

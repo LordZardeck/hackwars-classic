@@ -12,7 +12,7 @@ import org.testcontainers.containers.PostgreSQLContainer
 import org.testcontainers.junit.jupiter.Container
 import org.testcontainers.junit.jupiter.Testcontainers
 import java.sql.DriverManager
-import java.sql.ResultSet
+import java.sql.SQLException
 
 @Testcontainers
 class RewritePersistenceBootstrapTest {
@@ -53,6 +53,7 @@ class RewritePersistenceBootstrapTest {
             assertTableExists(it, "rewrite_computer_projection")
             assertTableExists(it, "rewrite_computer_preference")
             assertTableExists(it, "rewrite_computer_skill_stat")
+            assertTableExists(it, "rewrite_website_projection")
         }
     }
 
@@ -60,7 +61,7 @@ class RewritePersistenceBootstrapTest {
     fun rollbackRemovesBootstrapTables() {
         withConnection {
             RewriteLiquibase.update(it)
-            RewriteLiquibase.rollback(it, 5)
+            RewriteLiquibase.rollback(it, 6)
 
             assertTableMissing(it, "rewrite_import_batch")
             assertTableMissing(it, "rewrite_player_account")
@@ -82,6 +83,169 @@ class RewritePersistenceBootstrapTest {
             assertTableMissing(it, "rewrite_computer_projection")
             assertTableMissing(it, "rewrite_computer_preference")
             assertTableMissing(it, "rewrite_computer_skill_stat")
+            assertTableMissing(it, "rewrite_website_projection")
+        }
+    }
+
+    @Test
+    fun updateCreatesRetainedWorldWebsiteSliceColumnsAndConstraints() {
+        withConnection { connection ->
+            RewriteLiquibase.update(connection)
+            connection.autoCommit = false
+
+            listOf(
+                "state_id",
+                "canonical_address",
+                "title",
+                "body_html",
+                "vote_count",
+                "votes_available",
+                "store_revenue_target_state_id",
+                "website_payload",
+            ).forEach { columnName ->
+                assertTrue(
+                    columnExists(connection, "rewrite_website_projection", columnName),
+                    "Expected rewrite_website_projection.$columnName to exist",
+                )
+            }
+
+            assertEquals(
+                7,
+                countNamedConstraints(
+                    connection,
+                    listOf(
+                        "pk_rewrite_website_projection",
+                        "uq_rewrite_website_projection_address",
+                        "ck_rewrite_website_projection_vote_count_nonnegative",
+                        "ck_rewrite_website_projection_votes_available_nonnegative",
+                        "ck_rewrite_network_npc_category",
+                        "ck_rewrite_network_npc_sort_nonnegative",
+                        "uq_rewrite_network_npc_category_sort",
+                    ),
+                ),
+            )
+
+            assertDoesNotThrow {
+                connection.prepareStatement(
+                    """
+                    insert into rewrite_website_projection(
+                        state_id,
+                        canonical_address,
+                        title,
+                        body_html,
+                        vote_count,
+                        votes_available,
+                        store_revenue_target_state_id,
+                        website_payload
+                    )
+                    values (?, ?, ?, ?, ?, ?, ?, cast(? as jsonb))
+                    """.trimIndent(),
+                ).use { statement ->
+                    statement.setString(1, "198.51.100.44")
+                    statement.setString(2, "198.51.100.44")
+                    statement.setString(3, "Detached Website")
+                    statement.setString(4, "<html>Detached</html>")
+                    statement.setInt(5, 2)
+                    statement.setInt(6, 1)
+                    statement.setString(7, null)
+                    statement.setString(8, """{"seed":"detached"}""")
+                    statement.executeUpdate()
+                }
+            }
+
+            connection.prepareStatement(
+                """
+                insert into rewrite_network_directory(network_name, store_state_id)
+                values ('TestNet', null)
+                """.trimIndent(),
+            ).use { it.executeUpdate() }
+
+            assertStatementFails(connection) {
+                connection.prepareStatement(
+                    """
+                    insert into rewrite_network_npc(
+                        network_name,
+                        state_id,
+                        display_name,
+                        title,
+                        category,
+                        commodity,
+                        sort_order
+                    )
+                    values ('TestNet', 'NPC-INVALID', 'Invalid', '', 'BAD', null, 0)
+                    """.trimIndent(),
+                ).use { it.executeUpdate() }
+            }
+
+            connection.prepareStatement(
+                """
+                insert into rewrite_network_npc(
+                    network_name,
+                    state_id,
+                    display_name,
+                    title,
+                    category,
+                    commodity,
+                    sort_order
+                )
+                values ('TestNet', 'NPC-ONE', 'One', '', 'REGULAR', null, 0)
+                """.trimIndent(),
+            ).use { it.executeUpdate() }
+
+            assertStatementFails(connection) {
+                connection.prepareStatement(
+                    """
+                    insert into rewrite_network_npc(
+                        network_name,
+                        state_id,
+                        display_name,
+                        title,
+                        category,
+                        commodity,
+                        sort_order
+                    )
+                    values ('TestNet', 'NPC-TWO', 'Two', '', 'REGULAR', null, 0)
+                    """.trimIndent(),
+                ).use { it.executeUpdate() }
+            }
+
+            assertStatementFails(connection) {
+                connection.prepareStatement(
+                    """
+                    insert into rewrite_website_projection(
+                        state_id,
+                        canonical_address,
+                        title,
+                        body_html,
+                        vote_count,
+                        votes_available,
+                        store_revenue_target_state_id,
+                        website_payload
+                    )
+                    values ('198.51.100.45', '198.51.100.45', 'Negative Votes', '<html>x</html>', -1, 0, null, cast('{}' as jsonb))
+                    """.trimIndent(),
+                ).use { it.executeUpdate() }
+            }
+
+            assertStatementFails(connection) {
+                connection.prepareStatement(
+                    """
+                    insert into rewrite_website_projection(
+                        state_id,
+                        canonical_address,
+                        title,
+                        body_html,
+                        vote_count,
+                        votes_available,
+                        store_revenue_target_state_id,
+                        website_payload
+                    )
+                    values ('198.51.100.46', '198.51.100.46', 'Negative Available', '<html>x</html>', 0, -1, null, cast('{}' as jsonb))
+                    """.trimIndent(),
+                ).use { it.executeUpdate() }
+            }
+
+            connection.rollback()
         }
     }
 
@@ -167,5 +331,60 @@ class RewritePersistenceBootstrapTest {
                 return resultSet.getInt(1) > 0
             }
         }
+    }
+
+    private fun columnExists(
+        connection: java.sql.Connection,
+        tableName: String,
+        columnName: String,
+    ): Boolean {
+        connection.prepareStatement(
+            """
+            select count(*)
+            from information_schema.columns
+            where table_schema = current_schema()
+              and table_name = ?
+              and column_name = ?
+            """.trimIndent(),
+        ).use { statement ->
+            statement.setString(1, tableName)
+            statement.setString(2, columnName)
+            statement.executeQuery().use { resultSet ->
+                assertTrue(resultSet.next())
+                return resultSet.getInt(1) > 0
+            }
+        }
+    }
+
+    private fun countNamedConstraints(
+        connection: java.sql.Connection,
+        constraintNames: List<String>,
+    ): Int {
+        connection.prepareStatement(
+            """
+            select count(*)
+            from pg_constraint
+            where connamespace = current_schema()::regnamespace
+              and conname = any (?)
+            """.trimIndent(),
+        ).use { statement ->
+            statement.setArray(1, connection.createArrayOf("varchar", constraintNames.toTypedArray()))
+            statement.executeQuery().use { resultSet ->
+                assertTrue(resultSet.next())
+                return resultSet.getInt(1)
+            }
+        }
+    }
+
+    private fun assertStatementFails(
+        connection: java.sql.Connection,
+        action: () -> Unit,
+    ) {
+        val savepoint = connection.setSavepoint()
+        assertThrows<SQLException> {
+            action()
+        }
+        connection.rollback(savepoint)
+        connection.releaseSavepoint(savepoint)
     }
 }
