@@ -29,6 +29,7 @@ import com.hackwars.rewrite.protocol.ChatSubChannelsPayload
 import com.hackwars.rewrite.protocol.ChatSubChannelsEventPayload
 import com.hackwars.rewrite.protocol.ChatWhisperEventPayload
 import com.hackwars.rewrite.protocol.ChatWhisperPayload
+import com.hackwars.rewrite.protocol.DisconnectReason
 import com.hackwars.rewrite.protocol.ProtocolTimeoutPolicy
 import com.hackwars.rewrite.protocol.RewriteChatJson
 import com.hackwars.rewrite.protocol.RewriteFrames
@@ -108,6 +109,52 @@ class RewriteChatProtocolAdapterTest {
         connection.close()
 
         val closedSession = fixture.authRepository.findServiceSession(PersistedServiceKind.CHAT, "chat-1")
+        assertNotNull(closedSession)
+        assertNotNull(closedSession.closedAt)
+        assertEquals(emptyList(), fixture.chatRepository.listActivePresence("pf-localuser"))
+    }
+
+    @Test
+    fun pingTouchesChatServiceSessionAndPresence() = runTest {
+        val fixture = createFixture()
+        val connection = fixture.authenticatedConnection()
+        connection.awaitFrame()
+        connection.awaitFrame()
+
+        testScheduler.advanceTimeBy(5_000)
+        connection.send(
+            RewriteFrames.ping(
+                connectionId = connection.connectionId,
+                sentAtEpochMillis = 1_000,
+                acknowledgedAtEpochMillis = 0,
+            ),
+        )
+
+        val pingResponse = connection.awaitFrame()
+        val touchedSession = fixture.authRepository.findServiceSession(PersistedServiceKind.CHAT, "chat-1")
+        val presence = fixture.chatRepository.listActivePresence("pf-localuser").single()
+
+        assertEquals("chat-1", pingResponse.ping?.connection_id)
+        assertEquals(1_000, pingResponse.ping?.sent_at_epoch_millis)
+        assertEquals(5_000, pingResponse.ping?.acknowledged_at_epoch_millis)
+        assertNotNull(touchedSession)
+        assertEquals(Instant.ofEpochMilli(5_000), touchedSession.lastSeenAt)
+        assertEquals(Instant.ofEpochMilli(5_000), presence.lastSeenAt)
+    }
+
+    @Test
+    fun idleTimeoutClosesChatServiceSessionAndPresence() = runTest {
+        val fixture = createFixture()
+        val connection = fixture.authenticatedConnection()
+        connection.awaitFrame()
+        connection.awaitFrame()
+
+        testScheduler.advanceTimeBy(46_000)
+        fixture.harness.sweepTimeouts()
+
+        val closedSession = fixture.authRepository.findServiceSession(PersistedServiceKind.CHAT, "chat-1")
+
+        assertEquals(DisconnectReason.IDLE_TIMEOUT, connection.disconnectReason())
         assertNotNull(closedSession)
         assertNotNull(closedSession.closedAt)
         assertEquals(emptyList(), fixture.chatRepository.listActivePresence("pf-localuser"))

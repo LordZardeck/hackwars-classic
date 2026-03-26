@@ -71,7 +71,7 @@
 - Verification scope: `./gradlew :RewriteChatCore:test :RewriteChatServer:test :RewritePersistence:test`
 
 ### RW-CHAT-002B - Implement retained chat ping, timeout, and forced logout lifecycle
-- Status: `ready`
+- Status: `done`
 - Priority: `P2`
 - Execution lane: `bootstrap`
 - Worker role: `worker`
@@ -79,9 +79,10 @@
 - Ready when: retained chat session bootstrap is working
 - Parallel with: `RW-CHAT-003B`, `RW-CHAT-004B`
 - Allowed write scope: `src/RewriteChatCore/**`, `src/RewriteChatServer/**`
-- Autonomous next: `RW-CHAT-005A`
+- Autonomous next: `RW-CHAT-004A`
 - Fallback if blocked: `RW-CHAT-002A`
 - Verification scope: `./gradlew :RewriteChatCore:test :RewriteChatServer:test`
+- Locked scope note: this card touches retained chat activity timestamps on inbound ping and command activity, preserves retained ping echo semantics, and verifies that idle timeout closure tears down persisted chat service-session and presence state.
 
 ### RW-CHAT-002C - Add retained chat outbound multi-recipient transport hook
 - Status: `done`

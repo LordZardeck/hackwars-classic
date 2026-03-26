@@ -48,6 +48,7 @@ import hackwars.rewrite.v1.CommandEnvelope
 import hackwars.rewrite.v1.CommandResponseStatus
 import hackwars.rewrite.v1.ErrorEnvelope
 import hackwars.rewrite.v1.FrameEnvelope
+import hackwars.rewrite.v1.PingEnvelope
 import java.time.Instant
 import java.util.UUID
 import kotlinx.serialization.Serializable
@@ -173,7 +174,7 @@ class RewriteChatProtocolAdapter(
     }
 
     suspend fun onSessionEnded(connectionId: String) {
-        activeSessions.remove(connectionId)
+        val session = activeSessions.remove(connectionId) ?: return
         val now = clock()
         authSessionRepository.closeServiceSession(
             serviceKind = PersistedServiceKind.CHAT,
@@ -184,6 +185,9 @@ class RewriteChatProtocolAdapter(
             connectionId = connectionId,
             offlineAt = now,
         )
+        if (activeSessions.values.none { it.playerId == session.playerId }) {
+            logoutPlayerFromChannels(session.playerId)
+        }
     }
 
     suspend fun onCommand(
@@ -200,6 +204,7 @@ class RewriteChatProtocolAdapter(
                 ),
             )
         }
+        touchSessionActivity(session, clock())
         val requestType = runCatching { ChatRequestType.fromWireName(command.command_name) }
             .getOrElse {
                 return requestErrorFrames(
@@ -390,6 +395,22 @@ class RewriteChatProtocolAdapter(
                 )
             }
         }
+    }
+
+    suspend fun onPing(
+        connectionId: String,
+        ping: PingEnvelope,
+        now: Instant,
+    ): List<FrameEnvelope> {
+        val session = activeSessions[connectionId] ?: return emptyList()
+        touchSessionActivity(session, now)
+        return listOf(
+            RewriteFrames.ping(
+                connectionId = connectionId,
+                sentAtEpochMillis = ping.sent_at_epoch_millis,
+                acknowledgedAtEpochMillis = now.toEpochMilli(),
+            ),
+        )
     }
 
     private suspend fun handleCreateChannel(
@@ -1462,6 +1483,48 @@ class RewriteChatProtocolAdapter(
         }
     }
 
+    private suspend fun touchSessionActivity(
+        session: AuthenticatedChatSession,
+        now: Instant,
+    ) {
+        authSessionRepository.touchServiceSession(
+            serviceKind = PersistedServiceKind.CHAT,
+            connectionId = session.connectionId,
+            lastSeenAt = now,
+        )
+        val currentPresence = chatSocialRepository.listActivePresence(session.playerId)
+            .firstOrNull { it.connectionId == session.connectionId }
+            ?: return
+        chatSocialRepository.upsertPresence(
+            currentPresence.copy(
+                lastSeenAt = maxOf(currentPresence.lastSeenAt, now),
+            ),
+        )
+    }
+
+    private suspend fun logoutPlayerFromChannels(playerId: String) {
+        val memberships = loadMembershipsForPlayer(playerId)
+        for (membership in memberships) {
+            val channel = loadChannel(membership.channelId) ?: continue
+            val channelMemberships = chatSocialRepository.listMemberships(channel.channelId)
+            val currentMembership = channelMemberships.firstOrNull { it.playerId == playerId } ?: continue
+            val removalResult = removeChannelMembership(
+                channel = channel,
+                memberships = channelMemberships,
+                removedMembership = currentMembership,
+            )
+            pushGeneratedFrames(removalResult.remainingPlayerIds) { receiverPlayerId ->
+                listOf(
+                    channelRemoveFrame(
+                        receiverPlayerId = receiverPlayerId,
+                        channelName = channel.channelId,
+                        userToRemove = playerId,
+                    ),
+                )
+            }
+        }
+    }
+
     fun serviceAdapter(): RewriteServiceAdapter = RewriteChatServiceAdapter(this)
 
     fun bindTransport(
@@ -1582,6 +1645,18 @@ class RewriteChatServiceAdapter(
         return adapter.onCommand(
             connectionId = session.connectionId,
             command = command,
+        )
+    }
+
+    override suspend fun onPing(
+        session: InMemoryAuthenticatedSession,
+        ping: PingEnvelope,
+        now: Instant,
+    ): List<FrameEnvelope> {
+        return adapter.onPing(
+            connectionId = session.connectionId,
+            ping = ping,
+            now = now,
         )
     }
 }
