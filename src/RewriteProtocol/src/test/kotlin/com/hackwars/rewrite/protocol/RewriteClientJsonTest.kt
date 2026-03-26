@@ -54,6 +54,41 @@ class RewriteClientJsonTest {
                   "ignoredPortField":"ignored"
                 }
               ],
+              "filesystem":{
+                "currentPath":"/Public",
+                "directoriesByPath":{
+                  "/Public":{
+                    "path":"/Public",
+                    "name":"Public",
+                    "description":"public docs"
+                  }
+                },
+                "filesByPath":{
+                  "/Public/http.bin":{
+                    "path":"/Public/http.bin",
+                    "name":"http.bin",
+                    "kind":"APPLICATION_BINARY",
+                    "contents":"compiled",
+                    "compiledBinary":{
+                      "scriptFamily":"HTTP",
+                      "outputName":"http",
+                      "applicationKind":"HTTP",
+                      "healModifierDelta":1
+                    },
+                    "scriptBundle":{
+                      "family":"HTTP",
+                      "scriptsBySlot":{
+                        "ENTER":"logMessage(\"hello\")"
+                      }
+                    },
+                    "saveMetadata":{
+                      "valuesByKey":{
+                        "stage":{"type":"string","value":"starter"}
+                      }
+                    }
+                  }
+                }
+              },
               "website":{"title":"Homepage","body":"Welcome","voteCount":3,"votesAvailable":1},
               "preferences":{"values":{"show_tutorials":"true"}},
               "stats":{"experienceByFamily":{"ATTACK":10.0},"totalLevel":2,"noobProtectionLevel":1},
@@ -72,6 +107,9 @@ class RewriteClientJsonTest {
         assertEquals(4, decoded.economy.defaultBankPort)
         assertEquals(1, decoded.ports.size)
         assertEquals("Bank", decoded.ports.single().installedApplication?.name)
+        assertEquals("/Public", decoded.filesystem.currentPath)
+        assertTrue(decoded.filesystem.directoriesByPath.containsKey("/Public"))
+        assertEquals("HTTP", decoded.filesystem.filesByPath["/Public/http.bin"]?.compiledBinary?.applicationKind?.name)
         assertEquals("Homepage", decoded.website.title)
         assertEquals("true", decoded.preferences.values["show_tutorials"])
         assertEquals(12, decoded.runtime.countdownSeconds)
@@ -139,6 +177,46 @@ class RewriteClientJsonTest {
         assertEquals(ClientPopupUiStyle.ERROR, popup.style)
         assertIs<ClientShowChoicesUiEvent>(showChoices)
         assertEquals(ClientShowChoicesType.HTTP, showChoices.choiceType)
+    }
+
+    @Test
+    fun decodesCurrentRewriteDirectoryListingResponseShape() {
+        val payload = """
+            {
+              "stateId":"LOCAL-IP",
+              "path":"/Public",
+              "directories":[
+                {
+                  "path":"/Public/Archive",
+                  "name":"Archive",
+                  "description":"older files"
+                }
+              ],
+              "files":[
+                {
+                  "path":"/Public/readme.txt",
+                  "name":"readme.txt",
+                  "kind":"TEXT",
+                  "contents":"hello",
+                  "description":"welcome",
+                  "ignored":"ignored"
+                }
+              ],
+              "version":14,
+              "ignored":"ignored"
+            }
+        """.trimIndent().encodeToByteArray()
+
+        val response = RewriteClientJson.decode(
+            ClientDirectoryListingResponse.serializer(),
+            payload,
+        )
+
+        assertEquals("LOCAL-IP", response.stateId)
+        assertEquals("/Public", response.path)
+        assertEquals("/Public/Archive", response.directories.single().path)
+        assertEquals("readme.txt", response.files.single().name)
+        assertEquals(14, response.version)
     }
 
     @Test

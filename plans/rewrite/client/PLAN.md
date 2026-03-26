@@ -102,7 +102,7 @@
 
 ## Window Family Lanes
 ### RW-CLIENT-W1A - Deposit, withdraw, and transfer windows plus correlated economy command responses
-- Status: `in_progress`
+- Status: `done`
 - Owner: `unassigned`
 - Depends on: `RW-CLIENT-003A`
 - Allowed write scope: `:RewriteProtocol`, `:RewriteClient/client/economy/**`, `:RewriteClient`
@@ -116,26 +116,51 @@
 ### RW-CLIENT-W1B - Create Bounty dialog and file-picker follow-up
 - Status: `todo`
 - Owner: `unassigned`
-- Depends on: `RW-CLIENT-W1A`, `RW-CLIENT-W2`
+- Depends on: `RW-CLIENT-W1A`, `RW-CLIENT-W2A`
 - Allowed write scope: `:RewriteClient/client/economy/**`, `:RewriteClient/client/files/**`
 - Verification command: `./gradlew :RewriteClient:test :RewriteClient:uiTest`
 - Artifacts: `build/reports/rewrite/ui`
 - Commit rule: `single green commit only`
 - Notes:
-  - Depends on `RW-CLIENT-W2` because bounty creation needs filesystem-backed file and path selection.
+  - Depends on `RW-CLIENT-W2A` because bounty creation needs local filesystem-backed file and path selection, not the whole editor/FTP lane.
 
-### RW-CLIENT-W2 - Home, filesystem, FTP, and editor windows
-- Status: `todo`
+### RW-CLIENT-W2A - Filesystem decode, Home window, and reusable local chooser foundation
+- Status: `in_progress`
 - Owner: `unassigned`
 - Depends on: `RW-CLIENT-003A`
+- Allowed write scope: `:RewriteProtocol`, `:RewriteClientModel`, `:RewriteClient/client/files/**`, `:RewriteClient`
+- Verification command: `./gradlew :RewriteProtocol:test :RewriteClientModel:test :RewriteClient:test :RewriteClient:uiTest`
+- Artifacts: `build/reports/rewrite/ui`
+- Commit rule: `single green commit only`
+- Notes:
+  - Covers local filesystem decode, the rewrite `Home` window, and the reusable local open-file chooser foundation.
+  - Visible directory contents come from correlated `requestdirectory` responses, with client-owned displayed-path state and refresh-on-filesystem-delta behavior.
+
+### RW-CLIENT-W2B - File open/properties/image viewer plus Script Editor save/compile/decompile flows
+- Status: `todo`
+- Owner: `unassigned`
+- Depends on: `RW-CLIENT-W2A`
 - Allowed write scope: `:RewriteClient/client/files/**`
 - Verification command: `./gradlew :RewriteClient:test :RewriteClient:uiTest`
 - Artifacts: `build/reports/rewrite/ui`
 - Commit rule: `single green commit only`
 - Notes:
-  - Home, file properties, image viewing, script editor, website editor, FTP.
+  - Covers `requestfile`, file properties, image viewing, and Script Editor open/save/compile/decompile parity.
+  - Keeps FTP browsing deferred to `RW-CLIENT-W2C`.
 
-### RW-CLIENT-W3 - Browser, store, help, tutorial windows
+### RW-CLIENT-W2C - Shop FTP and Public FTP remote-directory plus transfer UI
+- Status: `todo`
+- Owner: `unassigned`
+- Depends on: `RW-CLIENT-W2A`, `RW-CLIENT-W5`
+- Allowed write scope: `:RewriteClient/client/files/**`, `:RewriteClient/client/network/**`
+- Verification command: `./gradlew :RewriteClient:test :RewriteClient:uiTest`
+- Artifacts: `build/reports/rewrite/ui`
+- Commit rule: `single green commit only`
+- Notes:
+  - Covers remote `requestsecondarydirectory` browsing and the transfer UI surface.
+  - Reuses the local chooser/browser foundation from `RW-CLIENT-W2A`.
+
+### RW-CLIENT-W3 - Browser, Website Editor, store, help, tutorial windows
 - Status: `todo`
 - Owner: `unassigned`
 - Depends on: `RW-CLIENT-003A`
@@ -144,6 +169,7 @@
 - Artifacts: `build/reports/rewrite/ui`
 - Commit rule: `single green commit only`
 - Notes:
+  - Includes `Website Editor`, which lives in the web lane because it depends on `requestpage`/`savepage`, not filesystem commands.
   - Includes known legacy browser-rendering problem as required parity work.
 
 ### RW-CLIENT-W4 - Port, watch, equipment, and firewall windows

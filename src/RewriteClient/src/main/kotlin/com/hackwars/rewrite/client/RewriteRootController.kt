@@ -3,6 +3,7 @@ package com.hackwars.rewrite.client
 import com.hackwars.rewrite.client.economy.RewriteDepositWindow
 import com.hackwars.rewrite.client.economy.RewriteTransferWindow
 import com.hackwars.rewrite.client.economy.RewriteWithdrawWindow
+import com.hackwars.rewrite.client.files.RewriteHomeWindow
 import com.hackwars.rewrite.client.shell.RewritePlaceholderInternalFrame
 import com.hackwars.rewrite.client.shell.RewriteShellCommand
 import com.hackwars.rewrite.client.shell.RewriteShellWindowCoordinator
@@ -16,8 +17,11 @@ import com.hackwars.rewrite.clientmodel.RewriteDecodedGameUiNotice
 import com.hackwars.rewrite.clientmodel.RewriteServiceState
 import com.hackwars.rewrite.protocol.ClientBankTransactionResponse
 import com.hackwars.rewrite.protocol.ClientDepositPayload
+import com.hackwars.rewrite.protocol.ClientDirectoryListingResponse
+import com.hackwars.rewrite.protocol.ClientFilesystemState
 import com.hackwars.rewrite.protocol.ClientGameSnapshot
 import com.hackwars.rewrite.protocol.ClientProgramUpdate
+import com.hackwars.rewrite.protocol.ClientRequestDirectoryPayload
 import com.hackwars.rewrite.protocol.ClientTransferPayload
 import com.hackwars.rewrite.protocol.ClientTransferResponse
 import com.hackwars.rewrite.protocol.ClientWithdrawPayload
@@ -90,6 +94,12 @@ class RewriteRootController(
 
     fun gameShellStateSelector(): Flow<ClientGameSnapshot?> {
         return store.serviceShellStateSelector(RewriteService.GAME)
+    }
+
+    fun gameFilesystemState(): ClientFilesystemState? = gameShellState()?.filesystem
+
+    fun gameFilesystemStateSelector(): Flow<ClientFilesystemState?> {
+        return store.serviceFilesystemStateSelector(RewriteService.GAME)
     }
 
     fun gameProgramUpdatesSelector(): Flow<Map<String, ClientProgramUpdate>> {
@@ -171,6 +181,20 @@ class RewriteRootController(
             ),
             responseSerializer = ClientTransferResponse.serializer(),
             targetStateIds = listOf(playerIp, targetIp),
+        )
+    }
+
+    internal suspend fun requestDirectory(
+        path: String?,
+    ): RewriteGameCommandResult<ClientDirectoryListingResponse> {
+        val playerIp = authenticatedPlayerIp()
+            ?: return RewriteGameCommandResult.Failure("Not connected to a rewrite game session.")
+        return gameCommandBroker.request(
+            commandName = "requestdirectory",
+            payloadSerializer = ClientRequestDirectoryPayload.serializer(),
+            payload = ClientRequestDirectoryPayload(path = path),
+            responseSerializer = ClientDirectoryListingResponse.serializer(),
+            targetStateIds = listOf(playerIp),
         )
     }
 
@@ -435,6 +459,10 @@ class RewriteRootController(
         RewriteShellCommand.TRANSFER -> RewriteTransferWindow(
             controller = this,
             preferredPort = preferredPort,
+        )
+
+        RewriteShellCommand.HOME -> RewriteHomeWindow(
+            controller = this,
         )
 
         else -> RewritePlaceholderInternalFrame(command)

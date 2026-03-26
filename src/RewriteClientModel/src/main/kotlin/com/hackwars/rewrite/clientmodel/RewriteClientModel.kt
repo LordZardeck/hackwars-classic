@@ -5,6 +5,7 @@ import com.hackwars.rewrite.protocol.ClientGameSectionsProjection
 import com.hackwars.rewrite.protocol.ClientGameSnapshot
 import com.hackwars.rewrite.protocol.ClientGameStateSummaryProjection
 import com.hackwars.rewrite.protocol.ClientGameUiEvent
+import com.hackwars.rewrite.protocol.ClientFilesystemState
 import com.hackwars.rewrite.protocol.ClientProgramUpdate
 import com.hackwars.rewrite.protocol.ConnectionLifecycleState
 import com.hackwars.rewrite.protocol.FrameCodec
@@ -65,6 +66,10 @@ class RewriteClientStore(initialState: RewriteClientState = RewriteClientState()
 
     fun serviceShellStateSelector(service: RewriteService): Flow<ClientGameSnapshot?> {
         return selector { it.service(service).decodedGame.shellState }
+    }
+
+    fun serviceFilesystemStateSelector(service: RewriteService): Flow<ClientFilesystemState?> {
+        return selector { it.service(service).decodedGame.shellState?.filesystem }
     }
 
     fun serviceProgramUpdatesSelector(service: RewriteService): Flow<Map<String, ClientProgramUpdate>> {
@@ -589,6 +594,7 @@ private fun ClientGameSnapshot.applySections(projection: ClientGameSectionsProje
         economy = projection.economy ?: economy,
         hardware = projection.hardware ?: hardware,
         ports = projection.ports ?: ports,
+        filesystem = projection.filesystem ?: filesystem,
         website = projection.website ?: website,
         preferences = projection.preferences ?: preferences,
         stats = projection.stats ?: stats,

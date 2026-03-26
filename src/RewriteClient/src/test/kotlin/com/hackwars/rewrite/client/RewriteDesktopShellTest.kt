@@ -66,6 +66,30 @@ class RewriteDesktopShellTest {
     }
 
     @Test
+    fun launchingHomeCommandCreatesRealWindowAndRelaunchRestoresIt() {
+        val controller = RewriteRootController(
+            authGateway = DeterministicRewriteLoginAuthGateway(),
+            sessionGateway = NoOpRewriteServiceSessionGateway,
+        )
+        val shellHost = RewriteDesktopShellView(controller::launchShellCommand)
+        controller.attachShellHost(shellHost)
+
+        invokeAndWait {
+            controller.launchShellCommand(RewriteShellCommand.HOME)
+            val frame = shellHost.desktopPane.allFrames.single()
+
+            assertEquals("rewrite-home-window", frame.name)
+
+            controller.launchShellCommand(RewriteShellCommand.HOME)
+
+            assertEquals(1, shellHost.desktopPane.allFrames.size)
+            assertEquals(frame, shellHost.desktopPane.allFrames.single())
+        }
+
+        controller.shutdown()
+    }
+
+    @Test
     fun minimizingAndRestoringFramesUpdatesTaskBar() {
         val shellHost = RewriteDesktopShellView {}
 

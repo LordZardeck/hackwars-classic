@@ -1,6 +1,8 @@
 package com.hackwars.rewrite.client
 
 import com.hackwars.rewrite.client.shell.RewriteShellCommand
+import com.hackwars.rewrite.protocol.ClientDirectoryEntry
+import com.hackwars.rewrite.protocol.ClientDirectoryListingResponse
 import com.hackwars.rewrite.clientmodel.RewriteClientRoute
 import com.hackwars.rewrite.protocol.ClientBankTransactionResponse
 import com.hackwars.rewrite.protocol.ClientComputerIdentity
@@ -8,7 +10,9 @@ import com.hackwars.rewrite.protocol.ClientEconomyState
 import com.hackwars.rewrite.protocol.ClientGameSnapshot
 import com.hackwars.rewrite.protocol.ClientInstalledApplication
 import com.hackwars.rewrite.protocol.ClientPortState
+import com.hackwars.rewrite.protocol.ClientRequestDirectoryPayload
 import com.hackwars.rewrite.protocol.ClientRuntimeState
+import com.hackwars.rewrite.protocol.ClientStoredFile
 import com.hackwars.rewrite.protocol.ClientTransferPayload
 import com.hackwars.rewrite.protocol.ClientWithdrawPayload
 import com.hackwars.rewrite.protocol.RewriteClientJson
@@ -25,6 +29,7 @@ import javax.swing.JButton
 import javax.swing.JComboBox
 import javax.swing.JFormattedTextField
 import javax.swing.JInternalFrame
+import javax.swing.JList
 import javax.swing.JLabel
 import javax.swing.SwingUtilities
 import kotlin.test.Test
@@ -377,6 +382,172 @@ class RewriteRootFrameUiTest {
     }
 
     @Test
+    fun homeLaunchesAsRealWindowAndRendersDirectoryListingContents() {
+        assumeFalse(GraphicsEnvironment.isHeadless())
+
+        val sessionGateway = FakeUiSessionGateway()
+        val frame = bankingReadyFrame(sessionGateway = sessionGateway)
+        try {
+            SwingUtilities.invokeAndWait {
+                frame.controller.launchShellCommand(RewriteShellCommand.HOME)
+            }
+            val homeFrame = waitForWindow(frame, "rewrite-home-window")
+
+            waitUntil {
+                sessionGateway.latestGameSession()?.sentFrames?.isNotEmpty() == true
+            }
+            val requestCommand = sessionGateway.latestGameSession()!!.sentFrames.last().command!!
+            val requestPayload = RewriteClientJson.decode(
+                ClientRequestDirectoryPayload.serializer(),
+                requestCommand.payload.toByteArray(),
+            )
+            assertNull(requestPayload.path)
+
+            frame.controller.accept(
+                RewriteService.GAME,
+                RewriteFrames.commandResponse(
+                    commandId = requestCommand.command_id,
+                    payload = RewriteClientJson.encode(
+                        ClientDirectoryListingResponse.serializer(),
+                        ClientDirectoryListingResponse(
+                            stateId = "LOCAL-IP",
+                            path = "/Public",
+                            directories = listOf(
+                                ClientDirectoryEntry(
+                                    path = "/Public/Archive",
+                                    name = "Archive",
+                                ),
+                            ),
+                            files = listOf(
+                                ClientStoredFile(
+                                    path = "/Public/readme.txt",
+                                    name = "readme.txt",
+                                    contents = "hello",
+                                ),
+                            ),
+                            version = 2,
+                        ),
+                    ),
+                ),
+            )
+
+            waitUntil {
+                label(homeFrame, "rewrite-files-path-label").text == "/Public" &&
+                    entryList(homeFrame).model.size == 2
+            }
+            assertEquals("/Public", label(homeFrame, "rewrite-files-path-label").text)
+            val rows = (0 until entryList(homeFrame).model.size)
+                .map { index -> entryList(homeFrame).model.getElementAt(index).toString() }
+            assertEquals(listOf("Archive", "readme.txt"), rows)
+        } finally {
+            disposeFrame(frame)
+        }
+    }
+
+    @Test
+    fun homeErrorStateRendersInlineAndKeepsWindowOpen() {
+        assumeFalse(GraphicsEnvironment.isHeadless())
+
+        val sessionGateway = FakeUiSessionGateway()
+        val frame = bankingReadyFrame(sessionGateway = sessionGateway)
+        try {
+            SwingUtilities.invokeAndWait {
+                frame.controller.launchShellCommand(RewriteShellCommand.HOME)
+            }
+            val homeFrame = waitForWindow(frame, "rewrite-home-window")
+            waitUntil {
+                sessionGateway.latestGameSession()?.sentFrames?.isNotEmpty() == true
+            }
+            val requestCommand = sessionGateway.latestGameSession()!!.sentFrames.last().command!!
+
+            frame.controller.accept(
+                RewriteService.GAME,
+                RewriteFrames.commandResponse(
+                    commandId = requestCommand.command_id,
+                    status = CommandResponseStatus.COMMAND_RESPONSE_STATUS_ERROR,
+                    error = ErrorEnvelope(
+                        code = "DIRECTORY_NOT_FOUND",
+                        message = "Directory does not exist.",
+                        retryable = false,
+                    ),
+                ),
+            )
+
+            waitUntil {
+                label(homeFrame, "rewrite-files-error").text == "Directory does not exist."
+            }
+            assertTrue(homeFrame.isDisplayable)
+            assertEquals("Directory does not exist.", label(homeFrame, "rewrite-files-error").text)
+        } finally {
+            disposeFrame(frame)
+        }
+    }
+
+    @Test
+    fun chooserFoundationCanRenderListingAndEmitSelectionCallback() {
+        assumeFalse(GraphicsEnvironment.isHeadless())
+
+        val sessionGateway = FakeUiSessionGateway()
+        val frame = bankingReadyFrame(sessionGateway = sessionGateway)
+        var selectedFilePath: String? = null
+        var selectedDisplayedPath: String? = null
+
+        try {
+            val chooser = invokeAndWaitResult {
+                instantiateLocalFileChooser(
+                    controller = frame.controller,
+                    title = "Choose File",
+                    onFileSelected = { filePath, displayedPath ->
+                        selectedFilePath = filePath
+                        selectedDisplayedPath = displayedPath
+                    },
+                ).also { frame.shellHost.showWindow(it) }
+            }
+
+            waitUntil {
+                sessionGateway.latestGameSession()?.sentFrames?.isNotEmpty() == true
+            }
+            val requestCommand = sessionGateway.latestGameSession()!!.sentFrames.last().command!!
+
+            frame.controller.accept(
+                RewriteService.GAME,
+                RewriteFrames.commandResponse(
+                    commandId = requestCommand.command_id,
+                    payload = RewriteClientJson.encode(
+                        ClientDirectoryListingResponse.serializer(),
+                        ClientDirectoryListingResponse(
+                            stateId = "LOCAL-IP",
+                            path = "/Public",
+                            files = listOf(
+                                ClientStoredFile(
+                                    path = "/Public/readme.txt",
+                                    name = "readme.txt",
+                                    contents = "hello",
+                                ),
+                            ),
+                            version = 2,
+                        ),
+                    ),
+                ),
+            )
+
+            waitUntil { entryList(chooser).model.size == 1 }
+            SwingUtilities.invokeAndWait {
+                entryList(chooser).selectedIndex = 0
+                button(chooser, "rewrite-files-choose-button").doClick()
+            }
+
+            waitUntil {
+                selectedFilePath == "/Public/readme.txt" && selectedDisplayedPath == "/Public"
+            }
+            assertEquals("/Public/readme.txt", selectedFilePath)
+            assertEquals("/Public", selectedDisplayedPath)
+        } finally {
+            disposeFrame(frame)
+        }
+    }
+
+    @Test
     fun bankingWindowsShowBoundBalancesAndRefreshWhenShellStateChanges() {
         assumeFalse(GraphicsEnvironment.isHeadless())
 
@@ -589,6 +760,11 @@ class RewriteRootFrameUiTest {
             ?: error("Unable to find JButton named $name")
     }
 
+    private fun entryList(root: Component): JList<*> {
+        return findComponent(root, "rewrite-files-entry-list") as? JList<*>
+            ?: error("Unable to find entry list")
+    }
+
     private fun amountField(root: Component): JFormattedTextField {
         return findComponent(root, "rewrite-economy-amount-field") as? JFormattedTextField
             ?: error("Unable to find amount field")
@@ -606,7 +782,32 @@ class RewriteRootFrameUiTest {
         RewriteShellCommand.DEPOSIT,
         RewriteShellCommand.WITHDRAW,
         RewriteShellCommand.TRANSFER -> "rewrite-economy-window-${command.stableId}"
+        RewriteShellCommand.HOME -> "rewrite-home-window"
         else -> "rewrite-shell-window-${command.stableId}"
+    }
+
+    private fun instantiateLocalFileChooser(
+        controller: RewriteRootController,
+        title: String,
+        onFileSelected: (filePath: String, displayedPath: String) -> Unit,
+    ): JInternalFrame {
+        val chooserClass = Class.forName("com.hackwars.rewrite.client.files.RewriteLocalFileChooserWindow")
+        val constructor = chooserClass.declaredConstructors.first { it.parameterCount == 4 }
+        constructor.isAccessible = true
+        val chooser = constructor.newInstance(
+            controller,
+            title,
+            { selection: Any? ->
+                if (selection != null) {
+                    val displayedPath = selection.javaClass.getMethod("getDisplayedPath").invoke(selection) as String
+                    val file = selection.javaClass.getMethod("getFile").invoke(selection)
+                    val filePath = file.javaClass.getMethod("getPath").invoke(file) as String
+                    onFileSelected(filePath, displayedPath)
+                }
+            },
+            { _: Any? -> true },
+        )
+        return chooser as JInternalFrame
     }
 
     private fun findComponent(root: Component, name: String): Component? {

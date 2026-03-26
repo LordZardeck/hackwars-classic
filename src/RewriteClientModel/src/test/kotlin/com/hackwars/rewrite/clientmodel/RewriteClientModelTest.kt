@@ -1,6 +1,8 @@
 package com.hackwars.rewrite.clientmodel
 
 import com.hackwars.rewrite.protocol.ClientAttackMessageUiEvent
+import com.hackwars.rewrite.protocol.ClientDirectoryEntry
+import com.hackwars.rewrite.protocol.ClientFilesystemState
 import com.hackwars.rewrite.protocol.ClientGameDeltaProjection
 import com.hackwars.rewrite.protocol.ClientGameSectionsProjection
 import com.hackwars.rewrite.protocol.ClientGameSnapshot
@@ -13,6 +15,7 @@ import com.hackwars.rewrite.protocol.ClientProgramProgress
 import com.hackwars.rewrite.protocol.ClientProgramUpdate
 import com.hackwars.rewrite.protocol.ClientShowChoicesType
 import com.hackwars.rewrite.protocol.ClientShowChoicesUiEvent
+import com.hackwars.rewrite.protocol.ClientStoredFile
 import com.hackwars.rewrite.protocol.ClientTextMessageUiEvent
 import com.hackwars.rewrite.protocol.ClientZombieAttackUiEvent
 import com.hackwars.rewrite.protocol.RewriteClientJson
@@ -178,6 +181,22 @@ class RewriteClientModelTest {
                 bankMoney = 25.0,
                 defaultBankPort = 4,
             ),
+            filesystem = ClientFilesystemState(
+                currentPath = "/Public",
+                directoriesByPath = mapOf(
+                    "/Public" to ClientDirectoryEntry(
+                        path = "/Public",
+                        name = "Public",
+                    ),
+                ),
+                filesByPath = mapOf(
+                    "/Public/readme.txt" to ClientStoredFile(
+                        path = "/Public/readme.txt",
+                        name = "readme.txt",
+                        contents = "hello",
+                    ),
+                ),
+            ),
             runtime = com.hackwars.rewrite.protocol.ClientRuntimeState(
                 countdownSeconds = 12,
                 currentCpuLoad = 8.5,
@@ -188,6 +207,31 @@ class RewriteClientModelTest {
                 pettyCash = 250.0,
                 bankMoney = 25.0,
                 defaultBankPort = 4,
+            ),
+            filesystem = ClientFilesystemState(
+                currentPath = "/Public",
+                directoriesByPath = mapOf(
+                    "/Public" to ClientDirectoryEntry(
+                        path = "/Public",
+                        name = "Public",
+                    ),
+                    "/Public/Archive" to ClientDirectoryEntry(
+                        path = "/Public/Archive",
+                        name = "Archive",
+                    ),
+                ),
+                filesByPath = mapOf(
+                    "/Public/readme.txt" to ClientStoredFile(
+                        path = "/Public/readme.txt",
+                        name = "readme.txt",
+                        contents = "hello",
+                    ),
+                    "/Public/notes.txt" to ClientStoredFile(
+                        path = "/Public/notes.txt",
+                        name = "notes.txt",
+                        contents = "notes",
+                    ),
+                ),
             ),
             runtime = com.hackwars.rewrite.protocol.ClientRuntimeState(
                 countdownSeconds = 11,
@@ -208,8 +252,12 @@ class RewriteClientModelTest {
             frame = RewriteFrames.delta(
                 gameStateId = "LOCAL-IP",
                 sequence = 8,
-                changedPaths = listOf("economy.pettyCash", "runtime.countdownSeconds"),
-                deltaKeys = listOf("economy", "runtime"),
+                changedPaths = listOf(
+                    "economy.pettyCash",
+                    "runtime.countdownSeconds",
+                    "filesystem.filesByPath./Public/notes.txt",
+                ),
+                deltaKeys = listOf("economy", "filesystem", "runtime"),
                 payload = RewriteClientJson.encode(ClientGameDeltaProjection.serializer(), delta),
             ),
         )
@@ -217,6 +265,8 @@ class RewriteClientModelTest {
         val decoded = store.snapshot().game.decodedGame
         assertEquals(125.0, decoded.latestSnapshot?.economy?.pettyCash)
         assertEquals(250.0, decoded.shellState?.economy?.pettyCash)
+        assertEquals("/Public", decoded.shellState?.filesystem?.currentPath)
+        assertTrue(decoded.shellState?.filesystem?.filesByPath?.containsKey("/Public/notes.txt") == true)
         assertEquals(11, decoded.shellState?.runtime?.countdownSeconds)
         assertIs<ClientGameSectionsProjection>(decoded.lastDelta?.projection)
     }
@@ -333,6 +383,51 @@ class RewriteClientModelTest {
         assertEquals(FramePayloadType.PROGRAM_UPDATE, decoded.decodeErrors.single().payloadType)
         assertTrue(decoded.programUpdatesById.isEmpty())
         assertNotNull(store.snapshot().game.inbox.lastProgramUpdate)
+    }
+
+    @Test
+    fun malformedFilesystemDeltaDoesNotCorruptExistingDecodedFilesystemState() {
+        val store = RewriteClientStore()
+        store.recordInboundFrame(
+            service = RewriteService.GAME,
+            frame = RewriteFrames.snapshot(
+                gameStateId = "LOCAL-IP",
+                sequence = 7,
+                payload = RewriteClientJson.encode(
+                    ClientGameSnapshot.serializer(),
+                    ClientGameSnapshot(
+                        id = "LOCAL-IP",
+                        version = 7,
+                        filesystem = ClientFilesystemState(
+                            currentPath = "/Public",
+                            filesByPath = mapOf(
+                                "/Public/readme.txt" to ClientStoredFile(
+                                    path = "/Public/readme.txt",
+                                    name = "readme.txt",
+                                    contents = "hello",
+                                ),
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+        )
+        store.recordInboundFrame(
+            service = RewriteService.GAME,
+            frame = RewriteFrames.delta(
+                gameStateId = "LOCAL-IP",
+                sequence = 8,
+                changedPaths = listOf("filesystem.filesByPath./Public/readme.txt"),
+                deltaKeys = listOf("filesystem"),
+                payload = "not-json".encodeToByteArray(),
+            ),
+        )
+
+        val decoded = store.snapshot().game.decodedGame
+        assertEquals("/Public", decoded.shellState?.filesystem?.currentPath)
+        assertTrue(decoded.shellState?.filesystem?.filesByPath?.containsKey("/Public/readme.txt") == true)
+        assertEquals(FramePayloadType.DELTA, decoded.decodeErrors.single().payloadType)
+        assertNotNull(store.snapshot().game.inbox.lastDelta)
     }
 
     @Test

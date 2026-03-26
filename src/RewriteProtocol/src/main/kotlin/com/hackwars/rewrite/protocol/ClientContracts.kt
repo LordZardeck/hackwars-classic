@@ -29,6 +29,7 @@ data class ClientGameSnapshot(
     val economy: ClientEconomyState = ClientEconomyState(),
     val hardware: ClientHardwareState = ClientHardwareState(),
     val ports: List<ClientPortState> = emptyList(),
+    val filesystem: ClientFilesystemState = ClientFilesystemState(),
     val website: ClientWebsiteState = ClientWebsiteState(),
     val preferences: ClientPreferenceState = ClientPreferenceState(),
     val stats: ClientPlayerStatsState = ClientPlayerStatsState(),
@@ -43,6 +44,177 @@ data class ClientComputerIdentity(
     val displayName: String = "",
     val isNpc: Boolean = false,
     val lastLoginAtEpochMillis: Long? = null,
+)
+
+@Serializable
+data class ClientFilesystemState(
+    val currentPath: String = "/",
+    val directoriesByPath: Map<String, ClientDirectoryEntry> = emptyMap(),
+    val filesByPath: Map<String, ClientStoredFile> = emptyMap(),
+)
+
+@Serializable
+data class ClientDirectoryEntry(
+    val path: String,
+    val name: String,
+    val description: String = "",
+)
+
+@Serializable
+enum class ClientStoredFileKind {
+    TEXT,
+    NOTE,
+    SAVE_DATA,
+    BOUNTY,
+    SCRIPT_SOURCE,
+    APPLICATION_BINARY,
+    FIREWALL_BINARY,
+    EQUIPMENT_BINARY,
+}
+
+@Serializable
+enum class ClientScriptFamily {
+    GENERAL,
+    ATTACK,
+    BANKING,
+    SCANNING,
+    FIREWALL,
+    REDIRECT,
+    HTTP,
+    WATCH,
+}
+
+@Serializable
+enum class ClientProgramScriptSlot {
+    DEPOSIT,
+    WITHDRAW,
+    TRANSFER,
+    INITIALIZE,
+    CONTINUE,
+    FINALIZE,
+    FIRE,
+    PUT,
+    GET,
+    ENTER,
+    EXIT,
+    SUBMIT,
+}
+
+@Serializable
+enum class ClientApplicationKind {
+    GENERIC,
+    BANKING,
+    FTP,
+    HTTP,
+    ATTACK,
+    REDIRECT,
+    WATCH,
+}
+
+@Serializable
+enum class ClientFirewallKind {
+    NONE,
+    BASIC,
+    CUSTOM,
+}
+
+@Serializable
+enum class ClientEquipmentSlot {
+    CPU,
+    MEMORY,
+    STORAGE,
+    PCI,
+    AGP,
+}
+
+@Serializable
+sealed interface ClientHookValue
+
+@Serializable
+@SerialName("int")
+data class ClientIntHookValue(
+    val value: Int,
+) : ClientHookValue
+
+@Serializable
+@SerialName("float")
+data class ClientFloatHookValue(
+    val value: Double,
+) : ClientHookValue
+
+@Serializable
+@SerialName("string")
+data class ClientStringHookValue(
+    val value: String,
+) : ClientHookValue
+
+@Serializable
+@SerialName("boolean")
+data class ClientBooleanHookValue(
+    val value: Boolean,
+) : ClientHookValue
+
+@Serializable
+@SerialName("array")
+data class ClientArrayHookValue(
+    val values: List<ClientHookValue> = emptyList(),
+) : ClientHookValue
+
+@Serializable
+data class ClientProgramScriptBundle(
+    val family: ClientScriptFamily = ClientScriptFamily.GENERAL,
+    val scriptsBySlot: Map<ClientProgramScriptSlot, String> = emptyMap(),
+)
+
+@Serializable
+data class ClientCompiledBinaryMetadata(
+    val scriptFamily: ClientScriptFamily = ClientScriptFamily.GENERAL,
+    val outputName: String = "",
+    val applicationKind: ClientApplicationKind? = null,
+    val firewallKind: ClientFirewallKind? = null,
+    val firewallCombatProfile: ClientFirewallCombatProfile? = null,
+    val firewallActionProfile: ClientFirewallActionProfile? = null,
+    val equipmentSlot: ClientEquipmentSlot? = null,
+    val healCostMultiplier: Double? = null,
+    val healModifierDelta: Int? = null,
+    val bankingApplication: Boolean = false,
+    val strength: Int = 0,
+    val experienceAward: Double = 1.0,
+)
+
+@Serializable
+data class ClientSaveFileMetadata(
+    val valuesByKey: Map<String, ClientHookValue> = emptyMap(),
+)
+
+@Serializable
+data class ClientBountyMetadata(
+    val type: Int,
+    val target: String,
+    val iterationsRemaining: Int,
+    val reward: Double,
+    val bountySourceStateId: String,
+    val requiredMaker: String = "",
+    val requiredScriptName: String = "",
+    val anonymous: Boolean = false,
+)
+
+@Serializable
+data class ClientStoredFile(
+    val path: String,
+    val name: String,
+    val kind: ClientStoredFileKind = ClientStoredFileKind.TEXT,
+    val contents: String = "",
+    val description: String = "",
+    val quantity: Int = 1,
+    val maker: String = "",
+    val compileCost: Double = 0.0,
+    val cpuCost: Double = 0.0,
+    val price: Double = 0.0,
+    val compiledBinary: ClientCompiledBinaryMetadata? = null,
+    val scriptBundle: ClientProgramScriptBundle? = null,
+    val saveMetadata: ClientSaveFileMetadata? = null,
+    val bountyMetadata: ClientBountyMetadata? = null,
 )
 
 @Serializable
@@ -210,6 +382,7 @@ data class ClientGameSectionsProjection(
     val economy: ClientEconomyState? = null,
     val hardware: ClientHardwareState? = null,
     val ports: List<ClientPortState>? = null,
+    val filesystem: ClientFilesystemState? = null,
     val website: ClientWebsiteState? = null,
     val preferences: ClientPreferenceState? = null,
     val stats: ClientPlayerStatsState? = null,
@@ -293,6 +466,20 @@ data class ClientTransferResponse(
     val targetPettyCashAfter: Double,
     val sourceVersion: Long,
     val targetVersion: Long,
+)
+
+@Serializable
+data class ClientRequestDirectoryPayload(
+    val path: String? = null,
+)
+
+@Serializable
+data class ClientDirectoryListingResponse(
+    val stateId: String,
+    val path: String,
+    val directories: List<ClientDirectoryEntry> = emptyList(),
+    val files: List<ClientStoredFile> = emptyList(),
+    val version: Long,
 )
 
 @Serializable
