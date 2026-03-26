@@ -15,8 +15,8 @@
 | --- | --- | --- |
 | `runtime` | local Postgres runtime and test harness setup | `docker-compose.rewrite.yml`, `src/RewritePersistence/**`, `src/RewriteTestKit/**` |
 | `schema` | retained schema slices for auth, player, world, and chat | `src/RewritePersistence/**` |
-| `importer` | importer adapters and migration runners | `src/RewritePersistence/**`, `src/RewriteMigrationTest/**` |
-| `audit` | validation fixtures, reconciliation, and migration evidence | `src/RewritePersistence/**`, `src/RewriteMigrationTest/**`, `plans/rewrite/feature-inventory/PLAN.md` |
+| `importer` | importer adapters and migration runners | `src/RewritePersistence/**` |
+| `audit` | validation fixtures, reconciliation, and migration evidence | `src/RewritePersistence/**`, `plans/rewrite/feature-inventory/PLAN.md` |
 
 ## Task Cards
 ### RW-DATA-001 - Stand up Dockerized PostgreSQL developer runtime
@@ -105,7 +105,7 @@
 - Depends on: `RW-DATA-003A`, `RW-DATA-003B`
 - Ready when: retained auth/session and player/computer schema slices are complete
 - Parallel with: `RW-DATA-004B`
-- Allowed write scope: `src/RewritePersistence/**`, `src/RewriteMigrationTest/**`
+- Allowed write scope: `src/RewritePersistence/**`
 - Autonomous next: `RW-DATA-005A`
 - Fallback if blocked: `RW-DATA-003B`
 - Verification scope: `./gradlew :RewritePersistence:test :RewritePersistence:migrationTest`
@@ -118,36 +118,36 @@
 - Depends on: `RW-DATA-003C`, `RW-DATA-003D`
 - Ready when: retained world/network/NPC and chat/social schema slices are complete
 - Parallel with: `RW-DATA-004A`
-- Allowed write scope: `src/RewritePersistence/**`, `src/RewriteMigrationTest/**`
+- Allowed write scope: `src/RewritePersistence/**`
 - Autonomous next: `RW-DATA-005A`
 - Fallback if blocked: `RW-DATA-003C`
 - Verification scope: `./gradlew :RewritePersistence:test :RewritePersistence:migrationTest`
 
 ### RW-DATA-005A - Add retained importer validation fixtures and migration evidence
-- Status: `ready`
+- Status: `done`
 - Priority: `P2`
 - Execution lane: `audit`
 - Worker role: `worker`
 - Depends on: `RW-DATA-004A`, `RW-DATA-004B`
 - Ready when: retained importer slices exist across auth, player, world, and chat domains
 - Parallel with: `RW-TEST-003`
-- Allowed write scope: `src/RewriteMigrationTest/**`, `src/RewritePersistence/**`, `plans/rewrite/feature-inventory/PLAN.md`
+- Allowed write scope: `src/RewritePersistence/**`, `plans/rewrite/feature-inventory/PLAN.md`
 - Autonomous next: `RW-DATA-005B`
 - Fallback if blocked: `RW-DATA-004A`
-- Verification scope: `./gradlew :RewritePersistence:test :RewritePersistence:migrationTest :RewriteMigrationTest:test`
+- Verification scope: `./gradlew :RewritePersistence:test :RewritePersistence:migrationTest rewriteMigrationTest`
 
 ### RW-DATA-005B - Add retained audit and reconciliation reporting
-- Status: `todo`
+- Status: `ready`
 - Priority: `P3`
 - Execution lane: `audit`
 - Worker role: `verifier`
 - Depends on: `RW-DATA-005A`
 - Ready when: importer validation fixtures and migration evidence exist
 - Parallel with: `RW-M2-001`
-- Allowed write scope: `src/RewritePersistence/**`, `src/RewriteMigrationTest/**`, `plans/rewrite/feature-inventory/PLAN.md`
+- Allowed write scope: `src/RewritePersistence/**`, `plans/rewrite/feature-inventory/PLAN.md`
 - Autonomous next: `RW-M2-001`
 - Fallback if blocked: `RW-DATA-005A`
-- Verification scope: `./gradlew :RewritePersistence:test :RewritePersistence:migrationTest :RewriteMigrationTest:test`
+- Verification scope: `./gradlew :RewritePersistence:test :RewritePersistence:migrationTest rewriteMigrationTest`
 
 ## Global Acceptance Gates
 - No retained data task is `done` until migration tests, persistence tests, and any named downstream unblock verification remain green.
