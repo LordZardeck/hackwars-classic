@@ -125,6 +125,7 @@ class RequestWebpageCommand(
     private val targetStateId: GameStateId,
     private val parameters: Map<String, String>,
     private val httpHookRuntime: HttpHookRuntime = NoOpHttpHookRuntime,
+    private val retainedHelpTutorialRepository: RetainedHelpTutorialRepository = NoOpRetainedHelpTutorialRepository,
     private val clock: () -> Long = { System.currentTimeMillis() },
 ) : RequestCommand<WebsiteRenderResponse> {
     override val name: String = "requestwebpage"
@@ -132,6 +133,17 @@ class RequestWebpageCommand(
     override val targetStateIds: Set<GameStateId> = setOf(sourceStateId, targetStateId)
 
     override suspend fun execute(context: CommandContext): WebsiteRenderResponse {
+        val retainedPage = retainedHelpTutorialRepository.loadWebsite(targetStateId)
+        if (retainedPage != null) {
+            return WebsiteRenderResponse(
+                resolvedTargetStateId = retainedPage.targetStateId,
+                title = retainedPage.title,
+                body = retainedPage.body,
+                storeFiles = emptyList(),
+                fallback = false,
+                version = 0L,
+            )
+        }
         val targetState = context.loadState(targetStateId) ?: return fallbackWebsite(targetStateId)
         val installedApplication = targetState.activeDefaultApplication(ApplicationKind.HTTP, clock())
             ?: return fallbackWebsite(targetStateId, targetState.version)

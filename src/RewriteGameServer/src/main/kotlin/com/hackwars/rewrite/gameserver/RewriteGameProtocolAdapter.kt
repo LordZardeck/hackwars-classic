@@ -63,6 +63,7 @@ import com.hackwars.rewrite.gamecore.HacktendoActivateCommand
 import com.hackwars.rewrite.gamecore.HacktendoActivatePayload
 import com.hackwars.rewrite.gamecore.HacktendoTargetCommand
 import com.hackwars.rewrite.gamecore.HacktendoTargetPayload
+import com.hackwars.rewrite.gamecore.HelpTopicListResponse
 import com.hackwars.rewrite.gamecore.ExitWebpageCommand
 import com.hackwars.rewrite.gamecore.ExitWebpagePayload
 import com.hackwars.rewrite.gamecore.FacebookDepositPayload
@@ -183,12 +184,19 @@ import com.hackwars.rewrite.gamecore.SetWatchNoteCommand
 import com.hackwars.rewrite.gamecore.SetWatchNotePayload
 import com.hackwars.rewrite.gamecore.SetWatchOnOffCommand
 import com.hackwars.rewrite.gamecore.SetWatchOnOffPayload
+import com.hackwars.rewrite.gamecore.DefaultRetainedHelpTutorialRepository
+import com.hackwars.rewrite.gamecore.RequestHelpTopicListCommand
+import com.hackwars.rewrite.gamecore.RequestHelpTopicListPayload
+import com.hackwars.rewrite.gamecore.RequestTutorialCommand
+import com.hackwars.rewrite.gamecore.RequestTutorialPayload
+import com.hackwars.rewrite.gamecore.RetainedHelpTutorialRepository
 import com.hackwars.rewrite.gamecore.SetWatchObservedPortsCommand
 import com.hackwars.rewrite.gamecore.SetWatchObservedPortsPayload
 import com.hackwars.rewrite.gamecore.SetWatchQuantityCommand
 import com.hackwars.rewrite.gamecore.SetWatchQuantityPayload
 import com.hackwars.rewrite.gamecore.SetWatchSearchFirewallCommand
 import com.hackwars.rewrite.gamecore.SetWatchSearchFirewallPayload
+import com.hackwars.rewrite.gamecore.TutorialResponse
 import com.hackwars.rewrite.gamecore.VoteForWebsiteCommand
 import com.hackwars.rewrite.gamecore.VotePayload
 import com.hackwars.rewrite.gamecore.VoteResponse
@@ -236,6 +244,7 @@ class RewriteGameProtocolAdapter(
     private val searchCatalogRepository: SearchCatalogRepository = JdbcSearchCatalogRepository(
         connectionFactory = RewritePostgresConnectionFactory.fromEnvironment(),
     ),
+    private val retainedHelpTutorialRepository: RetainedHelpTutorialRepository = DefaultRetainedHelpTutorialRepository(),
     private val playerProfileRepository: PersonalSettingsProfileRepository = JdbcPersonalSettingsProfileRepository(
         connectionFactory = RewritePostgresConnectionFactory.fromEnvironment(),
     ),
@@ -251,6 +260,7 @@ class RewriteGameProtocolAdapter(
         httpHookRuntime,
         networkDirectoryRepository,
         searchCatalogRepository,
+        retainedHelpTutorialRepository,
         playerProfileRepository,
         attackProgramRegistry,
         ftpPasswordRepository,
@@ -520,6 +530,8 @@ class RewriteGameProtocolAdapter(
             is NetworkSwitchResponse -> RewriteGameJson.encode(NetworkSwitchResponse.serializer(), result)
             is ScanResponse -> RewriteGameJson.encode(ScanResponse.serializer(), result)
             is SearchResultsResponse -> RewriteGameJson.encode(SearchResultsResponse.serializer(), result)
+            is HelpTopicListResponse -> RewriteGameJson.encode(HelpTopicListResponse.serializer(), result)
+            is TutorialResponse -> RewriteGameJson.encode(TutorialResponse.serializer(), result)
             is WatchListResponse -> RewriteGameJson.encode(WatchListResponse.serializer(), result)
             is WatchMutationResponse -> RewriteGameJson.encode(WatchMutationResponse.serializer(), result)
             is SetPreferenceCommandResponse -> RewriteGameJson.encode(SetPreferenceCommandResponse.serializer(), result)
@@ -541,6 +553,7 @@ class RewriteGameProtocolAdapter(
             httpHookRuntime: HttpHookRuntime,
             networkDirectoryRepository: NetworkDirectoryRepository,
             searchCatalogRepository: SearchCatalogRepository,
+            retainedHelpTutorialRepository: RetainedHelpTutorialRepository,
             playerProfileRepository: PersonalSettingsProfileRepository,
             attackProgramRegistry: AttackProgramRegistry,
             ftpPasswordRepository: FtpPasswordRepository = InMemoryFtpPasswordRepository(),
@@ -571,6 +584,25 @@ class RewriteGameProtocolAdapter(
                         targetStateId = resolveWebsiteTarget(payload.targetIp, serverId),
                         parameters = payload.parameters,
                         httpHookRuntime = httpHookRuntime,
+                        retainedHelpTutorialRepository = retainedHelpTutorialRepository,
+                    )
+                }
+                .register("requesthelptopiclist") { input ->
+                    val payload = decodePayload(input, RequestHelpTopicListPayload.serializer())
+                    val authenticatedStateId = requireAuthenticatedStateId(input)
+                    RequestHelpTopicListCommand(
+                        requesterStateId = authenticatedStateId,
+                        topicGroup = payload.topicGroup,
+                        repository = retainedHelpTutorialRepository,
+                    )
+                }
+                .register("requesttutorial") { input ->
+                    val payload = decodePayload(input, RequestTutorialPayload.serializer())
+                    val authenticatedStateId = requireAuthenticatedStateId(input)
+                    RequestTutorialCommand(
+                        requesterStateId = authenticatedStateId,
+                        tutorialId = payload.tutorialId,
+                        repository = retainedHelpTutorialRepository,
                     )
                 }
                 .register("submit") { input ->

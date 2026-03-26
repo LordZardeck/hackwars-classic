@@ -204,7 +204,7 @@
 - Verification scope: `./gradlew :RewriteGameCore:test :RewritePersistence:test :RewriteGameServer:test`
 
 ### RW-GS-T5 - Implement retained Help and Tutorial content or query transport
-- Status: `ready`
+- Status: `done`
 - Priority: `P2`
 - Execution lane: `profile_help`
 - Worker role: `worker`

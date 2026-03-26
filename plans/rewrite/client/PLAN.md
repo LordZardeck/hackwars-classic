@@ -348,7 +348,7 @@
 - Verification scope: `./gradlew :RewriteClient:test :RewriteClient:uiTest`
 
 ### RW-CLIENT-W3C2 - Help and Tutorial surfaces foundation
-- Status: `blocked`
+- Status: `ready`
 - Priority: `P1`
 - Execution lane: `ftp_web`
 - Worker role: `worker`

@@ -1399,21 +1399,21 @@ class RewriteClientJsonTest {
     }
 
     @Test
-    fun decodesRetainedHelpTopicListAndTutorialShapes() {
+    fun decodesRetainedHelpTopicAndTutorialShapes() {
         val helpPayload = """
             {
-              "topicGroup":"APIs",
+              "topicGroup":"Banking",
               "topics":[
                 {
-                  "name":"Banking",
-                  "id":"12",
-                  "targetUrl":"http://help/help.php?id=12",
+                  "name":"Deposit Money",
+                  "id":"banking-deposit",
+                  "targetUrl":"http://203.0.113.211/",
                   "ignored":"ignored"
                 },
                 {
-                  "name":"Attack",
-                  "id":"19",
-                  "targetUrl":"http://help/help.php?id=19"
+                  "name":"Transfer Money",
+                  "id":"banking-transfer",
+                  "targetUrl":"http://203.0.113.213/"
                 }
               ],
               "ignored":"ignored"
@@ -1437,9 +1437,9 @@ class RewriteClientJsonTest {
             tutorialPayload,
         )
 
-        assertEquals("APIs", help.topicGroup)
-        assertEquals("Banking", help.topics.first().name)
-        assertEquals("http://help/help.php?id=19", help.topics.last().targetUrl)
+        assertEquals("Banking", help.topicGroup)
+        assertEquals("Deposit Money", help.topics.first().name)
+        assertEquals("http://203.0.113.213/", help.topics.last().targetUrl)
         assertEquals("first-attack", tutorial.tutorialId)
         assertEquals("First Attack", tutorial.title)
         assertEquals("<p>Welcome</p>", tutorial.body)

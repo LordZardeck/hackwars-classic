@@ -62,6 +62,28 @@ class GameCoreContractsTest {
                     searchCatalogRepository = InMemorySearchCatalogRepository(emptyList()),
                 )
             }
+            .register("requesthelptopiclist") { input ->
+                val payload = RewriteGameJson.codec.decodeFromString(
+                    deserializer = RequestHelpTopicListPayload.serializer(),
+                    string = input.payloadJson ?: error("Expected request help topic list payload json."),
+                )
+                RequestHelpTopicListCommand(
+                    requesterStateId = input.metadata.authenticatedStateId ?: GameStateId("LOCAL-IP"),
+                    topicGroup = payload.topicGroup,
+                    repository = DefaultRetainedHelpTutorialRepository(),
+                )
+            }
+            .register("requesttutorial") { input ->
+                val payload = RewriteGameJson.codec.decodeFromString(
+                    deserializer = RequestTutorialPayload.serializer(),
+                    string = input.payloadJson ?: error("Expected request tutorial payload json."),
+                )
+                RequestTutorialCommand(
+                    requesterStateId = input.metadata.authenticatedStateId ?: GameStateId("LOCAL-IP"),
+                    tutorialId = payload.tutorialId,
+                    repository = DefaultRetainedHelpTutorialRepository(),
+                )
+            }
             .register("fetchwatches") { input ->
                 val payload = RewriteGameJson.codec.decodeFromString(
                     deserializer = FetchWatchesPayload.serializer(),
@@ -192,6 +214,34 @@ class GameCoreContractsTest {
                 metadata = CommandMetadata(authenticatedStateId = GameStateId("LOCAL-IP")),
             ),
         )
+        val helpTopics = registry.requireCreate(
+            CommandEnvelopeInput(
+                commandId = "help-1",
+                commandName = "requesthelptopiclist",
+                targetStateIds = setOf(GameStateId("LOCAL-IP")),
+                payloadJson = RewriteGameJson.codec.encodeToString(
+                    serializer = RequestHelpTopicListPayload.serializer(),
+                    value = RequestHelpTopicListPayload(topicGroup = "Tutorials"),
+                ),
+                expectsResponse = true,
+                metadata = CommandMetadata(authenticatedStateId = GameStateId("LOCAL-IP")),
+            ),
+        )
+        val tutorial = registry.requireCreate(
+            CommandEnvelopeInput(
+                commandId = "tutorial-1",
+                commandName = "requesttutorial",
+                targetStateIds = setOf(GameStateId("LOCAL-IP")),
+                payloadJson = RewriteGameJson.codec.encodeToString(
+                    serializer = RequestTutorialPayload.serializer(),
+                    value = RequestTutorialPayload(
+                        tutorialId = RETAINED_FIRST_ATTACK_TUTORIAL_ID,
+                    ),
+                ),
+                expectsResponse = true,
+                metadata = CommandMetadata(authenticatedStateId = GameStateId("LOCAL-IP")),
+            ),
+        )
         val fetchWatches = registry.requireCreate(
             CommandEnvelopeInput(
                 commandId = "watch-1",
@@ -312,6 +362,8 @@ class GameCoreContractsTest {
                 "requestscan",
                 "changenetwork",
                 "requestsearch",
+                "requesthelptopiclist",
+                "requesttutorial",
                 "fetchwatches",
                 "installwatch",
                 "setpreferences",
@@ -325,6 +377,8 @@ class GameCoreContractsTest {
         assertIs<RequestScanCommand>(scan)
         assertIs<ChangeNetworkCommand>(changeNetwork)
         assertIs<RequestSearchCommand>(search)
+        assertIs<RequestHelpTopicListCommand>(helpTopics)
+        assertIs<RequestTutorialCommand>(tutorial)
         assertIs<FetchWatchesCommand>(fetchWatches)
         assertIs<InstallWatchCommand>(installWatch)
         assertIs<SetPreferenceCommand>(setPreference)
