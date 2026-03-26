@@ -60,6 +60,10 @@ class InMemoryConnectionLog {
 interface RewriteServiceAdapter {
     val service: RewriteService
 
+    fun bindTransport(
+        pushFrame: suspend (connectionId: String, frame: FrameEnvelope) -> Unit,
+    ) = Unit
+
     suspend fun onSessionStarted(session: InMemoryAuthenticatedSession): List<FrameEnvelope> = emptyList()
 
     suspend fun onSessionEnded(session: InMemoryAuthenticatedSession) = Unit
@@ -134,6 +138,12 @@ class InMemoryRewriteServiceHarness(
 ) {
     private val nextConnectionNumber = AtomicInteger(1)
     private val connections = linkedMapOf<String, ConnectionContext>()
+
+    init {
+        adapter.bindTransport { connectionId, frame ->
+            push(connectionId, frame)
+        }
+    }
 
     fun connect(connectionPrefix: String = adapter.service.name.lowercase()): InMemoryClientConnection {
         val connectionId = "$connectionPrefix-${nextConnectionNumber.getAndIncrement()}"

@@ -83,6 +83,20 @@
 - Fallback if blocked: `RW-CHAT-002A`
 - Verification scope: `./gradlew :RewriteChatCore:test :RewriteChatServer:test`
 
+### RW-CHAT-002C - Add retained chat outbound multi-recipient transport hook
+- Status: `done`
+- Priority: `P1`
+- Execution lane: `bootstrap`
+- Worker role: `worker`
+- Depends on: `RW-CHAT-002A`
+- Ready when: retained chat sessions can bind canonical player identities to active connections
+- Parallel with: `RW-CHAT-004A`
+- Allowed write scope: `src/RewriteChatServer/**`, `src/RewriteTestKit/**`
+- Autonomous next: `RW-CHAT-003B`
+- Fallback if blocked: `RW-CHAT-002A`
+- Verification scope: `./gradlew --rerun-tasks :RewriteProtocol:test :RewriteChatCore:test :RewriteChatServer:test`
+- Locked scope note: this card binds a transport push callback into the retained chat adapter so later channel and whisper fanout can target other authenticated chat connections instead of only the caller.
+
 ### RW-CHAT-003A - Implement retained channel lifecycle and moderation model
 - Status: `done`
 - Priority: `P1`
@@ -102,8 +116,8 @@
 - Priority: `P1`
 - Execution lane: `channels`
 - Worker role: `worker`
-- Depends on: `RW-CHAT-002A`, `RW-CHAT-003A`
-- Ready when: retained session bootstrap and channel lifecycle both work
+- Depends on: `RW-CHAT-002A`, `RW-CHAT-002C`, `RW-CHAT-003A`
+- Ready when: retained session bootstrap, outbound transport hook, and channel lifecycle all work
 - Parallel with: `RW-CHAT-004B`
 - Allowed write scope: `src/RewriteChatCore/**`, `src/RewriteChatServer/**`
 - Autonomous next: `RW-CHAT-005A`

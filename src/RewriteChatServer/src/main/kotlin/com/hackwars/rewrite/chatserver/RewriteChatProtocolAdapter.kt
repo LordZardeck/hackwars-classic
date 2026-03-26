@@ -67,6 +67,7 @@ class RewriteChatProtocolAdapter(
     private val clock: () -> Instant = { Instant.now() },
 ) {
     private val activeSessions = linkedMapOf<String, AuthenticatedChatSession>()
+    private var pushFrame: suspend (connectionId: String, frame: FrameEnvelope) -> Unit = { _, _ -> }
 
     suspend fun bindSession(
         connectionId: String,
@@ -975,6 +976,26 @@ class RewriteChatProtocolAdapter(
 
     fun serviceAdapter(): RewriteServiceAdapter = RewriteChatServiceAdapter(this)
 
+    fun bindTransport(
+        pushFrame: suspend (connectionId: String, frame: FrameEnvelope) -> Unit,
+    ) {
+        this.pushFrame = pushFrame
+    }
+
+    suspend fun pushToPlayerIds(
+        playerIds: Set<String>,
+        frames: List<FrameEnvelope>,
+    ) {
+        val recipientConnectionIds = activeSessions.values
+            .filter { it.playerId in playerIds }
+            .map { it.connectionId }
+        for (connectionId in recipientConnectionIds) {
+            for (frame in frames) {
+                pushFrame(connectionId, frame)
+            }
+        }
+    }
+
     private fun PersistedChatRelation.toDomainRelation(
         onlinePlayerIds: Set<String>,
         relationKind: com.hackwars.rewrite.protocol.ChatRelationKind,
@@ -1023,6 +1044,12 @@ class RewriteChatServiceAdapter(
     private val adapter: RewriteChatProtocolAdapter,
 ) : RewriteServiceAdapter {
     override val service: RewriteService = RewriteService.CHAT
+
+    override fun bindTransport(
+        pushFrame: suspend (connectionId: String, frame: FrameEnvelope) -> Unit,
+    ) {
+        adapter.bindTransport(pushFrame)
+    }
 
     override suspend fun onSessionStarted(session: InMemoryAuthenticatedSession): List<FrameEnvelope> {
         val boundSession = adapter.bindSession(

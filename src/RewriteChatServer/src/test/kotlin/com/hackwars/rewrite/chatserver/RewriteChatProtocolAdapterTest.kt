@@ -109,6 +109,44 @@ class RewriteChatProtocolAdapterTest {
     }
 
     @Test
+    fun boundTransportPushesFramesToActiveRecipientConnections() = runTest {
+        val fixture = createFixture()
+        val localConnection = fixture.authenticatedConnection()
+        localConnection.awaitFrame()
+        localConnection.awaitFrame()
+        val aliceConnection = fixture.authenticatedConnection(
+            sessionTicket = "SESSION-ALICE",
+            playFabIdHint = "PF-ALICE",
+            requestedIp = "192.0.2.11",
+        )
+        aliceConnection.awaitFrame()
+        aliceConnection.awaitFrame()
+
+        fixture.adapter.pushToPlayerIds(
+            playerIds = setOf("alice"),
+            frames = listOf(
+                RewriteFrames.chatEvent(
+                    eventId = "fanout-1",
+                    eventType = ChatParityEventType.ERROR,
+                    payload = RewriteChatJson.encode(
+                        serializer = ChatErrorEventPayload.serializer(),
+                        value = ChatErrorEventPayload(
+                            receiverPlayerId = "alice",
+                            message = "fanout",
+                        ),
+                    ),
+                ),
+            ),
+        )
+
+        assertEquals("fanout", RewriteChatJson.decode(
+            serializer = ChatErrorEventPayload.serializer(),
+            bytes = aliceConnection.awaitFrame().chat_event!!.payload.toByteArray(),
+        ).message)
+        assertEquals(emptyList(), localConnection.drainFrames())
+    }
+
+    @Test
     fun subChannelsCommandReturnsActorLocalRefresh() = runTest {
         val fixture = createFixture()
         val connection = fixture.authenticatedConnection()
@@ -409,6 +447,15 @@ class RewriteChatProtocolAdapterTest {
                     issuedAt = Instant.parse("2026-03-26T10:00:00Z"),
                 ),
             )
+            upsertSessionTicketDirect(
+                PersistedSessionTicket(
+                    sessionTicket = "SESSION-ALICE",
+                    playerId = "alice",
+                    playFabId = "PF-ALICE",
+                    playerIp = "192.0.2.11",
+                    issuedAt = Instant.parse("2026-03-26T10:00:00Z"),
+                ),
+            )
         }
         val chatRepository = InMemoryChatSocialRepository(
             channels = mutableListOf(
@@ -465,12 +512,13 @@ class RewriteChatProtocolAdapterTest {
                 ),
             ),
         )
+        val adapter = RewriteChatProtocolAdapter(
+            authSessionRepository = authRepository,
+            chatSocialRepository = chatRepository,
+            clock = { Instant.ofEpochMilli(testScheduler.currentTime) },
+        )
         val harness = InMemoryRewriteServiceHarness(
-            adapter = RewriteChatProtocolAdapter(
-                authSessionRepository = authRepository,
-                chatSocialRepository = chatRepository,
-                clock = { Instant.ofEpochMilli(testScheduler.currentTime) },
-            ).serviceAdapter(),
+            adapter = adapter.serviceAdapter(),
             verifier = FakeSessionTicketVerifier(
                 catalog = FakeSessionCatalog(
                     accounts = listOf(
@@ -478,6 +526,11 @@ class RewriteChatProtocolAdapterTest {
                             playFabId = "PF-LOCALUSER",
                             playerIp = "192.0.2.10",
                             sessionTicket = "SESSION-LOCALUSER",
+                        ),
+                        FakePlayerAccount(
+                            playFabId = "PF-ALICE",
+                            playerIp = "192.0.2.11",
+                            sessionTicket = "SESSION-ALICE",
                         ),
                     ),
                 ),
@@ -492,25 +545,29 @@ class RewriteChatProtocolAdapterTest {
         )
         return Fixture(
             harness = harness,
+            adapter = adapter,
             authRepository = authRepository,
             chatRepository = chatRepository,
         )
     }
 
-    private suspend fun Fixture.authenticatedConnection(): InMemoryClientConnection {
+    private suspend fun Fixture.authenticatedConnection(
+        sessionTicket: String = "SESSION-LOCALUSER",
+        playFabIdHint: String = "PF-LOCALUSER",
+        requestedIp: String = "192.0.2.10",
+    ): InMemoryClientConnection {
         val connection = harness.connect(connectionPrefix = "chat")
         connection.send(
             RewriteFrames.authRequest(
                 service = RewriteService.CHAT,
-                sessionTicket = "SESSION-LOCALUSER",
+                sessionTicket = sessionTicket,
                 clientBuild = "rewrite-chat-it",
-                playFabIdHint = "PF-LOCALUSER",
-                requestedIp = "192.0.2.10",
+                playFabIdHint = playFabIdHint,
+                requestedIp = requestedIp,
             ),
         )
         val accepted = connection.awaitFrame()
         assertNotNull(accepted.auth_response?.accepted)
-        assertEquals("chat-1", accepted.auth_response?.accepted?.connection_id)
         return connection
     }
 
@@ -565,6 +622,7 @@ class RewriteChatProtocolAdapterTest {
 
     private data class Fixture(
         val harness: InMemoryRewriteServiceHarness,
+        val adapter: RewriteChatProtocolAdapter,
         val authRepository: InMemoryAuthSessionRepository,
         val chatRepository: InMemoryChatSocialRepository,
     )
