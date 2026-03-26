@@ -140,7 +140,7 @@
 - Verification scope: `./gradlew :RewriteClientDev:test :RewriteClient:test :RewriteClient:uiTest`
 
 ### RW-CLIENT-004B - Deterministic dev parity harness and usable-state closure
-- Status: `ready`
+- Status: `done`
 - Priority: `P1`
 - Execution lane: `auth_bootstrap`
 - Worker role: `worker`
@@ -492,7 +492,7 @@
 
 ## Completion Tracks
 ### RW-CLIENT-C0A - Login and desktop-entry MVC extraction
-- Status: `todo`
+- Status: `ready`
 - Priority: `P1`
 - Execution lane: `auth_bootstrap`
 - Worker role: `worker`
@@ -531,7 +531,7 @@
 - Verification scope: screenshot baseline approval, deterministic login/startup artifact capture
 
 ### RW-CLIENT-C1A - Shell chrome, stats rail, and taskbar MVC extraction
-- Status: `todo`
+- Status: `ready`
 - Priority: `P0`
 - Execution lane: `shell_chrome`
 - Worker role: `worker`
