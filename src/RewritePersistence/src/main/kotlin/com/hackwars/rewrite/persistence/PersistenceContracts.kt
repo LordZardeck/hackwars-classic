@@ -63,6 +63,64 @@ data class RewriteSeedBatch(
 
 sealed interface SeedPayload
 
+enum class PersistedServiceKind {
+    GAME,
+    CHAT,
+}
+
+data class PersistedSessionTicket(
+    val sessionTicket: String,
+    val playerId: String,
+    val playFabId: String,
+    val playerIp: String,
+    val issuedAt: Instant = Instant.EPOCH,
+    val expiresAt: Instant? = null,
+    val ticketPayload: String = "{}",
+)
+
+data class PersistedServiceSession(
+    val serviceSessionId: String,
+    val serviceKind: PersistedServiceKind,
+    val connectionId: String,
+    val playerId: String,
+    val playFabId: String,
+    val playerIp: String,
+    val sessionTicket: String,
+    val clientBuild: String = "",
+    val heartbeatIntervalMillis: Long = 0L,
+    val authenticatedAt: Instant = Instant.EPOCH,
+    val lastSeenAt: Instant = authenticatedAt,
+    val closedAt: Instant? = null,
+    val sessionPayload: String = "{}",
+)
+
+interface AuthSessionRepository {
+    suspend fun upsertSessionTicket(ticket: PersistedSessionTicket)
+
+    suspend fun findSessionTicket(sessionTicket: String): PersistedSessionTicket?
+
+    suspend fun upsertServiceSession(session: PersistedServiceSession)
+
+    suspend fun findServiceSession(
+        serviceKind: PersistedServiceKind,
+        connectionId: String,
+    ): PersistedServiceSession?
+
+    suspend fun listActiveServiceSessions(playerId: String): List<PersistedServiceSession>
+
+    suspend fun touchServiceSession(
+        serviceKind: PersistedServiceKind,
+        connectionId: String,
+        lastSeenAt: Instant,
+    )
+
+    suspend fun closeServiceSession(
+        serviceKind: PersistedServiceKind,
+        connectionId: String,
+        closedAt: Instant,
+    )
+}
+
 data class SeedPlayerAccount(
     val playerId: String,
     val playFabId: String,

@@ -41,6 +41,8 @@ class RewritePersistenceBootstrapTest {
             assertTableExists(it, "rewrite_network_directory")
             assertTableExists(it, "rewrite_network_link")
             assertTableExists(it, "rewrite_network_npc")
+            assertTableExists(it, "rewrite_session_ticket")
+            assertTableExists(it, "rewrite_service_session")
         }
     }
 
@@ -48,7 +50,7 @@ class RewritePersistenceBootstrapTest {
     fun rollbackRemovesBootstrapTables() {
         withConnection {
             RewriteLiquibase.update(it)
-            RewriteLiquibase.rollback(it, 2)
+            RewriteLiquibase.rollback(it, 3)
 
             assertTableMissing(it, "rewrite_import_batch")
             assertTableMissing(it, "rewrite_player_account")
@@ -58,6 +60,8 @@ class RewritePersistenceBootstrapTest {
             assertTableMissing(it, "rewrite_network_directory")
             assertTableMissing(it, "rewrite_network_link")
             assertTableMissing(it, "rewrite_network_npc")
+            assertTableMissing(it, "rewrite_session_ticket")
+            assertTableMissing(it, "rewrite_service_session")
         }
     }
 

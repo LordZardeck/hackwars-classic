@@ -46,7 +46,7 @@
 - Verification scope: `./gradlew :RewritePersistence:test`
 
 ### RW-DATA-003A - Define retained auth and session schema slice
-- Status: `ready`
+- Status: `done`
 - Priority: `P1`
 - Execution lane: `schema`
 - Worker role: `worker`

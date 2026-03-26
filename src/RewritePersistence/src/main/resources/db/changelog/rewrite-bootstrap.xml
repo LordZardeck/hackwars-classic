@@ -215,4 +215,119 @@
             <dropTable tableName="rewrite_network_directory"/>
         </rollback>
     </changeSet>
+
+    <changeSet id="rewrite-0003-auth-session" author="codex">
+        <comment>Persist retained auth tickets and authenticated service sessions for GAME and CHAT bootstrap flows.</comment>
+
+        <createTable tableName="rewrite_session_ticket">
+            <column name="session_ticket" type="varchar(191)">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="player_id" type="varchar(64)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="playfab_id" type="varchar(128)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="player_ip" type="varchar(64)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="issued_at" type="timestamptz">
+                <constraints nullable="false"/>
+            </column>
+            <column name="expires_at" type="timestamptz"/>
+            <column name="ticket_payload" type="jsonb">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <createTable tableName="rewrite_service_session">
+            <column name="service_session_id" type="varchar(64)">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="service_kind" type="varchar(16)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="connection_id" type="varchar(64)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="player_id" type="varchar(64)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="playfab_id" type="varchar(128)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="player_ip" type="varchar(64)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="session_ticket" type="varchar(191)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="client_build" type="varchar(64)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="heartbeat_interval_millis" type="bigint">
+                <constraints nullable="false"/>
+            </column>
+            <column name="authenticated_at" type="timestamptz">
+                <constraints nullable="false"/>
+            </column>
+            <column name="last_seen_at" type="timestamptz">
+                <constraints nullable="false"/>
+            </column>
+            <column name="closed_at" type="timestamptz"/>
+            <column name="session_payload" type="jsonb">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <addForeignKeyConstraint
+            baseTableName="rewrite_session_ticket"
+            baseColumnNames="player_id"
+            referencedTableName="rewrite_player_account"
+            referencedColumnNames="player_id"
+            constraintName="fk_rewrite_ticket_player"/>
+
+        <addForeignKeyConstraint
+            baseTableName="rewrite_service_session"
+            baseColumnNames="player_id"
+            referencedTableName="rewrite_player_account"
+            referencedColumnNames="player_id"
+            constraintName="fk_rewrite_service_session_player"/>
+
+        <addForeignKeyConstraint
+            baseTableName="rewrite_service_session"
+            baseColumnNames="session_ticket"
+            referencedTableName="rewrite_session_ticket"
+            referencedColumnNames="session_ticket"
+            constraintName="fk_rewrite_service_session_ticket"/>
+
+        <addUniqueConstraint
+            tableName="rewrite_service_session"
+            columnNames="service_kind, connection_id"
+            constraintName="uq_rewrite_service_session_connection"/>
+
+        <createIndex tableName="rewrite_session_ticket" indexName="idx_rewrite_session_ticket_player">
+            <column name="player_id"/>
+        </createIndex>
+
+        <createIndex tableName="rewrite_session_ticket" indexName="idx_rewrite_session_ticket_playfab">
+            <column name="playfab_id"/>
+        </createIndex>
+
+        <createIndex tableName="rewrite_service_session" indexName="idx_rewrite_service_session_player">
+            <column name="player_id"/>
+            <column name="service_kind"/>
+            <column name="closed_at"/>
+        </createIndex>
+
+        <createIndex tableName="rewrite_service_session" indexName="idx_rewrite_service_session_ticket">
+            <column name="session_ticket"/>
+        </createIndex>
+
+        <rollback>
+            <dropTable tableName="rewrite_service_session"/>
+            <dropTable tableName="rewrite_session_ticket"/>
+        </rollback>
+    </changeSet>
 </databaseChangeLog>
