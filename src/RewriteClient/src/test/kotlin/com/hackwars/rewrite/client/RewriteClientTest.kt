@@ -43,6 +43,7 @@ import hackwars.rewrite.v1.FrameEnvelope
 import hackwars.rewrite.v1.CommandResponseStatus
 import hackwars.rewrite.v1.ErrorEnvelope
 import java.time.Instant
+import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
@@ -866,7 +867,7 @@ class RewriteClientTest {
             }
         }.apply { start() }
 
-        val inboundFrames = mutableListOf<FrameEnvelope>()
+        val inboundFrames = CopyOnWriteArrayList<FrameEnvelope>()
         val gateway = RewriteTcpServiceSessionGateway(
             gameConnectionConfig = RewriteGameConnectionConfig(
                 host = "127.0.0.1",
@@ -906,7 +907,7 @@ class RewriteClientTest {
             }
         }.apply { start() }
 
-        val inboundFrames = mutableListOf<FrameEnvelope>()
+        val inboundFrames = CopyOnWriteArrayList<FrameEnvelope>()
         val gateway = RewriteTcpServiceSessionGateway(
             gameConnectionConfig = RewriteGameConnectionConfig(
                 host = "127.0.0.1",

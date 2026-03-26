@@ -150,7 +150,7 @@
   - Image-viewer parity stays explicitly deferred until rewrite exposes typed image-file metadata; no filename/content heuristics are allowed in this tranche.
 
 ### RW-CLIENT-W2B2 - Script Editor save/new/save-as plus compile/decompile mutation flows
-- Status: `in_progress`
+- Status: `done`
 - Owner: `unassigned`
 - Depends on: `RW-CLIENT-W2B1`
 - Allowed write scope: `:RewriteProtocol`, `:RewriteClient/client/files/**`, `:RewriteClient`
@@ -174,17 +174,42 @@
   - Covers remote `requestsecondarydirectory` browsing and the transfer UI surface.
   - Reuses the local chooser/browser foundation from `RW-CLIENT-W2A`.
 
-### RW-CLIENT-W3 - Browser, Website Editor, store, help, tutorial windows
-- Status: `todo`
+### RW-CLIENT-W3A - Lightweight browser core, store purchase flow, and web transport bridge
+- Status: `in_progress`
 - Owner: `unassigned`
 - Depends on: `RW-CLIENT-003A`
-- Allowed write scope: `:RewriteClient/client/web/**`
+- Allowed write scope: `:RewriteProtocol`, `:RewriteClient/client/web/**`, `:RewriteClient`
+- Verification command: `./gradlew :RewriteProtocol:test :RewriteClient:test :RewriteClient:uiTest`
+- Artifacts: `build/reports/rewrite/ui`
+- Commit rule: `single green commit only`
+- Notes:
+  - Covers `requestwebpage`, `submit`, `vote`, `exit`, `requestpurchase`, and real rewrite `Web Browser` / `Store` windows.
+  - Uses a rewrite-owned lightweight Swing HTML surface in this first browser tranche; no legacy Lobo/`HtmlHandler` port is allowed here.
+  - Store is purchase-only in this slice; seller/merchant management remains deferred.
+
+### RW-CLIENT-W3B - Site Editor with `requestpage` / `savepage`
+- Status: `todo`
+- Owner: `unassigned`
+- Depends on: `RW-CLIENT-W3A`
+- Allowed write scope: `:RewriteProtocol`, `:RewriteClient/client/web/**`, `:RewriteClient`
+- Verification command: `./gradlew :RewriteProtocol:test :RewriteClient:test :RewriteClient:uiTest`
+- Artifacts: `build/reports/rewrite/ui`
+- Commit rule: `single green commit only`
+- Notes:
+  - Owns `Website Editor` because it depends on `requestpage` / `savepage`, not filesystem commands.
+  - Reuses the browser/web transport bridge from `RW-CLIENT-W3A`.
+
+### RW-CLIENT-W3C - Help, tutorial, and browser-rendering parity hardening
+- Status: `todo`
+- Owner: `unassigned`
+- Depends on: `RW-CLIENT-W3A`
+- Allowed write scope: `:RewriteClient/client/web/**`, `:RewriteClient`
 - Verification command: `./gradlew :RewriteClient:test :RewriteClient:uiTest`
 - Artifacts: `build/reports/rewrite/ui`
 - Commit rule: `single green commit only`
 - Notes:
-  - Includes `Website Editor`, which lives in the web lane because it depends on `requestpage`/`savepage`, not filesystem commands.
-  - Includes known legacy browser-rendering problem as required parity work.
+  - Owns `Help` and `Tutorial` windows plus broader browser-rendering parity work.
+  - Search/bookmarks remain out of scope because the legacy remote endpoints behind them are gone.
 
 ### RW-CLIENT-W4 - Port, watch, equipment, and firewall windows
 - Status: `todo`

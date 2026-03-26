@@ -15,6 +15,7 @@ import com.hackwars.rewrite.client.shell.RewriteShellDialogCoordinator
 import com.hackwars.rewrite.client.shell.RewriteShellDialogHost
 import com.hackwars.rewrite.client.shell.RewriteShellWindowCoordinator
 import com.hackwars.rewrite.client.shell.RewriteShellWindowHost
+import com.hackwars.rewrite.client.web.RewriteWebBrowserWindow
 import com.hackwars.rewrite.clientmodel.RewriteClientBootstrapState
 import com.hackwars.rewrite.clientmodel.RewriteClientRoute
 import com.hackwars.rewrite.clientmodel.RewriteClientState
@@ -30,6 +31,7 @@ import com.hackwars.rewrite.protocol.ClientDecompileFilePayload
 import com.hackwars.rewrite.protocol.ClientDecompileFileResponse
 import com.hackwars.rewrite.protocol.ClientDepositPayload
 import com.hackwars.rewrite.protocol.ClientDirectoryListingResponse
+import com.hackwars.rewrite.protocol.ClientExitWebpagePayload
 import com.hackwars.rewrite.protocol.ClientFileContentsResponse
 import com.hackwars.rewrite.protocol.ClientFilesystemState
 import com.hackwars.rewrite.protocol.ClientGameSnapshot
@@ -38,12 +40,20 @@ import com.hackwars.rewrite.protocol.ClientMutationAcceptedResponse
 import com.hackwars.rewrite.protocol.ClientProgramUpdate
 import com.hackwars.rewrite.protocol.ClientRequestDirectoryPayload
 import com.hackwars.rewrite.protocol.ClientRequestFilePayload
+import com.hackwars.rewrite.protocol.ClientRequestPurchasePayload
+import com.hackwars.rewrite.protocol.ClientRequestWebpagePayload
+import com.hackwars.rewrite.protocol.ClientPurchaseResponse
 import com.hackwars.rewrite.protocol.ClientSaveFilePayload
 import com.hackwars.rewrite.protocol.ClientStoredFile
+import com.hackwars.rewrite.protocol.ClientSubmitWebpagePayload
 import com.hackwars.rewrite.protocol.ClientTransferPayload
 import com.hackwars.rewrite.protocol.ClientTransferResponse
+import com.hackwars.rewrite.protocol.ClientVotePayload
+import com.hackwars.rewrite.protocol.ClientVoteResponse
+import com.hackwars.rewrite.protocol.ClientWebsiteRenderResponse
 import com.hackwars.rewrite.protocol.ClientWithdrawPayload
 import com.hackwars.rewrite.protocol.RewriteFrames
+import com.hackwars.rewrite.protocol.RewriteClientJson
 import com.hackwars.rewrite.protocol.RewriteService
 import hackwars.rewrite.v1.FrameEnvelope
 import java.time.Instant
@@ -59,6 +69,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
+import java.util.UUID
 
 class RewriteRootController(
     private val gameConnectionConfig: RewriteGameConnectionConfig = RewriteGameConnectionConfig(),
@@ -329,6 +340,108 @@ class RewriteRootController(
             responseSerializer = ClientBountyCreatedResponse.serializer(),
             targetStateIds = listOf(playerIp),
         )
+    }
+
+    internal suspend fun requestWebpage(
+        targetIp: String,
+        parameters: Map<String, String> = emptyMap(),
+    ): RewriteGameCommandResult<ClientWebsiteRenderResponse> {
+        val playerIp = authenticatedPlayerIp()
+            ?: return RewriteGameCommandResult.Failure("Not connected to a rewrite game session.")
+        return gameCommandBroker.request(
+            commandName = "requestwebpage",
+            payloadSerializer = ClientRequestWebpagePayload.serializer(),
+            payload = ClientRequestWebpagePayload(
+                targetIp = targetIp,
+                sourceIp = playerIp,
+                parameters = parameters,
+            ),
+            responseSerializer = ClientWebsiteRenderResponse.serializer(),
+            targetStateIds = listOf(playerIp, targetIp),
+        )
+    }
+
+    internal suspend fun submitWebpage(
+        targetIp: String?,
+        parameters: Map<String, String> = emptyMap(),
+    ): RewriteGameCommandResult<ClientWebsiteRenderResponse> {
+        val playerIp = authenticatedPlayerIp()
+            ?: return RewriteGameCommandResult.Failure("Not connected to a rewrite game session.")
+        return gameCommandBroker.request(
+            commandName = "submit",
+            payloadSerializer = ClientSubmitWebpagePayload.serializer(),
+            payload = ClientSubmitWebpagePayload(
+                targetIp = targetIp,
+                sourceIp = playerIp,
+                parameters = parameters,
+            ),
+            responseSerializer = ClientWebsiteRenderResponse.serializer(),
+            targetStateIds = listOfNotNull(playerIp, targetIp),
+        )
+    }
+
+    internal suspend fun voteForWebsite(
+        targetIp: String,
+    ): RewriteGameCommandResult<ClientVoteResponse> {
+        val playerIp = authenticatedPlayerIp()
+            ?: return RewriteGameCommandResult.Failure("Not connected to a rewrite game session.")
+        return gameCommandBroker.request(
+            commandName = "vote",
+            payloadSerializer = ClientVotePayload.serializer(),
+            payload = ClientVotePayload(
+                targetIp = targetIp,
+                sourceIp = playerIp,
+            ),
+            responseSerializer = ClientVoteResponse.serializer(),
+            targetStateIds = listOf(playerIp, targetIp),
+        )
+    }
+
+    internal suspend fun requestPurchase(
+        targetIp: String,
+        fileName: String,
+        quantity: Int,
+    ): RewriteGameCommandResult<ClientPurchaseResponse> {
+        val playerIp = authenticatedPlayerIp()
+            ?: return RewriteGameCommandResult.Failure("Not connected to a rewrite game session.")
+        return gameCommandBroker.request(
+            commandName = "requestpurchase",
+            payloadSerializer = ClientRequestPurchasePayload.serializer(),
+            payload = ClientRequestPurchasePayload(
+                targetIp = targetIp,
+                sourceIp = playerIp,
+                fileName = fileName,
+                quantity = quantity,
+            ),
+            responseSerializer = ClientPurchaseResponse.serializer(),
+            targetStateIds = listOf(playerIp, targetIp),
+        )
+    }
+
+    internal fun exitWebpage(
+        targetIp: String?,
+    ) {
+        val playerIp = authenticatedPlayerIp() ?: return
+        workerScope.launch {
+            runCatching {
+                send(
+                    RewriteService.GAME,
+                    RewriteFrames.command(
+                        commandId = UUID.randomUUID().toString(),
+                        commandName = "exit",
+                        targetGameStateIds = listOfNotNull(playerIp, targetIp),
+                        payload = RewriteClientJson.encode(
+                            ClientExitWebpagePayload.serializer(),
+                            ClientExitWebpagePayload(
+                                targetIp = targetIp,
+                                sourceIp = playerIp,
+                            ),
+                        ),
+                        expectsResponse = false,
+                    ),
+                )
+            }
+        }
     }
 
     fun submitLogin(email: String, password: CharArray) {
@@ -650,6 +763,12 @@ class RewriteRootController(
             onFocusAuxiliaryWindow = { window ->
                 shellHost?.focusWindow(window)
             },
+        )
+
+        RewriteShellCommand.WEB_BROWSER,
+        RewriteShellCommand.STORE -> RewriteWebBrowserWindow(
+            controller = this,
+            command = command,
         )
 
         else -> RewritePlaceholderInternalFrame(command)

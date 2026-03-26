@@ -2,6 +2,7 @@ package com.hackwars.rewrite.protocol
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
 
@@ -473,5 +474,92 @@ class RewriteClientJsonTest {
         assertEquals("LOCAL-IP", transfer.sourceStateId)
         assertEquals("TARGET-IP", transfer.targetStateId)
         assertEquals(125.0, transfer.appliedAmount)
+    }
+
+    @Test
+    fun decodesCurrentRewriteWebAndStoreCommandPayloadsAndResponses() {
+        val webpagePayload = """
+            {
+              "resolvedTargetStateId":"TARGET-IP",
+              "title":"Remote Shop",
+              "body":"<html><body><a href=\"?buy=1\">Buy</a></body></html>",
+              "storeFiles":[
+                {
+                  "path":"/Store/attack.bin",
+                  "name":"attack.bin",
+                  "kind":"APPLICATION_BINARY",
+                  "maker":"TARGET-IP",
+                  "price":25.0,
+                  "quantity":3,
+                  "compiledBinary":{
+                    "scriptFamily":"ATTACK",
+                    "applicationKind":"ATTACK"
+                  }
+                }
+              ],
+              "fallback":false,
+              "version":21,
+              "ignored":"ignored"
+            }
+        """.trimIndent().encodeToByteArray()
+        val purchasePayload = """
+            {
+              "buyerStateId":"LOCAL-IP",
+              "sellerStateId":"TARGET-IP",
+              "revenueTargetStateId":"TARGET-IP",
+              "purchasedFile":{
+                "path":"/Store/attack.bin",
+                "name":"attack.bin",
+                "kind":"APPLICATION_BINARY"
+              },
+              "fulfilledQuantity":2,
+              "totalPrice":50.0,
+              "buyerVersion":22,
+              "sellerVersion":23,
+              "revenueTargetVersion":24,
+              "ignored":"ignored"
+            }
+        """.trimIndent().encodeToByteArray()
+        val votePayload = """
+            {
+              "voterStateId":"LOCAL-IP",
+              "targetStateId":"TARGET-IP",
+              "votesAvailableAfter":1,
+              "targetVoteCountAfter":4,
+              "targetHttpExperienceAfter":12.5,
+              "voterVersion":25,
+              "targetVersion":26,
+              "ignored":"ignored"
+            }
+        """.trimIndent().encodeToByteArray()
+
+        val webpageResponse = RewriteClientJson.decode(
+            ClientWebsiteRenderResponse.serializer(),
+            webpagePayload,
+        )
+        val purchaseResponse = RewriteClientJson.decode(
+            ClientPurchaseResponse.serializer(),
+            purchasePayload,
+        )
+        val voteResponse = RewriteClientJson.decode(
+            ClientVoteResponse.serializer(),
+            votePayload,
+        )
+
+        assertEquals("TARGET-IP", webpageResponse.resolvedTargetStateId)
+        assertEquals("Remote Shop", webpageResponse.title)
+        assertEquals("attack.bin", webpageResponse.storeFiles.single().name)
+        assertFalse(webpageResponse.fallback)
+        assertEquals(21, webpageResponse.version)
+
+        assertEquals("LOCAL-IP", purchaseResponse.buyerStateId)
+        assertEquals("TARGET-IP", purchaseResponse.sellerStateId)
+        assertEquals(2, purchaseResponse.fulfilledQuantity)
+        assertEquals(50.0, purchaseResponse.totalPrice)
+
+        assertEquals("LOCAL-IP", voteResponse.voterStateId)
+        assertEquals("TARGET-IP", voteResponse.targetStateId)
+        assertEquals(1, voteResponse.votesAvailableAfter)
+        assertEquals(4, voteResponse.targetVoteCountAfter)
     }
 }

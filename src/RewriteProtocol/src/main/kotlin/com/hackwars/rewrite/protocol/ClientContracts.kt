@@ -520,6 +520,40 @@ data class ClientDecompileFilePayload(
 )
 
 @Serializable
+data class ClientRequestWebpagePayload(
+    val targetIp: String,
+    val sourceIp: String,
+    val parameters: Map<String, String> = emptyMap(),
+)
+
+@Serializable
+data class ClientSubmitWebpagePayload(
+    val targetIp: String? = null,
+    val sourceIp: String,
+    val parameters: Map<String, String> = emptyMap(),
+)
+
+@Serializable
+data class ClientExitWebpagePayload(
+    val targetIp: String? = null,
+    val sourceIp: String,
+)
+
+@Serializable
+data class ClientVotePayload(
+    val targetIp: String? = null,
+    val sourceIp: String,
+)
+
+@Serializable
+data class ClientRequestPurchasePayload(
+    val targetIp: String,
+    val sourceIp: String,
+    val fileName: String,
+    val quantity: Int,
+)
+
+@Serializable
 data class ClientDirectoryListingResponse(
     val stateId: String,
     val path: String,
@@ -558,6 +592,40 @@ data class ClientDecompileFileResponse(
     val pettyCashAfter: Double,
     val experienceAfter: Double,
     val version: Long,
+)
+
+@Serializable
+data class ClientWebsiteRenderResponse(
+    val resolvedTargetStateId: String,
+    val title: String,
+    val body: String,
+    val storeFiles: List<ClientStoredFile> = emptyList(),
+    val fallback: Boolean = false,
+    val version: Long,
+)
+
+@Serializable
+data class ClientPurchaseResponse(
+    val buyerStateId: String,
+    val sellerStateId: String,
+    val revenueTargetStateId: String,
+    val purchasedFile: ClientStoredFile,
+    val fulfilledQuantity: Int,
+    val totalPrice: Double,
+    val buyerVersion: Long,
+    val sellerVersion: Long,
+    val revenueTargetVersion: Long,
+)
+
+@Serializable
+data class ClientVoteResponse(
+    val voterStateId: String,
+    val targetStateId: String,
+    val votesAvailableAfter: Int,
+    val targetVoteCountAfter: Int,
+    val targetHttpExperienceAfter: Double,
+    val voterVersion: Long,
+    val targetVersion: Long,
 )
 
 @Serializable

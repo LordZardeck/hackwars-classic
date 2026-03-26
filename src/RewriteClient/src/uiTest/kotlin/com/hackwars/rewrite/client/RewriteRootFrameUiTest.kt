@@ -1,5 +1,4 @@
 package com.hackwars.rewrite.client
-
 import com.hackwars.rewrite.client.shell.RewriteShellCommand
 import com.hackwars.rewrite.protocol.ClientBountyCreatedResponse
 import com.hackwars.rewrite.protocol.ClientCompileFilePayload
@@ -18,9 +17,12 @@ import com.hackwars.rewrite.protocol.ClientInstalledApplication
 import com.hackwars.rewrite.protocol.ClientPortState
 import com.hackwars.rewrite.protocol.ClientMakeBountyPayload
 import com.hackwars.rewrite.protocol.ClientMutationAcceptedResponse
+import com.hackwars.rewrite.protocol.ClientPurchaseResponse
 import com.hackwars.rewrite.protocol.ClientProgramScriptBundle
 import com.hackwars.rewrite.protocol.ClientProgramScriptSlot
 import com.hackwars.rewrite.protocol.ClientRequestDirectoryPayload
+import com.hackwars.rewrite.protocol.ClientRequestPurchasePayload
+import com.hackwars.rewrite.protocol.ClientRequestWebpagePayload
 import com.hackwars.rewrite.protocol.ClientSaveFilePayload
 import com.hackwars.rewrite.protocol.ClientScriptFamily
 import com.hackwars.rewrite.protocol.ClientRuntimeState
@@ -28,8 +30,10 @@ import com.hackwars.rewrite.protocol.ClientStoredFileKind
 import com.hackwars.rewrite.protocol.ClientStoredFile
 import com.hackwars.rewrite.protocol.ClientCompiledBinaryMetadata
 import com.hackwars.rewrite.protocol.ClientApplicationKind
+import com.hackwars.rewrite.protocol.ClientSubmitWebpagePayload
 import com.hackwars.rewrite.protocol.ClientTransferPayload
 import com.hackwars.rewrite.protocol.ClientWithdrawPayload
+import com.hackwars.rewrite.protocol.ClientWebsiteRenderResponse
 import com.hackwars.rewrite.protocol.RewriteClientJson
 import com.hackwars.rewrite.protocol.RewriteFrames
 import com.hackwars.rewrite.protocol.RewriteService
@@ -54,6 +58,7 @@ import javax.swing.SwingUtilities
 import javax.swing.JTabbedPane
 import javax.swing.JTextField
 import javax.swing.JTextArea
+import javax.swing.JEditorPane
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -276,8 +281,8 @@ class RewriteRootFrameUiTest {
             SwingUtilities.invokeAndWait {
                 frame.controller.launchShellCommand(RewriteShellCommand.DEPOSIT)
             }
-            waitUntil { frame.desktopPane.allFrames.size == 1 }
-            val bankingFrame = frame.desktopPane.allFrames.single()
+            waitUntil { frame.desktopPane.allFrames.toList().size == 1 }
+            val bankingFrame = frame.desktopPane.allFrames.toList().single()
             assertEquals("rewrite-economy-window-deposit", bankingFrame.name)
             SwingUtilities.invokeAndWait {
                 bankingFrame.isIcon = true
@@ -321,7 +326,7 @@ class RewriteRootFrameUiTest {
             SwingUtilities.invokeAndWait {
                 RewriteShellCommand.entries.take(10).forEach { command ->
                     frame.controller.launchShellCommand(command)
-                    frame.desktopPane.allFrames
+                    frame.desktopPane.allFrames.toList()
                         .first { it.name == expectedWindowName(command) }
                         .isIcon = true
                 }
@@ -350,7 +355,7 @@ class RewriteRootFrameUiTest {
                 frame.controller.launchShellCommand(RewriteShellCommand.TRANSFER)
             }
             waitUntil {
-                frame.desktopPane.allFrames.map { it.name }.toSet().containsAll(
+                frame.desktopPane.allFrames.toList().map { it.name }.toSet().containsAll(
                     setOf(
                         "rewrite-economy-window-deposit",
                         "rewrite-economy-window-withdraw",
@@ -359,7 +364,7 @@ class RewriteRootFrameUiTest {
                 )
             }
 
-            val depositFrame = frame.desktopPane.allFrames.first { it.name == "rewrite-economy-window-deposit" }
+            val depositFrame = frame.desktopPane.allFrames.toList().first { it.name == "rewrite-economy-window-deposit" }
             SwingUtilities.invokeAndWait {
                 button(depositFrame, "rewrite-economy-submit-all").doClick()
             }
@@ -396,7 +401,7 @@ class RewriteRootFrameUiTest {
             )
 
             waitUntil {
-                frame.desktopPane.allFrames.none { it.name == "rewrite-economy-window-deposit" }
+                frame.desktopPane.allFrames.toList().none { it.name == "rewrite-economy-window-deposit" }
             }
         } finally {
             disposeFrame(frame)
@@ -1170,9 +1175,9 @@ class RewriteRootFrameUiTest {
             )
 
             waitUntil {
-                frame.desktopPane.allFrames.count { it.title == "File Properties -- http.bin" } == 1
+                frame.desktopPane.allFrames.toList().count { it.title == "File Properties -- http.bin" } == 1
             }
-            assertEquals(1, frame.desktopPane.allFrames.count { it.title == "File Properties -- http.bin" })
+            assertEquals(1, frame.desktopPane.allFrames.toList().count { it.title == "File Properties -- http.bin" })
         } finally {
             disposeFrame(frame)
         }
@@ -1522,6 +1527,255 @@ class RewriteRootFrameUiTest {
         }
     }
 
+    @Test
+    fun browserAndStoreLaunchAsRealWindowsAndRequestExpectedInitialTargets() {
+        assumeFalse(GraphicsEnvironment.isHeadless())
+
+        val sessionGateway = FakeUiSessionGateway()
+        val frame = bankingReadyFrame(sessionGateway = sessionGateway)
+        try {
+            SwingUtilities.invokeAndWait {
+                frame.controller.launchShellCommand(RewriteShellCommand.WEB_BROWSER)
+                frame.controller.launchShellCommand(RewriteShellCommand.STORE)
+            }
+
+            val browserWindow = waitForWindow(frame, "rewrite-web-browser-window")
+            val storeWindow = waitForWindow(frame, "rewrite-store-window")
+            waitUntilForCommand(sessionGateway, "requestwebpage", 2)
+
+            val browserPayload = RewriteClientJson.decode(
+                ClientRequestWebpagePayload.serializer(),
+                sentCommands(sessionGateway, "requestwebpage")[0].payload.toByteArray(),
+            )
+            val storePayload = RewriteClientJson.decode(
+                ClientRequestWebpagePayload.serializer(),
+                sentCommands(sessionGateway, "requestwebpage")[1].payload.toByteArray(),
+            )
+
+            assertEquals("Web Browser", browserWindow.title)
+            assertEquals("Store", storeWindow.title)
+            assertEquals("LOCAL-IP", browserPayload.targetIp)
+            assertEquals("store", storePayload.targetIp)
+        } finally {
+            disposeFrame(frame)
+        }
+    }
+
+    @Test
+    fun browserSuccessfulLoadUpdatesTitleBodyAndHyperlinkSubmitCommands() {
+        assumeFalse(GraphicsEnvironment.isHeadless())
+
+        val sessionGateway = FakeUiSessionGateway()
+        val frame = bankingReadyFrame(sessionGateway = sessionGateway)
+        try {
+            SwingUtilities.invokeAndWait {
+                frame.controller.launchShellCommand(RewriteShellCommand.WEB_BROWSER)
+            }
+            val browserWindow = waitForWindow(frame, "rewrite-web-browser-window")
+
+            waitUntilForCommand(sessionGateway, "requestwebpage", 1)
+            val initialCommand = latestSentCommand(sessionGateway, "requestwebpage")
+            frame.controller.accept(
+                RewriteService.GAME,
+                RewriteFrames.commandResponse(
+                    commandId = initialCommand.command_id,
+                    payload = RewriteClientJson.encode(
+                        ClientWebsiteRenderResponse.serializer(),
+                        ClientWebsiteRenderResponse(
+                            resolvedTargetStateId = "LOCAL-IP",
+                            title = "Homepage",
+                            body = "<html><body><a href=\"/shop?buy=watch.bin\">Buy</a><form action=\"?checkout=1\"></form>Welcome</body></html>",
+                            fallback = false,
+                            version = 2,
+                        ),
+                    ),
+                ),
+            )
+
+            waitUntil {
+                browserWindow.title == "Web Browser - Homepage" &&
+                    textPane(browserWindow, "rewrite-web-html-pane").text.contains("Welcome")
+            }
+
+            SwingUtilities.invokeAndWait {
+                invokeBrowserWindowMethod(browserWindow, "handleHyperlinkReference", "/shop?buy=watch.bin")
+            }
+            waitUntilForCommand(sessionGateway, "requestwebpage", 2)
+            val hyperlinkPayload = RewriteClientJson.decode(
+                ClientRequestWebpagePayload.serializer(),
+                latestSentCommand(sessionGateway, "requestwebpage").payload.toByteArray(),
+            )
+            assertEquals("LOCAL-IP", hyperlinkPayload.targetIp)
+            assertEquals("watch.bin", hyperlinkPayload.parameters["buy"])
+
+            SwingUtilities.invokeAndWait {
+                invokeBrowserWindowMethod(
+                    browserWindow,
+                    "handleFormSubmission",
+                    "https://Checkout.EXAMPLE.com/?view=cart",
+                    mapOf("quantity" to "2"),
+                )
+            }
+            waitUntilForCommand(sessionGateway, "submit", 1)
+            val submitPayload = RewriteClientJson.decode(
+                ClientSubmitWebpagePayload.serializer(),
+                latestSentCommand(sessionGateway, "submit").payload.toByteArray(),
+            )
+            assertEquals("checkout.example.com", submitPayload.targetIp)
+            assertEquals("cart", submitPayload.parameters["view"])
+            assertEquals("2", submitPayload.parameters["quantity"])
+        } finally {
+            disposeFrame(frame)
+        }
+    }
+
+    @Test
+    fun storeTypedListingsRenderAndSuccessfulPurchaseRefreshesCurrentPage() {
+        assumeFalse(GraphicsEnvironment.isHeadless())
+
+        val sessionGateway = FakeUiSessionGateway()
+        val frame = bankingReadyFrame(sessionGateway = sessionGateway)
+        try {
+            SwingUtilities.invokeAndWait {
+                frame.controller.launchShellCommand(RewriteShellCommand.STORE)
+            }
+            val storeWindow = waitForWindow(frame, "rewrite-store-window")
+
+            waitUntilForCommand(sessionGateway, "requestwebpage", 1)
+            val initialCommand = latestSentCommand(sessionGateway, "requestwebpage")
+            frame.controller.accept(
+                RewriteService.GAME,
+                RewriteFrames.commandResponse(
+                    commandId = initialCommand.command_id,
+                    payload = RewriteClientJson.encode(
+                        ClientWebsiteRenderResponse.serializer(),
+                        ClientWebsiteRenderResponse(
+                            resolvedTargetStateId = "STORE-IP",
+                            title = "Storefront",
+                            body = "<html><body>Storefront</body></html>",
+                            storeFiles = listOf(
+                                ClientStoredFile(
+                                    path = "/Store/attack.bin",
+                                    name = "attack.bin",
+                                    kind = ClientStoredFileKind.APPLICATION_BINARY,
+                                    maker = "STORE-IP",
+                                    price = 25.0,
+                                    quantity = 4,
+                                ),
+                            ),
+                            fallback = false,
+                            version = 2,
+                        ),
+                    ),
+                ),
+            )
+
+            waitUntil {
+                findComponent(storeWindow, "rewrite-web-store-row-0") != null
+            }
+            assertEquals("attack.bin", label(storeWindow, "rewrite-web-store-name-0").text)
+
+            SwingUtilities.invokeAndWait {
+                spinner(storeWindow, "rewrite-web-store-quantity-0").value = 2
+                button(storeWindow, "rewrite-web-store-buy-button-0").doClick()
+            }
+
+            waitUntilForCommand(sessionGateway, "requestpurchase", 1)
+            val purchasePayload = RewriteClientJson.decode(
+                ClientRequestPurchasePayload.serializer(),
+                latestSentCommand(sessionGateway, "requestpurchase").payload.toByteArray(),
+            )
+            assertEquals("store", purchasePayload.targetIp)
+            assertEquals("attack.bin", purchasePayload.fileName)
+            assertEquals(2, purchasePayload.quantity)
+
+            val purchaseCommand = latestSentCommand(sessionGateway, "requestpurchase")
+            frame.controller.accept(
+                RewriteService.GAME,
+                RewriteFrames.commandResponse(
+                    commandId = purchaseCommand.command_id,
+                    payload = RewriteClientJson.encode(
+                        ClientPurchaseResponse.serializer(),
+                        ClientPurchaseResponse(
+                            buyerStateId = "LOCAL-IP",
+                            sellerStateId = "STORE-IP",
+                            revenueTargetStateId = "STORE-IP",
+                            purchasedFile = ClientStoredFile(
+                                path = "/Store/attack.bin",
+                                name = "attack.bin",
+                                kind = ClientStoredFileKind.APPLICATION_BINARY,
+                            ),
+                            fulfilledQuantity = 2,
+                            totalPrice = 50.0,
+                            buyerVersion = 3,
+                            sellerVersion = 4,
+                            revenueTargetVersion = 5,
+                        ),
+                    ),
+                ),
+            )
+
+            waitUntilForCommand(sessionGateway, "requestwebpage", 2)
+            assertTrue(storeWindow.isDisplayable)
+        } finally {
+            disposeFrame(frame)
+        }
+    }
+
+    @Test
+    fun navigatingAwayFromLoadedBrowserPageSendsExitBeforeNextRequest() {
+        assumeFalse(GraphicsEnvironment.isHeadless())
+
+        val sessionGateway = FakeUiSessionGateway()
+        val frame = bankingReadyFrame(sessionGateway = sessionGateway)
+        try {
+            SwingUtilities.invokeAndWait {
+                frame.controller.launchShellCommand(RewriteShellCommand.WEB_BROWSER)
+            }
+            val browserWindow = waitForWindow(frame, "rewrite-web-browser-window")
+
+            waitUntilForCommand(sessionGateway, "requestwebpage", 1)
+            val initialCommand = latestSentCommand(sessionGateway, "requestwebpage")
+            frame.controller.accept(
+                RewriteService.GAME,
+                RewriteFrames.commandResponse(
+                    commandId = initialCommand.command_id,
+                    payload = RewriteClientJson.encode(
+                        ClientWebsiteRenderResponse.serializer(),
+                        ClientWebsiteRenderResponse(
+                            resolvedTargetStateId = "LOCAL-IP",
+                            title = "Homepage",
+                            body = "<html><body>Homepage</body></html>",
+                            fallback = false,
+                            version = 2,
+                        ),
+                    ),
+                ),
+            )
+            waitUntil { browserWindow.title == "Web Browser - Homepage" }
+
+            SwingUtilities.invokeAndWait {
+                invokeBrowserWindowMethod(browserWindow, "handleHyperlinkReference", "https://Elsewhere.HackWars.Net/")
+            }
+
+            waitUntilForCommand(sessionGateway, "exit", 1)
+            waitUntilForCommand(sessionGateway, "requestwebpage", 2)
+
+            val exitPayload = RewriteClientJson.decode(
+                com.hackwars.rewrite.protocol.ClientExitWebpagePayload.serializer(),
+                latestSentCommand(sessionGateway, "exit").payload.toByteArray(),
+            )
+            val nextRequestPayload = RewriteClientJson.decode(
+                ClientRequestWebpagePayload.serializer(),
+                latestSentCommand(sessionGateway, "requestwebpage").payload.toByteArray(),
+            )
+            assertEquals("LOCAL-IP", exitPayload.targetIp)
+            assertEquals("elsewhere.hackwars.net", nextRequestPayload.targetIp)
+        } finally {
+            disposeFrame(frame)
+        }
+    }
+
     private fun disposeFrame(frame: RewriteRootFrame) {
         SwingUtilities.invokeAndWait {
             frame.dispose()
@@ -1690,6 +1944,11 @@ class RewriteRootFrameUiTest {
             ?: error("Unable to find JTextArea named $name")
     }
 
+    private fun textPane(root: Component, name: String): JEditorPane {
+        return findComponent(root, name) as? JEditorPane
+            ?: error("Unable to find JEditorPane named $name")
+    }
+
     private fun selectedDocumentTabTitles(root: Component): List<String> {
         return invokeAndWaitResult {
             val tabs = selectedDocumentTabbedPane(root)
@@ -1736,12 +1995,24 @@ class RewriteRootFrameUiTest {
             ?: error("Unable to find spinner named $name")
     }
 
+    private fun invokeBrowserWindowMethod(
+        window: JInternalFrame,
+        methodName: String,
+        vararg arguments: Any,
+    ) {
+        val method = window.javaClass.declaredMethods.firstOrNull { candidate ->
+            candidate.name.startsWith(methodName) && candidate.parameterCount == arguments.size
+        } ?: error("Unable to find browser method $methodName")
+        method.isAccessible = true
+        method.invoke(window, *arguments)
+    }
+
     private fun waitForWindow(
         frame: RewriteRootFrame,
         windowName: String,
     ): JInternalFrame {
-        waitUntil { frame.desktopPane.allFrames.any { it.name == windowName } }
-        return frame.desktopPane.allFrames.first { it.name == windowName }
+        waitUntil { frame.desktopPane.allFrames.toList().any { it.name == windowName } }
+        return frame.desktopPane.allFrames.toList().first { it.name == windowName }
     }
 
     private fun waitForDialog(
@@ -1763,6 +2034,8 @@ class RewriteRootFrameUiTest {
         RewriteShellCommand.TRANSFER -> "rewrite-economy-window-${command.stableId}"
         RewriteShellCommand.HOME -> "rewrite-home-window"
         RewriteShellCommand.SCRIPT_EDITOR -> "rewrite-script-editor-window"
+        RewriteShellCommand.WEB_BROWSER -> "rewrite-web-browser-window"
+        RewriteShellCommand.STORE -> "rewrite-store-window"
         else -> "rewrite-shell-window-${command.stableId}"
     }
 
