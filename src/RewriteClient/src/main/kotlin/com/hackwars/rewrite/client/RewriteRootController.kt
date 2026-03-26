@@ -15,6 +15,8 @@ import com.hackwars.rewrite.client.shell.RewriteShellDialogCoordinator
 import com.hackwars.rewrite.client.shell.RewriteShellDialogHost
 import com.hackwars.rewrite.client.shell.RewriteShellWindowCoordinator
 import com.hackwars.rewrite.client.shell.RewriteShellWindowHost
+import com.hackwars.rewrite.client.systems.RewriteEquipmentManagerWindow
+import com.hackwars.rewrite.client.systems.RewriteFirewallManagerWindow
 import com.hackwars.rewrite.client.systems.RewritePortManagementWindow
 import com.hackwars.rewrite.client.web.RewriteSiteEditorWindow
 import com.hackwars.rewrite.client.web.RewriteWebBrowserWindow
@@ -42,6 +44,8 @@ import com.hackwars.rewrite.protocol.ClientHealPortPayload
 import com.hackwars.rewrite.protocol.ClientHealPortResponse
 import com.hackwars.rewrite.protocol.ClientInstallApplicationPayload
 import com.hackwars.rewrite.protocol.ClientInstallApplicationResponse
+import com.hackwars.rewrite.protocol.ClientInstallEquipmentPayload
+import com.hackwars.rewrite.protocol.ClientInstallEquipmentResponse
 import com.hackwars.rewrite.protocol.ClientInstallFirewallPayload
 import com.hackwars.rewrite.protocol.ClientInstallFirewallResponse
 import com.hackwars.rewrite.protocol.ClientMutationAcceptedResponse
@@ -272,6 +276,26 @@ class RewriteRootController(
                 portNumber = portNumber,
             ),
             responseSerializer = ClientInstallApplicationResponse.serializer(),
+            targetStateIds = listOf(playerIp),
+        )
+    }
+
+    internal suspend fun requestInstallEquipment(
+        path: String?,
+        name: String,
+        slot: com.hackwars.rewrite.protocol.ClientEquipmentSlot,
+    ): RewriteGameCommandResult<ClientInstallEquipmentResponse> {
+        val playerIp = authenticatedPlayerIp()
+            ?: return RewriteGameCommandResult.Failure("Not connected to a rewrite game session.")
+        return gameCommandBroker.request(
+            commandName = "installequipment",
+            payloadSerializer = ClientInstallEquipmentPayload.serializer(),
+            payload = ClientInstallEquipmentPayload(
+                path = path,
+                name = name,
+                slot = slot,
+            ),
+            responseSerializer = ClientInstallEquipmentResponse.serializer(),
             targetStateIds = listOf(playerIp),
         )
     }
@@ -855,6 +879,32 @@ class RewriteRootController(
         RewriteShellCommand.PORT_MANAGEMENT -> RewritePortManagementWindow(
             controller = this,
             preferredPort = preferredPort,
+            onOpenAuxiliaryWindow = { window ->
+                shellHost?.let { currentHost ->
+                    currentHost.showWindow(window)
+                    currentHost.focusWindow(window)
+                }
+            },
+            onFocusAuxiliaryWindow = { window ->
+                shellHost?.focusWindow(window)
+            },
+        )
+
+        RewriteShellCommand.EQUIPMENT_MANAGER -> RewriteEquipmentManagerWindow(
+            controller = this,
+            onOpenAuxiliaryWindow = { window ->
+                shellHost?.let { currentHost ->
+                    currentHost.showWindow(window)
+                    currentHost.focusWindow(window)
+                }
+            },
+            onFocusAuxiliaryWindow = { window ->
+                shellHost?.focusWindow(window)
+            },
+        )
+
+        RewriteShellCommand.FIREWALL_MANAGER -> RewriteFirewallManagerWindow(
+            controller = this,
             onOpenAuxiliaryWindow = { window ->
                 shellHost?.let { currentHost ->
                     currentHost.showWindow(window)

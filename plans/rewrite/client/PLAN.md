@@ -212,7 +212,7 @@
   - Search/bookmarks remain out of scope because the legacy remote endpoints behind them are gone.
 
 ### RW-CLIENT-W4A - Port Management core on decoded port state plus heal/install transport
-- Status: `in_progress`
+- Status: `done`
 - Owner: `unassigned`
 - Depends on: `RW-CLIENT-003A`
 - Allowed write scope: `:RewriteProtocol`, `:RewriteClient/client/systems/**`, `:RewriteClient`
@@ -225,16 +225,17 @@
   - Shows enabled/default/dummy/note fields read-only in this slice; `portonoff`, default/dummy toggles, note editing, and public FTP password mutation stay deferred.
 
 ### RW-CLIENT-W4B - Equipment Manager and Firewall Browser inventory surfaces
-- Status: `todo`
+- Status: `in_progress`
 - Owner: `unassigned`
 - Depends on: `RW-CLIENT-W4A`, `RW-CLIENT-W2A`
-- Allowed write scope: `:RewriteClient/client/systems/**`, `:RewriteClient`
-- Verification command: `./gradlew :RewriteClient:test :RewriteClient:uiTest`
+- Allowed write scope: `:RewriteProtocol`, `:RewriteClient/client/systems/**`, `:RewriteClient`
+- Verification command: `./gradlew :RewriteProtocol:test :RewriteClient:test :RewriteClient:uiTest`
 - Artifacts: `build/reports/rewrite/ui`
 - Commit rule: `single green commit only`
 - Notes:
-  - Owns the real rewrite `Equipment Manager` and `Firewall Browser` windows.
-  - Reuses local chooser/browser foundations and install flows from `RW-CLIENT-W4A`.
+  - Owns the real rewrite `Equipment Manager` and `Firewall Manager` windows over decoded inventory state.
+  - Adds only the missing client `installequipment` decode/dispatch and reuses chooser/install flows from `RW-CLIENT-W4A`.
+  - Equipment repair, equipment removal, and firewall removal remain deferred until rewrite transport exists.
 
 ### RW-CLIENT-W4C - Watch Manager plus watch protocol decode and mutations
 - Status: `todo`

@@ -680,4 +680,38 @@ class RewriteClientJsonTest {
         assertEquals("guard.fw", firewallResponse.installedFirewall.name)
         assertEquals(24, firewallResponse.version)
     }
+
+    @Test
+    fun decodesCurrentRewriteInstallEquipmentResponseShape() {
+        val payload = """
+            {
+              "stateId":"LOCAL-IP",
+              "slot":"CPU",
+              "equipment":{
+                "slot":"CPU",
+                "name":"cpu-card.bin",
+                "maker":"Maker A",
+                "durability":90,
+                "cpuBoost":8.0,
+                "watchCapacityBoost":2,
+                "healCostMultiplier":0.5,
+                "healModifierDelta":-2,
+                "freezeImmune":true,
+                "ignored":"ignored"
+              },
+              "version":25,
+              "ignored":"ignored"
+            }
+        """.trimIndent().encodeToByteArray()
+
+        val response = RewriteClientJson.decode(
+            ClientInstallEquipmentResponse.serializer(),
+            payload,
+        )
+
+        assertEquals("LOCAL-IP", response.stateId)
+        assertEquals(ClientEquipmentSlot.CPU, response.slot)
+        assertEquals("cpu-card.bin", response.equipment.name)
+        assertEquals(25, response.version)
+    }
 }

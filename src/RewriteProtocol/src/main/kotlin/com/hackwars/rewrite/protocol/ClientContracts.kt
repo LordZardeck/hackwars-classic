@@ -522,6 +522,13 @@ data class ClientInstallFirewallPayload(
 )
 
 @Serializable
+data class ClientInstallEquipmentPayload(
+    val path: String? = null,
+    val name: String,
+    val slot: ClientEquipmentSlot,
+)
+
+@Serializable
 data class ClientSaveFilePayload(
     val path: String? = null,
     val file: ClientStoredFile,
@@ -658,6 +665,14 @@ data class ClientInstallApplicationResponse(
     val portNumber: Int,
     val installedApplication: ClientInstalledApplication,
     val defaultBankPort: Int? = null,
+    val version: Long,
+)
+
+@Serializable
+data class ClientInstallEquipmentResponse(
+    val stateId: String,
+    val slot: ClientEquipmentSlot,
+    val equipment: ClientInstalledEquipment,
     val version: Long,
 )
 
