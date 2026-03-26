@@ -518,15 +518,15 @@
 - Verification scope: `./gradlew :RewriteClientDev:test :RewriteClient:test :RewriteClient:uiTest`
 
 ### RW-CLIENT-C0C - Login and desktop-entry screenshot closure
-- Status: `ready`
+- Status: `done`
 - Priority: `P1`
 - Execution lane: `auth_bootstrap`
 - Worker role: `verifier`
 - Depends on: `RW-CLIENT-C0B`, `RW-CLIENT-X4`
 - Ready when: parity rebuild and screenshot harness glue are complete
 - Parallel with: `RW-CLIENT-C1C`
-- Allowed write scope: `src/RewriteClient/src/uiTest/**`, `src/RewriteClientDev/**`
-- Autonomous next: `RW-CLIENT-C1A`
+- Allowed write scope: `src/RewriteClient/src/uiTest/**`, `src/RewriteClientDev/**`, `artifacts/rewrite/**`, `plans/rewrite/client/PLAN.md`, `plans/rewrite/feature-inventory/PLAN.md`
+- Autonomous next: `RW-GS-T6`
 - Fallback if blocked: `RW-TEST-007`
 - Verification scope: screenshot baseline approval, deterministic login/startup artifact capture
 

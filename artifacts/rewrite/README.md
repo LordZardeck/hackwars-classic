@@ -1,4 +1,4 @@
 # Rewrite Artifacts
 
-Generated rewrite test outputs, failure triage bundles, and future screenshot artifacts live under this directory.
-Only the scaffold files are tracked in git.
+Generated rewrite test outputs, approved workflow artifacts, failure triage bundles, and screenshot artifacts live under this directory.
+Scaffold files and explicitly allowlisted approved artifacts are tracked in git.

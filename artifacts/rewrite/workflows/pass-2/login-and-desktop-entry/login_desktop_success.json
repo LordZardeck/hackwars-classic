@@ -1,0 +1,33 @@
+{
+  "featureKey": "pass-2/login-and-desktop-entry",
+  "artifactFileName": "login_desktop_success.png",
+  "suiteName": "RewriteClientDevModeUiTest",
+  "testName": "deterministicDevModeLoginSceneCanSubmitDefaultCredentialsAndReachDesktop",
+  "taskId": "RW-CLIENT-C0C",
+  "passId": "Pass 2",
+  "runId": "run-20260326-184200-003",
+  "capturedAtEpochMillis": 1774550520000,
+  "artifactDirectory": "/Users/lordzardeck/.codex/worktrees/47a1/hackwars-classic-original/artifacts/rewrite/workflows/pass-2/login-and-desktop-entry",
+  "artifactImagePath": "/Users/lordzardeck/.codex/worktrees/47a1/hackwars-classic-original/artifacts/rewrite/workflows/pass-2/login-and-desktop-entry/login_desktop_success.png",
+  "workflowAcceptance": "artifacts/rewrite/workflows/pass-2/login-and-desktop-entry/login_desktop_success.png",
+  "captureWidth": 1280,
+  "captureHeight": 800,
+  "environment": {
+    "jvmVersion": "25.0.2",
+    "osName": "Mac OS X",
+    "osVersion": "26.3",
+    "headless": "false",
+    "displayScale": "2.0x2.0",
+    "lookAndFeelId": "RewriteHackWars",
+    "fontFamily": "Dialog",
+    "fontSize": "12",
+    "dpi": "76"
+  },
+  "fixtureIdentity": "192.0.2.10",
+  "context": {
+    "route": "desktop",
+    "seedIp": "192.0.2.10",
+    "seedLogin": "localuser"
+  },
+  "source": "rewrite-ui-test-workflow"
+}

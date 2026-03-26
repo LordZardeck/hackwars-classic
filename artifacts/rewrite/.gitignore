@@ -1,3 +1,9 @@
 *
 !.gitignore
 !README.md
+!baselines/
+!workflows/
+!workflows/pass-2/
+!workflows/pass-2/login-and-desktop-entry/
+!workflows/pass-2/login-and-desktop-entry/login_desktop_success.png
+!workflows/pass-2/login-and-desktop-entry/login_desktop_success.json

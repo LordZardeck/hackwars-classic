@@ -1,3 +1,9 @@
 *
 !.gitignore
 !README.md
+!pass-2/
+!pass-2/login-and-desktop-entry/
+!pass-2/login-and-desktop-entry/login_scene_main.png
+!pass-2/login-and-desktop-entry/login_scene_main.json
+!pass-2/login-and-desktop-entry/login_scene_error.png
+!pass-2/login-and-desktop-entry/login_scene_error.json

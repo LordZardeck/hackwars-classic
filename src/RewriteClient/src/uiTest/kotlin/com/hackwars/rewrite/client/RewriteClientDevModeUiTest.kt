@@ -2,6 +2,8 @@ package com.hackwars.rewrite.client
 
 import com.hackwars.rewrite.client.shell.RewriteShellCommand
 import com.hackwars.rewrite.clientdev.RewriteClientDevEnvironment
+import com.hackwars.rewrite.client.testsupport.RewriteUiWorkflowArtifactRequest
+import com.hackwars.rewrite.client.testsupport.assertOrApproveRewriteUiWorkflowArtifact
 import com.hackwars.rewrite.client.testsupport.rewriteUiDeterministicDevModeFrame
 import com.hackwars.rewrite.client.testsupport.rewriteUiDisposeFrame
 import com.hackwars.rewrite.client.testsupport.rewriteUiFailureTriage
@@ -10,6 +12,7 @@ import com.hackwars.rewrite.client.testsupport.rewriteUiInvokeAndWaitResult
 import com.hackwars.rewrite.client.testsupport.rewriteUiWaitForWindow
 import com.hackwars.rewrite.client.testsupport.rewriteUiWaitUntil
 import com.hackwars.rewrite.clientmodel.RewriteClientRoute
+import java.awt.Dimension
 import java.awt.GraphicsEnvironment
 import kotlin.test.Test
 import kotlin.test.assertNotNull
@@ -21,15 +24,21 @@ class RewriteClientDevModeUiTest {
     fun deterministicDevModeLoginSceneCanSubmitDefaultCredentialsAndReachDesktop() {
         assumeFalse(GraphicsEnvironment.isHeadless())
 
+        val environment = RewriteClientDevEnvironment()
         rewriteUiFailureTriage(
             suiteName = "RewriteClientDevModeUiTest",
             testName = "deterministicDevModeLoginSceneCanSubmitDefaultCredentialsAndReachDesktop",
+            taskId = "RW-CLIENT-C0C",
+            passId = "Pass 2",
             context = mapOf(
                 "surface" to "login-scene",
                 "route" to "desktop",
+                "seedIp" to environment.fixture.local.playerIp,
+                "seedLogin" to environment.fixture.login.email,
             ),
+            startedAt = environment.fixture.screenshotCaptureClock,
+            sequence = 3,
         ) {
-            val environment = RewriteClientDevEnvironment()
             val frame = rewriteUiInvokeAndWaitResult {
                 RewriteRootFrame(
                     controller = environment.createController(),
@@ -54,6 +63,28 @@ class RewriteClientDevModeUiTest {
 
                 assertTrue(rewriteUiInvokeAndWaitResult { frame.desktopPane.isShowing })
                 assertTrue(rewriteUiInvokeAndWaitResult { frame.jMenuBar != null })
+                assertOrApproveRewriteUiWorkflowArtifact(
+                    RewriteUiWorkflowArtifactRequest(
+                        suiteName = "RewriteClientDevModeUiTest",
+                        testName = "deterministicDevModeLoginSceneCanSubmitDefaultCredentialsAndReachDesktop",
+                        featureKey = "pass-2/login-and-desktop-entry",
+                        artifactFileName = "login_desktop_success.png",
+                        workflowAcceptance = "artifacts/rewrite/workflows/pass-2/login-and-desktop-entry/login_desktop_success.png",
+                        captureSize = ROOT_CAPTURE_SIZE,
+                        taskId = "RW-CLIENT-C0C",
+                        passId = "Pass 2",
+                        captureClock = environment.fixture.screenshotCaptureClock,
+                        sequence = 3,
+                        fixtureIdentity = environment.fixture.local.playerIp,
+                        context = mapOf(
+                            "route" to "desktop",
+                            "seedIp" to environment.fixture.local.playerIp,
+                            "seedLogin" to environment.fixture.login.email,
+                        ),
+                    ),
+                ) {
+                    frame.rootPane
+                }
             } finally {
                 rewriteUiDisposeFrame(frame)
                 environment.close()
@@ -101,5 +132,9 @@ class RewriteClientDevModeUiTest {
                 environment.close()
             }
         }
+    }
+
+    companion object {
+        private val ROOT_CAPTURE_SIZE: Dimension = Dimension(1280, 800)
     }
 }

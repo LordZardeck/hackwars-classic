@@ -1,0 +1,19 @@
+{
+  "featureKey": "pass-2/login-and-desktop-entry",
+  "baselineFileName": "login_scene_error.png",
+  "suiteName": "RewriteLoginParityScreenshotUiTest",
+  "testName": "loginSceneErrorMatchesApprovedBaseline",
+  "taskId": "RW-CLIENT-C0C",
+  "passId": "Pass 2",
+  "runId": "run-20260326-184200-002",
+  "approvedAtEpochMillis": 1774550520000,
+  "baselineDirectory": "/Users/lordzardeck/.codex/worktrees/47a1/hackwars-classic-original/artifacts/rewrite/baselines/pass-2/login-and-desktop-entry",
+  "baselineImagePath": "/Users/lordzardeck/.codex/worktrees/47a1/hackwars-classic-original/artifacts/rewrite/baselines/pass-2/login-and-desktop-entry/login_scene_error.png",
+  "legacyUiReference": "LoginScene",
+  "parityAcceptance": "artifacts/rewrite/baselines/pass-2/login-and-desktop-entry/login_scene_error.png",
+  "captureWidth": 1280,
+  "captureHeight": 800,
+  "lookAndFeelId": "RewriteHackWars",
+  "fontFamily": "Dialog",
+  "source": "rewrite-ui-test-baseline"
+}

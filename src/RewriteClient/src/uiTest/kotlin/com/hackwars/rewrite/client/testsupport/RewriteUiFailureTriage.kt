@@ -195,7 +195,7 @@ private fun formatFailureText(failure: Throwable): String {
     return writer.toString()
 }
 
-private fun rewriteUiEnvironmentMetadata(): Map<String, String> {
+internal fun rewriteUiEnvironmentMetadata(): Map<String, String> {
     return linkedMapOf(
         "jvmVersion" to System.getProperty("java.version", "unknown"),
         "osName" to System.getProperty("os.name", "unknown"),
