@@ -323,8 +323,13 @@ class RewriteRootFrameUiTest {
             frame.controller.store.showDesktop()
             waitUntil { frame.desktopPane.isShowing && frame.jMenuBar != null }
 
+            val minimizedCommands = RewriteShellCommand.entries
+                .filterNot { command ->
+                    command == RewriteShellCommand.CREATE_BOUNTY || command == RewriteShellCommand.ZOMBIE_ATTACK
+                }
+                .take(10)
             SwingUtilities.invokeAndWait {
-                RewriteShellCommand.entries.take(10).forEach { command ->
+                minimizedCommands.forEach { command ->
                     frame.controller.launchShellCommand(command)
                     frame.desktopPane.allFrames.toList()
                         .first { it.name == expectedWindowName(command) }

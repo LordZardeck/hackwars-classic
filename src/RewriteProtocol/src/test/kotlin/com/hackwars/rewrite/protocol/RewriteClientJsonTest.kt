@@ -4,6 +4,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class RewriteClientJsonTest {
@@ -858,6 +859,118 @@ class RewriteClientJsonTest {
         assertEquals(listOf(9, 10), attackStart.session?.secondaryPorts)
         assertEquals(ClientAttackCancelFailureCode.SOURCE_IP_MISMATCH, attackCancel.failureCode)
         assertFalse(attackCancel.accepted)
+    }
+
+    @Test
+    fun decodesCurrentRewriteZombieAttackCommandResponsePayloads() {
+        val zombieAttackStartPayload = """
+            {
+              "controllerStateId":"LOCAL-IP",
+              "zombieStateId":"ZOMBIE-IP",
+              "sourcePort":12,
+              "targetStateId":"TARGET-IP",
+              "targetPort":4,
+              "accepted":true,
+              "message":"zombie-attack-started",
+              "chargedAmount":20.0,
+              "controllerPettyCashAfter":80.0,
+              "zombieCpuLoadAfter":6.0,
+              "session":{
+                "programId":"zombie-program-1",
+                "sourcePort":12,
+                "targetStateId":"TARGET-IP",
+                "targetPort":4,
+                "sessionKind":"ATTACK",
+                "attackMode":"ZOMBIE",
+                "windowHandle":0,
+                "secondaryPorts":[9,10],
+                "startedAtEpochMillis":12,
+                "ignored":"ignored"
+              },
+              "controllerVersion":8,
+              "zombieVersion":5,
+              "ignored":"ignored"
+            }
+        """.trimIndent().encodeToByteArray()
+        val zombieAttackCancelPayload = """
+            {
+              "controllerStateId":"LOCAL-IP",
+              "zombieStateId":"ZOMBIE-IP",
+              "sourcePort":12,
+              "accepted":false,
+              "failureCode":"CONTROLLER_IP_MISMATCH",
+              "hadActiveSession":true,
+              "message":"Controller ip mismatch.",
+              "controllerVersion":9,
+              "zombieVersion":6,
+              "ignored":"ignored"
+            }
+        """.trimIndent().encodeToByteArray()
+
+        val zombieAttackStart = RewriteClientJson.decode(
+            ClientZombieAttackStartResponse.serializer(),
+            zombieAttackStartPayload,
+        )
+        val zombieAttackCancel = RewriteClientJson.decode(
+            ClientZombieAttackCancelResponse.serializer(),
+            zombieAttackCancelPayload,
+        )
+
+        assertTrue(zombieAttackStart.accepted)
+        assertEquals("LOCAL-IP", zombieAttackStart.controllerStateId)
+        assertEquals("ZOMBIE-IP", zombieAttackStart.zombieStateId)
+        assertEquals(ClientAttackMode.ZOMBIE, zombieAttackStart.session?.attackMode)
+        assertEquals(listOf(9, 10), zombieAttackStart.session?.secondaryPorts)
+        assertEquals(ClientZombieAttackCancelFailureCode.CONTROLLER_IP_MISMATCH, zombieAttackCancel.failureCode)
+        assertFalse(zombieAttackCancel.accepted)
+    }
+
+    @Test
+    fun decodesCurrentRewriteZombieAttackPayloadShapes() {
+        val zombieAttackPayload = """
+            {
+              "targetIP":"TARGET-IP",
+              "targetPort":4,
+              "sourceIP":"ZOMBIE-IP",
+              "sourcePort":12,
+              "I":[9,10],
+              "S":null,
+              "O":[
+                {"type":"string","value":""},
+                {"type":"float","value":0.0},
+                {"type":"string","value":""},
+                {"type":"float","value":50.0},
+                {"type":"string","value":""}
+              ],
+              "parentIP":"LOCAL-IP",
+              "ignored":"ignored"
+            }
+        """.trimIndent().encodeToByteArray()
+        val zombieCancelPayload = """
+            {
+              "ip":"LOCAL-IP",
+              "port":12,
+              "targetIP":"ZOMBIE-IP",
+              "ignored":"ignored"
+            }
+        """.trimIndent().encodeToByteArray()
+
+        val requestZombieAttack = RewriteClientJson.decode(
+            ClientRequestZombieAttackPayload.serializer(),
+            zombieAttackPayload,
+        )
+        val requestZombieCancel = RewriteClientJson.decode(
+            ClientRequestZombieCancelAttackPayload.serializer(),
+            zombieCancelPayload,
+        )
+
+        assertEquals("TARGET-IP", requestZombieAttack.targetIp)
+        assertEquals("ZOMBIE-IP", requestZombieAttack.sourceIp)
+        assertEquals(listOf(9, 10), requestZombieAttack.secondaryPorts)
+        assertNull(requestZombieAttack.scripts)
+        assertEquals("LOCAL-IP", requestZombieAttack.parentIp)
+        assertEquals("LOCAL-IP", requestZombieCancel.ip)
+        assertEquals("ZOMBIE-IP", requestZombieCancel.targetIp)
     }
 
     @Test

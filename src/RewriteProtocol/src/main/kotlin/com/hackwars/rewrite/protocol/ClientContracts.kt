@@ -531,6 +531,31 @@ enum class ClientAttackCancelFailureCode {
 }
 
 @Serializable
+enum class ClientZombieAttackStartFailureCode {
+    CONTROLLER_IP_MISMATCH,
+    ZOMBIE_STATE_NOT_FOUND,
+    SELF_TARGET,
+    SOURCE_PORT_NOT_FOUND,
+    INVALID_SOURCE_PORT,
+    SOURCE_ALREADY_ATTACKING,
+    TARGET_NOT_FOUND,
+    TARGET_PORT_NOT_FOUND,
+    INVALID_TARGET_PORT,
+    TARGET_ALREADY_UNDER_ATTACK,
+    ACTIVE_BANK_REQUIRED,
+    INSUFFICIENT_PETTY_CASH,
+    ZOMBIE_OVERHEATED,
+    CPU_HEADROOM_EXCEEDED,
+    NOT_AUTHORIZED,
+}
+
+@Serializable
+enum class ClientZombieAttackCancelFailureCode {
+    CONTROLLER_IP_MISMATCH,
+    ZOMBIE_STATE_NOT_FOUND,
+}
+
+@Serializable
 enum class ClientChangeDailyPayOutcome {
     SUCCESS,
     ALREADY_CONTROLLED,
@@ -708,6 +733,32 @@ data class ClientRequestCancelAttackPayload(
 )
 
 @Serializable
+data class ClientRequestZombieAttackPayload(
+    @SerialName("targetIP")
+    val targetIp: String,
+    val targetPort: Int,
+    @SerialName("sourceIP")
+    val sourceIp: String? = null,
+    val sourcePort: Int,
+    @SerialName("I")
+    val secondaryPorts: List<Int>? = null,
+    @SerialName("S")
+    val scripts: List<List<String?>?>? = null,
+    @SerialName("O")
+    val extraInfo: List<ClientHookValue>? = null,
+    @SerialName("parentIP")
+    val parentIp: String,
+)
+
+@Serializable
+data class ClientRequestZombieCancelAttackPayload(
+    val ip: String? = null,
+    val port: Int,
+    @SerialName("targetIP")
+    val targetIp: String,
+)
+
+@Serializable
 data class ClientRequestSecondaryDirectoryPayload(
     val path: String? = null,
     val targetIp: String,
@@ -772,6 +823,37 @@ data class ClientAttackCancelResponse(
     val hadActiveSession: Boolean,
     val message: String,
     val version: Long,
+)
+
+@Serializable
+data class ClientZombieAttackStartResponse(
+    val controllerStateId: String,
+    val zombieStateId: String,
+    val sourcePort: Int,
+    val targetStateId: String,
+    val targetPort: Int,
+    val accepted: Boolean,
+    val failureCode: ClientZombieAttackStartFailureCode? = null,
+    val message: String,
+    val chargedAmount: Double = 0.0,
+    val controllerPettyCashAfter: Double,
+    val zombieCpuLoadAfter: Double? = null,
+    val session: ClientAttackSessionState? = null,
+    val controllerVersion: Long,
+    val zombieVersion: Long? = null,
+)
+
+@Serializable
+data class ClientZombieAttackCancelResponse(
+    val controllerStateId: String,
+    val zombieStateId: String,
+    val sourcePort: Int,
+    val accepted: Boolean,
+    val failureCode: ClientZombieAttackCancelFailureCode? = null,
+    val hadActiveSession: Boolean,
+    val message: String,
+    val controllerVersion: Long,
+    val zombieVersion: Long? = null,
 )
 
 @Serializable

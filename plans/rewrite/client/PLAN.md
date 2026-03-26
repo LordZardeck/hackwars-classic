@@ -163,7 +163,7 @@
   - Image-viewer parity stays deferred until rewrite exposes typed image-file metadata; no filename/content heuristics are allowed in this tranche.
 
 ### RW-CLIENT-W2C1 - Shell-launched Shop FTP seller surface and Public FTP read-only browser
-- Status: `in_progress`
+- Status: `done`
 - Owner: `unassigned`
 - Depends on: `RW-CLIENT-W2A`, `RW-CLIENT-W5B2`
 - Allowed write scope: `:RewriteClient/client/files/**`, `:RewriteClient/client/network/**`
@@ -298,7 +298,7 @@
   - `RW-CLIENT-W2C1` depends on this slice because shell FTP and attack-family follow-up share the same secondary-directory targeting surface.
 
 ### RW-CLIENT-W5C - Zombie Attack launcher and pane
-- Status: `todo`
+- Status: `in_progress`
 - Owner: `unassigned`
 - Depends on: `RW-CLIENT-W5A`
 - Allowed write scope: `:RewriteProtocol`, `:RewriteClient/client/network/**`, `:RewriteClient`
@@ -308,6 +308,7 @@
 - Notes:
   - Owns `requestzombieattack` and `requestzombiecancelattack` plus the rewrite zombie-attack launcher/pane.
   - Keeps the longer-running zombie program lifecycle isolated from the initial decode-and-discovery slice in `RW-CLIENT-W5A`.
+  - Defers zombie-triggered `show_choices` follow-up handling because the current server emits those notices with `windowHandle = 0`.
 
 ### RW-CLIENT-W6 - Chat shell, relations, and messaging views
 - Status: `todo`

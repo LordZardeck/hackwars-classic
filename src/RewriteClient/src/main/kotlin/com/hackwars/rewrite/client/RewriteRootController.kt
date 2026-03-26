@@ -14,6 +14,8 @@ import com.hackwars.rewrite.client.network.RewritePublicFtpWindow
 import com.hackwars.rewrite.client.network.RewriteShopFtpWindow
 import com.hackwars.rewrite.client.network.RewriteNetworkWindow
 import com.hackwars.rewrite.client.network.RewritePortScanWindow
+import com.hackwars.rewrite.client.network.RewriteZombieAttackDialog
+import com.hackwars.rewrite.client.network.RewriteZombieAttackWindow
 import com.hackwars.rewrite.client.shell.RewritePlaceholderInternalFrame
 import com.hackwars.rewrite.client.shell.RewriteShellCommand
 import com.hackwars.rewrite.client.shell.RewriteShellDialogCoordinator
@@ -58,6 +60,8 @@ import com.hackwars.rewrite.protocol.ClientNetworkSwitchResponse
 import com.hackwars.rewrite.protocol.ClientRequestAttackPayload
 import com.hackwars.rewrite.protocol.ClientRequestCancelAttackPayload
 import com.hackwars.rewrite.protocol.ClientRequestScanPayload
+import com.hackwars.rewrite.protocol.ClientRequestZombieAttackPayload
+import com.hackwars.rewrite.protocol.ClientRequestZombieCancelAttackPayload
 import com.hackwars.rewrite.protocol.ClientScanResponse
 import com.hackwars.rewrite.protocol.ClientMakeBountyPayload
 import com.hackwars.rewrite.protocol.ClientHealPortPayload
@@ -105,6 +109,8 @@ import com.hackwars.rewrite.protocol.ClientVotePayload
 import com.hackwars.rewrite.protocol.ClientVoteResponse
 import com.hackwars.rewrite.protocol.ClientWebsiteRenderResponse
 import com.hackwars.rewrite.protocol.ClientWithdrawPayload
+import com.hackwars.rewrite.protocol.ClientZombieAttackCancelResponse
+import com.hackwars.rewrite.protocol.ClientZombieAttackStartResponse
 import com.hackwars.rewrite.protocol.RewriteFrames
 import com.hackwars.rewrite.protocol.RewriteClientJson
 import com.hackwars.rewrite.protocol.RewriteService
@@ -140,6 +146,7 @@ class RewriteRootController(
     private val shellDialogs = RewriteShellDialogCoordinator(::createShellDialog)
     private val bootstrapLock = Any()
     private val filePropertiesWindowsByPath = mutableMapOf<String, RewriteFilePropertiesWindow>()
+    private val zombieAttackWindowsByKey = mutableMapOf<String, RewriteZombieAttackWindow>()
     private var loginAttemptId: Long = 0
     private var activeLoginJob: Job? = null
     private var pendingGameBootstrap: PendingGameBootstrap? = null
@@ -228,7 +235,7 @@ class RewriteRootController(
         command: RewriteShellCommand,
         preferredPort: Int? = null,
     ) {
-        if (command == RewriteShellCommand.CREATE_BOUNTY) {
+        if (command == RewriteShellCommand.CREATE_BOUNTY || command == RewriteShellCommand.ZOMBIE_ATTACK) {
             shellDialogs.open(command)
         } else {
             shellWindows.open(command, preferredPort)
@@ -448,6 +455,53 @@ class RewriteRootController(
             ),
             responseSerializer = ClientAttackCancelResponse.serializer(),
             targetStateIds = listOf(playerIp),
+        )
+    }
+
+    internal suspend fun requestZombieAttack(
+        targetIp: String,
+        targetPort: Int,
+        zombieIp: String,
+        zombiePort: Int,
+        secondaryPorts: List<Int>,
+        extraInfo: List<ClientHookValue>,
+    ): RewriteGameCommandResult<ClientZombieAttackStartResponse> {
+        val playerIp = authenticatedPlayerIp()
+            ?: return RewriteGameCommandResult.Failure("Not connected to a rewrite game session.")
+        return gameCommandBroker.request(
+            commandName = "requestzombieattack",
+            payloadSerializer = ClientRequestZombieAttackPayload.serializer(),
+            payload = ClientRequestZombieAttackPayload(
+                targetIp = targetIp,
+                targetPort = targetPort,
+                sourceIp = zombieIp,
+                sourcePort = zombiePort,
+                secondaryPorts = secondaryPorts,
+                scripts = null,
+                extraInfo = extraInfo,
+                parentIp = playerIp,
+            ),
+            responseSerializer = ClientZombieAttackStartResponse.serializer(),
+            targetStateIds = listOf(playerIp, zombieIp, targetIp).distinct(),
+        )
+    }
+
+    internal suspend fun requestZombieCancelAttack(
+        zombieIp: String,
+        zombiePort: Int,
+    ): RewriteGameCommandResult<ClientZombieAttackCancelResponse> {
+        val playerIp = authenticatedPlayerIp()
+            ?: return RewriteGameCommandResult.Failure("Not connected to a rewrite game session.")
+        return gameCommandBroker.request(
+            commandName = "requestzombiecancelattack",
+            payloadSerializer = ClientRequestZombieCancelAttackPayload.serializer(),
+            payload = ClientRequestZombieCancelAttackPayload(
+                ip = playerIp,
+                port = zombiePort,
+                targetIp = zombieIp,
+            ),
+            responseSerializer = ClientZombieAttackCancelResponse.serializer(),
+            targetStateIds = listOf(playerIp, zombieIp).distinct(),
         )
     }
 
@@ -1042,6 +1096,7 @@ class RewriteRootController(
         activeLoginJob = null
         clearPendingBootstrap()
         closeFilePropertiesWindows()
+        closeZombieAttackWindows()
         shellWindows.closeAll()
         shellDialogs.closeAll()
         sessions.keys.toList().forEach(::closeService)
@@ -1174,6 +1229,7 @@ class RewriteRootController(
         activeLoginJob = null
         clearPendingBootstrap()
         closeFilePropertiesWindows()
+        closeZombieAttackWindows()
         shellWindows.closeAll()
         shellDialogs.closeAll()
         closeService(RewriteService.GAME)
@@ -1223,6 +1279,33 @@ class RewriteRootController(
         val current = nextAttackWindowHandle
         nextAttackWindowHandle = if (nextAttackWindowHandle == Int.MAX_VALUE) 1 else nextAttackWindowHandle + 1
         current
+    }
+
+    internal fun openZombieAttackPane(
+        zombieIp: String,
+        zombiePort: Int,
+    ) {
+        val currentHost = shellHost ?: return
+        val key = zombieAttackWindowKey(zombieIp, zombiePort)
+        val existing = zombieAttackWindowsByKey[key]
+        if (existing != null && !existing.isClosed) {
+            currentHost.focusWindow(existing)
+            return
+        }
+
+        val window = RewriteZombieAttackWindow(
+            controller = this,
+            zombieIp = zombieIp,
+            zombiePort = zombiePort,
+        )
+        window.addInternalFrameListener(object : javax.swing.event.InternalFrameAdapter() {
+            override fun internalFrameClosed(event: javax.swing.event.InternalFrameEvent) {
+                zombieAttackWindowsByKey.remove(key, window)
+            }
+        })
+        zombieAttackWindowsByKey[key] = window
+        currentHost.showWindow(window)
+        currentHost.focusWindow(window)
     }
 
     internal fun openLocalFile(file: ClientStoredFile) {
@@ -1402,6 +1485,19 @@ class RewriteRootController(
         }
     }
 
+    private fun closeZombieAttackWindows() {
+        val windows = zombieAttackWindowsByKey.values.toList()
+        zombieAttackWindowsByKey.clear()
+        windows.forEach { frame ->
+            runCatching { frame.dispose() }
+        }
+    }
+
+    private fun zombieAttackWindowKey(
+        zombieIp: String,
+        zombiePort: Int,
+    ): String = "$zombieIp:$zombiePort"
+
     private fun createShellDialog(
         command: RewriteShellCommand,
         ownerWindow: Window?,
@@ -1417,6 +1513,11 @@ class RewriteRootController(
             onFocusChooser = { chooser ->
                 shellHost?.focusWindow(chooser)
             },
+        )
+
+        RewriteShellCommand.ZOMBIE_ATTACK -> RewriteZombieAttackDialog(
+            owner = ownerWindow,
+            controller = this,
         )
 
         else -> error("No dialog registered for ${command.name}")
