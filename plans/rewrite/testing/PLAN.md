@@ -67,7 +67,7 @@
 - Verification scope: `./gradlew rewriteIntegrationTest rewriteMigrationTest`
 
 ### RW-TEST-004 - Deterministic UI harness and screenshot baseline system
-- Status: `in_progress`
+- Status: `done`
 - Priority: `P0`
 - Execution lane: `ui_parity`
 - Worker role: `worker`
@@ -93,7 +93,7 @@
 - Verification scope: `./gradlew :RewriteClient:test`
 
 ### RW-TEST-006 - Legacy screenshot baseline capture workflow
-- Status: `todo`
+- Status: `ready`
 - Priority: `P0`
 - Execution lane: `ui_parity`
 - Worker role: `worker`

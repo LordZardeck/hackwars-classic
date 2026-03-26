@@ -9,6 +9,7 @@ import java.time.Instant
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import java.util.concurrent.atomic.AtomicInteger
+import javax.swing.UIManager
 import kotlin.io.path.createDirectories
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
@@ -84,8 +85,14 @@ data class RewriteUiFailureManifest(
     val exceptionMessage: String? = null,
     val environment: Map<String, String> = emptyMap(),
     val context: Map<String, String> = emptyMap(),
+    val baselinePath: String? = null,
     val screenshotPath: String? = null,
     val screenshotDiffPath: String? = null,
+    val lookAndFeelId: String? = null,
+    val fontFamily: String? = null,
+    val captureWidth: Int? = null,
+    val captureHeight: Int? = null,
+    val captureClockEpochMillis: Long? = null,
 )
 
 @Serializable
@@ -100,13 +107,21 @@ fun rewriteUiArtifactRoot(): Path {
 }
 
 fun rewriteUiRunDirectory(runId: String): Path {
-    return rewriteUiArtifactRoot()
+    return rewriteUiRunDirectory(rewriteUiArtifactRoot(), runId)
+}
+
+internal fun rewriteUiRunDirectory(artifactRoot: Path, runId: String): Path {
+    return artifactRoot
         .resolve("ui-tests")
         .resolve(runId)
 }
 
 fun rewriteUiCaseDirectory(runId: String, suiteName: String, testName: String): Path {
-    return rewriteUiRunDirectory(runId)
+    return rewriteUiCaseDirectory(rewriteUiArtifactRoot(), runId, suiteName, testName)
+}
+
+internal fun rewriteUiCaseDirectory(artifactRoot: Path, runId: String, suiteName: String, testName: String): Path {
+    return rewriteUiRunDirectory(artifactRoot, runId)
         .resolve(rewriteUiArtifactSegment(suiteName))
         .resolve(rewriteUiArtifactSegment(testName))
 }
@@ -151,6 +166,26 @@ private fun emitFailureBundle(
     }
 }
 
+internal fun writeFailureBundle(
+    directory: Path,
+    manifest: RewriteUiFailureManifest,
+    failureText: String,
+    context: Map<String, String>,
+) {
+    runCatching {
+        directory.createDirectories()
+        Files.writeString(directory.resolve("manifest.json"), uiArtifactJson.encodeToString(manifest), StandardCharsets.UTF_8)
+        Files.writeString(directory.resolve("failure.txt"), failureText, StandardCharsets.UTF_8)
+        if (context.isNotEmpty()) {
+            Files.writeString(
+                directory.resolve("context.json"),
+                uiArtifactJson.encodeToString(RewriteUiFailureContext(context)),
+                StandardCharsets.UTF_8,
+            )
+        }
+    }.getOrThrow()
+}
+
 private fun formatFailureText(failure: Throwable): String {
     val writer = StringWriter()
     PrintWriter(writer).use { printer ->
@@ -166,8 +201,30 @@ private fun rewriteUiEnvironmentMetadata(): Map<String, String> {
         "osName" to System.getProperty("os.name", "unknown"),
         "osVersion" to System.getProperty("os.version", "unknown"),
         "headless" to java.awt.GraphicsEnvironment.isHeadless().toString(),
-        "displayScale" to "unknown",
+        "displayScale" to rewriteUiDisplayScale(),
+        "lookAndFeelId" to (UIManager.getLookAndFeel()?.id ?: "unknown"),
+        "fontFamily" to (UIManager.getFont("Label.font")?.family ?: "unknown"),
+        "fontSize" to (UIManager.getFont("Label.font")?.size?.toString() ?: "unknown"),
+        "dpi" to rewriteUiDpi(),
     )
+}
+
+internal fun rewriteUiDisplayScale(): String {
+    if (java.awt.GraphicsEnvironment.isHeadless()) {
+        return "unknown"
+    }
+    val transform = java.awt.GraphicsEnvironment.getLocalGraphicsEnvironment()
+        .defaultScreenDevice
+        .defaultConfiguration
+        .defaultTransform
+    return "${transform.scaleX}x${transform.scaleY}"
+}
+
+internal fun rewriteUiDpi(): String {
+    if (java.awt.GraphicsEnvironment.isHeadless()) {
+        return "unknown"
+    }
+    return java.awt.Toolkit.getDefaultToolkit().screenResolution.toString()
 }
 
 private fun rewriteRepoRoot(start: Path = Path.of(System.getProperty("user.dir")).toAbsolutePath().normalize()): Path {
