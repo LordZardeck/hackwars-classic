@@ -817,6 +817,18 @@ data class ClientPutFilePayload(
 )
 
 @Serializable
+data class ClientMalGetPayload(
+    val ip: String? = null,
+    val port: Int,
+    val name: String? = null,
+    val fetchPath: String? = null,
+    val putPath: String? = null,
+    @SerialName("targetIP")
+    val targetIp: String,
+    val attackPort: Int? = null,
+)
+
+@Serializable
 data class ClientChangeDailyPayPayload(
     val ip: String,
     val port: Int,

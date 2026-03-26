@@ -127,6 +127,98 @@ class FtpTransferCommandsTest {
     }
 
     @Test
+    fun malGetMovesSingleQuantityFromRemoteToLocalAndPublishesFilesystemDeltas() = runTest {
+        val localId = GameStateId("LOCAL-IP")
+        val targetId = GameStateId("TARGET-IP")
+        val repository = InMemoryComputerStateRepository(
+            seededStates = mapOf(
+                localId to localState(
+                    localId,
+                    files = listOf(
+                        storedFile("/Docs", "loot.bin", quantity = 2, contents = "local copy"),
+                    ),
+                ),
+                targetId to targetState(
+                    targetId,
+                    files = listOf(
+                        storedFile("/Secrets", "loot.bin", quantity = 4, contents = "remote copy"),
+                    ),
+                ),
+            ),
+        )
+        val interests = InMemoryInterestRegistry().apply {
+            register("local-conn", localId)
+            register("target-conn", targetId)
+        }
+        val publisher = RecordingGameStatePublisher()
+        val dispatcher = DefaultCommandDispatcher(repository, interests)
+
+        val response = dispatcher.request(
+            command = MalGetCommand(
+                requesterStateId = localId,
+                targetStateId = targetId,
+                portNumber = 17,
+                fileName = "loot.bin",
+                fetchPath = "/Secrets",
+                targetPath = "/Docs",
+            ),
+            metadata = CommandMetadata(connectionId = "local-conn", requestId = "ftp-malget-1"),
+            publisher = publisher,
+        )
+
+        val updatedLocal = requireNotNull(repository.load(localId))
+        val updatedTarget = requireNotNull(repository.load(targetId))
+
+        assertEquals("malget", response.operation)
+        assertEquals(localId, response.requesterStateId)
+        assertEquals(targetId, response.targetStateId)
+        assertEquals(1, response.fulfilledQuantity)
+        assertEquals("/Docs/loot.bin", response.file.path)
+        assertEquals(3, requireNotNull(updatedLocal.filesystem.resolveFile("/Docs", "loot.bin")).quantity)
+        assertEquals(3, requireNotNull(updatedTarget.filesystem.resolveFile("/Secrets", "loot.bin")).quantity)
+        assertEquals(2, publisher.deltas.size)
+        assertEquals(setOf("filesystem"), publisher.deltas.single { it.first == setOf("local-conn") }.second.deltaKeys)
+        assertEquals(setOf("filesystem"), publisher.deltas.single { it.first == setOf("target-conn") }.second.deltaKeys)
+    }
+
+    @Test
+    fun malGetBypassesRemoteFtpPasswordChecks() = runTest {
+        val localId = GameStateId("LOCAL-IP")
+        val targetId = GameStateId("TARGET-IP")
+        val ftpPasswords = InMemoryFtpPasswordRepository(mapOf(targetId to "secret"))
+        val repository = InMemoryComputerStateRepository(
+            seededStates = mapOf(
+                localId to localState(localId, files = emptyList()),
+                targetId to targetState(
+                    targetId,
+                    files = listOf(storedFile("/Secrets", "loot.bin", quantity = 2, contents = "remote copy")),
+                ),
+            ),
+        )
+        val interests = InMemoryInterestRegistry().apply {
+            register("local-conn", localId)
+            register("target-conn", targetId)
+        }
+        val dispatcher = DefaultCommandDispatcher(repository, interests)
+
+        val response = dispatcher.request(
+            command = MalGetCommand(
+                requesterStateId = localId,
+                targetStateId = targetId,
+                portNumber = 17,
+                fileName = "loot.bin",
+                fetchPath = "/Secrets",
+                targetPath = "/Docs",
+            ),
+        )
+
+        assertEquals("secret", ftpPasswords.load(targetId))
+        assertEquals("malget", response.operation)
+        assertEquals(1, repository.load(localId)?.filesystem?.resolveFile("/Docs", "loot.bin")?.quantity)
+        assertEquals(1, repository.load(targetId)?.filesystem?.resolveFile("/Secrets", "loot.bin")?.quantity)
+    }
+
+    @Test
     fun transfersRejectNonFtpTargetPorts() = runTest {
         val localId = GameStateId("LOCAL-IP")
         val targetId = GameStateId("TARGET-IP")

@@ -95,6 +95,8 @@ import com.hackwars.rewrite.gamecore.PageEditorResponse
 import com.hackwars.rewrite.gamecore.PurchaseResponse
 import com.hackwars.rewrite.gamecore.ProgramLifecycleStatus
 import com.hackwars.rewrite.gamecore.ProgramUpdate
+import com.hackwars.rewrite.gamecore.MalGetCommand
+import com.hackwars.rewrite.gamecore.MalGetPayload
 import com.hackwars.rewrite.gamecore.PutFileCommand
 import com.hackwars.rewrite.gamecore.PutFilePayload
 import com.hackwars.rewrite.gamecore.RequestCommand
@@ -1032,6 +1034,22 @@ class RewriteGameProtocolAdapter(
                         stateId = requireSingleStateId(input, input.metadata.authenticatedStateId),
                         path = payload.path,
                         fileName = payload.name,
+                    )
+                }
+                .register("malget") { input ->
+                    val payload = decodePayload(input, MalGetPayload.serializer())
+                    val authenticatedStateId = requireAuthenticatedStateId(input)
+                    requirePayloadIpMatches(authenticatedStateId, payload.targetIp, input.commandName)
+                    MalGetCommand(
+                        requesterStateId = authenticatedStateId,
+                        targetStateId = GameStateId(
+                            payload.ip?.takeUnless { it.isBlank() }
+                                ?: error("Target ip is required for ${input.commandName}."),
+                        ),
+                        portNumber = payload.port,
+                        fileName = payload.name,
+                        fetchPath = payload.fetchPath,
+                        targetPath = payload.putPath,
                     )
                 }
                 .register("get") { input ->

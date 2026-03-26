@@ -296,12 +296,12 @@
 - Verification scope: `./gradlew :RewriteClient:test :RewriteClient:uiTest`
 
 ### RW-CLIENT-W2C2 - FTP transfer parity and public-FTP password flows
-- Status: `blocked`
+- Status: `ready`
 - Priority: `P1`
 - Execution lane: `ftp_web`
 - Worker role: `worker`
 - Depends on: `RW-CLIENT-W2C1`, `RW-GS-T2`
-- Ready when: retained `malget` transport exists from the retained game server
+- Ready when: shell-launched FTP windows exist and retained `malget` transport exists from the retained game server
 - Parallel with: `none`
 - Allowed write scope: `src/RewriteClient/**/network/**`, `src/RewriteClient/**/files/**`, `src/RewriteProtocol/**`
 - Autonomous next: `RW-CLIENT-C4B`

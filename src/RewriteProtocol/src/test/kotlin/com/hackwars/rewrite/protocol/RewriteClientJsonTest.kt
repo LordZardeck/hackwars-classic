@@ -1104,6 +1104,18 @@ class RewriteClientJsonTest {
               "ignored":"ignored"
             }
         """.trimIndent().encodeToByteArray()
+        val malGetPayload = """
+            {
+              "ip":"TARGET-IP",
+              "port":17,
+              "name":"loot.bin",
+              "fetchPath":"/Secrets",
+              "putPath":"/Docs",
+              "targetIP":"LOCAL-IP",
+              "attackPort":44,
+              "ignored":"ignored"
+            }
+        """.trimIndent().encodeToByteArray()
         val responsePayload = """
             {
               "requesterStateId":"LOCAL-IP",
@@ -1133,6 +1145,10 @@ class RewriteClientJsonTest {
             ClientPutFilePayload.serializer(),
             putPayload,
         )
+        val malGet = RewriteClientJson.decode(
+            ClientMalGetPayload.serializer(),
+            malGetPayload,
+        )
         val response = RewriteClientJson.decode(
             ClientFtpTransferResponse.serializer(),
             responsePayload,
@@ -1143,6 +1159,9 @@ class RewriteClientJsonTest {
         assertEquals("ignored", get.password)
         assertEquals("TARGET-IP", put.targetIp)
         assertEquals("/Inbox", put.putPath)
+        assertEquals("TARGET-IP", malGet.ip)
+        assertEquals("LOCAL-IP", malGet.targetIp)
+        assertEquals(44, malGet.attackPort)
         assertEquals("get", response.operation)
         assertEquals(2, response.fulfilledQuantity)
         assertEquals("/Docs/remote.log", response.file.path)

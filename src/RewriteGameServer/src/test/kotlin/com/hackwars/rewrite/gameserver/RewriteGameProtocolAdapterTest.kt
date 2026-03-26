@@ -35,6 +35,7 @@ import com.hackwars.rewrite.gamecore.InstallFirewallPayload
 import com.hackwars.rewrite.gamecore.InstallFirewallResponse
 import com.hackwars.rewrite.gamecore.FtpTransferResponse
 import com.hackwars.rewrite.gamecore.GetFilePayload
+import com.hackwars.rewrite.gamecore.MalGetPayload
 import com.hackwars.rewrite.gamecore.PutFilePayload
 import com.hackwars.rewrite.gamecore.CreateFolderPayload
 import com.hackwars.rewrite.gamecore.DeleteFilePayload
@@ -308,6 +309,89 @@ class RewriteGameProtocolAdapterTest {
         assertEquals("/Inbox/upload.txt", response.file.path)
         assertEquals(1, fixture.repository.load(GameStateId("LOCAL-IP"))?.filesystem?.resolveFile("/Public", "upload.txt")?.quantity)
         assertEquals(4, fixture.repository.load(GameStateId("TARGET-IP"))?.filesystem?.resolveFile("/Inbox", "upload.txt")?.quantity)
+    }
+
+    @Test
+    fun malGetReturnsCorrelatedResponseAndBypassesRemoteFtpPassword() = runTest {
+        val seededLocal = localState().copy(
+            filesystem = localState().filesystem.saveFile(
+                StoredFile(
+                    path = buildFilePath("/Docs", "loot.bin"),
+                    name = "loot.bin",
+                    kind = StoredFileKind.TEXT,
+                    contents = "local loot",
+                    quantity = 2,
+                ),
+            ),
+        )
+        val seededTarget = targetState().copy(
+            filesystem = targetState().filesystem.saveFile(
+                StoredFile(
+                    path = buildFilePath("/Secrets", "loot.bin"),
+                    name = "loot.bin",
+                    kind = StoredFileKind.TEXT,
+                    contents = "target loot",
+                    quantity = 4,
+                ),
+            ),
+        )
+        val fixture = createFixture(localState = seededLocal, targetState = seededTarget)
+        val target = fixture.authenticatedConnection("TARGET-IP")
+        val local = fixture.authenticatedConnection("LOCAL-IP")
+
+        target.send(
+            RewriteFrames.command(
+                commandId = "ftp-pass-1",
+                commandName = "setftppassword",
+                payload = RewriteGameJson.encode(
+                    serializer = SetFtpPasswordPayload.serializer(),
+                    value = SetFtpPasswordPayload(
+                        ip = "TARGET-IP",
+                        password = "vault",
+                    ),
+                ),
+                expectsResponse = true,
+            ),
+        )
+        target.awaitFrame()
+
+        local.send(
+            RewriteFrames.command(
+                commandId = "malget-1",
+                commandName = "malget",
+                payload = RewriteGameJson.encode(
+                    serializer = MalGetPayload.serializer(),
+                    value = MalGetPayload(
+                        ip = "TARGET-IP",
+                        port = 17,
+                        name = "loot.bin",
+                        fetchPath = "/Secrets",
+                        putPath = "/Docs",
+                        targetIp = "LOCAL-IP",
+                        attackPort = 44,
+                    ),
+                ),
+                expectsResponse = true,
+            ),
+        )
+
+        val localDelta = local.awaitFrame()
+        val targetDelta = target.awaitFrame()
+        val responseFrame = local.awaitFrame()
+        val response = RewriteGameJson.decode(
+            serializer = FtpTransferResponse.serializer(),
+            payload = responseFrame.command_response!!.payload.toByteArray(),
+        )
+
+        assertEquals(listOf("filesystem"), localDelta.delta?.delta_keys)
+        assertEquals(listOf("filesystem"), targetDelta.delta?.delta_keys)
+        assertEquals("malget", response.operation)
+        assertEquals(1, response.fulfilledQuantity)
+        assertEquals("/Docs/loot.bin", response.file.path)
+        assertEquals(3, fixture.repository.load(GameStateId("LOCAL-IP"))?.filesystem?.resolveFile("/Docs", "loot.bin")?.quantity)
+        assertEquals(3, fixture.repository.load(GameStateId("TARGET-IP"))?.filesystem?.resolveFile("/Secrets", "loot.bin")?.quantity)
+        assertEquals("vault", fixture.ftpPasswords.load(GameStateId("TARGET-IP")))
+        assertTrue(target.drainFrames().isEmpty())
     }
 
     @Test

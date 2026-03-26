@@ -106,6 +106,20 @@ class GameCoreContractsTest {
                     ftpPasswordRepository = InMemoryFtpPasswordRepository(),
                 )
             }
+            .register("malget") { input ->
+                val payload = RewriteGameJson.codec.decodeFromString(
+                    deserializer = MalGetPayload.serializer(),
+                    string = input.payloadJson ?: error("Expected malget payload json."),
+                )
+                MalGetCommand(
+                    requesterStateId = input.metadata.authenticatedStateId ?: GameStateId(payload.targetIp),
+                    targetStateId = GameStateId(payload.ip ?: error("Expected remote target ip.")),
+                    portNumber = payload.port,
+                    fileName = payload.name,
+                    fetchPath = payload.fetchPath,
+                    targetPath = payload.putPath,
+                )
+            }
 
         val scan = registry.requireCreate(
             CommandEnvelopeInput(
@@ -219,6 +233,27 @@ class GameCoreContractsTest {
                 metadata = CommandMetadata(),
             ),
         )
+        val malGet = registry.requireCreate(
+            CommandEnvelopeInput(
+                commandId = "malget-1",
+                commandName = "malget",
+                targetStateIds = setOf(GameStateId("LOCAL-IP"), GameStateId("TARGET-IP")),
+                payloadJson = RewriteGameJson.codec.encodeToString(
+                    serializer = MalGetPayload.serializer(),
+                    value = MalGetPayload(
+                        ip = "TARGET-IP",
+                        port = 17,
+                        name = "loot.bin",
+                        fetchPath = "/Secrets",
+                        putPath = "/Docs",
+                        targetIp = "LOCAL-IP",
+                        attackPort = 44,
+                    ),
+                ),
+                expectsResponse = true,
+                metadata = CommandMetadata(authenticatedStateId = GameStateId("LOCAL-IP")),
+            ),
+        )
 
         assertEquals(
             setOf(
@@ -229,6 +264,7 @@ class GameCoreContractsTest {
                 "installwatch",
                 "setpreferences",
                 "setftppassword",
+                "malget",
             ),
             registry.registeredNames(),
         )
@@ -239,5 +275,6 @@ class GameCoreContractsTest {
         assertIs<InstallWatchCommand>(installWatch)
         assertIs<SetPreferenceCommand>(setPreference)
         assertIs<SetFtpPasswordCommand>(setFtpPassword)
+        assertIs<MalGetCommand>(malGet)
     }
 }
