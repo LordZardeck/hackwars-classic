@@ -192,7 +192,7 @@
 - Verification scope: `./gradlew :RewriteClientDev:test :RewriteClientModel:test :RewriteProtocol:test :RewriteClient:test :RewriteClient:uiTest`
 
 ### RW-CLIENT-X4 - Screenshot parity harness glue for retained client families
-- Status: `ready`
+- Status: `done`
 - Priority: `P0`
 - Execution lane: `cross_cutting`
 - Worker role: `worker`

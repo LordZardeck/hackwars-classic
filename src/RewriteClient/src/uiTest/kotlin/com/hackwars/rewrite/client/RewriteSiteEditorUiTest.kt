@@ -1,6 +1,15 @@
 package com.hackwars.rewrite.client
 
 import com.hackwars.rewrite.client.shell.RewriteShellCommand
+import com.hackwars.rewrite.client.testsupport.rewriteUiAuthenticatedDesktopFrame
+import com.hackwars.rewrite.client.testsupport.rewriteUiDisposeFrame
+import com.hackwars.rewrite.client.testsupport.rewriteUiFindComponents
+import com.hackwars.rewrite.client.testsupport.rewriteUiFindNamedComponent
+import com.hackwars.rewrite.client.testsupport.rewriteUiInvokeAndWaitResult
+import com.hackwars.rewrite.client.testsupport.rewriteUiSnapshotFrame
+import com.hackwars.rewrite.client.testsupport.rewriteUiWaitForDialog
+import com.hackwars.rewrite.client.testsupport.rewriteUiWaitForWindow
+import com.hackwars.rewrite.client.testsupport.rewriteUiWaitUntil
 import com.hackwars.rewrite.protocol.ClientComputerIdentity
 import com.hackwars.rewrite.protocol.ClientGameSnapshot
 import com.hackwars.rewrite.protocol.ClientPageEditorResponse
@@ -14,9 +23,7 @@ import hackwars.rewrite.v1.CommandResponseStatus
 import hackwars.rewrite.v1.ErrorEnvelope
 import hackwars.rewrite.v1.FrameEnvelope
 import java.awt.Component
-import java.awt.Container
 import java.awt.GraphicsEnvironment
-import java.time.Instant
 import javax.swing.JButton
 import javax.swing.JDialog
 import javax.swing.JEditorPane
@@ -249,77 +256,33 @@ class RewriteSiteEditorUiTest {
     private fun siteEditorReadyFrame(
         sessionGateway: RewriteServiceSessionGateway,
     ): RewriteRootFrame {
-        val frame = invokeAndWaitResult {
-            RewriteRootFrame(
-                controller = RewriteRootController(
-                    authGateway = DeterministicRewriteLoginAuthGateway(),
-                    sessionGateway = sessionGateway,
-                ),
-            ).apply { isVisible = true }
-        }
-        frame.controller.store.showDesktop()
-        frame.controller.accept(
-            RewriteService.GAME,
-            RewriteFrames.authAccepted(
-                connectionId = "conn-1",
-                playFabId = "PF-LOCAL",
-                playerIp = "192.0.2.10",
-                heartbeatInterval = kotlin.time.Duration.parse("15s"),
-                sessionStartedAt = Instant.parse("2026-03-25T00:00:00Z"),
+        return rewriteUiAuthenticatedDesktopFrame(
+            sessionGateway = sessionGateway,
+            snapshot = ClientGameSnapshot(
+                id = "192.0.2.10",
+                identity = ClientComputerIdentity(playerIp = "192.0.2.10"),
             ),
         )
-        frame.controller.accept(
-            RewriteService.GAME,
-            snapshotFrame(
-                ClientGameSnapshot(
-                    id = "192.0.2.10",
-                    identity = ClientComputerIdentity(playerIp = "192.0.2.10"),
-                ),
-            ),
-        )
-        waitUntil { frame.desktopPane.isShowing && frame.jMenuBar != null }
-        return frame
     }
 
     private fun snapshotFrame(
         snapshot: ClientGameSnapshot,
     ): FrameEnvelope {
-        return RewriteFrames.snapshot(
-            gameStateId = snapshot.id,
-            sequence = snapshot.version,
-            payload = RewriteClientJson.encode(
-                ClientGameSnapshot.serializer(),
-                snapshot,
-            ),
-        )
+        return rewriteUiSnapshotFrame(snapshot)
     }
 
     private fun disposeFrame(frame: RewriteRootFrame) {
-        SwingUtilities.invokeAndWait {
-            frame.dispose()
-        }
+        rewriteUiDisposeFrame(frame)
     }
 
     private fun waitForWindow(
         frame: RewriteRootFrame,
         windowName: String,
-    ): JInternalFrame {
-        waitUntil { frame.desktopPane.allFrames.toList().any { it.name == windowName } }
-        return frame.desktopPane.allFrames.toList().first { it.name == windowName }
-    }
+    ) = rewriteUiWaitForWindow(frame, windowName)
 
     private fun waitForDialog(
         title: String,
-    ): JDialog {
-        waitUntil {
-            java.awt.Window.getWindows().any { window ->
-                window is JDialog && window.isDisplayable && window.title == title
-            }
-        }
-        return java.awt.Window.getWindows()
-            .filterIsInstance<JDialog>()
-            .first { it.isDisplayable && it.title == title }
-    }
+    ) = rewriteUiWaitForDialog(title)
 
     private fun label(root: Component, name: String): JLabel {
         return findComponent(root, name) as? JLabel
@@ -354,44 +317,22 @@ class RewriteSiteEditorUiTest {
     }
 
     private fun findComponent(root: Component, name: String): Component? {
-        if (root.name == name) {
-            return root
-        }
-        if (root is Container) {
-            root.components.forEach { child ->
-                findComponent(child, name)?.let { return it }
-            }
-        }
-        return null
+        return rewriteUiFindNamedComponent(root, name)
     }
 
     private fun findComponents(root: Component): List<Component> {
-        if (root !is Container) {
-            return listOf(root)
-        }
-        return listOf(root) + root.components.flatMap(::findComponents)
+        return rewriteUiFindComponents(root)
     }
 
     private fun waitUntil(
         timeoutMillis: Long = 5_000,
         predicate: () -> Boolean,
     ) {
-        val deadline = System.nanoTime() + timeoutMillis * 1_000_000
-        while (System.nanoTime() < deadline) {
-            if (predicate()) {
-                return
-            }
-            Thread.sleep(25)
-        }
-        error("Condition was not met within ${timeoutMillis}ms")
+        rewriteUiWaitUntil(timeoutMillis, predicate)
     }
 
     private fun <T> invokeAndWaitResult(block: () -> T): T {
-        var result: Result<T>? = null
-        SwingUtilities.invokeAndWait {
-            result = runCatching(block)
-        }
-        return result!!.getOrThrow()
+        return rewriteUiInvokeAndWaitResult(block)
     }
 
     private class FakeSiteEditorUiSessionGateway : RewriteServiceSessionGateway {

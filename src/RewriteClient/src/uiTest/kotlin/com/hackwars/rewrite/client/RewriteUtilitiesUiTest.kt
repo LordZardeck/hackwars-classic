@@ -1,6 +1,14 @@
 package com.hackwars.rewrite.client
 
 import com.hackwars.rewrite.client.shell.RewriteShellCommand
+import com.hackwars.rewrite.client.testsupport.rewriteUiAuthenticatedDesktopFrame
+import com.hackwars.rewrite.client.testsupport.rewriteUiDisposeFrame
+import com.hackwars.rewrite.client.testsupport.rewriteUiFindComponents
+import com.hackwars.rewrite.client.testsupport.rewriteUiFindNamedComponent
+import com.hackwars.rewrite.client.testsupport.rewriteUiInvokeAndWaitResult
+import com.hackwars.rewrite.client.testsupport.rewriteUiSnapshotFrame
+import com.hackwars.rewrite.client.testsupport.rewriteUiWaitForWindow
+import com.hackwars.rewrite.client.testsupport.rewriteUiWaitUntil
 import com.hackwars.rewrite.protocol.ClientComputerIdentity
 import com.hackwars.rewrite.protocol.ClientComputerLogEntry
 import com.hackwars.rewrite.protocol.ClientGameSnapshot
@@ -16,13 +24,11 @@ import hackwars.rewrite.v1.CommandResponseStatus
 import hackwars.rewrite.v1.ErrorEnvelope
 import hackwars.rewrite.v1.FrameEnvelope
 import java.awt.Component
-import java.awt.Container
 import java.awt.GraphicsEnvironment
 import java.time.Instant
 import javax.swing.JButton
 import javax.swing.JCheckBox
 import javax.swing.JComboBox
-import javax.swing.JInternalFrame
 import javax.swing.JLabel
 import javax.swing.JTextArea
 import javax.swing.SwingUtilities
@@ -44,15 +50,15 @@ class RewriteUtilitiesUiTest {
                 frame.controller.launchShellCommand(RewriteShellCommand.PREFERENCES)
             }
 
-            val preferencesWindow = waitForWindow(frame, "rewrite-preferences-window")
-            waitUntil {
-                invokeAndWaitResult {
+            val preferencesWindow = rewriteUiWaitForWindow(frame, "rewrite-preferences-window")
+            rewriteUiWaitUntil {
+                rewriteUiInvokeAndWaitResult {
                     frame.desktopPane.allFrames.count { it.name == "rewrite-preferences-window" } == 1
                 }
             }
 
             assertEquals("Preferences", preferencesWindow.title)
-            val sectionTexts = findComponents(preferencesWindow)
+            val sectionTexts = rewriteUiFindComponents(preferencesWindow)
                 .filterIsInstance<JLabel>()
                 .filter { it.name?.startsWith("rewrite-preferences-section-") == true }
                 .map { it.text }
@@ -69,7 +75,7 @@ class RewriteUtilitiesUiTest {
                 sectionTexts,
             )
         } finally {
-            disposeFrame(frame)
+            rewriteUiDisposeFrame(frame)
         }
     }
 
@@ -84,13 +90,13 @@ class RewriteUtilitiesUiTest {
                 frame.controller.launchShellCommand(RewriteShellCommand.PREFERENCES)
             }
 
-            val preferencesWindow = waitForWindow(frame, "rewrite-preferences-window")
+            val preferencesWindow = rewriteUiWaitForWindow(frame, "rewrite-preferences-window")
             SwingUtilities.invokeAndWait {
                 checkBox(preferencesWindow, "rewrite-preferences-option-logwindow").doClick()
                 button(preferencesWindow, "rewrite-preferences-apply-button").doClick()
             }
 
-            waitUntil { sessionGateway.latestGameSession()?.sentFrames?.isNotEmpty() == true }
+            rewriteUiWaitUntil { sessionGateway.latestGameSession()?.sentFrames?.isNotEmpty() == true }
             val command = sessionGateway.latestGameSession()!!.sentFrames.single().command!!
             val payload = RewriteClientJson.decode(
                 ClientSetPreferencePayload.serializer(),
@@ -114,13 +120,13 @@ class RewriteUtilitiesUiTest {
                 ),
             )
 
-            waitUntil {
+            rewriteUiWaitUntil {
                 label(preferencesWindow, "rewrite-preferences-status").text == "Preferences saved." &&
                     !button(preferencesWindow, "rewrite-preferences-apply-button").isEnabled
             }
             assertEquals(" ", label(preferencesWindow, "rewrite-preferences-error").text)
         } finally {
-            disposeFrame(frame)
+            rewriteUiDisposeFrame(frame)
         }
     }
 
@@ -135,14 +141,14 @@ class RewriteUtilitiesUiTest {
                 frame.controller.launchShellCommand(RewriteShellCommand.PREFERENCES)
             }
 
-            val preferencesWindow = waitForWindow(frame, "rewrite-preferences-window")
+            val preferencesWindow = rewriteUiWaitForWindow(frame, "rewrite-preferences-window")
             SwingUtilities.invokeAndWait {
                 @Suppress("UNCHECKED_CAST")
                 (comboBox(preferencesWindow, "rewrite-preferences-option-appnote") as JComboBox<String>).selectedItem = "Never"
                 button(preferencesWindow, "rewrite-preferences-apply-button").doClick()
             }
 
-            waitUntil { sessionGateway.latestGameSession()?.sentFrames?.isNotEmpty() == true }
+            rewriteUiWaitUntil { sessionGateway.latestGameSession()?.sentFrames?.isNotEmpty() == true }
             val command = sessionGateway.latestGameSession()!!.sentFrames.single().command!!
 
             frame.controller.accept(
@@ -158,13 +164,13 @@ class RewriteUtilitiesUiTest {
                 ),
             )
 
-            waitUntil {
+            rewriteUiWaitUntil {
                 label(preferencesWindow, "rewrite-preferences-error").text == "Preference save failed."
             }
             assertTrue(preferencesWindow.isDisplayable)
             assertTrue(button(preferencesWindow, "rewrite-preferences-apply-button").isEnabled)
         } finally {
-            disposeFrame(frame)
+            rewriteUiDisposeFrame(frame)
         }
     }
 
@@ -190,9 +196,9 @@ class RewriteUtilitiesUiTest {
                 frame.controller.launchShellCommand(RewriteShellCommand.LOG_WINDOW)
             }
 
-            val logWindow = waitForWindow(frame, "rewrite-log-window")
-            waitUntil {
-                invokeAndWaitResult {
+            val logWindow = rewriteUiWaitForWindow(frame, "rewrite-log-window")
+            rewriteUiWaitUntil {
+                rewriteUiInvokeAndWaitResult {
                     frame.desktopPane.allFrames.count { it.name == "rewrite-log-window" } == 1
                 }
             }
@@ -201,7 +207,7 @@ class RewriteUtilitiesUiTest {
             assertEquals("Decoded log line", (findComponent(logWindow, "rewrite-log-window-text") as JTextArea).text)
             assertFalse((findComponent(logWindow, "rewrite-log-window-text") as JTextArea).isEditable)
         } finally {
-            disposeFrame(frame)
+            rewriteUiDisposeFrame(frame)
         }
     }
 
@@ -210,7 +216,7 @@ class RewriteUtilitiesUiTest {
         assumeFalse(GraphicsEnvironment.isHeadless())
 
         val sessionGateway = FakeUtilityUiSessionGateway()
-        val frame = invokeAndWaitResult {
+        val frame = rewriteUiInvokeAndWaitResult {
             RewriteRootFrame(
                 controller = RewriteRootController(
                     authGateway = DeterministicRewriteLoginAuthGateway(),
@@ -220,7 +226,7 @@ class RewriteUtilitiesUiTest {
         }
         try {
             frame.controller.submitLogin("localuser", "password1234".toCharArray())
-            waitUntil { sessionGateway.latestGameSession() != null }
+            rewriteUiWaitUntil { sessionGateway.latestGameSession() != null }
 
             val session = sessionGateway.latestGameSession()!!
             frame.controller.accept(
@@ -235,7 +241,7 @@ class RewriteUtilitiesUiTest {
             )
             frame.controller.accept(
                 RewriteService.GAME,
-                snapshotFrame(
+                rewriteUiSnapshotFrame(
                     utilityShellState(
                         preferences = emptyMap(),
                         logs = listOf(
@@ -249,8 +255,8 @@ class RewriteUtilitiesUiTest {
                 ),
             )
 
-            waitUntil {
-                invokeAndWaitResult {
+            rewriteUiWaitUntil {
+                rewriteUiInvokeAndWaitResult {
                     frame.controller.route() == com.hackwars.rewrite.clientmodel.RewriteClientRoute.DESKTOP &&
                         frame.desktopPane.allFrames.map { it.name }.toSet().containsAll(
                             setOf(
@@ -262,7 +268,7 @@ class RewriteUtilitiesUiTest {
             }
             assertEquals(1, session.sentFrames.count { it.auth_request != null })
         } finally {
-            disposeFrame(frame)
+            rewriteUiDisposeFrame(frame)
         }
     }
 
@@ -270,28 +276,10 @@ class RewriteUtilitiesUiTest {
         sessionGateway: RewriteServiceSessionGateway = NoOpRewriteServiceSessionGateway,
         shellState: ClientGameSnapshot = utilityShellState(),
     ): RewriteRootFrame {
-        val frame = invokeAndWaitResult {
-            RewriteRootFrame(
-                controller = RewriteRootController(
-                    authGateway = DeterministicRewriteLoginAuthGateway(),
-                    sessionGateway = sessionGateway,
-                ),
-            ).apply { isVisible = true }
-        }
-        frame.controller.store.showDesktop()
-        frame.controller.accept(
-            RewriteService.GAME,
-            RewriteFrames.authAccepted(
-                connectionId = "conn-1",
-                playFabId = "PF-LOCAL",
-                playerIp = "192.0.2.10",
-                heartbeatInterval = kotlin.time.Duration.parse("15s"),
-                sessionStartedAt = Instant.parse("2026-03-25T00:00:00Z"),
-            ),
+        return rewriteUiAuthenticatedDesktopFrame(
+            sessionGateway = sessionGateway,
+            snapshot = shellState,
         )
-        frame.controller.accept(RewriteService.GAME, snapshotFrame(shellState))
-        waitUntil { frame.desktopPane.isShowing && frame.jMenuBar != null }
-        return frame
     }
 
     private fun utilityShellState(
@@ -311,50 +299,6 @@ class RewriteUtilitiesUiTest {
                 allowedNetworks = setOf("ProgNet"),
             ),
         )
-    }
-
-    private fun snapshotFrame(snapshot: ClientGameSnapshot): FrameEnvelope {
-        return RewriteFrames.snapshot(
-            gameStateId = snapshot.id,
-            sequence = snapshot.version,
-            payload = RewriteClientJson.encode(ClientGameSnapshot.serializer(), snapshot),
-        )
-    }
-
-    private fun waitForWindow(frame: RewriteRootFrame, name: String): JInternalFrame {
-        waitUntil {
-            invokeAndWaitResult {
-                frame.desktopPane.allFrames.any { it.name == name }
-            }
-        }
-        return invokeAndWaitResult {
-            frame.desktopPane.allFrames.first { it.name == name }
-        }
-    }
-
-    private fun disposeFrame(frame: RewriteRootFrame) {
-        SwingUtilities.invokeAndWait {
-            frame.dispose()
-        }
-    }
-
-    private inline fun <T> invokeAndWaitResult(crossinline block: () -> T): T {
-        var result: Result<T>? = null
-        SwingUtilities.invokeAndWait {
-            result = runCatching { block() }
-        }
-        return result!!.getOrThrow()
-    }
-
-    private fun waitUntil(timeoutMillis: Long = 3_000, predicate: () -> Boolean) {
-        val deadline = System.currentTimeMillis() + timeoutMillis
-        while (System.currentTimeMillis() < deadline) {
-            if (predicate()) {
-                return
-            }
-            Thread.sleep(20)
-        }
-        assertTrue(predicate())
     }
 
     private fun label(root: Component, name: String): JLabel {
@@ -378,22 +322,7 @@ class RewriteUtilitiesUiTest {
     }
 
     private fun findComponent(root: Component, name: String): Component? {
-        if (root.name == name) {
-            return root
-        }
-        val container = root as? Container ?: return null
-        container.components.forEach { child ->
-            val match = findComponent(child, name)
-            if (match != null) {
-                return match
-            }
-        }
-        return null
-    }
-
-    private fun findComponents(root: Component): List<Component> {
-        val children = (root as? Container)?.components.orEmpty().flatMap(::findComponents)
-        return listOf(root) + children
+        return rewriteUiFindNamedComponent(root, name)
     }
 
     private class FakeUtilityUiSessionGateway : RewriteServiceSessionGateway {

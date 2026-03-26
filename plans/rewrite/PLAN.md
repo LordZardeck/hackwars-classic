@@ -2,8 +2,8 @@
 
 ## Status Dashboard
 - Active mode: `autonomous_rewrite_execution`
-- Current pass: `Pass 1 - Cross-cutting foundations`
-- Current milestone focus: `M6 - Retained game-server transport completion`
+- Current pass: `Pass 2 - Shell and core client recovery`
+- Current milestone focus: `M8 - Client MVC and parity recovery foundations`
 - Coordinator stop rule: continue until `M11` is `done`, or until the only remaining work is `blocked_external`
 - Parallel saturation target: `8` active subagents, or the maximum safe non-overlapping count when fewer than `8` disjoint tasks exist
 

@@ -92,6 +92,27 @@ private const val LOCAL_SESSION_TICKET = "SESSION-LOCALUSER"
 private const val TARGET_SESSION_TICKET = "SESSION-TARGET"
 private const val ZOMBIE_SESSION_TICKET = "SESSION-ZOMBIE"
 private const val STORE_SESSION_TICKET = "SESSION-STORE"
+private val DETERMINISTIC_SCREENSHOT_CLOCK: Instant = Instant.parse("2026-03-26T18:42:00Z")
+
+data class RewriteClientDevCredentials(
+    val email: String,
+    val password: String,
+)
+
+data class RewriteClientDevComputerFixture(
+    val playerIp: String,
+    val playFabId: String,
+    val sessionTicket: String,
+)
+
+data class RewriteClientDevFixture(
+    val login: RewriteClientDevCredentials,
+    val local: RewriteClientDevComputerFixture,
+    val target: RewriteClientDevComputerFixture,
+    val zombie: RewriteClientDevComputerFixture,
+    val store: RewriteClientDevComputerFixture,
+    val screenshotCaptureClock: Instant,
+)
 
 class RewriteClientDevEnvironment(
     private val clock: () -> Instant = { Instant.now() },
@@ -157,6 +178,34 @@ class RewriteClientDevEnvironment(
     private val harnessSessionGateway = HarnessBackedRewriteServiceSessionGateway(
         harness = harness,
         runtimeScope = appScope,
+    )
+
+    val fixture = RewriteClientDevFixture(
+        login = RewriteClientDevCredentials(
+            email = "localuser",
+            password = "password1234",
+        ),
+        local = RewriteClientDevComputerFixture(
+            playerIp = LOCAL_PLAYER_IP,
+            playFabId = LOCAL_PLAYFAB_ID,
+            sessionTicket = LOCAL_SESSION_TICKET,
+        ),
+        target = RewriteClientDevComputerFixture(
+            playerIp = TARGET_PLAYER_IP,
+            playFabId = TARGET_PLAYFAB_ID,
+            sessionTicket = TARGET_SESSION_TICKET,
+        ),
+        zombie = RewriteClientDevComputerFixture(
+            playerIp = ZOMBIE_PLAYER_IP,
+            playFabId = ZOMBIE_PLAYFAB_ID,
+            sessionTicket = ZOMBIE_SESSION_TICKET,
+        ),
+        store = RewriteClientDevComputerFixture(
+            playerIp = STORE_PLAYER_IP,
+            playFabId = STORE_PLAYFAB_ID,
+            sessionTicket = STORE_SESSION_TICKET,
+        ),
+        screenshotCaptureClock = DETERMINISTIC_SCREENSHOT_CLOCK,
     )
 
     val authGateway: RewriteLoginAuthGateway = DeterministicRewriteLoginAuthGateway()

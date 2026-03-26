@@ -1,6 +1,11 @@
 package com.hackwars.rewrite.client
 
 import com.hackwars.rewrite.client.shell.RewriteShellCommand
+import com.hackwars.rewrite.client.testsupport.rewriteUiAuthenticatedDesktopFrame
+import com.hackwars.rewrite.client.testsupport.rewriteUiDisposeFrame
+import com.hackwars.rewrite.client.testsupport.rewriteUiFindNamedComponent
+import com.hackwars.rewrite.client.testsupport.rewriteUiWaitForWindow
+import com.hackwars.rewrite.client.testsupport.rewriteUiWaitUntil
 import com.hackwars.rewrite.protocol.ClientApplicationKind
 import com.hackwars.rewrite.protocol.ClientCompiledBinaryMetadata
 import com.hackwars.rewrite.protocol.ClientComputerIdentity
@@ -23,12 +28,9 @@ import com.hackwars.rewrite.protocol.RewriteFrames
 import com.hackwars.rewrite.protocol.RewriteService
 import hackwars.rewrite.v1.FrameEnvelope
 import java.awt.Component
-import java.awt.Container
 import java.awt.GraphicsEnvironment
-import java.time.Instant
 import javax.swing.JButton
 import javax.swing.JCheckBox
-import javax.swing.JInternalFrame
 import javax.swing.JList
 import javax.swing.JLabel
 import javax.swing.JTable
@@ -56,8 +58,8 @@ class RewritePortManagementUiTest {
                 frame.controller.launchShellCommand(RewriteShellCommand.PORT_MANAGEMENT)
             }
 
-            val window = waitForWindow(frame, "rewrite-port-management-window")
-            waitUntil {
+            val window = rewriteUiWaitForWindow(frame, "rewrite-port-management-window")
+            rewriteUiWaitUntil {
                 frame.desktopPane.allFrames.count { it.name == "rewrite-port-management-window" } == 1 &&
                     table(window, "rewrite-port-management-table").rowCount == 2
             }
@@ -79,7 +81,7 @@ class RewritePortManagementUiTest {
             assertFalse(noteField.isEnabled)
             assertFalse(noteField.isEditable)
         } finally {
-            disposeFrame(frame)
+            rewriteUiDisposeFrame(frame)
         }
     }
 
@@ -97,13 +99,13 @@ class RewritePortManagementUiTest {
                 frame.controller.launchShellCommand(RewriteShellCommand.PORT_MANAGEMENT)
             }
 
-            val window = waitForWindow(frame, "rewrite-port-management-window")
+            val window = rewriteUiWaitForWindow(frame, "rewrite-port-management-window")
             SwingUtilities.invokeAndWait {
                 table(window, "rewrite-port-management-table").selectionModel.setSelectionInterval(0, 0)
                 button(window, "rewrite-port-management-heal-button").doClick()
             }
 
-            waitUntil { sessionGateway.latestGameSession()!!.sentFrames.isNotEmpty() }
+            rewriteUiWaitUntil { sessionGateway.latestGameSession()!!.sentFrames.isNotEmpty() }
             val command = sessionGateway.latestGameSession()!!.sentFrames.last().command!!
             val payload = RewriteClientJson.decode(
                 ClientHealPortPayload.serializer(),
@@ -138,7 +140,7 @@ class RewritePortManagementUiTest {
             waitUntil { text(window, "rewrite-port-management-status") == "Healed port 6." }
             assertTrue(window.isDisplayable)
         } finally {
-            disposeFrame(frame)
+            rewriteUiDisposeFrame(frame)
         }
     }
 
@@ -166,13 +168,13 @@ class RewritePortManagementUiTest {
                 frame.controller.launchShellCommand(RewriteShellCommand.PORT_MANAGEMENT)
             }
 
-            val window = waitForWindow(frame, "rewrite-port-management-window")
+            val window = rewriteUiWaitForWindow(frame, "rewrite-port-management-window")
             SwingUtilities.invokeAndWait {
                 table(window, "rewrite-port-management-table").selectionModel.setSelectionInterval(0, 0)
                 button(window, "rewrite-port-management-install-program-button").doClick()
             }
 
-            val programChooser = waitForWindow(frame, "rewrite-port-management-program-chooser-window")
+            val programChooser = rewriteUiWaitForWindow(frame, "rewrite-port-management-program-chooser-window")
             respondToLatestDirectoryCommand(
                 frame = frame,
                 sessionGateway = sessionGateway,
@@ -201,7 +203,7 @@ class RewritePortManagementUiTest {
                 button(programChooser, "rewrite-files-choose-button").doClick()
             }
 
-            waitUntil { sessionGateway.latestGameSession()!!.sentFrames.last().command!!.command_name == "installapplication" }
+            rewriteUiWaitUntil { sessionGateway.latestGameSession()!!.sentFrames.last().command!!.command_name == "installapplication" }
             val installProgramCommand = sessionGateway.latestGameSession()!!.sentFrames.last().command!!
             val installProgramPayload = RewriteClientJson.decode(
                 ClientInstallApplicationPayload.serializer(),
@@ -237,7 +239,7 @@ class RewritePortManagementUiTest {
                 button(window, "rewrite-port-management-install-firewall-button").doClick()
             }
 
-            val firewallChooser = waitForWindow(frame, "rewrite-port-management-firewall-chooser-window")
+            val firewallChooser = rewriteUiWaitForWindow(frame, "rewrite-port-management-firewall-chooser-window")
             respondToLatestDirectoryCommand(
                 frame = frame,
                 sessionGateway = sessionGateway,
@@ -267,7 +269,7 @@ class RewritePortManagementUiTest {
                 button(firewallChooser, "rewrite-files-choose-button").doClick()
             }
 
-            waitUntil { sessionGateway.latestGameSession()!!.sentFrames.last().command!!.command_name == "installfirewall" }
+            rewriteUiWaitUntil { sessionGateway.latestGameSession()!!.sentFrames.last().command!!.command_name == "installfirewall" }
             val installFirewallCommand = sessionGateway.latestGameSession()!!.sentFrames.last().command!!
             val installFirewallPayload = RewriteClientJson.decode(
                 ClientInstallFirewallPayload.serializer(),
@@ -299,7 +301,7 @@ class RewritePortManagementUiTest {
             waitUntil { text(window, "rewrite-port-management-status") == "Installed basic.fw on port 6." }
             assertTrue(window.isDisplayable)
         } finally {
-            disposeFrame(frame)
+            rewriteUiDisposeFrame(frame)
         }
     }
 
@@ -307,28 +309,10 @@ class RewritePortManagementUiTest {
         sessionGateway: FakePortManagementUiSessionGateway,
         snapshot: ClientGameSnapshot,
     ): RewriteRootFrame {
-        val frame = invokeAndWaitResult {
-            RewriteRootFrame(
-                controller = RewriteRootController(
-                    authGateway = DeterministicRewriteLoginAuthGateway(),
-                    sessionGateway = sessionGateway,
-                ),
-            ).apply { isVisible = true }
-        }
-        frame.controller.store.showDesktop()
-        frame.controller.accept(
-            RewriteService.GAME,
-            RewriteFrames.authAccepted(
-                connectionId = "conn-1",
-                playFabId = "PF-LOCAL",
-                playerIp = "192.0.2.10",
-                heartbeatInterval = kotlin.time.Duration.parse("15s"),
-                sessionStartedAt = Instant.parse("2026-03-25T00:00:00Z"),
-            ),
+        return rewriteUiAuthenticatedDesktopFrame(
+            sessionGateway = sessionGateway,
+            snapshot = snapshot,
         )
-        frame.controller.accept(RewriteService.GAME, snapshotFrame(snapshot))
-        waitUntil { frame.desktopPane.isShowing }
-        return frame
     }
 
     private fun portManagementSnapshot(
@@ -400,68 +384,12 @@ class RewritePortManagementUiTest {
         )
     }
 
-    private fun waitForWindow(
-        frame: RewriteRootFrame,
-        windowName: String,
-    ): JInternalFrame {
-        waitUntil { frame.desktopPane.allFrames.any { it.name == windowName } }
-        return frame.desktopPane.allFrames.first { it.name == windowName }
-    }
-
-    private fun snapshotFrame(snapshot: ClientGameSnapshot): FrameEnvelope {
-        return RewriteFrames.snapshot(
-            gameStateId = snapshot.id,
-            sequence = snapshot.version,
-            payload = RewriteClientJson.encode(ClientGameSnapshot.serializer(), snapshot),
-        )
+    private fun findComponent(root: Component, name: String): Component? {
+        return rewriteUiFindNamedComponent(root, name)
     }
 
     private fun waitUntil(timeoutMillis: Long = 3_000, predicate: () -> Boolean) {
-        val deadline = System.currentTimeMillis() + timeoutMillis
-        while (System.currentTimeMillis() < deadline) {
-            flushEdt()
-            if (predicate()) {
-                return
-            }
-            Thread.sleep(25)
-        }
-        flushEdt()
-        if (!predicate()) {
-            error("Condition was not met within ${timeoutMillis}ms")
-        }
-    }
-
-    private fun flushEdt() {
-        if (SwingUtilities.isEventDispatchThread()) {
-            return
-        }
-        SwingUtilities.invokeAndWait {}
-    }
-
-    private fun disposeFrame(frame: RewriteRootFrame) {
-        SwingUtilities.invokeAndWait {
-            frame.dispose()
-        }
-    }
-
-    private fun <T> invokeAndWaitResult(block: () -> T): T {
-        var result: Result<T>? = null
-        SwingUtilities.invokeAndWait {
-            result = runCatching(block)
-        }
-        return result!!.getOrThrow()
-    }
-
-    private fun findComponent(root: Component, name: String): Component? {
-        if (root.name == name) {
-            return root
-        }
-        if (root is Container) {
-            root.components.forEach { child ->
-                findComponent(child, name)?.let { return it }
-            }
-        }
-        return null
+        rewriteUiWaitUntil(timeoutMillis, predicate)
     }
 
     private fun table(root: Component, name: String): JTable {

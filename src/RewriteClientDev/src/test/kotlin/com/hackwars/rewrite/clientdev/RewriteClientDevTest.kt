@@ -24,6 +24,22 @@ import kotlin.test.assertTrue
 @OptIn(ExperimentalCoroutinesApi::class)
 class RewriteClientDevTest {
     @Test
+    fun exposesDeterministicFixtureDescriptorForUiHarnesses() {
+        val environment = RewriteClientDevEnvironment()
+        try {
+            assertEquals("localuser", environment.fixture.login.email)
+            assertEquals("password1234", environment.fixture.login.password)
+            assertEquals("192.0.2.10", environment.fixture.local.playerIp)
+            assertEquals("198.51.100.20", environment.fixture.target.playerIp)
+            assertEquals("203.0.113.30", environment.fixture.zombie.playerIp)
+            assertEquals("198.51.100.40", environment.fixture.store.playerIp)
+            assertEquals(java.time.Instant.parse("2026-03-26T18:42:00Z"), environment.fixture.screenshotCaptureClock)
+        } finally {
+            environment.close()
+        }
+    }
+
+    @Test
     fun deterministicLoginBootstrapsDesktopThroughRealInMemoryAdapter() = runTest {
         val runtimeScope = CoroutineScope(SupervisorJob() + StandardTestDispatcher(testScheduler))
         val workerScope = CoroutineScope(SupervisorJob() + StandardTestDispatcher(testScheduler))

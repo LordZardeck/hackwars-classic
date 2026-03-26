@@ -1,6 +1,14 @@
 package com.hackwars.rewrite.client
 
 import com.hackwars.rewrite.client.shell.RewriteShellCommand
+import com.hackwars.rewrite.client.testsupport.rewriteUiAuthenticatedDesktopFrame
+import com.hackwars.rewrite.client.testsupport.rewriteUiDisposeFrame
+import com.hackwars.rewrite.client.testsupport.rewriteUiFindNamedComponent
+import com.hackwars.rewrite.client.testsupport.rewriteUiInvokeAndWaitResult
+import com.hackwars.rewrite.client.testsupport.rewriteUiSetSegmentedIp
+import com.hackwars.rewrite.client.testsupport.rewriteUiWaitForDialog
+import com.hackwars.rewrite.client.testsupport.rewriteUiWaitForWindow
+import com.hackwars.rewrite.client.testsupport.rewriteUiWaitUntil
 import com.hackwars.rewrite.protocol.ClientAttackMode
 import com.hackwars.rewrite.protocol.ClientAttackSessionKind
 import com.hackwars.rewrite.protocol.ClientAttackSessionState
@@ -20,10 +28,7 @@ import com.hackwars.rewrite.protocol.RewriteFrames
 import com.hackwars.rewrite.protocol.RewriteService
 import hackwars.rewrite.v1.FrameEnvelope
 import java.awt.Component
-import java.awt.Container
 import java.awt.GraphicsEnvironment
-import java.awt.Window
-import java.time.Instant
 import javax.swing.JButton
 import javax.swing.JDialog
 import javax.swing.JInternalFrame
@@ -322,38 +327,10 @@ class RewriteZombieAttackWindowsUiTest {
     private fun zombieReadyFrame(
         sessionGateway: FakeZombieAttackUiSessionGateway,
     ): RewriteRootFrame {
-        val frame = invokeAndWaitResult {
-            RewriteRootFrame(
-                controller = RewriteRootController(
-                    authGateway = DeterministicRewriteLoginAuthGateway(),
-                    sessionGateway = sessionGateway,
-                ),
-            ).apply { isVisible = true }
-        }
-        frame.controller.store.showDesktop()
-        frame.controller.accept(
-            RewriteService.GAME,
-            RewriteFrames.authAccepted(
-                connectionId = "conn-1",
-                playFabId = "PF-LOCAL",
-                playerIp = "192.0.2.10",
-                heartbeatInterval = kotlin.time.Duration.parse("15s"),
-                sessionStartedAt = Instant.parse("2026-03-25T00:00:00Z"),
-            ),
+        return rewriteUiAuthenticatedDesktopFrame(
+            sessionGateway = sessionGateway,
+            snapshot = ClientGameSnapshot(id = "192.0.2.10"),
         )
-        frame.controller.accept(
-            RewriteService.GAME,
-            RewriteFrames.snapshot(
-                gameStateId = "192.0.2.10",
-                sequence = 1,
-                payload = RewriteClientJson.encode(
-                    ClientGameSnapshot.serializer(),
-                    ClientGameSnapshot(id = "192.0.2.10"),
-                ),
-            ),
-        )
-        waitUntil { frame.desktopPane.isShowing }
-        return frame
     }
 
     private fun openZombieWindow(
@@ -383,75 +360,27 @@ class RewriteZombieAttackWindowsUiTest {
     ): String = "rewrite-zombie-window-${zombieIp.replace('.', '_')}-$zombiePort"
 
     private fun waitForWindow(frame: RewriteRootFrame, name: String): JInternalFrame {
-        waitUntil {
-            invokeAndWaitResult { frame.desktopPane.allFrames.any { it.name == name } }
-        }
-        return invokeAndWaitResult {
-            frame.desktopPane.allFrames.first { it.name == name }
-        }
+        return rewriteUiWaitForWindow(frame, name)
     }
 
     private fun waitForDialog(name: String): JDialog {
-        waitUntil {
-            invokeAndWaitResult {
-                Window.getWindows()
-                    .filterIsInstance<JDialog>()
-                    .any { it.name == name && it.isShowing }
-            }
-        }
-        return invokeAndWaitResult {
-            Window.getWindows()
-                .filterIsInstance<JDialog>()
-                .first { it.name == name && it.isShowing }
-        }
+        return rewriteUiWaitForDialog(name)
     }
 
     private fun waitUntil(timeoutMillis: Long = 3_000, condition: () -> Boolean) {
-        val deadline = System.currentTimeMillis() + timeoutMillis
-        while (System.currentTimeMillis() < deadline) {
-            flushEdt()
-            if (condition()) {
-                return
-            }
-            Thread.sleep(20)
-        }
-        flushEdt()
-        if (!condition()) {
-            error("Condition was not met within ${timeoutMillis}ms")
-        }
-    }
-
-    private fun flushEdt() {
-        if (SwingUtilities.isEventDispatchThread()) {
-            return
-        }
-        SwingUtilities.invokeAndWait {}
+        rewriteUiWaitUntil(timeoutMillis, condition)
     }
 
     private fun disposeFrame(frame: RewriteRootFrame) {
-        SwingUtilities.invokeAndWait {
-            frame.dispose()
-        }
+        rewriteUiDisposeFrame(frame)
     }
 
     private fun <T> invokeAndWaitResult(block: () -> T): T {
-        var result: Result<T>? = null
-        SwingUtilities.invokeAndWait {
-            result = runCatching(block)
-        }
-        return result!!.getOrThrow()
+        return rewriteUiInvokeAndWaitResult(block)
     }
 
     private fun findComponent(root: Component, name: String): Component? {
-        if (root.name == name) {
-            return root
-        }
-        if (root is Container) {
-            root.components.forEach { child ->
-                findComponent(child, name)?.let { return it }
-            }
-        }
-        return null
+        return rewriteUiFindNamedComponent(root, name)
     }
 
     private fun button(root: Component, name: String): JButton {
@@ -476,10 +405,7 @@ class RewriteZombieAttackWindowsUiTest {
     }
 
     private fun setSegmentedIp(root: Component, ip: String) {
-        val parts = ip.split('.')
-        repeat(4) { index ->
-            textField(root, "rewrite-economy-ip-segment-$index").text = parts[index]
-        }
+        rewriteUiSetSegmentedIp(root, ip)
     }
 
     private fun textField(root: Component, name: String): JTextField {

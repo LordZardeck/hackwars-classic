@@ -1,6 +1,11 @@
 package com.hackwars.rewrite.client
 
 import com.hackwars.rewrite.client.shell.RewriteShellCommand
+import com.hackwars.rewrite.client.testsupport.rewriteUiAuthenticatedDesktopFrame
+import com.hackwars.rewrite.client.testsupport.rewriteUiDisposeFrame
+import com.hackwars.rewrite.client.testsupport.rewriteUiFindNamedComponent
+import com.hackwars.rewrite.client.testsupport.rewriteUiWaitForWindow
+import com.hackwars.rewrite.client.testsupport.rewriteUiWaitUntil
 import com.hackwars.rewrite.protocol.ClientChangeNetworkPayload
 import com.hackwars.rewrite.protocol.ClientDefaultPortVisibility
 import com.hackwars.rewrite.protocol.ClientFirewallKind
@@ -21,11 +26,8 @@ import com.hackwars.rewrite.protocol.RewriteFrames
 import com.hackwars.rewrite.protocol.RewriteService
 import hackwars.rewrite.v1.FrameEnvelope
 import java.awt.Component
-import java.awt.Container
 import java.awt.GraphicsEnvironment
-import java.time.Instant
 import javax.swing.JButton
-import javax.swing.JInternalFrame
 import javax.swing.JLabel
 import javax.swing.JList
 import javax.swing.JTabbedPane
@@ -53,8 +55,8 @@ class RewriteNetworkWindowsUiTest {
                 frame.controller.launchShellCommand(RewriteShellCommand.NETWORK)
             }
 
-            val window = waitForWindow(frame, "rewrite-shell-window-network")
-            waitUntil {
+            val window = rewriteUiWaitForWindow(frame, "rewrite-shell-window-network")
+            rewriteUiWaitUntil {
                 frame.desktopPane.allFrames.count { it.name == "rewrite-shell-window-network" } == 1 &&
                     tabbedPane(window, "rewrite-network-tabs").tabCount == 2
             }
@@ -69,7 +71,7 @@ class RewriteNetworkWindowsUiTest {
             assertEquals("Miner One - Mining NPC [Silicon]", list(window, "rewrite-network-mining-list").model.getElementAt(0))
             assertEquals("Shard Store - Store NPC", list(window, "rewrite-network-store-list").model.getElementAt(0))
         } finally {
-            disposeFrame(frame)
+            rewriteUiDisposeFrame(frame)
         }
     }
 
@@ -87,12 +89,12 @@ class RewriteNetworkWindowsUiTest {
                 frame.controller.launchShellCommand(RewriteShellCommand.NETWORK)
             }
 
-            val window = waitForWindow(frame, "rewrite-shell-window-network")
+            val window = rewriteUiWaitForWindow(frame, "rewrite-shell-window-network")
             SwingUtilities.invokeAndWait {
                 button(window, "rewrite-network-map-node-prognet").doClick()
             }
 
-            waitUntil { sessionGateway.latestGameSession()?.sentFrames?.isNotEmpty() == true }
+            rewriteUiWaitUntil { sessionGateway.latestGameSession()?.sentFrames?.isNotEmpty() == true }
             val command = sessionGateway.latestGameSession()!!.sentFrames.last().command!!
             val payload = RewriteClientJson.decode(
                 ClientChangeNetworkPayload.serializer(),
@@ -147,13 +149,13 @@ class RewriteNetworkWindowsUiTest {
                 ),
             )
 
-            waitUntil {
+            rewriteUiWaitUntil {
                 text(window, "rewrite-network-current-name") == "ProgNet" &&
                     text(window, "rewrite-network-status") == "Changed network to ProgNet."
             }
             assertTrue(window.isDisplayable)
         } finally {
-            disposeFrame(frame)
+            rewriteUiDisposeFrame(frame)
         }
     }
 
@@ -171,13 +173,13 @@ class RewriteNetworkWindowsUiTest {
                 frame.controller.launchShellCommand(RewriteShellCommand.PORT_SCAN)
             }
 
-            val window = waitForWindow(frame, "rewrite-shell-window-port_scan")
+            val window = rewriteUiWaitForWindow(frame, "rewrite-shell-window-port_scan")
             SwingUtilities.invokeAndWait {
                 setSegmentedIp(window, "10.0.0.8")
                 button(window, "rewrite-port-scan-scan-button").doClick()
             }
 
-            waitUntil { sessionGateway.latestGameSession()?.sentFrames?.isNotEmpty() == true }
+            rewriteUiWaitUntil { sessionGateway.latestGameSession()?.sentFrames?.isNotEmpty() == true }
             val successCommand = sessionGateway.latestGameSession()!!.sentFrames.last().command!!
             val successPayload = RewriteClientJson.decode(
                 ClientRequestScanPayload.serializer(),
@@ -225,7 +227,7 @@ class RewriteNetworkWindowsUiTest {
                 ),
             )
 
-            waitUntil {
+            rewriteUiWaitUntil {
                 table(window, "rewrite-port-scan-table").rowCount == 1 &&
                     text(window, "rewrite-port-scan-status") == "Scanned 10.0.0.8."
             }
@@ -237,7 +239,7 @@ class RewriteNetworkWindowsUiTest {
                 setSegmentedIp(window, "10.0.0.9")
                 button(window, "rewrite-port-scan-scan-button").doClick()
             }
-            waitUntil { sessionGateway.latestGameSession()!!.sentFrames.size >= 2 }
+            rewriteUiWaitUntil { sessionGateway.latestGameSession()!!.sentFrames.size >= 2 }
             val failureCommand = sessionGateway.latestGameSession()!!.sentFrames.last().command!!
             frame.controller.accept(
                 RewriteService.GAME,
@@ -257,10 +259,10 @@ class RewriteNetworkWindowsUiTest {
                 ),
             )
 
-            waitUntil { text(window, "rewrite-port-scan-error") == "Scanning requires at least \$10 petty cash." }
+            rewriteUiWaitUntil { text(window, "rewrite-port-scan-error") == "Scanning requires at least \$10 petty cash." }
             assertTrue(window.isDisplayable)
         } finally {
-            disposeFrame(frame)
+            rewriteUiDisposeFrame(frame)
         }
     }
 
@@ -268,28 +270,10 @@ class RewriteNetworkWindowsUiTest {
         sessionGateway: FakeNetworkUiSessionGateway,
         snapshot: ClientGameSnapshot,
     ): RewriteRootFrame {
-        val frame = invokeAndWaitResult {
-            RewriteRootFrame(
-                controller = RewriteRootController(
-                    authGateway = DeterministicRewriteLoginAuthGateway(),
-                    sessionGateway = sessionGateway,
-                ),
-            ).apply { isVisible = true }
-        }
-        frame.controller.store.showDesktop()
-        frame.controller.accept(
-            RewriteService.GAME,
-            RewriteFrames.authAccepted(
-                connectionId = "conn-1",
-                playFabId = "PF-LOCAL",
-                playerIp = "192.0.2.10",
-                heartbeatInterval = kotlin.time.Duration.parse("15s"),
-                sessionStartedAt = Instant.parse("2026-03-25T00:00:00Z"),
-            ),
+        return rewriteUiAuthenticatedDesktopFrame(
+            sessionGateway = sessionGateway,
+            snapshot = snapshot,
         )
-        frame.controller.accept(RewriteService.GAME, snapshotFrame(snapshot))
-        waitUntil { frame.desktopPane.isShowing }
-        return frame
     }
 
     private fun networkSnapshot(): ClientGameSnapshot {
@@ -335,22 +319,6 @@ class RewriteNetworkWindowsUiTest {
         )
     }
 
-    private fun snapshotFrame(snapshot: ClientGameSnapshot): FrameEnvelope {
-        return RewriteFrames.snapshot(
-            gameStateId = snapshot.id,
-            sequence = snapshot.version,
-            payload = RewriteClientJson.encode(ClientGameSnapshot.serializer(), snapshot),
-        )
-    }
-
-    private fun waitForWindow(
-        frame: RewriteRootFrame,
-        windowName: String,
-    ): JInternalFrame {
-        waitUntil { frame.desktopPane.allFrames.any { it.name == windowName } }
-        return frame.desktopPane.allFrames.first { it.name == windowName }
-    }
-
     private fun setSegmentedIp(
         root: Component,
         ip: String,
@@ -362,52 +330,8 @@ class RewriteNetworkWindowsUiTest {
         }
     }
 
-    private fun waitUntil(timeoutMillis: Long = 3_000, predicate: () -> Boolean) {
-        val deadline = System.currentTimeMillis() + timeoutMillis
-        while (System.currentTimeMillis() < deadline) {
-            flushEdt()
-            if (predicate()) {
-                return
-            }
-            Thread.sleep(25)
-        }
-        flushEdt()
-        if (!predicate()) {
-            error("Condition was not met within ${timeoutMillis}ms")
-        }
-    }
-
-    private fun flushEdt() {
-        if (SwingUtilities.isEventDispatchThread()) {
-            return
-        }
-        SwingUtilities.invokeAndWait {}
-    }
-
-    private fun disposeFrame(frame: RewriteRootFrame) {
-        SwingUtilities.invokeAndWait {
-            frame.dispose()
-        }
-    }
-
-    private fun <T> invokeAndWaitResult(block: () -> T): T {
-        var result: Result<T>? = null
-        SwingUtilities.invokeAndWait {
-            result = runCatching(block)
-        }
-        return result!!.getOrThrow()
-    }
-
     private fun findComponent(root: Component, name: String): Component? {
-        if (root.name == name) {
-            return root
-        }
-        if (root is Container) {
-            root.components.forEach { child ->
-                findComponent(child, name)?.let { return it }
-            }
-        }
-        return null
+        return rewriteUiFindNamedComponent(root, name)
     }
 
     private fun tabbedPane(root: Component, name: String): JTabbedPane {

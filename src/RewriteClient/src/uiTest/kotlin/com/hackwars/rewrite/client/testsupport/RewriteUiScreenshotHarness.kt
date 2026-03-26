@@ -1,5 +1,6 @@
 package com.hackwars.rewrite.client.testsupport
 
+import com.hackwars.rewrite.client.RewriteRootFrame
 import com.hackwars.rewrite.client.ui.RewriteUiBootstrap
 import java.awt.Component
 import java.awt.Dimension
@@ -68,6 +69,16 @@ fun assertRewriteUiScreenshotMatchesBaseline(
             diffImage = diffImage(actualImage, baselineImage),
             reason = "Screenshot parity mismatch for ${request.suiteName}/${request.testName}.",
         )
+    }
+}
+
+fun assertRewriteUiScreenshotMatchesBaseline(
+    request: RewriteUiScreenshotCaptureRequest,
+    frame: RewriteRootFrame,
+    targetId: String,
+) {
+    assertRewriteUiScreenshotMatchesBaseline(request) {
+        rewriteCaptureTarget(frame, targetId)
     }
 }
 

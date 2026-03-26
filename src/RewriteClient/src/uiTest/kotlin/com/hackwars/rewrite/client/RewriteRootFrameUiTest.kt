@@ -1,4 +1,12 @@
 package com.hackwars.rewrite.client
+import com.hackwars.rewrite.client.testsupport.rewriteUiAllComponents
+import com.hackwars.rewrite.client.testsupport.rewriteUiAuthenticatedDesktopFrame
+import com.hackwars.rewrite.client.testsupport.rewriteUiDisposeFrame
+import com.hackwars.rewrite.client.testsupport.rewriteUiFindNamedComponent
+import com.hackwars.rewrite.client.testsupport.rewriteUiInvokeAndWaitResult
+import com.hackwars.rewrite.client.testsupport.rewriteUiWaitForDialog
+import com.hackwars.rewrite.client.testsupport.rewriteUiWaitForWindow
+import com.hackwars.rewrite.client.testsupport.rewriteUiWaitUntil
 import com.hackwars.rewrite.client.shell.RewriteShellCommand
 import com.hackwars.rewrite.protocol.ClientBountyCreatedResponse
 import com.hackwars.rewrite.protocol.ClientCompileFilePayload
@@ -1785,28 +1793,15 @@ class RewriteRootFrameUiTest {
     }
 
     private fun disposeFrame(frame: RewriteRootFrame) {
-        SwingUtilities.invokeAndWait {
-            frame.dispose()
-        }
+        rewriteUiDisposeFrame(frame)
     }
 
     private inline fun <T> invokeAndWaitResult(crossinline block: () -> T): T {
-        var result: Result<T>? = null
-        SwingUtilities.invokeAndWait {
-            result = runCatching { block() }
-        }
-        return result!!.getOrThrow()
+        return rewriteUiInvokeAndWaitResult { block() }
     }
 
     private fun waitUntil(timeoutMillis: Long = 3_000, predicate: () -> Boolean) {
-        val deadline = System.currentTimeMillis() + timeoutMillis
-        while (System.currentTimeMillis() < deadline) {
-            if (predicate()) {
-                return
-            }
-            Thread.sleep(20)
-        }
-        assertTrue(predicate())
+        rewriteUiWaitUntil(timeoutMillis, predicate)
     }
 
     private fun waitUntilForCommand(
@@ -1885,28 +1880,10 @@ class RewriteRootFrameUiTest {
         sessionGateway: RewriteServiceSessionGateway = NoOpRewriteServiceSessionGateway,
         shellState: ClientGameSnapshot = bankingShellState(),
     ): RewriteRootFrame {
-        val frame = invokeAndWaitResult {
-            RewriteRootFrame(
-                controller = RewriteRootController(
-                    authGateway = DeterministicRewriteLoginAuthGateway(),
-                    sessionGateway = sessionGateway,
-                ),
-            ).apply { isVisible = true }
-        }
-        frame.controller.store.showDesktop()
-        frame.controller.accept(
-            RewriteService.GAME,
-            RewriteFrames.authAccepted(
-                connectionId = "conn-1",
-                playFabId = "PF-LOCAL",
-                playerIp = "192.0.2.10",
-                heartbeatInterval = kotlin.time.Duration.parse("15s"),
-                sessionStartedAt = Instant.parse("2026-03-25T00:00:00Z"),
-            ),
+        return rewriteUiAuthenticatedDesktopFrame(
+            sessionGateway = sessionGateway,
+            snapshot = shellState,
         )
-        frame.controller.accept(RewriteService.GAME, snapshotFrame(shellState))
-        waitUntil { frame.desktopPane.isShowing && frame.jMenuBar != null }
-        return frame
     }
 
     private fun label(root: Component, name: String): JLabel {
@@ -2023,21 +2000,13 @@ class RewriteRootFrameUiTest {
         frame: RewriteRootFrame,
         windowName: String,
     ): JInternalFrame {
-        waitUntil { frame.desktopPane.allFrames.toList().any { it.name == windowName } }
-        return frame.desktopPane.allFrames.toList().first { it.name == windowName }
+        return rewriteUiWaitForWindow(frame, windowName)
     }
 
     private fun waitForDialog(
         title: String,
     ): JDialog {
-        waitUntil {
-            java.awt.Window.getWindows().any { window ->
-                window is JDialog && window.isDisplayable && window.title == title
-            }
-        }
-        return java.awt.Window.getWindows()
-            .filterIsInstance<JDialog>()
-            .first { it.isDisplayable && it.title == title }
+        return rewriteUiWaitForDialog(title)
     }
 
     private fun expectedWindowName(command: RewriteShellCommand): String = when (command) {
@@ -2078,22 +2047,11 @@ class RewriteRootFrameUiTest {
     }
 
     private fun findComponent(root: Component, name: String): Component? {
-        if (root.name == name) {
-            return root
-        }
-        if (root is Container) {
-            root.components.forEach { child ->
-                findComponent(child, name)?.let { return it }
-            }
-        }
-        return null
+        return rewriteUiFindNamedComponent(root, name)
     }
 
     private fun findComponents(root: Component): List<Component> {
-        if (root !is Container) {
-            return listOf(root)
-        }
-        return listOf(root) + root.components.flatMap(::findComponents)
+        return rewriteUiAllComponents(root)
     }
 
     private class FakeUiSessionGateway : RewriteServiceSessionGateway {

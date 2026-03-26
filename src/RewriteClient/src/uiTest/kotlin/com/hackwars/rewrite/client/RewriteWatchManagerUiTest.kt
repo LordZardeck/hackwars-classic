@@ -1,6 +1,13 @@
 package com.hackwars.rewrite.client
 
 import com.hackwars.rewrite.client.shell.RewriteShellCommand
+import com.hackwars.rewrite.client.testsupport.rewriteUiAuthenticatedDesktopFrame
+import com.hackwars.rewrite.client.testsupport.rewriteUiDisposeFrame
+import com.hackwars.rewrite.client.testsupport.rewriteUiFindNamedComponent
+import com.hackwars.rewrite.client.testsupport.rewriteUiInvokeAndWaitResult
+import com.hackwars.rewrite.client.testsupport.rewriteUiWaitForDialog
+import com.hackwars.rewrite.client.testsupport.rewriteUiWaitForWindow
+import com.hackwars.rewrite.client.testsupport.rewriteUiWaitUntil
 import com.hackwars.rewrite.protocol.ClientCompiledBinaryMetadata
 import com.hackwars.rewrite.protocol.ClientComputerIdentity
 import com.hackwars.rewrite.protocol.ClientDirectoryListingResponse
@@ -22,15 +29,10 @@ import com.hackwars.rewrite.protocol.RewriteFrames
 import com.hackwars.rewrite.protocol.RewriteService
 import hackwars.rewrite.v1.FrameEnvelope
 import java.awt.Component
-import java.awt.Container
 import java.awt.GraphicsEnvironment
-import java.awt.Window
-import java.time.Instant
 import javax.swing.JButton
 import javax.swing.JCheckBox
 import javax.swing.JComboBox
-import javax.swing.JDialog
-import javax.swing.JInternalFrame
 import javax.swing.JList
 import javax.swing.JLabel
 import javax.swing.JMenuBar
@@ -255,35 +257,10 @@ class RewriteWatchManagerUiTest {
         sessionGateway: FakeWatchUiSessionGateway,
         snapshot: ClientGameSnapshot = watchSnapshot(),
     ): RewriteRootFrame {
-        val frame = invokeAndWaitResult {
-            RewriteRootFrame(
-                controller = RewriteRootController(
-                    authGateway = DeterministicRewriteLoginAuthGateway(),
-                    sessionGateway = sessionGateway,
-                ),
-            ).apply { isVisible = true }
-        }
-        frame.controller.store.showDesktop()
-        frame.controller.accept(
-            RewriteService.GAME,
-            RewriteFrames.authAccepted(
-                connectionId = "conn-1",
-                playFabId = "PF-LOCAL",
-                playerIp = "192.0.2.10",
-                heartbeatInterval = kotlin.time.Duration.parse("15s"),
-                sessionStartedAt = Instant.parse("2026-03-25T00:00:00Z"),
-            ),
+        return rewriteUiAuthenticatedDesktopFrame(
+            sessionGateway = sessionGateway,
+            snapshot = snapshot,
         )
-        frame.controller.accept(
-            RewriteService.GAME,
-            RewriteFrames.snapshot(
-                gameStateId = snapshot.id,
-                sequence = snapshot.version,
-                payload = RewriteClientJson.encode(ClientGameSnapshot.serializer(), snapshot),
-            ),
-        )
-        waitUntil { frame.desktopPane.isShowing }
-        return frame
     }
 
     private fun watchSnapshot(): ClientGameSnapshot {
@@ -338,7 +315,7 @@ class RewriteWatchManagerUiTest {
         frame: RewriteRootFrame,
         sessionGateway: FakeWatchUiSessionGateway,
     ) {
-        waitUntil { sessionGateway.latestGameSession()?.sentFrames?.lastOrNull()?.command?.command_name == "fetchwatches" }
+        rewriteUiWaitUntil { sessionGateway.latestGameSession()?.sentFrames?.lastOrNull()?.command?.command_name == "fetchwatches" }
         val command = sessionGateway.latestGameSession()!!.sentFrames.last().command!!
         frame.controller.accept(
             RewriteService.GAME,
@@ -357,7 +334,7 @@ class RewriteWatchManagerUiTest {
         sessionGateway: FakeWatchUiSessionGateway,
         response: ClientDirectoryListingResponse,
     ) {
-        waitUntil { sessionGateway.latestGameSession()?.sentFrames?.lastOrNull()?.command?.command_name == "requestdirectory" }
+        rewriteUiWaitUntil { sessionGateway.latestGameSession()?.sentFrames?.lastOrNull()?.command?.command_name == "requestdirectory" }
         val command = sessionGateway.latestGameSession()!!.sentFrames.last().command!!
         frame.controller.accept(
             RewriteService.GAME,
@@ -374,66 +351,24 @@ class RewriteWatchManagerUiTest {
     private fun waitForWindow(
         frame: RewriteRootFrame,
         windowName: String,
-    ): JInternalFrame {
-        waitUntil { frame.desktopPane.allFrames.any { it.name == windowName } }
-        return frame.desktopPane.allFrames.first { it.name == windowName }
-    }
+    ) = rewriteUiWaitForWindow(frame, windowName)
 
-    private fun waitForDialog(name: String): JDialog {
-        waitUntil {
-            Window.getWindows().any { it is JDialog && it.isShowing && it.name == name }
-        }
-        return Window.getWindows()
-            .filterIsInstance<JDialog>()
-            .first { it.isShowing && it.name == name }
-    }
+    private fun waitForDialog(name: String) = rewriteUiWaitForDialog(name)
 
     private fun waitUntil(timeoutMillis: Long = 3_000, predicate: () -> Boolean) {
-        val deadline = System.currentTimeMillis() + timeoutMillis
-        while (System.currentTimeMillis() < deadline) {
-            flushEdt()
-            if (predicate()) {
-                return
-            }
-            Thread.sleep(25)
-        }
-        flushEdt()
-        if (!predicate()) {
-            error("Condition was not met within ${timeoutMillis}ms")
-        }
-    }
-
-    private fun flushEdt() {
-        if (SwingUtilities.isEventDispatchThread()) {
-            return
-        }
-        SwingUtilities.invokeAndWait {}
+        rewriteUiWaitUntil(timeoutMillis, predicate)
     }
 
     private fun disposeFrame(frame: RewriteRootFrame) {
-        SwingUtilities.invokeAndWait {
-            frame.dispose()
-        }
+        rewriteUiDisposeFrame(frame)
     }
 
     private fun <T> invokeAndWaitResult(block: () -> T): T {
-        var result: Result<T>? = null
-        SwingUtilities.invokeAndWait {
-            result = runCatching(block)
-        }
-        return result!!.getOrThrow()
+        return rewriteUiInvokeAndWaitResult(block)
     }
 
     private fun findComponent(root: Component, name: String): Component? {
-        if (root.name == name) {
-            return root
-        }
-        if (root is Container) {
-            root.components.forEach { child ->
-                findComponent(child, name)?.let { return it }
-            }
-        }
-        return null
+        return rewriteUiFindNamedComponent(root, name)
     }
 
     private fun menuItem(menuBar: JMenuBar, name: String): JMenuItem {
