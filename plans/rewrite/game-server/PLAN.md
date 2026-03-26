@@ -152,7 +152,7 @@
 
 ## Retained Client-Unblocking Tasks
 ### RW-GS-T1 - Implement retained FTP upload and download transport
-- Status: `ready`
+- Status: `done`
 - Priority: `P1`
 - Execution lane: `retained_transports`
 - Worker role: `worker`
@@ -165,7 +165,7 @@
 - Verification scope: `./gradlew :RewriteGameCore:test :RewritePersistence:test :RewriteGameServer:test :RewriteTestKit:integrationTest`
 
 ### RW-GS-T2 - Implement retained `malget` and theft-transfer transport
-- Status: `todo`
+- Status: `ready`
 - Priority: `P1`
 - Execution lane: `retained_transports`
 - Worker role: `worker`

@@ -30,6 +30,9 @@ import com.hackwars.rewrite.gamecore.InstallApplicationPayload
 import com.hackwars.rewrite.gamecore.InstallApplicationResponse
 import com.hackwars.rewrite.gamecore.InstallFirewallPayload
 import com.hackwars.rewrite.gamecore.InstallFirewallResponse
+import com.hackwars.rewrite.gamecore.FtpTransferResponse
+import com.hackwars.rewrite.gamecore.GetFilePayload
+import com.hackwars.rewrite.gamecore.PutFilePayload
 import com.hackwars.rewrite.gamecore.CreateFolderPayload
 import com.hackwars.rewrite.gamecore.DeleteFilePayload
 import com.hackwars.rewrite.gamecore.DeleteMultiPayload
@@ -175,6 +178,132 @@ class RewriteGameProtocolAdapterTest {
         assertEquals("notes.txt", file.file?.name)
         assertEquals("hello world", file.file?.contents)
         assertFalse(connection.drainFrames().any { it.delta != null })
+    }
+
+    @Test
+    fun getReturnsCorrelatedResponseAndFilesystemDeltasForRequesterAndTarget() = runTest {
+        val seededLocal = localState().copy(
+            filesystem = localState().filesystem.saveFile(
+                StoredFile(
+                    path = buildFilePath("/Docs", "remote.log"),
+                    name = "remote.log",
+                    kind = StoredFileKind.TEXT,
+                    contents = "local copy",
+                    quantity = 1,
+                ),
+            ),
+        )
+        val seededTarget = targetState().copy(
+            filesystem = targetState().filesystem.saveFile(
+                StoredFile(
+                    path = buildFilePath("/Secrets", "remote.log"),
+                    name = "remote.log",
+                    kind = StoredFileKind.TEXT,
+                    contents = "target remote file",
+                    quantity = 3,
+                ),
+            ),
+        )
+        val fixture = createFixture(localState = seededLocal, targetState = seededTarget)
+        val local = fixture.authenticatedConnection("LOCAL-IP")
+
+        local.send(
+            RewriteFrames.command(
+                commandId = "get-1",
+                commandName = "get",
+                payload = RewriteGameJson.encode(
+                    serializer = GetFilePayload.serializer(),
+                    value = GetFilePayload(
+                        ip = "LOCAL-IP",
+                        port = 17,
+                        name = "remote.log",
+                        fetchPath = "/Docs",
+                        putPath = "/Secrets",
+                        targetIp = "TARGET-IP",
+                        quantity = 2,
+                    ),
+                ),
+                expectsResponse = true,
+            ),
+        )
+
+        val localDelta = local.awaitFrame()
+        val responseFrame = local.awaitFrame()
+        val response = RewriteGameJson.decode(
+            serializer = FtpTransferResponse.serializer(),
+            payload = responseFrame.command_response!!.payload.toByteArray(),
+        )
+
+        assertEquals(listOf("filesystem"), localDelta.delta?.delta_keys)
+        assertEquals("get", response.operation)
+        assertEquals(2, response.fulfilledQuantity)
+        assertEquals("/Docs/remote.log", response.file.path)
+        assertEquals(3, fixture.repository.load(GameStateId("LOCAL-IP"))?.filesystem?.resolveFile("/Docs", "remote.log")?.quantity)
+        assertEquals(1, fixture.repository.load(GameStateId("TARGET-IP"))?.filesystem?.resolveFile("/Secrets", "remote.log")?.quantity)
+    }
+
+    @Test
+    fun putReturnsCorrelatedResponseAndFilesystemDeltasForRequesterAndTarget() = runTest {
+        val seededLocal = localState().copy(
+            filesystem = localState().filesystem.saveFile(
+                StoredFile(
+                    path = buildFilePath("/Public", "upload.txt"),
+                    name = "upload.txt",
+                    kind = StoredFileKind.TEXT,
+                    contents = "local upload",
+                    quantity = 3,
+                ),
+            ),
+        )
+        val seededTarget = targetState().copy(
+            filesystem = targetState().filesystem
+                .ensureDirectory("/Inbox")
+                .saveFile(
+                    StoredFile(
+                        path = buildFilePath("/Inbox", "upload.txt"),
+                        name = "upload.txt",
+                        kind = StoredFileKind.TEXT,
+                        contents = "remote copy",
+                        quantity = 2,
+                    ),
+                ),
+        )
+        val fixture = createFixture(localState = seededLocal, targetState = seededTarget)
+        val local = fixture.authenticatedConnection("LOCAL-IP")
+
+        local.send(
+            RewriteFrames.command(
+                commandId = "put-1",
+                commandName = "put",
+                payload = RewriteGameJson.encode(
+                    serializer = PutFilePayload.serializer(),
+                    value = PutFilePayload(
+                        ip = "LOCAL-IP",
+                        port = 17,
+                        name = "upload.txt",
+                        fetchPath = "/Public",
+                        putPath = "/Inbox",
+                        targetIp = "TARGET-IP",
+                        quantity = 2,
+                    ),
+                ),
+                expectsResponse = true,
+            ),
+        )
+
+        val localDelta = local.awaitFrame()
+        val responseFrame = local.awaitFrame()
+        val response = RewriteGameJson.decode(
+            serializer = FtpTransferResponse.serializer(),
+            payload = responseFrame.command_response!!.payload.toByteArray(),
+        )
+
+        assertEquals(listOf("filesystem"), localDelta.delta?.delta_keys)
+        assertEquals("put", response.operation)
+        assertEquals(2, response.fulfilledQuantity)
+        assertEquals("/Inbox/upload.txt", response.file.path)
+        assertEquals(1, fixture.repository.load(GameStateId("LOCAL-IP"))?.filesystem?.resolveFile("/Public", "upload.txt")?.quantity)
+        assertEquals(4, fixture.repository.load(GameStateId("TARGET-IP"))?.filesystem?.resolveFile("/Inbox", "upload.txt")?.quantity)
     }
 
     @Test
@@ -545,9 +674,9 @@ class RewriteGameProtocolAdapterTest {
         )
     }
 
-    private suspend fun Fixture.authenticatedConnection(): InMemoryClientConnection {
+    private suspend fun Fixture.authenticatedConnection(requestedIp: String = "LOCAL-IP"): InMemoryClientConnection {
         val connection = harness.connect()
-        connection.send(authRequest())
+        connection.send(authRequest(requestedIp))
         connection.awaitFrame()
         connection.awaitFrame()
         yield()
@@ -555,13 +684,13 @@ class RewriteGameProtocolAdapterTest {
         return connection
     }
 
-    private fun authRequest(): FrameEnvelope {
+    private fun authRequest(requestedIp: String = "LOCAL-IP"): FrameEnvelope {
         return RewriteFrames.authRequest(
             service = RewriteService.GAME,
             sessionTicket = "SESSION-LOCALUSER",
             clientBuild = "rewrite-it",
             playFabIdHint = "PF-LOCALUSER",
-            requestedIp = "LOCAL-IP",
+            requestedIp = requestedIp,
         )
     }
 

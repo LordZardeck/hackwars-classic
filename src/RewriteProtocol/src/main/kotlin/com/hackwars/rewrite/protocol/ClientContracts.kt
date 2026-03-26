@@ -779,6 +779,32 @@ data class ClientRequestSecondaryDirectoryPayload(
 )
 
 @Serializable
+data class ClientGetFilePayload(
+    val ip: String? = null,
+    val port: Int,
+    val name: String? = null,
+    val fetchPath: String? = null,
+    val putPath: String? = null,
+    @SerialName("targetIP")
+    val targetIp: String,
+    val password: String? = null,
+    val quantity: Int? = null,
+)
+
+@Serializable
+data class ClientPutFilePayload(
+    val ip: String? = null,
+    val port: Int,
+    val name: String? = null,
+    val fetchPath: String? = null,
+    val putPath: String? = null,
+    @SerialName("targetIP")
+    val targetIp: String,
+    val password: String? = null,
+    val quantity: Int? = null,
+)
+
+@Serializable
 data class ClientChangeDailyPayPayload(
     val ip: String,
     val port: Int,
@@ -896,6 +922,19 @@ data class ClientFinalizeCancelledResponse(
     val targetHealthAfter: Double? = null,
     val targetHealCountAfter: Int? = null,
     val targetVersion: Long? = null,
+)
+
+@Serializable
+data class ClientFtpTransferResponse(
+    val requesterStateId: String,
+    val targetStateId: String,
+    val targetPort: Int,
+    val operation: String,
+    val file: ClientStoredFile,
+    val fulfilledQuantity: Int,
+    val message: String,
+    val requesterVersion: Long,
+    val targetVersion: Long,
 )
 
 @Serializable

@@ -1078,6 +1078,76 @@ class RewriteClientJsonTest {
     }
 
     @Test
+    fun decodesLegacyCompatibleFtpTransferPayloadsAndResponses() {
+        val getPayload = """
+            {
+              "ip":"LOCAL-IP",
+              "port":17,
+              "name":"remote.log",
+              "fetchPath":"/Docs",
+              "putPath":"/Secrets",
+              "targetIP":"TARGET-IP",
+              "password":"ignored",
+              "quantity":2,
+              "ignored":"ignored"
+            }
+        """.trimIndent().encodeToByteArray()
+        val putPayload = """
+            {
+              "ip":"LOCAL-IP",
+              "port":17,
+              "name":"upload.txt",
+              "fetchPath":"/Public",
+              "putPath":"/Inbox",
+              "targetIP":"TARGET-IP",
+              "quantity":1,
+              "ignored":"ignored"
+            }
+        """.trimIndent().encodeToByteArray()
+        val responsePayload = """
+            {
+              "requesterStateId":"LOCAL-IP",
+              "targetStateId":"TARGET-IP",
+              "targetPort":17,
+              "operation":"get",
+              "file":{
+                "path":"/Docs/remote.log",
+                "name":"remote.log",
+                "kind":"TEXT",
+                "contents":"remote payload",
+                "quantity":2
+              },
+              "fulfilledQuantity":2,
+              "message":"ftp-get-complete",
+              "requesterVersion":11,
+              "targetVersion":9,
+              "ignored":"ignored"
+            }
+        """.trimIndent().encodeToByteArray()
+
+        val get = RewriteClientJson.decode(
+            ClientGetFilePayload.serializer(),
+            getPayload,
+        )
+        val put = RewriteClientJson.decode(
+            ClientPutFilePayload.serializer(),
+            putPayload,
+        )
+        val response = RewriteClientJson.decode(
+            ClientFtpTransferResponse.serializer(),
+            responsePayload,
+        )
+
+        assertEquals("TARGET-IP", get.targetIp)
+        assertEquals("/Secrets", get.putPath)
+        assertEquals("TARGET-IP", put.targetIp)
+        assertEquals("/Inbox", put.putPath)
+        assertEquals("get", response.operation)
+        assertEquals(2, response.fulfilledQuantity)
+        assertEquals("/Docs/remote.log", response.file.path)
+    }
+
+    @Test
     fun decodesCurrentRewriteWebAndStoreCommandPayloadsAndResponses() {
         val webpagePayload = """
             {

@@ -46,11 +46,14 @@ import com.hackwars.rewrite.gamecore.FireAndForgetCommand
 import com.hackwars.rewrite.gamecore.FinalizeCancelledCommand
 import com.hackwars.rewrite.gamecore.FinalizeCancelledPayload
 import com.hackwars.rewrite.gamecore.FinalizeCancelledResponse
+import com.hackwars.rewrite.gamecore.FtpTransferResponse
 import com.hackwars.rewrite.gamecore.GameSessionBootstrapCommand
 import com.hackwars.rewrite.gamecore.GameSessionBootstrapResult
 import com.hackwars.rewrite.gamecore.GameStateId
 import com.hackwars.rewrite.gamecore.GameStatePublisher
 import com.hackwars.rewrite.gamecore.GameUiEvent
+import com.hackwars.rewrite.gamecore.GetFileCommand
+import com.hackwars.rewrite.gamecore.GetFilePayload
 import com.hackwars.rewrite.gamecore.HackScriptHttpHookRuntime
 import com.hackwars.rewrite.gamecore.HealPortCommand
 import com.hackwars.rewrite.gamecore.HealPortPayload
@@ -90,6 +93,8 @@ import com.hackwars.rewrite.gamecore.PageEditorResponse
 import com.hackwars.rewrite.gamecore.PurchaseResponse
 import com.hackwars.rewrite.gamecore.ProgramLifecycleStatus
 import com.hackwars.rewrite.gamecore.ProgramUpdate
+import com.hackwars.rewrite.gamecore.PutFileCommand
+import com.hackwars.rewrite.gamecore.PutFilePayload
 import com.hackwars.rewrite.gamecore.RequestCommand
 import com.hackwars.rewrite.gamecore.RequestAttackCommand
 import com.hackwars.rewrite.gamecore.RequestAttackPayload
@@ -464,6 +469,7 @@ class RewriteGameProtocolAdapter(
             is DirectoryListingResponse -> RewriteGameJson.encode(DirectoryListingResponse.serializer(), result)
             is SecondaryDirectoryListingResponse -> RewriteGameJson.encode(SecondaryDirectoryListingResponse.serializer(), result)
             is FileContentsResponse -> RewriteGameJson.encode(FileContentsResponse.serializer(), result)
+            is FtpTransferResponse -> RewriteGameJson.encode(FtpTransferResponse.serializer(), result)
             is RequestGameResponse -> RewriteGameJson.encode(RequestGameResponse.serializer(), result)
             is TaskProgressResponse -> RewriteGameJson.encode(TaskProgressResponse.serializer(), result)
             is SaveFileRequestResponse -> RewriteGameJson.encode(SaveFileRequestResponse.serializer(), result)
@@ -1004,6 +1010,34 @@ class RewriteGameProtocolAdapter(
                         stateId = requireSingleStateId(input, input.metadata.authenticatedStateId),
                         path = payload.path,
                         fileName = payload.name,
+                    )
+                }
+                .register("get") { input ->
+                    val payload = decodePayload(input, GetFilePayload.serializer())
+                    val authenticatedStateId = requireAuthenticatedStateId(input)
+                    payload.ip?.let { requirePayloadIpMatches(authenticatedStateId, it, input.commandName) }
+                    GetFileCommand(
+                        requesterStateId = authenticatedStateId,
+                        targetStateId = GameStateId(payload.targetIp),
+                        portNumber = payload.port,
+                        fileName = payload.name ?: error("File name is required for ${input.commandName}."),
+                        fetchPath = payload.fetchPath,
+                        targetPath = payload.putPath,
+                        requestedQuantity = payload.quantity ?: 1,
+                    )
+                }
+                .register("put") { input ->
+                    val payload = decodePayload(input, PutFilePayload.serializer())
+                    val authenticatedStateId = requireAuthenticatedStateId(input)
+                    payload.ip?.let { requirePayloadIpMatches(authenticatedStateId, it, input.commandName) }
+                    PutFileCommand(
+                        requesterStateId = authenticatedStateId,
+                        targetStateId = GameStateId(payload.targetIp),
+                        portNumber = payload.port,
+                        fileName = payload.name ?: error("File name is required for ${input.commandName}."),
+                        fetchPath = payload.fetchPath,
+                        targetPath = payload.putPath,
+                        requestedQuantity = payload.quantity ?: 1,
                     )
                 }
                 .register("savefile") { input ->
