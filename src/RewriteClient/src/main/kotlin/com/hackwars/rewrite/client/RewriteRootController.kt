@@ -10,6 +10,8 @@ import com.hackwars.rewrite.client.files.RewriteLocalFileOpenTarget
 import com.hackwars.rewrite.client.files.RewriteScriptEditorWindow
 import com.hackwars.rewrite.client.files.routeLocalFileTarget
 import com.hackwars.rewrite.client.network.RewriteAttackWindow
+import com.hackwars.rewrite.client.network.RewritePublicFtpWindow
+import com.hackwars.rewrite.client.network.RewriteShopFtpWindow
 import com.hackwars.rewrite.client.network.RewriteNetworkWindow
 import com.hackwars.rewrite.client.network.RewritePortScanWindow
 import com.hackwars.rewrite.client.shell.RewritePlaceholderInternalFrame
@@ -79,6 +81,8 @@ import com.hackwars.rewrite.protocol.ClientPurchaseResponse
 import com.hackwars.rewrite.protocol.ClientSaveFilePayload
 import com.hackwars.rewrite.protocol.ClientSavePagePayload
 import com.hackwars.rewrite.protocol.ClientSavePageResponse
+import com.hackwars.rewrite.protocol.ClientSellFilePayload
+import com.hackwars.rewrite.protocol.ClientSellFileResponse
 import com.hackwars.rewrite.protocol.ClientStoredFile
 import com.hackwars.rewrite.protocol.ClientSecondaryDirectoryListingResponse
 import com.hackwars.rewrite.protocol.ClientSubmitWebpagePayload
@@ -463,7 +467,30 @@ class RewriteRootController(
                 port = portNumber,
             ),
             responseSerializer = ClientSecondaryDirectoryListingResponse.serializer(),
-            targetStateIds = listOf(playerIp, targetIp),
+            targetStateIds = listOf(playerIp, targetIp).distinct(),
+        )
+    }
+
+    internal suspend fun sellFile(
+        path: String?,
+        fileName: String,
+        compileCost: Double? = null,
+        quantity: Int? = null,
+    ): RewriteGameCommandResult<ClientSellFileResponse> {
+        val playerIp = authenticatedPlayerIp()
+            ?: return RewriteGameCommandResult.Failure("Not connected to a rewrite game session.")
+        return gameCommandBroker.request(
+            commandName = "sellfile",
+            payloadSerializer = ClientSellFilePayload.serializer(),
+            payload = ClientSellFilePayload(
+                ip = playerIp,
+                location = path,
+                fileName = fileName,
+                compileCost = compileCost,
+                quantity = quantity,
+            ),
+            responseSerializer = ClientSellFileResponse.serializer(),
+            targetStateIds = listOf(playerIp),
         )
     }
 
@@ -1253,6 +1280,14 @@ class RewriteRootController(
         )
 
         RewriteShellCommand.HOME -> RewriteHomeWindow(
+            controller = this,
+        )
+
+        RewriteShellCommand.SHOP_FTP -> RewriteShopFtpWindow(
+            controller = this,
+        )
+
+        RewriteShellCommand.PUBLIC_FTP -> RewritePublicFtpWindow(
             controller = this,
         )
 

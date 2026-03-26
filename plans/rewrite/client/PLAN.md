@@ -162,8 +162,8 @@
   - Covers `savefile`, `compilefile`, `decompilefile`, and dirty-state handling without taking ownership of `Website Editor`.
   - Image-viewer parity stays deferred until rewrite exposes typed image-file metadata; no filename/content heuristics are allowed in this tranche.
 
-### RW-CLIENT-W2C - Shop FTP and Public FTP remote-directory plus transfer UI
-- Status: `todo`
+### RW-CLIENT-W2C1 - Shell-launched Shop FTP seller surface and Public FTP read-only browser
+- Status: `in_progress`
 - Owner: `unassigned`
 - Depends on: `RW-CLIENT-W2A`, `RW-CLIENT-W5B2`
 - Allowed write scope: `:RewriteClient/client/files/**`, `:RewriteClient/client/network/**`
@@ -171,8 +171,20 @@
 - Artifacts: `build/reports/rewrite/ui`
 - Commit rule: `single green commit only`
 - Notes:
-  - Covers remote `requestsecondarydirectory` browsing and the transfer UI surface.
-  - Reuses the local chooser/browser foundation from `RW-CLIENT-W2A`.
+  - Covers shell-launched seller-side `Shop FTP`, read-only `Public FTP`, `sellfile`, and reuse of the shared `requestsecondarydirectory` remote browser.
+  - Store buying remains owned by `RW-CLIENT-W3A`; this slice is seller-side shell FTP and read-only public browsing only.
+
+### RW-CLIENT-W2C2 - FTP transfer parity and public-FTP password flows
+- Status: `todo`
+- Owner: `unassigned`
+- Depends on: `RW-CLIENT-W2C1`
+- Allowed write scope: `:RewriteClient/client/files/**`, `:RewriteClient/client/network/**`, `:RewriteClient`
+- Verification command: `./gradlew :RewriteClient:test :RewriteClient:uiTest`
+- Artifacts: `build/reports/rewrite/ui`
+- Commit rule: `single green commit only`
+- Notes:
+  - Extends the `RW-CLIENT-W2C1` FTP windows with legacy transfer parity once rewrite transport exists.
+  - Blocked until rewrite exposes equivalents for `put`, `get`, `malget`, and `setftppassword`.
 
 ### RW-CLIENT-W3A - Lightweight browser core, store purchase flow, and web transport bridge
 - Status: `done`
@@ -274,7 +286,7 @@
   - Keeps `show_choices` and remote follow-up browsing out of scope so the first attack tranche stays focused on the real pane/runtime loop.
 
 ### RW-CLIENT-W5B2 - show_choices, requestsecondarydirectory, and shared remote follow-up browser
-- Status: `in_progress`
+- Status: `done`
 - Owner: `unassigned`
 - Depends on: `RW-CLIENT-W5B1`, `RW-CLIENT-W2A`
 - Allowed write scope: `:RewriteProtocol`, `:RewriteClient/client/network/**`, `:RewriteClient`
@@ -283,7 +295,7 @@
 - Commit rule: `single green commit only`
 - Notes:
   - Owns decoded `show_choices`, `requestsecondarydirectory`, and the shared remote-target chooser/browser follow-up.
-  - `RW-CLIENT-W2C` depends on this slice because remote transfer and attack-family follow-up share the same secondary-directory targeting surface.
+  - `RW-CLIENT-W2C1` depends on this slice because shell FTP and attack-family follow-up share the same secondary-directory targeting surface.
 
 ### RW-CLIENT-W5C - Zombie Attack launcher and pane
 - Status: `todo`

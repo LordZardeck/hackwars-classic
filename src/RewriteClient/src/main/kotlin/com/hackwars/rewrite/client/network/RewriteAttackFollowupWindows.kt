@@ -48,8 +48,8 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 
-private const val PUBLIC_FTP_ROOT = "/Public"
-private const val STORE_FTP_ROOT = "/Store"
+internal const val PUBLIC_FTP_ROOT = "/Public"
+internal const val STORE_FTP_ROOT = "/Store"
 
 internal enum class RewriteShowChoicesActionKind(
     val label: String,
@@ -490,12 +490,12 @@ internal class RewriteChangeDailyPayDialog(
     }
 }
 
-private enum class RewriteRemoteDirectoryEntryType {
+internal enum class RewriteRemoteDirectoryEntryType {
     DIRECTORY,
     FILE,
 }
 
-private data class RewriteRemoteDirectoryBrowserEntry(
+internal data class RewriteRemoteDirectoryBrowserEntry(
     val path: String,
     val name: String,
     val description: String,
@@ -509,7 +509,7 @@ private data class RewriteRemoteDirectoryBrowserEntry(
     override fun toString(): String = name
 }
 
-private data class RewriteRemoteDirectoryBrowserState(
+internal data class RewriteRemoteDirectoryBrowserState(
     val displayedPath: String,
     val listing: ClientSecondaryDirectoryListingResponse? = null,
     val entries: List<RewriteRemoteDirectoryBrowserEntry> = emptyList(),
@@ -518,10 +518,10 @@ private data class RewriteRemoteDirectoryBrowserState(
     val inlineError: String? = null,
 )
 
-private class RewriteRemoteDirectoryBrowserController(
+internal class RewriteRemoteDirectoryBrowserController(
     private val rootController: RewriteRootController,
-    private val targetIp: String,
-    private val targetPort: Int,
+    targetIp: String,
+    targetPort: Int,
     private val entryRootPath: String,
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
 ) : AutoCloseable {
@@ -530,6 +530,9 @@ private class RewriteRemoteDirectoryBrowserController(
     )
     private var disposed: Boolean = false
     private var queuedRequest: String? = null
+    private var targetIp: String = targetIp
+    private var targetPort: Int = targetPort
+    private var targetRevision: Long = 0L
 
     fun snapshot(): RewriteRemoteDirectoryBrowserState = store.snapshot()
 
@@ -541,6 +544,42 @@ private class RewriteRemoteDirectoryBrowserController(
 
     fun navigateHome() {
         requestDirectory(entryRootPath)
+    }
+
+    fun refresh(path: String? = null) {
+        requestDirectory(path ?: currentDisplayedPath())
+    }
+
+    fun rebindTarget(
+        targetIp: String,
+        targetPort: Int,
+        initialPath: String? = entryRootPath,
+    ) {
+        if (disposed) {
+            return
+        }
+        val normalizedPath = clampRemoteFollowupPath(initialPath, entryRootPath)
+        val targetChanged = this.targetIp != targetIp || this.targetPort != targetPort
+        this.targetIp = targetIp
+        this.targetPort = targetPort
+        if (targetChanged) {
+            targetRevision += 1
+        }
+        val currentState = snapshot()
+        store.update { state ->
+            state.copy(
+                displayedPath = normalizedPath,
+                listing = if (targetChanged) null else state.listing,
+                entries = if (targetChanged) emptyList() else state.entries,
+                selectedPath = if (targetChanged) null else state.selectedPath,
+                inlineError = null,
+            )
+        }
+        if (currentState.requestInFlight) {
+            queuedRequest = normalizedPath
+        } else {
+            requestDirectory(normalizedPath)
+        }
     }
 
     fun navigateUp() {
@@ -600,13 +639,27 @@ private class RewriteRemoteDirectoryBrowserController(
             )
         }
         scope.launch {
+            val requestRevision = targetRevision
+            val requestTargetIp = targetIp
+            val requestTargetPort = targetPort
             val result = rootController.requestSecondaryDirectory(
                 path = normalizedPath,
-                targetIp = targetIp,
-                portNumber = targetPort,
+                targetIp = requestTargetIp,
+                portNumber = requestTargetPort,
             )
             SwingUtilities.invokeLater {
                 if (disposed) {
+                    return@invokeLater
+                }
+                if (requestRevision != targetRevision) {
+                    store.update { current ->
+                        current.copy(requestInFlight = false)
+                    }
+                    val nextQueued = queuedRequest
+                    queuedRequest = null
+                    if (nextQueued != null) {
+                        requestDirectory(nextQueued)
+                    }
                     return@invokeLater
                 }
                 when (result) {
@@ -673,7 +726,7 @@ private class RewriteRemoteDirectoryBrowserController(
     }
 }
 
-private class RewriteRemoteDirectoryBrowserPanel(
+internal class RewriteRemoteDirectoryBrowserPanel(
     private val browserController: RewriteRemoteDirectoryBrowserController,
     private val primaryActionLabel: String,
     private val primaryActionName: String,
@@ -810,7 +863,7 @@ private class RewriteRemoteDirectoryBrowserPanel(
     }
 }
 
-private class RewriteRemoteDirectoryEntryRenderer : DefaultListCellRenderer() {
+internal class RewriteRemoteDirectoryEntryRenderer : DefaultListCellRenderer() {
     override fun getListCellRendererComponent(
         list: JList<*>?,
         value: Any?,

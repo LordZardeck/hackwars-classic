@@ -771,6 +771,37 @@ class RewriteClientJsonTest {
     }
 
     @Test
+    fun decodesCurrentRewriteSellFileResponsePayloads() {
+        val sellFilePayload = """
+            {
+              "stateId":"LOCAL-IP",
+              "file":{
+                "path":"/Store/http.bin",
+                "name":"http.bin",
+                "kind":"APPLICATION_BINARY",
+                "price":125.0,
+                "quantity":3,
+                "compiledBinary":{
+                  "applicationKind":"HTTP"
+                }
+              },
+              "version":18,
+              "ignored":"ignored"
+            }
+        """.trimIndent().encodeToByteArray()
+
+        val sellFile = RewriteClientJson.decode(
+            ClientSellFileResponse.serializer(),
+            sellFilePayload,
+        )
+
+        assertEquals("LOCAL-IP", sellFile.stateId)
+        assertEquals("http.bin", sellFile.file.name)
+        assertEquals(125.0, sellFile.file.price)
+        assertEquals(18, sellFile.version)
+    }
+
+    @Test
     fun decodesCurrentRewriteAttackCommandResponsePayloads() {
         val attackStartPayload = """
             {

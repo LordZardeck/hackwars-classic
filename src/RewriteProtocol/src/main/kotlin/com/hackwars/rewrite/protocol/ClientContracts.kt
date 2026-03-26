@@ -622,6 +622,15 @@ data class ClientTransferPayload(
 )
 
 @Serializable
+data class ClientSellFilePayload(
+    val ip: String,
+    val location: String? = null,
+    val fileName: String,
+    val compileCost: Double? = null,
+    val quantity: Int? = null,
+)
+
+@Serializable
 data class ClientBankTransactionResponse(
     val stateId: String,
     val operation: String,
@@ -644,6 +653,13 @@ data class ClientTransferResponse(
     val targetPettyCashAfter: Double,
     val sourceVersion: Long,
     val targetVersion: Long,
+)
+
+@Serializable
+data class ClientSellFileResponse(
+    val stateId: String,
+    val file: ClientStoredFile,
+    val version: Long,
 )
 
 @Serializable
