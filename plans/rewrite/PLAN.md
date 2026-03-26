@@ -226,7 +226,7 @@
 - Verification scope: `rg -n "Foundation task|Completion task|Legacy UI reference|Parity acceptance|Blocking upstream task" plans/rewrite/feature-inventory/PLAN.md`
 
 ### RW-M2-002 - Close client UI evidence gaps and legacy reference coverage
-- Status: `ready`
+- Status: `done`
 - Priority: `P1`
 - Execution lane: `evidence`
 - Worker role: `explorer`
