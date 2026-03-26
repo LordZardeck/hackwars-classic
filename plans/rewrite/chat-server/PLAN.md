@@ -140,7 +140,7 @@
 - Locked scope note: this card closes retained `relation_list` and `relation_add`, including actor-local relation refresh, friend/ignore persistence reconciliation, retained comment payload storage, and single-kind delete support for boolean flag turnoff.
 
 ### RW-CHAT-004B - Implement retained online notifications and relation-driven fanout
-- Status: `ready`
+- Status: `done`
 - Priority: `P2`
 - Execution lane: `social`
 - Worker role: `worker`
@@ -151,9 +151,10 @@
 - Autonomous next: `RW-CHAT-005A`
 - Fallback if blocked: `RW-CHAT-004A`
 - Verification scope: `./gradlew :RewriteChatCore:test :RewriteChatServer:test`
+- Locked scope note: this card closes retained reciprocal `relation_add` fanout on chat login/logout, including the legacy inconsistency where login treats any outgoing relation as eligible while logout only fans out from friend-marked outgoing relations.
 
 ### RW-CHAT-005A - Emit retained chat protocol parity events
-- Status: `todo`
+- Status: `ready`
 - Priority: `P1`
 - Execution lane: `contracts`
 - Worker role: `worker`

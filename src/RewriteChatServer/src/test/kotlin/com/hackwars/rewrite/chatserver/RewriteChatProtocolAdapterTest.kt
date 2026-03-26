@@ -105,6 +105,183 @@ class RewriteChatProtocolAdapterTest {
     }
 
     @Test
+    fun authBootstrapPushesRelationAddToReciprocalRecipients() = runTest {
+        val fixture = createFixture()
+        fixture.chatRepository.upsertRelation(
+            PersistedChatRelation(
+                playerId = "alice",
+                targetPlayerId = "pf-localuser",
+                relationKind = PersistedRelationKind.IGNORED,
+                createdAt = Instant.parse("2026-03-26T10:05:30Z"),
+                relationPayload = """{"comment":"watching you"}""",
+            ),
+        )
+        val localConnection = fixture.authenticatedConnection()
+        localConnection.awaitFrame()
+        localConnection.awaitFrame()
+
+        val aliceConnection = fixture.authenticatedConnection(
+            sessionTicket = "SESSION-ALICE",
+            playFabIdHint = "PF-ALICE",
+            requestedIp = "192.0.2.11",
+        )
+        aliceConnection.awaitFrame()
+        aliceConnection.awaitFrame()
+
+        val relationAdd = localConnection.drainFrames().relationAddEvent()
+        assertEquals("pf-localuser", relationAdd.receiverPlayerId)
+        assertEquals("alice", relationAdd.relation.targetPlayerId)
+        assertEquals("raid partner", relationAdd.relation.comment)
+        assertTrue(relationAdd.relation.friend)
+        assertFalse(relationAdd.relation.ignore)
+        assertTrue(relationAdd.relation.online)
+    }
+
+    @Test
+    fun disconnectPushesOfflineRelationAddToReciprocalFriends() = runTest {
+        val fixture = createFixture()
+        fixture.chatRepository.upsertRelation(
+            PersistedChatRelation(
+                playerId = "alice",
+                targetPlayerId = "pf-localuser",
+                relationKind = PersistedRelationKind.FRIEND,
+                createdAt = Instant.parse("2026-03-26T10:05:30Z"),
+                relationPayload = """{"comment":"watching you"}""",
+            ),
+        )
+        val localConnection = fixture.authenticatedConnection()
+        localConnection.awaitFrame()
+        localConnection.awaitFrame()
+        val aliceConnection = fixture.authenticatedConnection(
+            sessionTicket = "SESSION-ALICE",
+            playFabIdHint = "PF-ALICE",
+            requestedIp = "192.0.2.11",
+        )
+        aliceConnection.awaitFrame()
+        aliceConnection.awaitFrame()
+        localConnection.drainFrames()
+
+        aliceConnection.close()
+
+        val relationAdd = localConnection.drainFrames().relationAddEvent()
+        assertEquals("pf-localuser", relationAdd.receiverPlayerId)
+        assertEquals("alice", relationAdd.relation.targetPlayerId)
+        assertFalse(relationAdd.relation.online)
+    }
+
+    @Test
+    fun disconnectSkipsOfflineRelationAddWhenSenderHasNoFriendFlag() = runTest {
+        val fixture = createFixture()
+        fixture.chatRepository.upsertRelation(
+            PersistedChatRelation(
+                playerId = "alice",
+                targetPlayerId = "pf-localuser",
+                relationKind = PersistedRelationKind.IGNORED,
+                createdAt = Instant.parse("2026-03-26T10:05:30Z"),
+                relationPayload = """{"comment":"watching you"}""",
+            ),
+        )
+        val localConnection = fixture.authenticatedConnection()
+        localConnection.awaitFrame()
+        localConnection.awaitFrame()
+        val aliceConnection = fixture.authenticatedConnection(
+            sessionTicket = "SESSION-ALICE",
+            playFabIdHint = "PF-ALICE",
+            requestedIp = "192.0.2.11",
+        )
+        aliceConnection.awaitFrame()
+        aliceConnection.awaitFrame()
+        localConnection.drainFrames()
+
+        aliceConnection.close()
+
+        assertTrue(
+            localConnection.drainFrames().none {
+                it.chat_event?.event_type == ChatParityEventType.RELATION_ADD.wireName
+            },
+        )
+    }
+
+    @Test
+    fun secondConnectionDoesNotReannounceOnlineRelationAdd() = runTest {
+        val fixture = createFixture()
+        fixture.chatRepository.upsertRelation(
+            PersistedChatRelation(
+                playerId = "alice",
+                targetPlayerId = "pf-localuser",
+                relationKind = PersistedRelationKind.FRIEND,
+                createdAt = Instant.parse("2026-03-26T10:05:30Z"),
+                relationPayload = """{"comment":"watching you"}""",
+            ),
+        )
+        val aliceConnection = fixture.authenticatedConnection(
+            sessionTicket = "SESSION-ALICE",
+            playFabIdHint = "PF-ALICE",
+            requestedIp = "192.0.2.11",
+        )
+        aliceConnection.awaitFrame()
+        aliceConnection.awaitFrame()
+        val localConnectionOne = fixture.authenticatedConnection()
+        localConnectionOne.awaitFrame()
+        localConnectionOne.awaitFrame()
+        aliceConnection.drainFrames()
+
+        val localConnectionTwo = fixture.authenticatedConnection(
+            sessionTicket = "SESSION-LOCALUSER-2",
+            playFabIdHint = "PF-LOCALUSER",
+            requestedIp = "192.0.2.10",
+        )
+        localConnectionTwo.awaitFrame()
+        localConnectionTwo.awaitFrame()
+
+        assertTrue(
+            aliceConnection.drainFrames().none {
+                it.chat_event?.event_type == ChatParityEventType.RELATION_ADD.wireName
+            },
+        )
+    }
+
+    @Test
+    fun disconnectingOneOfMultipleConnectionsDoesNotAnnounceOffline() = runTest {
+        val fixture = createFixture()
+        fixture.chatRepository.upsertRelation(
+            PersistedChatRelation(
+                playerId = "alice",
+                targetPlayerId = "pf-localuser",
+                relationKind = PersistedRelationKind.FRIEND,
+                createdAt = Instant.parse("2026-03-26T10:05:30Z"),
+                relationPayload = """{"comment":"watching you"}""",
+            ),
+        )
+        val aliceConnection = fixture.authenticatedConnection(
+            sessionTicket = "SESSION-ALICE",
+            playFabIdHint = "PF-ALICE",
+            requestedIp = "192.0.2.11",
+        )
+        aliceConnection.awaitFrame()
+        aliceConnection.awaitFrame()
+        val localConnectionOne = fixture.authenticatedConnection()
+        localConnectionOne.awaitFrame()
+        localConnectionOne.awaitFrame()
+        val localConnectionTwo = fixture.authenticatedConnection(
+            sessionTicket = "SESSION-LOCALUSER-2",
+            playFabIdHint = "PF-LOCALUSER",
+            requestedIp = "192.0.2.10",
+        )
+        localConnectionTwo.awaitFrame()
+        localConnectionTwo.awaitFrame()
+        aliceConnection.drainFrames()
+
+        localConnectionTwo.close()
+
+        assertTrue(
+            aliceConnection.drainFrames().none {
+                it.chat_event?.event_type == ChatParityEventType.RELATION_ADD.wireName
+            },
+        )
+    }
+
+    @Test
     fun disconnectClosesChatServiceSessionAndPresence() = runTest {
         val fixture = createFixture()
         val connection = fixture.authenticatedConnection()
@@ -860,6 +1037,15 @@ class RewriteChatProtocolAdapterTest {
                     issuedAt = Instant.parse("2026-03-26T10:00:00Z"),
                 ),
             )
+            upsertSessionTicketDirect(
+                PersistedSessionTicket(
+                    sessionTicket = "SESSION-LOCALUSER-2",
+                    playerId = "pf-localuser",
+                    playFabId = "PF-LOCALUSER",
+                    playerIp = "192.0.2.10",
+                    issuedAt = Instant.parse("2026-03-26T10:00:00Z"),
+                ),
+            )
         }
         val chatRepository = InMemoryChatSocialRepository(
             channels = mutableListOf(
@@ -935,6 +1121,11 @@ class RewriteChatProtocolAdapterTest {
                             playFabId = "PF-ALICE",
                             playerIp = "192.0.2.11",
                             sessionTicket = "SESSION-ALICE",
+                        ),
+                        FakePlayerAccount(
+                            playFabId = "PF-LOCALUSER",
+                            playerIp = "192.0.2.10",
+                            sessionTicket = "SESSION-LOCALUSER-2",
                         ),
                     ),
                 ),

@@ -151,6 +151,13 @@ class RewriteChatProtocolAdapter(
                 ),
             ),
         )
+        if (activeSessions.values.count { it.playerId == session.playerId } == 1) {
+            notifyRelationObservers(
+                playerId = session.playerId,
+                online = true,
+                senderFriendOnly = false,
+            )
+        }
         ensureDefaultAutoChannels(session)
 
         val bootstrap = RetainedChatBootstrapPolicy.project(
@@ -191,6 +198,11 @@ class RewriteChatProtocolAdapter(
             offlineAt = now,
         )
         if (activeSessions.values.none { it.playerId == session.playerId }) {
+            notifyRelationObservers(
+                playerId = session.playerId,
+                online = false,
+                senderFriendOnly = true,
+            )
             logoutPlayerFromChannels(session.playerId)
         }
     }
@@ -1684,6 +1696,46 @@ class RewriteChatProtocolAdapter(
                 targetPlayerId = targetPlayerId,
                 online = chatSocialRepository.listActivePresence(targetPlayerId).isNotEmpty(),
             )
+    }
+
+    private suspend fun notifyRelationObservers(
+        playerId: String,
+        online: Boolean,
+        senderFriendOnly: Boolean,
+    ) {
+        val candidateRecipients = loadRelations(playerId)
+            .asSequence()
+            .filter { relation ->
+                !senderFriendOnly || relation.relationKind == com.hackwars.rewrite.protocol.ChatRelationKind.FRIEND
+            }
+            .map { it.targetPlayerId.value }
+            .filter { it != playerId }
+            .toSet()
+        if (candidateRecipients.isEmpty()) {
+            return
+        }
+        val activeRecipientIds = activeSessions.values
+            .mapTo(linkedSetOf()) { it.playerId }
+            .intersect(candidateRecipients)
+        val relationFramesByRecipient = linkedMapOf<String, FrameEnvelope>()
+        for (recipientPlayerId in activeRecipientIds) {
+            if (loadRelations(recipientPlayerId).none { it.targetPlayerId.value == playerId }) {
+                continue
+            }
+            relationFramesByRecipient[recipientPlayerId] = relationAddFrame(
+                receiverPlayerId = recipientPlayerId,
+                relation = buildRelationFlagsPayload(
+                    playerId = recipientPlayerId,
+                    targetPlayerId = playerId,
+                ).copy(online = online),
+            )
+        }
+        if (relationFramesByRecipient.isEmpty()) {
+            return
+        }
+        pushGeneratedFrames(relationFramesByRecipient.keys) { receiverPlayerId ->
+            listOf(relationFramesByRecipient.getValue(receiverPlayerId))
+        }
     }
 
     private suspend fun logoutPlayerFromChannels(playerId: String) {
