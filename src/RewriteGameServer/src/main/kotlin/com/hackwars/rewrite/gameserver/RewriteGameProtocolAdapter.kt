@@ -92,6 +92,8 @@ import com.hackwars.rewrite.gamecore.NetworkSwitchResponse
 import com.hackwars.rewrite.gamecore.NoOpGameStatePublisher
 import com.hackwars.rewrite.gamecore.NoOpHookSideEffectSink
 import com.hackwars.rewrite.gamecore.PageEditorResponse
+import com.hackwars.rewrite.gamecore.PersonalSettingsResponse
+import com.hackwars.rewrite.gamecore.PersonalSettingsProfileRepository
 import com.hackwars.rewrite.gamecore.PurchaseResponse
 import com.hackwars.rewrite.gamecore.ProgramLifecycleStatus
 import com.hackwars.rewrite.gamecore.ProgramUpdate
@@ -125,6 +127,8 @@ import com.hackwars.rewrite.gamecore.RequestDirectoryCommand
 import com.hackwars.rewrite.gamecore.RequestDirectoryPayload
 import com.hackwars.rewrite.gamecore.RequestFileCommand
 import com.hackwars.rewrite.gamecore.RequestFilePayload
+import com.hackwars.rewrite.gamecore.RequestPersonalSettingsCommand
+import com.hackwars.rewrite.gamecore.RequestPersonalSettingsPayload
 import com.hackwars.rewrite.gamecore.RequestSecondaryDirectoryCommand
 import com.hackwars.rewrite.gamecore.RequestSecondaryDirectoryPayload
 import com.hackwars.rewrite.gamecore.RequestPurchaseCommand
@@ -134,6 +138,8 @@ import com.hackwars.rewrite.gamecore.RequestScanPayload
 import com.hackwars.rewrite.gamecore.RequestSearchCommand
 import com.hackwars.rewrite.gamecore.RequestSearchPayload
 import com.hackwars.rewrite.gamecore.RewriteGameJson
+import com.hackwars.rewrite.gamecore.SavePersonalSettingsCommand
+import com.hackwars.rewrite.gamecore.SavePersonalSettingsPayload
 import com.hackwars.rewrite.gamecore.SaveFileCommand
 import com.hackwars.rewrite.gamecore.SaveFilePayload
 import com.hackwars.rewrite.gamecore.SaveFileRequestResponse
@@ -196,6 +202,7 @@ import com.hackwars.rewrite.gamecore.ZombieAttackStartResponse
 import com.hackwars.rewrite.gamecore.attackLoadoutFromLegacyPayload
 import com.hackwars.rewrite.persistence.JdbcFtpPasswordRepository
 import com.hackwars.rewrite.persistence.JdbcNetworkDirectoryRepository
+import com.hackwars.rewrite.persistence.JdbcPersonalSettingsProfileRepository
 import com.hackwars.rewrite.persistence.JdbcSearchCatalogRepository
 import com.hackwars.rewrite.persistence.RewritePostgresConnectionFactory
 import com.hackwars.rewrite.protocol.RewriteFrames
@@ -229,6 +236,9 @@ class RewriteGameProtocolAdapter(
     private val searchCatalogRepository: SearchCatalogRepository = JdbcSearchCatalogRepository(
         connectionFactory = RewritePostgresConnectionFactory.fromEnvironment(),
     ),
+    private val playerProfileRepository: PersonalSettingsProfileRepository = JdbcPersonalSettingsProfileRepository(
+        connectionFactory = RewritePostgresConnectionFactory.fromEnvironment(),
+    ),
     private val ftpPasswordRepository: FtpPasswordRepository = JdbcFtpPasswordRepository(
         connectionFactory = RewritePostgresConnectionFactory.fromEnvironment(),
     ),
@@ -241,6 +251,7 @@ class RewriteGameProtocolAdapter(
         httpHookRuntime,
         networkDirectoryRepository,
         searchCatalogRepository,
+        playerProfileRepository,
         attackProgramRegistry,
         ftpPasswordRepository,
     ),
@@ -512,6 +523,7 @@ class RewriteGameProtocolAdapter(
             is WatchListResponse -> RewriteGameJson.encode(WatchListResponse.serializer(), result)
             is WatchMutationResponse -> RewriteGameJson.encode(WatchMutationResponse.serializer(), result)
             is SetPreferenceCommandResponse -> RewriteGameJson.encode(SetPreferenceCommandResponse.serializer(), result)
+            is PersonalSettingsResponse -> RewriteGameJson.encode(PersonalSettingsResponse.serializer(), result)
             is SetFtpPasswordResponse -> RewriteGameJson.encode(SetFtpPasswordResponse.serializer(), result)
             is PageEditorResponse -> RewriteGameJson.encode(PageEditorResponse.serializer(), result)
             is SavePageResponse -> RewriteGameJson.encode(SavePageResponse.serializer(), result)
@@ -529,6 +541,7 @@ class RewriteGameProtocolAdapter(
             httpHookRuntime: HttpHookRuntime,
             networkDirectoryRepository: NetworkDirectoryRepository,
             searchCatalogRepository: SearchCatalogRepository,
+            playerProfileRepository: PersonalSettingsProfileRepository,
             attackProgramRegistry: AttackProgramRegistry,
             ftpPasswordRepository: FtpPasswordRepository = InMemoryFtpPasswordRepository(),
         ): CommandRegistry {
@@ -900,6 +913,29 @@ class RewriteGameProtocolAdapter(
                         ),
                         key = payload.key,
                         value = payload.value,
+                    )
+                }
+                .register("requestpersonalsettings") { input ->
+                    val payload = decodePayload(input, RequestPersonalSettingsPayload.serializer())
+                    val authenticatedStateId = requireAuthenticatedStateId(input)
+                    payload.ip?.takeUnless { it.isBlank() }?.let {
+                        requirePayloadIpMatches(authenticatedStateId, it, input.commandName)
+                    }
+                    RequestPersonalSettingsCommand(
+                        stateId = authenticatedStateId,
+                        profileRepository = playerProfileRepository,
+                    )
+                }
+                .register("setpersonalsettings") { input ->
+                    val payload = decodePayload(input, SavePersonalSettingsPayload.serializer())
+                    val authenticatedStateId = requireAuthenticatedStateId(input)
+                    requirePayloadIpMatches(authenticatedStateId, payload.ip, input.commandName)
+                    SavePersonalSettingsCommand(
+                        stateId = authenticatedStateId,
+                        imagePath = payload.imagePath,
+                        description = payload.description,
+                        location = payload.location,
+                        profileRepository = playerProfileRepository,
                     )
                 }
                 .register("setftppassword") { input ->

@@ -1,5 +1,6 @@
 package com.hackwars.rewrite.gamecore
 
+import kotlinx.serialization.Serializable
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 
@@ -167,6 +168,27 @@ object NoOpFtpPasswordRepository : FtpPasswordRepository {
     override suspend fun load(stateId: GameStateId): String? = null
 
     override suspend fun save(stateId: GameStateId, password: String?) = Unit
+}
+
+const val DEFAULT_PERSONAL_SETTINGS_IMAGE_PATH: String = "images/nopic.png"
+
+@Serializable
+data class PersonalSettingsProfile(
+    val displayName: String = "",
+    val imagePath: String = DEFAULT_PERSONAL_SETTINGS_IMAGE_PATH,
+    val description: String = "",
+    val location: String = "",
+)
+
+interface PersonalSettingsProfileRepository {
+    suspend fun load(stateId: GameStateId): PersonalSettingsProfile?
+    suspend fun save(stateId: GameStateId, profile: PersonalSettingsProfile)
+}
+
+object NoOpPersonalSettingsProfileRepository : PersonalSettingsProfileRepository {
+    override suspend fun load(stateId: GameStateId): PersonalSettingsProfile? = null
+
+    override suspend fun save(stateId: GameStateId, profile: PersonalSettingsProfile) = Unit
 }
 
 class SnapshotCoordinator(

@@ -15,11 +15,15 @@ import com.hackwars.rewrite.gamecore.InMemoryInterestRegistry
 import com.hackwars.rewrite.gamecore.InMemoryNetworkDirectoryRepository
 import com.hackwars.rewrite.gamecore.InstalledFirewall
 import com.hackwars.rewrite.gamecore.PortState
+import com.hackwars.rewrite.gamecore.PersonalSettingsResponse
+import com.hackwars.rewrite.gamecore.PersonalSettingsProfile
 import com.hackwars.rewrite.gamecore.RequestDirectoryPayload
 import com.hackwars.rewrite.gamecore.RequestFilePayload
+import com.hackwars.rewrite.gamecore.RequestPersonalSettingsPayload
 import com.hackwars.rewrite.gamecore.RequestSecondaryDirectoryPayload
 import com.hackwars.rewrite.gamecore.RewriteGameJson
 import com.hackwars.rewrite.gamecore.SaveFilePayload
+import com.hackwars.rewrite.gamecore.SavePersonalSettingsPayload
 import com.hackwars.rewrite.gamecore.SecondaryDirectoryListingResponse
 import com.hackwars.rewrite.gamecore.SetFtpPasswordPayload
 import com.hackwars.rewrite.gamecore.SetFtpPasswordResponse
@@ -35,6 +39,7 @@ import com.hackwars.rewrite.gamecore.InstallFirewallPayload
 import com.hackwars.rewrite.gamecore.InstallFirewallResponse
 import com.hackwars.rewrite.gamecore.FtpTransferResponse
 import com.hackwars.rewrite.gamecore.GetFilePayload
+import com.hackwars.rewrite.gamecore.InMemoryPersonalSettingsProfileRepository
 import com.hackwars.rewrite.gamecore.MalGetPayload
 import com.hackwars.rewrite.gamecore.PutFilePayload
 import com.hackwars.rewrite.gamecore.CreateFolderPayload
@@ -183,6 +188,86 @@ class RewriteGameProtocolAdapterTest {
         assertEquals("notes.txt", file.file?.name)
         assertEquals("hello world", file.file?.contents)
         assertFalse(connection.drainFrames().any { it.delta != null })
+    }
+
+    @Test
+    fun requestPersonalSettingsReturnsPersistedProfileWithoutDeltas() = runTest {
+        val fixture = createFixture(
+            playerProfiles = mapOf(
+                GameStateId("LOCAL-IP") to PersonalSettingsProfile(
+                    displayName = "Local User",
+                    imagePath = "images/Jansen_001.png",
+                    description = "Operator bio",
+                    location = "UGOPNet",
+                ),
+            ),
+        )
+        val connection = fixture.authenticatedConnection()
+
+        connection.send(
+            RewriteFrames.command(
+                commandId = "personal-request-1",
+                commandName = "requestpersonalsettings",
+                payload = RewriteGameJson.encode(
+                    serializer = RequestPersonalSettingsPayload.serializer(),
+                    value = RequestPersonalSettingsPayload(ip = "LOCAL-IP"),
+                ),
+                expectsResponse = true,
+            ),
+        )
+
+        val responseFrame = connection.awaitFrame()
+        val response = RewriteGameJson.decode(
+            serializer = PersonalSettingsResponse.serializer(),
+            payload = responseFrame.command_response!!.payload.toByteArray(),
+        )
+
+        assertEquals(GameStateId("LOCAL-IP"), response.stateId)
+        assertEquals("Local User", response.profile.displayName)
+        assertEquals("images/Jansen_001.png", response.profile.imagePath)
+        assertEquals("Operator bio", response.profile.description)
+        assertEquals("UGOPNet", response.profile.location)
+        assertFalse(connection.drainFrames().any { it.delta != null })
+    }
+
+    @Test
+    fun setPersonalSettingsReturnsTypedResponseWithoutDeltasAndPersistsProfile() = runTest {
+        val fixture = createFixture()
+        val connection = fixture.authenticatedConnection()
+
+        connection.send(
+            RewriteFrames.command(
+                commandId = "personal-set-1",
+                commandName = "setpersonalsettings",
+                payload = RewriteGameJson.encode(
+                    serializer = SavePersonalSettingsPayload.serializer(),
+                    value = SavePersonalSettingsPayload(
+                        ip = "LOCAL-IP",
+                        imagePath = "images/Necro_001.png",
+                        description = "Fresh bio",
+                        location = "ProgNet",
+                    ),
+                ),
+                expectsResponse = true,
+            ),
+        )
+
+        val responseFrame = connection.awaitFrame()
+        val response = RewriteGameJson.decode(
+            serializer = PersonalSettingsResponse.serializer(),
+            payload = responseFrame.command_response!!.payload.toByteArray(),
+        )
+
+        assertEquals("PF-LOCALUSER", response.profile.displayName)
+        assertEquals("images/Necro_001.png", response.profile.imagePath)
+        assertEquals("Fresh bio", response.profile.description)
+        assertEquals("ProgNet", response.profile.location)
+        assertFalse(connection.drainFrames().any { it.delta != null })
+
+        val persisted = fixture.playerProfiles.load(GameStateId("LOCAL-IP"))
+        assertEquals("images/Necro_001.png", persisted?.imagePath)
+        assertEquals("Fresh bio", persisted?.description)
+        assertEquals("ProgNet", persisted?.location)
     }
 
     @Test
@@ -726,6 +811,7 @@ class RewriteGameProtocolAdapterTest {
         localState: ComputerState = localState(),
         targetState: ComputerState = targetState(),
         ftpPasswords: Map<GameStateId, String?> = emptyMap(),
+        playerProfiles: Map<GameStateId, PersonalSettingsProfile> = emptyMap(),
     ): Fixture {
         val repository = InMemoryComputerStateRepository(
             seededStates = mapOf(
@@ -735,6 +821,7 @@ class RewriteGameProtocolAdapterTest {
         )
         val interests = InMemoryInterestRegistry()
         val ftpPasswordRepository = InMemoryFtpPasswordRepository(ftpPasswords)
+        val playerProfileRepository = InMemoryPersonalSettingsProfileRepository(playerProfiles)
         val adapter = RewriteGameProtocolAdapter(
             dispatcher = DefaultCommandDispatcher(
                 repository = repository,
@@ -744,6 +831,7 @@ class RewriteGameProtocolAdapterTest {
             ftpPasswordRepository = ftpPasswordRepository,
             interestRegistry = interests,
             networkDirectoryRepository = InMemoryNetworkDirectoryRepository.defaultWorld("1"),
+            playerProfileRepository = playerProfileRepository,
         )
         val harnessAdapter = HarnessBackedGameAdapter(adapter)
         val harness = InMemoryRewriteServiceHarness(
@@ -777,6 +865,7 @@ class RewriteGameProtocolAdapterTest {
             harness = harness,
             repository = repository,
             ftpPasswords = ftpPasswordRepository,
+            playerProfiles = playerProfileRepository,
         )
     }
 
@@ -916,6 +1005,7 @@ class RewriteGameProtocolAdapterTest {
         val harness: InMemoryRewriteServiceHarness,
         val repository: InMemoryComputerStateRepository,
         val ftpPasswords: InMemoryFtpPasswordRepository,
+        val playerProfiles: InMemoryPersonalSettingsProfileRepository,
     )
 
     private class HarnessBackedGameAdapter(

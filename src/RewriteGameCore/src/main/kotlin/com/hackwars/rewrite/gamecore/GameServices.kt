@@ -113,6 +113,23 @@ class InMemoryFtpPasswordRepository(
     }
 }
 
+class InMemoryPersonalSettingsProfileRepository(
+    seededProfiles: Map<GameStateId, PersonalSettingsProfile> = emptyMap(),
+) : PersonalSettingsProfileRepository {
+    private val profiles = seededProfiles.toMutableMap()
+    private val mutex = Mutex()
+
+    override suspend fun load(stateId: GameStateId): PersonalSettingsProfile? = mutex.withLock {
+        profiles[stateId]
+    }
+
+    override suspend fun save(stateId: GameStateId, profile: PersonalSettingsProfile) {
+        mutex.withLock {
+            profiles[stateId] = profile
+        }
+    }
+}
+
 class InMemoryAttackProgramRegistry : AttackProgramRegistry {
     private val handlesByProgramId = mutableMapOf<String, ProgramHandle>()
     private val programIdsBySource = mutableMapOf<Pair<GameStateId, Int>, String>()

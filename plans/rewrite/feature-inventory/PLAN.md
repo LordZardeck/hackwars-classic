@@ -52,5 +52,5 @@
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | Preferences | `RW-CLIENT-W7A` | `RW-CLIENT-C10C` | `OptionPanel` | `artifacts/rewrite/baselines/pass-6/preferences/preferences_main.png`, `artifacts/rewrite/baselines/pass-6/preferences/preferences_apply_error.png` | `none` | `RewriteUtilitiesUiTest`, `RW-TEST-011` | `in_progress` |
 | Log Window | `RW-CLIENT-W7A` | `RW-CLIENT-C10C` | `LogWindow` | `artifacts/rewrite/baselines/pass-6/log-window/log_window.png` | `none` | `RewriteUtilitiesUiTest`, `RW-TEST-011` | `in_progress` |
-| Personal Settings | `RW-CLIENT-W7B` | `RW-CLIENT-C10C` | `PersonalSettings` | `artifacts/rewrite/baselines/pass-6/personal-settings/personal_settings_main.png` | `RW-GS-T4` | `RW-TEST-011` | `blocked` |
+| Personal Settings | `RW-CLIENT-W7B` | `RW-CLIENT-C10C` | `PersonalSettings` | `artifacts/rewrite/baselines/pass-6/personal-settings/personal_settings_main.png` | `none` | `RW-TEST-011` | `in_progress` |
 | Client chat shell and dialogs | `RW-CLIENT-W6` | `RW-CLIENT-C11C` | `Messager`, `MessageWindow`, `ChatResizeLine` | `artifacts/rewrite/baselines/pass-6/client-chat-shell-and-dialogs/client_chat_shell.png`, `artifacts/rewrite/baselines/pass-6/client-chat-shell-and-dialogs/client_chat_message_window.png` | `RW-CHAT-003B`, `RW-CHAT-004B`, `RW-CHAT-005A` | `RW-TEST-011`, `RW-CHAT-005B` | `blocked` |

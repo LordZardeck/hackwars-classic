@@ -95,6 +95,29 @@ class GameCoreContractsTest {
                     value = payload.value,
                 )
             }
+            .register("requestpersonalsettings") { input ->
+                val payload = RewriteGameJson.codec.decodeFromString(
+                    deserializer = RequestPersonalSettingsPayload.serializer(),
+                    string = input.payloadJson ?: error("Expected personal settings payload json."),
+                )
+                RequestPersonalSettingsCommand(
+                    stateId = input.metadata.authenticatedStateId ?: GameStateId(payload.ip ?: "LOCAL-IP"),
+                    profileRepository = InMemoryPersonalSettingsProfileRepository(),
+                )
+            }
+            .register("setpersonalsettings") { input ->
+                val payload = RewriteGameJson.codec.decodeFromString(
+                    deserializer = SavePersonalSettingsPayload.serializer(),
+                    string = input.payloadJson ?: error("Expected personal settings payload json."),
+                )
+                SavePersonalSettingsCommand(
+                    stateId = input.metadata.authenticatedStateId ?: GameStateId(payload.ip),
+                    imagePath = payload.imagePath,
+                    description = payload.description,
+                    location = payload.location,
+                    profileRepository = InMemoryPersonalSettingsProfileRepository(),
+                )
+            }
             .register("setftppassword") { input ->
                 val payload = RewriteGameJson.codec.decodeFromString(
                     deserializer = SetFtpPasswordPayload.serializer(),
@@ -217,6 +240,35 @@ class GameCoreContractsTest {
                 metadata = CommandMetadata(),
             ),
         )
+        val requestPersonalSettings = registry.requireCreate(
+            CommandEnvelopeInput(
+                commandId = "personal-request-1",
+                commandName = "requestpersonalsettings",
+                targetStateIds = setOf(GameStateId("LOCAL-IP")),
+                payloadJson = RewriteGameJson.codec.encodeToString(
+                    serializer = RequestPersonalSettingsPayload.serializer(),
+                    value = RequestPersonalSettingsPayload(ip = "LOCAL-IP"),
+                ),
+                expectsResponse = true,
+                metadata = CommandMetadata(authenticatedStateId = GameStateId("LOCAL-IP")),
+            ),
+        )
+        val setPersonalSettings = registry.requireCreate(
+            CommandEnvelopeInput(
+                commandId = "personal-set-1",
+                commandName = "setpersonalsettings",
+                targetStateIds = setOf(GameStateId("LOCAL-IP")),
+                payloadJson = RewriteGameJson.codec.encodeToString(
+                    serializer = SavePersonalSettingsPayload.serializer(),
+                    value = SavePersonalSettingsPayload(
+                        ip = "LOCAL-IP",
+                        imagePath = "images/nopic.png",
+                    ),
+                ),
+                expectsResponse = true,
+                metadata = CommandMetadata(authenticatedStateId = GameStateId("LOCAL-IP")),
+            ),
+        )
         val setFtpPassword = registry.requireCreate(
             CommandEnvelopeInput(
                 commandId = "ftp-pass-1",
@@ -263,6 +315,8 @@ class GameCoreContractsTest {
                 "fetchwatches",
                 "installwatch",
                 "setpreferences",
+                "requestpersonalsettings",
+                "setpersonalsettings",
                 "setftppassword",
                 "malget",
             ),
@@ -274,6 +328,8 @@ class GameCoreContractsTest {
         assertIs<FetchWatchesCommand>(fetchWatches)
         assertIs<InstallWatchCommand>(installWatch)
         assertIs<SetPreferenceCommand>(setPreference)
+        assertIs<RequestPersonalSettingsCommand>(requestPersonalSettings)
+        assertIs<SavePersonalSettingsCommand>(setPersonalSettings)
         assertIs<SetFtpPasswordCommand>(setFtpPassword)
         assertIs<MalGetCommand>(malGet)
     }

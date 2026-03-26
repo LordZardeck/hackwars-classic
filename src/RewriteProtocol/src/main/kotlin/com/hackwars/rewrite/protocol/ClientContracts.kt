@@ -653,6 +653,19 @@ data class ClientSetPreferencePayload(
 )
 
 @Serializable
+data class ClientRequestPersonalSettingsPayload(
+    val ip: String? = null,
+)
+
+@Serializable
+data class ClientSavePersonalSettingsPayload(
+    val ip: String,
+    val imagePath: String? = null,
+    val description: String? = null,
+    val location: String? = null,
+)
+
+@Serializable
 data class ClientSetFtpPasswordPayload(
     val ip: String,
     val password: String? = null,
@@ -697,6 +710,21 @@ data class ClientSetPreferenceResponse(
     val key: String,
     val value: String,
     val version: Long,
+)
+
+@Serializable
+data class ClientPlayerProfileView(
+    val displayName: String = "",
+    val imagePath: String = "images/nopic.png",
+    val description: String = "",
+    val location: String = "",
+    val payload: String = "{}",
+)
+
+@Serializable
+data class ClientPersonalSettingsResponse(
+    val stateId: String,
+    val profile: ClientPlayerProfileView,
 )
 
 @Serializable
