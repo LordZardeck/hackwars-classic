@@ -22,12 +22,14 @@ import com.hackwars.rewrite.protocol.ClientChangeDailyPayResponse
 import com.hackwars.rewrite.protocol.ClientCompiledBinaryMetadata
 import com.hackwars.rewrite.protocol.ClientComputerIdentity
 import com.hackwars.rewrite.protocol.ClientDirectoryEntry
+import com.hackwars.rewrite.protocol.ClientFtpTransferResponse
 import com.hackwars.rewrite.protocol.ClientFloatHookValue
 import com.hackwars.rewrite.protocol.ClientFinalizeCancelledOutcome
 import com.hackwars.rewrite.protocol.ClientFinalizeCancelledPayload
 import com.hackwars.rewrite.protocol.ClientFinalizeCancelledResponse
 import com.hackwars.rewrite.protocol.ClientGameSnapshot
 import com.hackwars.rewrite.protocol.ClientInstalledApplication
+import com.hackwars.rewrite.protocol.ClientMalGetPayload
 import com.hackwars.rewrite.protocol.ClientPortState
 import com.hackwars.rewrite.protocol.ClientRequestAttackPayload
 import com.hackwars.rewrite.protocol.ClientRequestCancelAttackPayload
@@ -400,6 +402,59 @@ class RewriteAttackWindowsTest {
         )
         advanceUntilIdle()
         assertIs<RewriteGameCommandResult.Success<ClientChangeDailyPayResponse>>(changeDailyPayPending.await())
+
+        val malGetPending = backgroundScope.async(UnconfinedTestDispatcher(testScheduler)) {
+            controller.requestMalGet(
+                targetIp = "198.51.100.20",
+                portNumber = 25,
+                fileName = "loot.bin",
+                remotePath = "/Public",
+                attackPort = 44,
+            )
+        }
+        runCurrent()
+
+        val malGetCommand = session.sentFrames.last().command!!
+        val malGetPayload = RewriteClientJson.decode(
+            ClientMalGetPayload.serializer(),
+            malGetCommand.payload.toByteArray(),
+        )
+
+        assertEquals("malget", malGetCommand.command_name)
+        assertEquals("198.51.100.20", malGetPayload.ip)
+        assertEquals(25, malGetPayload.port)
+        assertEquals("loot.bin", malGetPayload.name)
+        assertEquals("/Public", malGetPayload.fetchPath)
+        assertEquals("192.0.2.10", malGetPayload.targetIp)
+        assertEquals(44, malGetPayload.attackPort)
+
+        controller.accept(
+            RewriteService.GAME,
+            RewriteFrames.commandResponse(
+                commandId = malGetCommand.command_id,
+                payload = RewriteClientJson.encode(
+                    ClientFtpTransferResponse.serializer(),
+                    ClientFtpTransferResponse(
+                        requesterStateId = "192.0.2.10",
+                        targetStateId = "198.51.100.20",
+                        targetPort = 25,
+                        operation = "malget",
+                        file = ClientStoredFile(
+                            path = "/loot.bin",
+                            name = "loot.bin",
+                            kind = ClientStoredFileKind.APPLICATION_BINARY,
+                            quantity = 1,
+                        ),
+                        fulfilledQuantity = 1,
+                        message = "ftp-malget-complete",
+                        requesterVersion = 8,
+                        targetVersion = 9,
+                    ),
+                ),
+            ),
+        )
+        advanceUntilIdle()
+        assertIs<RewriteGameCommandResult.Success<ClientFtpTransferResponse>>(malGetPending.await())
 
         val finalizeCancelledPending = backgroundScope.async(UnconfinedTestDispatcher(testScheduler)) {
             controller.requestFinalizeCancelled(

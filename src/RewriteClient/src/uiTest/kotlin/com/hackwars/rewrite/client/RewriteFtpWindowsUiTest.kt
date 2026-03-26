@@ -10,14 +10,19 @@ import com.hackwars.rewrite.client.testsupport.rewriteUiWaitForWindow
 import com.hackwars.rewrite.client.testsupport.rewriteUiWaitUntil
 import com.hackwars.rewrite.protocol.ClientDirectoryEntry
 import com.hackwars.rewrite.protocol.ClientDirectoryListingResponse
+import com.hackwars.rewrite.protocol.ClientFtpTransferResponse
 import com.hackwars.rewrite.protocol.ClientGameSnapshot
+import com.hackwars.rewrite.protocol.ClientGetFilePayload
 import com.hackwars.rewrite.protocol.ClientInstalledApplication
 import com.hackwars.rewrite.protocol.ClientPortState
+import com.hackwars.rewrite.protocol.ClientPutFilePayload
 import com.hackwars.rewrite.protocol.ClientRequestDirectoryPayload
 import com.hackwars.rewrite.protocol.ClientRequestSecondaryDirectoryPayload
 import com.hackwars.rewrite.protocol.ClientSecondaryDirectoryListingResponse
 import com.hackwars.rewrite.protocol.ClientSellFilePayload
 import com.hackwars.rewrite.protocol.ClientSellFileResponse
+import com.hackwars.rewrite.protocol.ClientSetFtpPasswordPayload
+import com.hackwars.rewrite.protocol.ClientSetFtpPasswordResponse
 import com.hackwars.rewrite.protocol.ClientStoredFile
 import com.hackwars.rewrite.protocol.ClientStoredFileKind
 import com.hackwars.rewrite.protocol.RewriteClientJson
@@ -379,6 +384,450 @@ class RewriteFtpWindowsUiTest {
         }
     }
 
+    @Test
+    fun setPublicFtpPasswordLaunchesRealWindowAndSendsCommand() {
+        assumeFalse(GraphicsEnvironment.isHeadless())
+
+        val sessionGateway = FakeFtpUiSessionGateway()
+        val frame = ftpReadyFrame(sessionGateway)
+        try {
+            SwingUtilities.invokeAndWait {
+                frame.controller.launchShellCommand(RewriteShellCommand.SET_PUBLIC_FTP_PASSWORD)
+                frame.controller.launchShellCommand(RewriteShellCommand.SET_PUBLIC_FTP_PASSWORD)
+            }
+
+            val passwordWindow = waitForWindow(frame, "rewrite-shell-window-set_public_ftp_password")
+            waitUntil {
+                frame.desktopPane.allFrames.count { it.name == "rewrite-shell-window-set_public_ftp_password" } == 1
+            }
+
+            SwingUtilities.invokeAndWait {
+                textField(passwordWindow, "rewrite-public-ftp-password-window-field").text = "vault"
+                button(passwordWindow, "rewrite-public-ftp-password-window-submit-button").doClick()
+            }
+
+            waitUntil { latestGameCommand(sessionGateway, "setftppassword") != null }
+            val command = latestGameCommand(sessionGateway, "setftppassword")!!
+            val payload = RewriteClientJson.decode(
+                ClientSetFtpPasswordPayload.serializer(),
+                command.payload.toByteArray(),
+            )
+            assertEquals("192.0.2.10", payload.ip)
+            assertEquals("vault", payload.password)
+
+            frame.controller.accept(
+                RewriteService.GAME,
+                RewriteFrames.commandResponse(
+                    commandId = command.command_id,
+                    payload = RewriteClientJson.encode(
+                        ClientSetFtpPasswordResponse.serializer(),
+                        ClientSetFtpPasswordResponse(
+                            stateId = "192.0.2.10",
+                            passwordSet = true,
+                        ),
+                    ),
+                ),
+            )
+
+            waitUntil {
+                frame.desktopPane.allFrames.none { it.name == "rewrite-shell-window-set_public_ftp_password" }
+            }
+        } finally {
+            disposeFrame(frame)
+        }
+    }
+
+    @Test
+    fun publicFtpPutUsesPasswordAndRefreshesListings() {
+        assumeFalse(GraphicsEnvironment.isHeadless())
+
+        val sessionGateway = FakeFtpUiSessionGateway()
+        val frame = ftpReadyFrame(sessionGateway)
+        try {
+            SwingUtilities.invokeAndWait {
+                frame.controller.launchShellCommand(RewriteShellCommand.PUBLIC_FTP)
+            }
+
+            val publicWindow = waitForWindow(frame, "rewrite-shell-window-public_ftp")
+            waitUntil { latestGameCommand(sessionGateway, "requestdirectory") != null }
+            val localCommand = latestGameCommand(sessionGateway, "requestdirectory")!!
+            frame.controller.accept(
+                RewriteService.GAME,
+                RewriteFrames.commandResponse(
+                    commandId = localCommand.command_id,
+                    payload = RewriteClientJson.encode(
+                        ClientDirectoryListingResponse.serializer(),
+                        ClientDirectoryListingResponse(
+                            stateId = "192.0.2.10",
+                            path = "/",
+                            directories = listOf(
+                                ClientDirectoryEntry(path = "/Docs", name = "Docs"),
+                            ),
+                            files = listOf(
+                                ClientStoredFile(
+                                    path = "/upload.bin",
+                                    name = "upload.bin",
+                                    kind = ClientStoredFileKind.APPLICATION_BINARY,
+                                    quantity = 3,
+                                ),
+                            ),
+                            version = 2,
+                        ),
+                    ),
+                ),
+            )
+
+            SwingUtilities.invokeAndWait {
+                textField(publicWindow, "rewrite-public-ftp-target-ip-field").text = "198.51.100.20"
+                textField(publicWindow, "rewrite-public-ftp-password-field").text = "vault"
+                spinner(publicWindow, "rewrite-public-ftp-target-port-spinner").value = 25
+                button(publicWindow, "rewrite-public-ftp-connect-button").doClick()
+            }
+
+            waitUntil { latestGameCommand(sessionGateway, "requestsecondarydirectory") != null }
+            val connectCommand = latestGameCommand(sessionGateway, "requestsecondarydirectory")!!
+            frame.controller.accept(
+                RewriteService.GAME,
+                RewriteFrames.commandResponse(
+                    commandId = connectCommand.command_id,
+                    payload = RewriteClientJson.encode(
+                        ClientSecondaryDirectoryListingResponse.serializer(),
+                        ClientSecondaryDirectoryListingResponse(
+                            requesterStateId = "192.0.2.10",
+                            targetStateId = "198.51.100.20",
+                            portNumber = 25,
+                            path = "/Public",
+                            files = listOf(
+                                ClientStoredFile(
+                                    path = "/Public/remote.log",
+                                    name = "remote.log",
+                                    kind = ClientStoredFileKind.TEXT,
+                                    quantity = 1,
+                                ),
+                            ),
+                            version = 3,
+                        ),
+                    ),
+                ),
+            )
+
+            waitUntil {
+                list(publicWindow, "rewrite-files-entry-list").model.size == 2 &&
+                    list(publicWindow, "rewrite-remote-files-entry-list").model.size == 1
+            }
+
+            SwingUtilities.invokeAndWait {
+                list(publicWindow, "rewrite-files-entry-list").selectedIndex = 1
+            }
+            waitUntil { button(publicWindow, "rewrite-public-ftp-put-button").isEnabled }
+            SwingUtilities.invokeAndWait {
+                button(publicWindow, "rewrite-public-ftp-put-button").doClick()
+            }
+
+            val putDialog = waitForDialog("rewrite-public-ftp-put-dialog")
+            SwingUtilities.invokeAndWait {
+                button(putDialog, "rewrite-public-ftp-put-confirm-button").doClick()
+            }
+
+            waitUntil { latestGameCommand(sessionGateway, "put") != null }
+            val putCommand = latestGameCommand(sessionGateway, "put")!!
+            val putPayload = RewriteClientJson.decode(
+                ClientPutFilePayload.serializer(),
+                putCommand.payload.toByteArray(),
+            )
+            assertEquals("192.0.2.10", putPayload.ip)
+            assertEquals("198.51.100.20", putPayload.targetIp)
+            assertEquals("/Public", putPayload.putPath)
+            assertEquals("/", putPayload.fetchPath)
+            assertEquals("vault", putPayload.password)
+            assertEquals(1, putPayload.quantity)
+
+            frame.controller.accept(
+                RewriteService.GAME,
+                RewriteFrames.commandResponse(
+                    commandId = putCommand.command_id,
+                    payload = RewriteClientJson.encode(
+                        ClientFtpTransferResponse.serializer(),
+                        ClientFtpTransferResponse(
+                            requesterStateId = "192.0.2.10",
+                            targetStateId = "198.51.100.20",
+                            targetPort = 25,
+                            operation = "put",
+                            file = ClientStoredFile(
+                                path = "/Public/upload.bin",
+                                name = "upload.bin",
+                                kind = ClientStoredFileKind.APPLICATION_BINARY,
+                                quantity = 1,
+                            ),
+                            fulfilledQuantity = 1,
+                            message = "ftp-put-complete",
+                            requesterVersion = 4,
+                            targetVersion = 5,
+                        ),
+                    ),
+                ),
+            )
+
+            waitUntil {
+                gameCommands(sessionGateway, "requestdirectory").size >= 2 &&
+                    gameCommands(sessionGateway, "requestsecondarydirectory").size >= 2
+            }
+            val refreshedLocalCommand = gameCommands(sessionGateway, "requestdirectory").last()
+            val refreshedRemoteCommand = gameCommands(sessionGateway, "requestsecondarydirectory").last()
+            frame.controller.accept(
+                RewriteService.GAME,
+                RewriteFrames.commandResponse(
+                    commandId = refreshedLocalCommand.command_id,
+                    payload = RewriteClientJson.encode(
+                        ClientDirectoryListingResponse.serializer(),
+                        ClientDirectoryListingResponse(
+                            stateId = "192.0.2.10",
+                            path = "/",
+                            files = listOf(
+                                ClientStoredFile(
+                                    path = "/upload.bin",
+                                    name = "upload.bin",
+                                    kind = ClientStoredFileKind.APPLICATION_BINARY,
+                                    quantity = 2,
+                                ),
+                            ),
+                            version = 6,
+                        ),
+                    ),
+                ),
+            )
+            frame.controller.accept(
+                RewriteService.GAME,
+                RewriteFrames.commandResponse(
+                    commandId = refreshedRemoteCommand.command_id,
+                    payload = RewriteClientJson.encode(
+                        ClientSecondaryDirectoryListingResponse.serializer(),
+                        ClientSecondaryDirectoryListingResponse(
+                            requesterStateId = "192.0.2.10",
+                            targetStateId = "198.51.100.20",
+                            portNumber = 25,
+                            path = "/Public",
+                            files = listOf(
+                                ClientStoredFile(
+                                    path = "/Public/remote.log",
+                                    name = "remote.log",
+                                    kind = ClientStoredFileKind.TEXT,
+                                    quantity = 1,
+                                ),
+                                ClientStoredFile(
+                                    path = "/Public/upload.bin",
+                                    name = "upload.bin",
+                                    kind = ClientStoredFileKind.APPLICATION_BINARY,
+                                    quantity = 1,
+                                ),
+                            ),
+                            version = 7,
+                        ),
+                    ),
+                ),
+            )
+
+            waitUntil {
+                text(publicWindow, "rewrite-public-ftp-status").contains("Uploaded upload.bin") &&
+                    listContents(publicWindow, "rewrite-remote-files-entry-list").contains("upload.bin")
+            }
+        } finally {
+            disposeFrame(frame)
+        }
+    }
+
+    @Test
+    fun publicFtpGetUsesPasswordAndRefreshesListings() {
+        assumeFalse(GraphicsEnvironment.isHeadless())
+
+        val sessionGateway = FakeFtpUiSessionGateway()
+        val frame = ftpReadyFrame(sessionGateway)
+        try {
+            SwingUtilities.invokeAndWait {
+                frame.controller.launchShellCommand(RewriteShellCommand.PUBLIC_FTP)
+            }
+
+            val publicWindow = waitForWindow(frame, "rewrite-shell-window-public_ftp")
+            waitUntil { latestGameCommand(sessionGateway, "requestdirectory") != null }
+            val localCommand = latestGameCommand(sessionGateway, "requestdirectory")!!
+            frame.controller.accept(
+                RewriteService.GAME,
+                RewriteFrames.commandResponse(
+                    commandId = localCommand.command_id,
+                    payload = RewriteClientJson.encode(
+                        ClientDirectoryListingResponse.serializer(),
+                        ClientDirectoryListingResponse(
+                            stateId = "192.0.2.10",
+                            path = "/Inbox",
+                            files = listOf(
+                                ClientStoredFile(
+                                    path = "/Inbox/local.txt",
+                                    name = "local.txt",
+                                    kind = ClientStoredFileKind.TEXT,
+                                    quantity = 1,
+                                ),
+                            ),
+                            version = 2,
+                        ),
+                    ),
+                ),
+            )
+
+            SwingUtilities.invokeAndWait {
+                textField(publicWindow, "rewrite-public-ftp-target-ip-field").text = "198.51.100.20"
+                textField(publicWindow, "rewrite-public-ftp-password-field").text = "vault"
+                spinner(publicWindow, "rewrite-public-ftp-target-port-spinner").value = 25
+                button(publicWindow, "rewrite-public-ftp-connect-button").doClick()
+            }
+
+            waitUntil { latestGameCommand(sessionGateway, "requestsecondarydirectory") != null }
+            val connectCommand = latestGameCommand(sessionGateway, "requestsecondarydirectory")!!
+            frame.controller.accept(
+                RewriteService.GAME,
+                RewriteFrames.commandResponse(
+                    commandId = connectCommand.command_id,
+                    payload = RewriteClientJson.encode(
+                        ClientSecondaryDirectoryListingResponse.serializer(),
+                        ClientSecondaryDirectoryListingResponse(
+                            requesterStateId = "192.0.2.10",
+                            targetStateId = "198.51.100.20",
+                            portNumber = 25,
+                            path = "/Public",
+                            files = listOf(
+                                ClientStoredFile(
+                                    path = "/Public/remote.log",
+                                    name = "remote.log",
+                                    kind = ClientStoredFileKind.TEXT,
+                                    quantity = 2,
+                                ),
+                            ),
+                            version = 3,
+                        ),
+                    ),
+                ),
+            )
+
+            waitUntil { list(publicWindow, "rewrite-remote-files-entry-list").model.size == 1 }
+            SwingUtilities.invokeAndWait {
+                list(publicWindow, "rewrite-remote-files-entry-list").selectedIndex = 0
+            }
+            waitUntil { button(publicWindow, "rewrite-public-ftp-get-button").isEnabled }
+            SwingUtilities.invokeAndWait {
+                button(publicWindow, "rewrite-public-ftp-get-button").doClick()
+            }
+
+            val getDialog = waitForDialog("rewrite-public-ftp-get-dialog")
+            SwingUtilities.invokeAndWait {
+                button(getDialog, "rewrite-public-ftp-get-confirm-button").doClick()
+            }
+
+            waitUntil { latestGameCommand(sessionGateway, "get") != null }
+            val getCommand = latestGameCommand(sessionGateway, "get")!!
+            val getPayload = RewriteClientJson.decode(
+                ClientGetFilePayload.serializer(),
+                getCommand.payload.toByteArray(),
+            )
+            assertEquals("192.0.2.10", getPayload.ip)
+            assertEquals("198.51.100.20", getPayload.targetIp)
+            assertEquals("/Inbox", getPayload.fetchPath)
+            assertEquals("/Public", getPayload.putPath)
+            assertEquals("vault", getPayload.password)
+            assertEquals(1, getPayload.quantity)
+
+            frame.controller.accept(
+                RewriteService.GAME,
+                RewriteFrames.commandResponse(
+                    commandId = getCommand.command_id,
+                    payload = RewriteClientJson.encode(
+                        ClientFtpTransferResponse.serializer(),
+                        ClientFtpTransferResponse(
+                            requesterStateId = "192.0.2.10",
+                            targetStateId = "198.51.100.20",
+                            targetPort = 25,
+                            operation = "get",
+                            file = ClientStoredFile(
+                                path = "/Inbox/remote.log",
+                                name = "remote.log",
+                                kind = ClientStoredFileKind.TEXT,
+                                quantity = 1,
+                            ),
+                            fulfilledQuantity = 1,
+                            message = "ftp-get-complete",
+                            requesterVersion = 4,
+                            targetVersion = 5,
+                        ),
+                    ),
+                ),
+            )
+
+            waitUntil {
+                gameCommands(sessionGateway, "requestdirectory").size >= 2 &&
+                    gameCommands(sessionGateway, "requestsecondarydirectory").size >= 2
+            }
+            val refreshedLocalCommand = gameCommands(sessionGateway, "requestdirectory").last()
+            val refreshedRemoteCommand = gameCommands(sessionGateway, "requestsecondarydirectory").last()
+            frame.controller.accept(
+                RewriteService.GAME,
+                RewriteFrames.commandResponse(
+                    commandId = refreshedLocalCommand.command_id,
+                    payload = RewriteClientJson.encode(
+                        ClientDirectoryListingResponse.serializer(),
+                        ClientDirectoryListingResponse(
+                            stateId = "192.0.2.10",
+                            path = "/Inbox",
+                            files = listOf(
+                                ClientStoredFile(
+                                    path = "/Inbox/local.txt",
+                                    name = "local.txt",
+                                    kind = ClientStoredFileKind.TEXT,
+                                    quantity = 1,
+                                ),
+                                ClientStoredFile(
+                                    path = "/Inbox/remote.log",
+                                    name = "remote.log",
+                                    kind = ClientStoredFileKind.TEXT,
+                                    quantity = 1,
+                                ),
+                            ),
+                            version = 6,
+                        ),
+                    ),
+                ),
+            )
+            frame.controller.accept(
+                RewriteService.GAME,
+                RewriteFrames.commandResponse(
+                    commandId = refreshedRemoteCommand.command_id,
+                    payload = RewriteClientJson.encode(
+                        ClientSecondaryDirectoryListingResponse.serializer(),
+                        ClientSecondaryDirectoryListingResponse(
+                            requesterStateId = "192.0.2.10",
+                            targetStateId = "198.51.100.20",
+                            portNumber = 25,
+                            path = "/Public",
+                            files = listOf(
+                                ClientStoredFile(
+                                    path = "/Public/remote.log",
+                                    name = "remote.log",
+                                    kind = ClientStoredFileKind.TEXT,
+                                    quantity = 1,
+                                ),
+                            ),
+                            version = 7,
+                        ),
+                    ),
+                ),
+            )
+
+            waitUntil {
+                text(publicWindow, "rewrite-public-ftp-status").contains("Downloaded remote.log") &&
+                    listContents(publicWindow, "rewrite-files-entry-list").contains("remote.log")
+            }
+        } finally {
+            disposeFrame(frame)
+        }
+    }
+
     private fun ftpReadyFrame(
         sessionGateway: FakeFtpUiSessionGateway,
     ): RewriteRootFrame {
@@ -487,8 +936,10 @@ class RewriteFtpWindowsUiTest {
     }
 
     private fun listContents(root: Component, name: String): List<String> {
-        val model = list(root, name).model
-        return (0 until model.size).map { index -> model.getElementAt(index).toString() }
+        return invokeAndWaitResult {
+            val model = list(root, name).model
+            (0 until model.size).map { index -> model.getElementAt(index).toString() }
+        }
     }
 
     private class FakeFtpUiSessionGateway : RewriteServiceSessionGateway {

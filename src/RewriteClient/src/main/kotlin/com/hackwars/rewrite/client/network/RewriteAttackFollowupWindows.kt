@@ -310,6 +310,10 @@ internal class RewriteRemoteDirectoryBrowserWindow(
     actionKind: RewriteShowChoicesActionKind,
     targetIp: String,
     targetPort: Int,
+    secondaryActionLabel: String? = null,
+    secondaryActionName: String? = null,
+    onSecondaryAction: (() -> Unit)? = null,
+    canRunSecondaryAction: ((RewriteRemoteDirectoryBrowserState) -> Boolean)? = null,
     private val onClosed: (RewriteRemoteDirectoryBrowserWindow) -> Unit,
 ) : JInternalFrame("${actionKind.browserTitle} - $targetIp:$targetPort", true, true, true, true) {
     private val browserController = RewriteRemoteDirectoryBrowserController(
@@ -326,6 +330,10 @@ internal class RewriteRemoteDirectoryBrowserWindow(
         canRunPrimaryAction = { state ->
             state.entries.firstOrNull { it.path == state.selectedPath }?.isDirectory == true
         },
+        secondaryActionLabel = secondaryActionLabel,
+        secondaryActionName = secondaryActionName,
+        onSecondaryAction = onSecondaryAction,
+        canRunSecondaryAction = canRunSecondaryAction,
     )
 
     init {
@@ -341,6 +349,14 @@ internal class RewriteRemoteDirectoryBrowserWindow(
             }
         })
         browserController.activate()
+    }
+
+    fun selectedEntry(): RewriteRemoteDirectoryBrowserEntry? = browserController.selectedEntry()
+
+    fun displayedPath(): String = browserController.snapshot().listing?.path ?: browserController.snapshot().displayedPath
+
+    fun refreshCurrentDirectory() {
+        browserController.refresh()
     }
 }
 
@@ -732,6 +748,10 @@ internal class RewriteRemoteDirectoryBrowserPanel(
     private val primaryActionName: String,
     private val onPrimaryAction: () -> Unit,
     private val canRunPrimaryAction: (RewriteRemoteDirectoryBrowserState) -> Boolean,
+    private val secondaryActionLabel: String? = null,
+    private val secondaryActionName: String? = null,
+    private val onSecondaryAction: (() -> Unit)? = null,
+    private val canRunSecondaryAction: ((RewriteRemoteDirectoryBrowserState) -> Boolean)? = null,
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
 ) : JPanel(BorderLayout()) {
     private val pathValueLabel = JLabel("/").apply {
@@ -763,6 +783,14 @@ internal class RewriteRemoteDirectoryBrowserPanel(
         name = primaryActionName
         addActionListener { onPrimaryAction() }
     }
+    val secondaryButton = secondaryActionLabel?.let { label ->
+        JButton(label).apply {
+            name = secondaryActionName
+            addActionListener {
+                onSecondaryAction?.invoke()
+            }
+        }
+    }
 
     init {
         name = "rewrite-remote-files-browser-panel"
@@ -777,6 +805,7 @@ internal class RewriteRemoteDirectoryBrowserPanel(
             add(upButton)
             add(homeButton)
             add(primaryButton)
+            secondaryButton?.let(::add)
         }
         val footer = JPanel(BorderLayout(0, 4)).apply {
             isOpaque = false
@@ -842,6 +871,7 @@ internal class RewriteRemoteDirectoryBrowserPanel(
         }
         errorLabel.text = state.inlineError ?: " "
         primaryButton.isEnabled = !state.requestInFlight && canRunPrimaryAction(state)
+        secondaryButton?.isEnabled = !state.requestInFlight && (canRunSecondaryAction?.invoke(state) == true)
         entryList.isEnabled = !state.requestInFlight
         homeButton.isEnabled = !state.requestInFlight
         upButton.isEnabled = !state.requestInFlight && browserController.canNavigateUp()

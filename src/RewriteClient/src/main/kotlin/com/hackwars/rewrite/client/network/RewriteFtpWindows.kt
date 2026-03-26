@@ -5,9 +5,11 @@ import com.hackwars.rewrite.client.RewriteRootController
 import com.hackwars.rewrite.client.files.RewriteLocalDirectoryBrowserController
 import com.hackwars.rewrite.client.files.RewriteLocalDirectoryBrowserPanel
 import com.hackwars.rewrite.protocol.ClientDirectoryEntry
+import com.hackwars.rewrite.protocol.ClientFtpTransferResponse
 import com.hackwars.rewrite.protocol.ClientGameSnapshot
 import com.hackwars.rewrite.protocol.ClientPortState
 import com.hackwars.rewrite.protocol.ClientSellFileResponse
+import com.hackwars.rewrite.protocol.ClientSetFtpPasswordResponse
 import com.hackwars.rewrite.protocol.ClientStoredFile
 import java.awt.BorderLayout
 import java.awt.Color
@@ -28,6 +30,7 @@ import javax.swing.JDialog
 import javax.swing.JInternalFrame
 import javax.swing.JLabel
 import javax.swing.JPanel
+import javax.swing.JPasswordField
 import javax.swing.JSpinner
 import javax.swing.JSplitPane
 import javax.swing.JTextField
@@ -310,6 +313,12 @@ internal class RewriteShopFtpWindow(
                 canRunPrimaryAction = { state ->
                     state.entries.firstOrNull { it.path == state.selectedPath }?.isDirectory == true
                 },
+                secondaryActionLabel = "Get",
+                secondaryActionName = "rewrite-shop-ftp-get-button",
+                onSecondaryAction = { openStoreGetDialog() },
+                canRunSecondaryAction = { state ->
+                    state.entries.firstOrNull { it.path == state.selectedPath }?.file != null
+                },
             )
             storeBrowserController = remoteController
             storeBrowserPanel = remotePanel
@@ -366,6 +375,51 @@ internal class RewriteShopFtpWindow(
         return (portCombo.selectedItem as? RewriteFtpPortOption)?.portNumber
     }
 
+    private fun openStoreGetDialog() {
+        val selectedFile = storeBrowserController?.selectedEntry()?.file ?: return
+        val displayedPath = storeBrowserController?.snapshot()?.listing?.path ?: STORE_FTP_ROOT
+        openTransferDialog(
+            title = "Get File",
+            dialogName = "rewrite-shop-ftp-get-dialog",
+            buttonName = "rewrite-shop-ftp-get-confirm-button",
+            statusName = "rewrite-shop-ftp-get-status",
+            errorName = "rewrite-shop-ftp-get-error",
+            file = selectedFile,
+            onSubmit = { quantity ->
+            val selectedPort = selectedPortNumber()
+                ?: return@openTransferDialog RewriteGameCommandResult.Failure("No eligible local FTP ports are available.")
+            val playerIp = controller.currentAuthenticatedPlayerIp()
+                ?: return@openTransferDialog RewriteGameCommandResult.Failure("Not connected to a rewrite game session.")
+            controller.requestGetFile(
+                targetIp = playerIp,
+                portNumber = selectedPort,
+                fileName = selectedFile.name,
+                localPath = localBrowserController.snapshot().listing?.path ?: "/",
+                remotePath = displayedPath,
+                quantity = quantity,
+            )
+            },
+            onSucceeded = { response ->
+            handleTransferSucceeded(
+                response = response,
+                successMessage = "Retrieved ${response.file.name} from /Store.",
+                refreshRemote = { storeBrowserController?.refresh() },
+            )
+            },
+        )
+    }
+
+    private fun handleTransferSucceeded(
+        response: ClientFtpTransferResponse,
+        successMessage: String,
+        refreshRemote: () -> Unit,
+    ) {
+        errorLabel.text = " "
+        statusLabel.text = successMessage
+        localBrowserController.activate(localBrowserController.snapshot().listing?.path ?: "/")
+        refreshRemote()
+    }
+
     private fun renderState() {
         val hasEligiblePort = selectedPortNumber() != null
         val selectedFile = localBrowserController.selectedEntry()?.file
@@ -384,8 +438,29 @@ internal class RewritePublicFtpWindow(
     private val controller: RewriteRootController,
 ) : JInternalFrame("Public FTP", true, true, true, true) {
     private val windowScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
-    private val targetIpField = JTextField("", 16).apply {
+    private val localBrowserController = RewriteLocalDirectoryBrowserController(
+        rootController = controller,
+    )
+    private val localBrowserPanel = RewriteLocalDirectoryBrowserPanel(
+        browserController = localBrowserController,
+        primaryActionLabel = "Open",
+        primaryActionName = "rewrite-public-ftp-open-local-button",
+        onPrimaryAction = { openSelectedLocalDirectory() },
+        canRunPrimaryAction = { state ->
+            state.entries.firstOrNull { it.path == state.selectedPath }?.isDirectory == true
+        },
+        secondaryActionLabel = "Put",
+        secondaryActionName = "rewrite-public-ftp-put-button",
+        onSecondaryAction = { openPutDialog() },
+        canRunSecondaryAction = { state ->
+            state.entries.firstOrNull { it.path == state.selectedPath }?.file != null && browserController != null
+        },
+    )
+    private val targetIpField = JTextField(controller.currentAuthenticatedPlayerIp().orEmpty(), 16).apply {
         name = "rewrite-public-ftp-target-ip-field"
+    }
+    private val passwordField = JPasswordField("", 12).apply {
+        name = "rewrite-public-ftp-password-field"
     }
     private val targetPortSpinner = JSpinner(
         SpinnerNumberModel(0, 0, MAX_REMOTE_FTP_PORT, 1),
@@ -414,11 +489,12 @@ internal class RewritePublicFtpWindow(
     private var currentTargetPort: Int? = null
     private var portValueInitialized: Boolean = false
     private var suppressPortChangeEvent: Boolean = false
+    private var stickyStatusMessage: String? = null
 
     init {
         name = "rewrite-shell-window-public_ftp"
         defaultCloseOperation = DISPOSE_ON_CLOSE
-        size = Dimension(760, 500)
+        size = Dimension(920, 500)
         targetPortSpinner.addChangeListener {
             if (!suppressPortChangeEvent) {
                 portValueInitialized = true
@@ -433,11 +509,25 @@ internal class RewritePublicFtpWindow(
                     add(targetIpField)
                     add(JLabel("Port:"))
                     add(targetPortSpinner)
+                    add(JLabel("Password:"))
+                    add(passwordField)
                     add(connectButton)
                 },
                 BorderLayout.NORTH,
             )
-            add(browserHost, BorderLayout.CENTER)
+            add(
+                JSplitPane(
+                    JSplitPane.HORIZONTAL_SPLIT,
+                    JPanel(BorderLayout()).apply {
+                        border = BorderFactory.createTitledBorder("Local Files")
+                        add(localBrowserPanel, BorderLayout.CENTER)
+                    },
+                    browserHost,
+                ).apply {
+                    resizeWeight = 0.5
+                },
+                BorderLayout.CENTER,
+            )
             add(
                 JPanel(BorderLayout(0, 4)).apply {
                     isOpaque = false
@@ -450,12 +540,29 @@ internal class RewritePublicFtpWindow(
         showBrowserPlaceholder("Connect to view /Public.")
         addInternalFrameListener(object : InternalFrameAdapter() {
             override fun internalFrameClosed(event: InternalFrameEvent) {
+                localBrowserPanel.close()
+                localBrowserController.close()
                 browserPanel?.close()
                 browserController?.close()
                 windowScope.cancel()
             }
         })
+        observeLocalBrowserState()
         observeShellState()
+        localBrowserController.activate()
+    }
+
+    private fun observeLocalBrowserState() {
+        windowScope.launch {
+            localBrowserController.selector().collect {
+                SwingUtilities.invokeLater {
+                    if (!isDisplayable || isClosed) {
+                        return@invokeLater
+                    }
+                    renderState()
+                }
+            }
+        }
     }
 
     private fun observeShellState() {
@@ -470,8 +577,19 @@ internal class RewritePublicFtpWindow(
                         targetPortSpinner.value = defaultPublicFtpTargetPort(deriveFtpPortOptions(snapshot))
                         suppressPortChangeEvent = false
                     }
+                    if (targetIpField.text.isBlank()) {
+                        targetIpField.text = controller.currentAuthenticatedPlayerIp().orEmpty()
+                    }
+                    renderState()
                 }
             }
+        }
+    }
+
+    private fun openSelectedLocalDirectory() {
+        val entry = localBrowserController.selectedEntry() ?: return
+        if (entry.isDirectory) {
+            localBrowserController.openSelectedDirectory()
         }
     }
 
@@ -484,6 +602,7 @@ internal class RewritePublicFtpWindow(
         }
         val targetPort = targetPortSpinner.value as Int
         portValueInitialized = true
+        stickyStatusMessage = null
         errorLabel.text = " "
         statusLabel.text = "Connecting..."
         if (browserController == null) {
@@ -500,6 +619,12 @@ internal class RewritePublicFtpWindow(
                 onPrimaryAction = { remoteController.openSelectedDirectory() },
                 canRunPrimaryAction = { state ->
                     state.entries.firstOrNull { it.path == state.selectedPath }?.isDirectory == true
+                },
+                secondaryActionLabel = "Get",
+                secondaryActionName = "rewrite-public-ftp-get-button",
+                onSecondaryAction = { openGetDialog() },
+                canRunSecondaryAction = { state ->
+                    state.entries.firstOrNull { it.path == state.selectedPath }?.file != null
                 },
             )
             browserController = remoteController
@@ -519,6 +644,7 @@ internal class RewritePublicFtpWindow(
         }
         currentTargetIp = targetIp
         currentTargetPort = targetPort
+        renderState()
     }
 
     private fun observeBrowserState(remoteController: RewriteRemoteDirectoryBrowserController) {
@@ -533,15 +659,101 @@ internal class RewritePublicFtpWindow(
                         return@invokeLater
                     }
                     errorLabel.text = state.inlineError ?: " "
+                    if (state.inlineError != null) {
+                        stickyStatusMessage = null
+                    }
                     statusLabel.text = when {
+                        stickyStatusMessage != null -> stickyStatusMessage
                         state.requestInFlight -> "Connecting..."
                         state.listing != null && currentTargetIp != null && currentTargetPort != null ->
                             "Connected to ${currentTargetIp}:${currentTargetPort}."
                         else -> "Enter a target IP and port to connect."
                     }
+                    renderState()
                 }
             }
         }
+    }
+
+    private fun openPutDialog() {
+        val targetIp = currentTargetIp ?: return
+        val targetPort = currentTargetPort ?: return
+        val selection = localBrowserController.chooseSelectedFile() ?: return
+        openTransferDialog(
+            title = "Put File",
+            dialogName = "rewrite-public-ftp-put-dialog",
+            buttonName = "rewrite-public-ftp-put-confirm-button",
+            statusName = "rewrite-public-ftp-put-status",
+            errorName = "rewrite-public-ftp-put-error",
+            file = selection.file,
+            onSubmit = { quantity ->
+                controller.requestPutFile(
+                    targetIp = targetIp,
+                    portNumber = targetPort,
+                    fileName = selection.file.name,
+                    localPath = selection.displayedPath,
+                    remotePath = currentRemotePath(),
+                    password = currentPassword(),
+                    quantity = quantity,
+                )
+            },
+            onSucceeded = { response ->
+            handleTransferSucceeded(
+                response = response,
+                successMessage = "Uploaded ${response.file.name} to ${response.targetStateId}.",
+            )
+            },
+        )
+    }
+
+    private fun openGetDialog() {
+        val targetIp = currentTargetIp ?: return
+        val targetPort = currentTargetPort ?: return
+        val selectedFile = browserController?.selectedEntry()?.file ?: return
+        openTransferDialog(
+            title = "Get File",
+            dialogName = "rewrite-public-ftp-get-dialog",
+            buttonName = "rewrite-public-ftp-get-confirm-button",
+            statusName = "rewrite-public-ftp-get-status",
+            errorName = "rewrite-public-ftp-get-error",
+            file = selectedFile,
+            onSubmit = { quantity ->
+                controller.requestGetFile(
+                    targetIp = targetIp,
+                    portNumber = targetPort,
+                    fileName = selectedFile.name,
+                    localPath = localBrowserController.snapshot().listing?.path ?: "/",
+                    remotePath = currentRemotePath(),
+                    password = currentPassword(),
+                    quantity = quantity,
+                )
+            },
+            onSucceeded = { response ->
+            handleTransferSucceeded(
+                response = response,
+                successMessage = "Downloaded ${response.file.name} from ${response.targetStateId}.",
+            )
+            },
+        )
+    }
+
+    private fun handleTransferSucceeded(
+        response: ClientFtpTransferResponse,
+        successMessage: String,
+    ) {
+        stickyStatusMessage = successMessage
+        errorLabel.text = " "
+        statusLabel.text = successMessage
+        localBrowserController.activate(localBrowserController.snapshot().listing?.path ?: "/")
+        browserController?.refresh()
+    }
+
+    private fun currentRemotePath(): String {
+        return browserController?.snapshot()?.listing?.path ?: PUBLIC_FTP_ROOT
+    }
+
+    private fun currentPassword(): String {
+        return String(passwordField.password)
     }
 
     private fun showBrowserPlaceholder(message: String) {
@@ -557,6 +769,262 @@ internal class RewritePublicFtpWindow(
         )
         browserHost.revalidate()
         browserHost.repaint()
+    }
+
+    private fun renderState() {
+        val connected = browserController != null
+        connectButton.isEnabled = true
+        passwordField.isEnabled = true
+        localBrowserPanel.secondaryButton?.isEnabled = connected &&
+            localBrowserController.selectedEntry()?.file != null
+    }
+}
+
+private fun openTransferDialog(
+    title: String,
+    dialogName: String,
+    buttonName: String,
+    statusName: String,
+    errorName: String,
+    file: ClientStoredFile,
+    onSubmit: suspend (Int) -> RewriteGameCommandResult<ClientFtpTransferResponse>,
+    onSucceeded: (ClientFtpTransferResponse) -> Unit,
+) {
+    val dialog = RewriteFtpTransferDialog(
+        title = title,
+        dialogName = dialogName,
+        buttonName = buttonName,
+        statusName = statusName,
+        errorName = errorName,
+        file = file,
+        onSubmit = onSubmit,
+        onSucceeded = onSucceeded,
+    )
+    dialog.isVisible = true
+    dialog.toFront()
+    dialog.requestFocus()
+}
+
+internal class RewriteSetPublicFtpPasswordWindow(
+    private val controller: RewriteRootController,
+) : JInternalFrame("Set Public FTP Password", true, true, true, true) {
+    private val windowScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    private val passwordField = JPasswordField("", 18).apply {
+        name = "rewrite-public-ftp-password-window-field"
+    }
+    private val statusLabel = JLabel("Enter a password or leave it blank to clear it.").apply {
+        name = "rewrite-public-ftp-password-window-status"
+    }
+    private val errorLabel = JLabel(" ").apply {
+        name = "rewrite-public-ftp-password-window-error"
+        foreground = Color(0xAA, 0x22, 0x22)
+    }
+    private val setButton = JButton("Set Password").apply {
+        name = "rewrite-public-ftp-password-window-submit-button"
+        addActionListener { submit() }
+    }
+    private val cancelButton = JButton("Cancel").apply {
+        name = "rewrite-public-ftp-password-window-cancel-button"
+        addActionListener { dispose() }
+    }
+
+    private var requestInFlight: Boolean = false
+
+    init {
+        name = "rewrite-shell-window-set_public_ftp_password"
+        defaultCloseOperation = DISPOSE_ON_CLOSE
+        size = Dimension(420, 160)
+        contentPane = JPanel(BorderLayout(0, 8)).apply {
+            border = BorderFactory.createEmptyBorder(10, 10, 10, 10)
+            add(
+                JPanel(GridBagLayout()).apply {
+                    isOpaque = false
+                    addLabeledRow("Password:", passwordField, 0)
+                },
+                BorderLayout.CENTER,
+            )
+            add(
+                JPanel(BorderLayout(0, 6)).apply {
+                    isOpaque = false
+                    add(statusLabel, BorderLayout.NORTH)
+                    add(
+                        JPanel(FlowLayout(FlowLayout.RIGHT, 8, 0)).apply {
+                            isOpaque = false
+                            add(setButton)
+                            add(cancelButton)
+                        },
+                        BorderLayout.CENTER,
+                    )
+                    add(errorLabel, BorderLayout.SOUTH)
+                },
+                BorderLayout.SOUTH,
+            )
+        }
+        addInternalFrameListener(object : InternalFrameAdapter() {
+            override fun internalFrameClosed(event: InternalFrameEvent) {
+                windowScope.cancel()
+            }
+        })
+    }
+
+    private fun submit() {
+        if (requestInFlight) {
+            return
+        }
+        requestInFlight = true
+        statusLabel.text = "Saving password..."
+        errorLabel.text = " "
+        renderState()
+        windowScope.launch {
+            val result = controller.requestSetFtpPassword(
+                String(passwordField.password),
+            )
+            SwingUtilities.invokeLater {
+                if (!isDisplayable || isClosed) {
+                    return@invokeLater
+                }
+                when (result) {
+                    is RewriteGameCommandResult.Success -> handleSuccess(result.value)
+                    is RewriteGameCommandResult.Failure -> {
+                        requestInFlight = false
+                        statusLabel.text = " "
+                        errorLabel.text = result.message
+                        renderState()
+                    }
+                }
+            }
+        }
+    }
+
+    private fun handleSuccess(response: ClientSetFtpPasswordResponse) {
+        requestInFlight = false
+        statusLabel.text = if (response.passwordSet) {
+            "Public FTP password saved."
+        } else {
+            "Public FTP password cleared."
+        }
+        dispose()
+    }
+
+    private fun renderState() {
+        passwordField.isEnabled = !requestInFlight
+        setButton.isEnabled = !requestInFlight
+        cancelButton.isEnabled = !requestInFlight
+    }
+}
+
+private class RewriteFtpTransferDialog(
+    title: String,
+    dialogName: String,
+    buttonName: String,
+    statusName: String,
+    errorName: String,
+    private val file: ClientStoredFile,
+    private val onSubmit: suspend (Int) -> RewriteGameCommandResult<ClientFtpTransferResponse>,
+    private val onSucceeded: (ClientFtpTransferResponse) -> Unit,
+) : JDialog(null as Window?, title, Dialog.ModalityType.MODELESS) {
+    private val dialogScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    private val fileField = JTextField(file.name, 20).apply {
+        name = "$dialogName-file-field"
+        isEditable = false
+    }
+    private val quantitySpinner = JSpinner(
+        SpinnerNumberModel(1, 1, file.quantity.coerceAtLeast(1), 1),
+    ).apply {
+        name = "$dialogName-quantity-spinner"
+    }
+    private val statusLabel = JLabel("Ready.").apply {
+        name = statusName
+    }
+    private val errorLabel = JLabel(" ").apply {
+        name = errorName
+        foreground = Color(0xAA, 0x22, 0x22)
+    }
+    private val submitButton = JButton(title.substringBefore(' ')).apply {
+        name = buttonName
+        addActionListener { submit() }
+    }
+    private val cancelButton = JButton("Cancel").apply {
+        name = "$dialogName-cancel-button"
+        addActionListener { dispose() }
+    }
+
+    private var requestInFlight: Boolean = false
+
+    init {
+        name = dialogName
+        defaultCloseOperation = DISPOSE_ON_CLOSE
+        contentPane = JPanel(BorderLayout(0, 8)).apply {
+            border = BorderFactory.createEmptyBorder(10, 10, 10, 10)
+            add(
+                JPanel(GridBagLayout()).apply {
+                    isOpaque = false
+                    addLabeledRow("File:", fileField, 0)
+                    addLabeledRow("Quantity:", quantitySpinner, 1)
+                },
+                BorderLayout.CENTER,
+            )
+            add(
+                JPanel(BorderLayout(0, 6)).apply {
+                    isOpaque = false
+                    add(statusLabel, BorderLayout.NORTH)
+                    add(
+                        JPanel(FlowLayout(FlowLayout.RIGHT, 8, 0)).apply {
+                            isOpaque = false
+                            add(submitButton)
+                            add(cancelButton)
+                        },
+                        BorderLayout.CENTER,
+                    )
+                    add(errorLabel, BorderLayout.SOUTH)
+                },
+                BorderLayout.SOUTH,
+            )
+        }
+        pack()
+        minimumSize = size
+        addWindowListener(object : WindowAdapter() {
+            override fun windowClosed(event: WindowEvent) {
+                dialogScope.cancel()
+            }
+        })
+        renderState()
+    }
+
+    private fun submit() {
+        if (requestInFlight) {
+            return
+        }
+        requestInFlight = true
+        statusLabel.text = "Submitting transfer..."
+        errorLabel.text = " "
+        renderState()
+        dialogScope.launch {
+            val result = onSubmit(quantitySpinner.value as Int)
+            SwingUtilities.invokeLater {
+                if (!isDisplayable) {
+                    return@invokeLater
+                }
+                when (result) {
+                    is RewriteGameCommandResult.Success -> {
+                        onSucceeded(result.value)
+                        dispose()
+                    }
+                    is RewriteGameCommandResult.Failure -> {
+                        requestInFlight = false
+                        statusLabel.text = " "
+                        errorLabel.text = result.message
+                        renderState()
+                    }
+                }
+            }
+        }
+    }
+
+    private fun renderState() {
+        quantitySpinner.isEnabled = !requestInFlight
+        submitButton.isEnabled = !requestInFlight
+        cancelButton.isEnabled = !requestInFlight
     }
 }
 

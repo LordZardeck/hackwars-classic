@@ -21,11 +21,13 @@ import com.hackwars.rewrite.protocol.ClientChangeDailyPayPayload
 import com.hackwars.rewrite.protocol.ClientChangeDailyPayResponse
 import com.hackwars.rewrite.protocol.ClientCompiledBinaryMetadata
 import com.hackwars.rewrite.protocol.ClientDirectoryEntry
+import com.hackwars.rewrite.protocol.ClientFtpTransferResponse
 import com.hackwars.rewrite.protocol.ClientFinalizeCancelledOutcome
 import com.hackwars.rewrite.protocol.ClientFinalizeCancelledPayload
 import com.hackwars.rewrite.protocol.ClientFinalizeCancelledResponse
 import com.hackwars.rewrite.protocol.ClientGameSnapshot
 import com.hackwars.rewrite.protocol.ClientInstalledApplication
+import com.hackwars.rewrite.protocol.ClientMalGetPayload
 import com.hackwars.rewrite.protocol.ClientProgramLifecycleStatus
 import com.hackwars.rewrite.protocol.ClientProgramUpdate
 import com.hackwars.rewrite.protocol.ClientRequestAttackPayload
@@ -492,6 +494,230 @@ class RewriteAttackWindowsUiTest {
     }
 
     @Test
+    fun showChoicesPublicFtpTakeSendsMalGet() {
+        assumeFalse(GraphicsEnvironment.isHeadless())
+
+        val sessionGateway = FakeAttackUiSessionGateway()
+        val frame = attackReadyFrame(sessionGateway = sessionGateway)
+        try {
+            val attackSession = startAcceptedAttackSession(
+                frame = frame,
+                sessionGateway = sessionGateway,
+                command = RewriteShellCommand.ATTACK_PORT,
+                targetIp = "10.0.0.8",
+                targetPort = 4,
+                sourcePort = 6,
+                programId = "attack-program-followup-take-1",
+            )
+
+            sendShowChoicesEvent(
+                frame = frame,
+                targetIp = "10.0.0.8",
+                targetPort = 4,
+                choiceType = ClientShowChoicesType.FTP,
+                windowHandle = attackSession.windowHandle,
+            )
+            val choicesWindow = waitForWindow(frame, "rewrite-show-choices-window")
+            SwingUtilities.invokeAndWait {
+                button(choicesWindow, "rewrite-show-choices-go-button").doClick()
+            }
+
+            waitUntil { sessionGateway.latestGameSession()!!.sentFrames.last().command!!.command_name == "requestsecondarydirectory" }
+            val initialDirectoryCommand = sessionGateway.latestGameSession()!!.sentFrames.last().command!!
+            frame.controller.accept(
+                RewriteService.GAME,
+                RewriteFrames.commandResponse(
+                    commandId = initialDirectoryCommand.command_id,
+                    payload = RewriteClientJson.encode(
+                        ClientSecondaryDirectoryListingResponse.serializer(),
+                        ClientSecondaryDirectoryListingResponse(
+                            requesterStateId = "192.0.2.10",
+                            targetStateId = "10.0.0.8",
+                            portNumber = 4,
+                            path = "/Public",
+                            files = listOf(
+                                ClientStoredFile(
+                                    path = "/Public/loot.bin",
+                                    name = "loot.bin",
+                                    kind = ClientStoredFileKind.APPLICATION_BINARY,
+                                    quantity = 1,
+                                ),
+                            ),
+                            version = 5,
+                        ),
+                    ),
+                ),
+            )
+
+            val remoteBrowser = waitForWindow(frame, "rewrite-remote-directory-browser-window-public_ftp")
+            waitUntil {
+                list(remoteBrowser, "rewrite-remote-files-entry-list").model.size == 1
+            }
+            SwingUtilities.invokeAndWait {
+                list(remoteBrowser, "rewrite-remote-files-entry-list").selectedIndex = 0
+                button(remoteBrowser, "rewrite-remote-files-take-button").doClick()
+            }
+
+            waitUntil { sessionGateway.latestGameSession()!!.sentFrames.last().command!!.command_name == "malget" }
+            val malGetCommand = sessionGateway.latestGameSession()!!.sentFrames.last().command!!
+            val malGetPayload = RewriteClientJson.decode(
+                ClientMalGetPayload.serializer(),
+                malGetCommand.payload.toByteArray(),
+            )
+            assertEquals("10.0.0.8", malGetPayload.ip)
+            assertEquals("192.0.2.10", malGetPayload.targetIp)
+            assertEquals("/Public", malGetPayload.fetchPath)
+            assertEquals(attackSession.windowHandle, malGetPayload.attackPort)
+
+            frame.controller.accept(
+                RewriteService.GAME,
+                RewriteFrames.commandResponse(
+                    commandId = malGetCommand.command_id,
+                    payload = RewriteClientJson.encode(
+                        ClientFtpTransferResponse.serializer(),
+                        ClientFtpTransferResponse(
+                            requesterStateId = "192.0.2.10",
+                            targetStateId = "10.0.0.8",
+                            targetPort = 4,
+                            operation = "malget",
+                            file = ClientStoredFile(
+                                path = "/loot.bin",
+                                name = "loot.bin",
+                                kind = ClientStoredFileKind.APPLICATION_BINARY,
+                                quantity = 1,
+                            ),
+                            fulfilledQuantity = 1,
+                            message = "ftp-malget-complete",
+                            requesterVersion = 6,
+                            targetVersion = 7,
+                        ),
+                    ),
+                ),
+            )
+
+            waitUntil {
+                textArea(attackSession.window, "rewrite-attack-transcript").text.contains("ftp-malget-complete")
+            }
+        } finally {
+            disposeFrame(frame)
+        }
+    }
+
+    @Test
+    fun publicFtpFollowupTakeSendsMalGetAndRefreshesBrowser() {
+        assumeFalse(GraphicsEnvironment.isHeadless())
+
+        val sessionGateway = FakeAttackUiSessionGateway()
+        val frame = attackReadyFrame(sessionGateway = sessionGateway)
+        try {
+            val attackSession = startAcceptedAttackSession(
+                frame = frame,
+                sessionGateway = sessionGateway,
+                command = RewriteShellCommand.ATTACK_PORT,
+                targetIp = "10.0.0.8",
+                targetPort = 4,
+                sourcePort = 6,
+                programId = "attack-program-malget-1",
+            )
+            val attackWindow = waitForWindow(frame, "rewrite-shell-window-attack_port")
+
+            sendShowChoicesEvent(
+                frame = frame,
+                targetIp = "10.0.0.8",
+                targetPort = 4,
+                choiceType = ClientShowChoicesType.FTP,
+                windowHandle = attackSession.windowHandle,
+            )
+            val choicesWindow = waitForWindow(frame, "rewrite-show-choices-window")
+            SwingUtilities.invokeAndWait {
+                button(choicesWindow, "rewrite-show-choices-go-button").doClick()
+            }
+
+            waitUntil { sessionGateway.latestGameSession()!!.sentFrames.last().command!!.command_name == "requestsecondarydirectory" }
+            val initialDirectoryCommand = sessionGateway.latestGameSession()!!.sentFrames.last().command!!
+            frame.controller.accept(
+                RewriteService.GAME,
+                RewriteFrames.commandResponse(
+                    commandId = initialDirectoryCommand.command_id,
+                    payload = RewriteClientJson.encode(
+                        ClientSecondaryDirectoryListingResponse.serializer(),
+                        ClientSecondaryDirectoryListingResponse(
+                            requesterStateId = "192.0.2.10",
+                            targetStateId = "10.0.0.8",
+                            portNumber = 4,
+                            path = "/Public",
+                            files = listOf(
+                                ClientStoredFile(
+                                    path = "/Public/loot.bin",
+                                    name = "loot.bin",
+                                    kind = ClientStoredFileKind.TEXT,
+                                    quantity = 1,
+                                ),
+                            ),
+                            version = 5,
+                        ),
+                    ),
+                ),
+            )
+
+            val remoteBrowser = waitForWindow(frame, "rewrite-remote-directory-browser-window-public_ftp")
+            waitUntil { list(remoteBrowser, "rewrite-remote-files-entry-list").model.size == 1 }
+
+            SwingUtilities.invokeAndWait {
+                list(remoteBrowser, "rewrite-remote-files-entry-list").selectedIndex = 0
+            }
+            waitUntil { button(remoteBrowser, "rewrite-remote-files-take-button").isEnabled }
+            SwingUtilities.invokeAndWait {
+                button(remoteBrowser, "rewrite-remote-files-take-button").doClick()
+            }
+
+            waitUntil { sessionGateway.latestGameSession()!!.sentFrames.last().command!!.command_name == "malget" }
+            val malGetCommand = sessionGateway.latestGameSession()!!.sentFrames.last().command!!
+            val malGetPayload = RewriteClientJson.decode(
+                ClientMalGetPayload.serializer(),
+                malGetCommand.payload.toByteArray(),
+            )
+            assertEquals("10.0.0.8", malGetPayload.ip)
+            assertEquals("192.0.2.10", malGetPayload.targetIp)
+            assertEquals("/Public", malGetPayload.fetchPath)
+            assertEquals(attackSession.windowHandle, malGetPayload.attackPort)
+
+            frame.controller.accept(
+                RewriteService.GAME,
+                RewriteFrames.commandResponse(
+                    commandId = malGetCommand.command_id,
+                    payload = RewriteClientJson.encode(
+                        ClientFtpTransferResponse.serializer(),
+                        ClientFtpTransferResponse(
+                            requesterStateId = "192.0.2.10",
+                            targetStateId = "10.0.0.8",
+                            targetPort = 4,
+                            operation = "malget",
+                            file = ClientStoredFile(
+                                path = "/loot.bin",
+                                name = "loot.bin",
+                                kind = ClientStoredFileKind.TEXT,
+                                quantity = 1,
+                            ),
+                            fulfilledQuantity = 1,
+                            message = "ftp-malget-complete",
+                            requesterVersion = 6,
+                            targetVersion = 7,
+                        ),
+                    ),
+                ),
+            )
+
+            waitUntil {
+                textArea(attackWindow, "rewrite-attack-transcript").text.contains("ftp-malget-complete") &&
+                    gameCommands(sessionGateway, "requestsecondarydirectory").size >= 2
+            }
+        } finally {
+            disposeFrame(frame)
+        }
+    }
+
+    @Test
     fun showChoicesHttpDialogAndExplicitCancelUseRewriteFollowupCommands() {
         assumeFalse(GraphicsEnvironment.isHeadless())
 
@@ -667,6 +893,17 @@ class RewriteAttackWindowsUiTest {
         )
     }
 
+    private fun gameCommands(
+        sessionGateway: FakeAttackUiSessionGateway,
+        commandName: String,
+    ): List<hackwars.rewrite.v1.CommandEnvelope> {
+        return sessionGateway.latestGameSession()
+            ?.sentFrames
+            .orEmpty()
+            .mapNotNull(FrameEnvelope::command)
+            .filter { it.command_name == commandName }
+    }
+
     private fun startAcceptedAttackSession(
         frame: RewriteRootFrame,
         sessionGateway: FakeAttackUiSessionGateway,
@@ -691,8 +928,8 @@ class RewriteAttackWindowsUiTest {
             button(window, "rewrite-attack-primary-button").doClick()
         }
 
-        waitUntil { sessionGateway.latestGameSession()!!.sentFrames.last().command!!.command_name == "requestattack" }
-        val attackCommand = sessionGateway.latestGameSession()!!.sentFrames.last().command!!
+        waitUntil { gameCommands(sessionGateway, "requestattack").isNotEmpty() }
+        val attackCommand = gameCommands(sessionGateway, "requestattack").last()
         val attackPayload = RewriteClientJson.decode(
             ClientRequestAttackPayload.serializer(),
             attackCommand.payload.toByteArray(),

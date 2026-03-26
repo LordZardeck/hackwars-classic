@@ -865,17 +865,69 @@ internal class RewriteAttackWindow(
             onFocusAuxiliaryWindow(existing)
             return
         }
-        val window = RewriteRemoteDirectoryBrowserWindow(
+        lateinit var window: RewriteRemoteDirectoryBrowserWindow
+        window = RewriteRemoteDirectoryBrowserWindow(
             controller = controller,
             actionKind = action,
             targetIp = event.targetIp,
             targetPort = event.targetPort,
+            secondaryActionLabel = if (action == RewriteShowChoicesActionKind.OPEN_PUBLIC_FTP) "Take" else null,
+            secondaryActionName = if (action == RewriteShowChoicesActionKind.OPEN_PUBLIC_FTP) {
+                "rewrite-remote-files-take-button"
+            } else {
+                null
+            },
+            onSecondaryAction = if (action == RewriteShowChoicesActionKind.OPEN_PUBLIC_FTP) {
+                { takeRemoteFollowupFile(event, window) }
+            } else {
+                null
+            },
+            canRunSecondaryAction = if (action == RewriteShowChoicesActionKind.OPEN_PUBLIC_FTP) {
+                { state -> state.entries.firstOrNull { it.path == state.selectedPath }?.file != null }
+            } else {
+                null
+            },
             onClosed = { closedWindow ->
                 followupWindowsByKey.remove(key, closedWindow)
             },
         )
         followupWindowsByKey[key] = window
         onOpenAuxiliaryWindow(window)
+    }
+
+    private fun takeRemoteFollowupFile(
+        event: ClientShowChoicesUiEvent,
+        window: RewriteRemoteDirectoryBrowserWindow,
+    ) {
+        val file = window.selectedEntry()?.file ?: return
+        errorLabel.text = " "
+        statusLabel.text = "Taking ${file.name}..."
+        windowScope.launch {
+            val result = controller.requestMalGet(
+                targetIp = event.targetIp,
+                portNumber = event.targetPort,
+                fileName = file.name,
+                remotePath = window.displayedPath(),
+                attackPort = event.windowHandle,
+            )
+            SwingUtilities.invokeLater {
+                if (!isDisplayable || isClosed) {
+                    return@invokeLater
+                }
+                when (result) {
+                    is RewriteGameCommandResult.Success -> {
+                        val message = result.value.message.ifBlank { "Took ${result.value.file.name}." }
+                        statusLabel.text = message
+                        appendTranscript(message)
+                        window.refreshCurrentDirectory()
+                    }
+                    is RewriteGameCommandResult.Failure -> {
+                        statusLabel.text = " "
+                        errorLabel.text = result.message
+                    }
+                }
+            }
+        }
     }
 
     private fun openChangeDailyPayDialog(

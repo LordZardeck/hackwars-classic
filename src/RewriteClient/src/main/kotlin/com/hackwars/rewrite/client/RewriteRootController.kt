@@ -13,6 +13,7 @@ import com.hackwars.rewrite.client.mvc.RewriteDialogBinding
 import com.hackwars.rewrite.client.mvc.RewriteFrameBinding
 import com.hackwars.rewrite.client.network.RewriteAttackWindow
 import com.hackwars.rewrite.client.network.RewritePublicFtpWindow
+import com.hackwars.rewrite.client.network.RewriteSetPublicFtpPasswordWindow
 import com.hackwars.rewrite.client.network.RewriteShopFtpWindow
 import com.hackwars.rewrite.client.network.RewriteNetworkWindow
 import com.hackwars.rewrite.client.network.RewritePortScanWindow
@@ -58,10 +59,13 @@ import com.hackwars.rewrite.protocol.ClientFileContentsResponse
 import com.hackwars.rewrite.protocol.ClientFilesystemState
 import com.hackwars.rewrite.protocol.ClientFinalizeCancelledPayload
 import com.hackwars.rewrite.protocol.ClientFinalizeCancelledResponse
+import com.hackwars.rewrite.protocol.ClientFtpTransferResponse
 import com.hackwars.rewrite.protocol.ClientGameSnapshot
+import com.hackwars.rewrite.protocol.ClientGetFilePayload
 import com.hackwars.rewrite.protocol.ClientHelpTopicListResponse
 import com.hackwars.rewrite.protocol.ClientHookValue
 import com.hackwars.rewrite.protocol.ClientLogState
+import com.hackwars.rewrite.protocol.ClientMalGetPayload
 import com.hackwars.rewrite.protocol.ClientNetworkState
 import com.hackwars.rewrite.protocol.ClientChangeNetworkPayload
 import com.hackwars.rewrite.protocol.ClientNetworkSwitchResponse
@@ -85,6 +89,7 @@ import com.hackwars.rewrite.protocol.ClientInstallFirewallResponse
 import com.hackwars.rewrite.protocol.ClientMutationAcceptedResponse
 import com.hackwars.rewrite.protocol.ClientPageEditorResponse
 import com.hackwars.rewrite.protocol.ClientProgramUpdate
+import com.hackwars.rewrite.protocol.ClientPutFilePayload
 import com.hackwars.rewrite.protocol.ClientRequestDirectoryPayload
 import com.hackwars.rewrite.protocol.ClientRequestFilePayload
 import com.hackwars.rewrite.protocol.ClientRequestSecondaryDirectoryPayload
@@ -97,6 +102,8 @@ import com.hackwars.rewrite.protocol.ClientSavePagePayload
 import com.hackwars.rewrite.protocol.ClientSavePageResponse
 import com.hackwars.rewrite.protocol.ClientSellFilePayload
 import com.hackwars.rewrite.protocol.ClientSellFileResponse
+import com.hackwars.rewrite.protocol.ClientSetFtpPasswordPayload
+import com.hackwars.rewrite.protocol.ClientSetFtpPasswordResponse
 import com.hackwars.rewrite.protocol.ClientSetPreferencePayload
 import com.hackwars.rewrite.protocol.ClientSetPreferenceResponse
 import com.hackwars.rewrite.protocol.ClientStoredFile
@@ -622,6 +629,108 @@ class RewriteRootController(
                 quantity = quantity,
             ),
             responseSerializer = ClientSellFileResponse.serializer(),
+            targetStateIds = listOf(playerIp),
+        )
+    }
+
+    internal suspend fun requestPutFile(
+        targetIp: String,
+        portNumber: Int,
+        fileName: String,
+        localPath: String?,
+        remotePath: String?,
+        password: String? = null,
+        quantity: Int? = null,
+    ): RewriteGameCommandResult<ClientFtpTransferResponse> {
+        val playerIp = authenticatedPlayerIp()
+            ?: return RewriteGameCommandResult.Failure("Not connected to a rewrite game session.")
+        return gameCommandBroker.request(
+            commandName = "put",
+            payloadSerializer = ClientPutFilePayload.serializer(),
+            payload = ClientPutFilePayload(
+                ip = playerIp,
+                port = portNumber,
+                name = fileName,
+                fetchPath = localPath,
+                putPath = remotePath,
+                targetIp = targetIp,
+                password = password,
+                quantity = quantity,
+            ),
+            responseSerializer = ClientFtpTransferResponse.serializer(),
+            targetStateIds = listOf(playerIp, targetIp).distinct(),
+        )
+    }
+
+    internal suspend fun requestGetFile(
+        targetIp: String,
+        portNumber: Int,
+        fileName: String,
+        localPath: String?,
+        remotePath: String?,
+        password: String? = null,
+        quantity: Int? = null,
+    ): RewriteGameCommandResult<ClientFtpTransferResponse> {
+        val playerIp = authenticatedPlayerIp()
+            ?: return RewriteGameCommandResult.Failure("Not connected to a rewrite game session.")
+        return gameCommandBroker.request(
+            commandName = "get",
+            payloadSerializer = ClientGetFilePayload.serializer(),
+            payload = ClientGetFilePayload(
+                ip = playerIp,
+                port = portNumber,
+                name = fileName,
+                fetchPath = localPath,
+                putPath = remotePath,
+                targetIp = targetIp,
+                password = password,
+                quantity = quantity,
+            ),
+            responseSerializer = ClientFtpTransferResponse.serializer(),
+            targetStateIds = listOf(playerIp, targetIp).distinct(),
+        )
+    }
+
+    internal suspend fun requestMalGet(
+        targetIp: String,
+        portNumber: Int,
+        fileName: String?,
+        remotePath: String?,
+        attackPort: Int,
+        localPath: String? = null,
+    ): RewriteGameCommandResult<ClientFtpTransferResponse> {
+        val playerIp = authenticatedPlayerIp()
+            ?: return RewriteGameCommandResult.Failure("Not connected to a rewrite game session.")
+        return gameCommandBroker.request(
+            commandName = "malget",
+            payloadSerializer = ClientMalGetPayload.serializer(),
+            payload = ClientMalGetPayload(
+                ip = targetIp,
+                port = portNumber,
+                name = fileName,
+                fetchPath = remotePath,
+                putPath = localPath,
+                targetIp = playerIp,
+                attackPort = attackPort,
+            ),
+            responseSerializer = ClientFtpTransferResponse.serializer(),
+            targetStateIds = listOf(playerIp, targetIp).distinct(),
+        )
+    }
+
+    internal suspend fun requestSetFtpPassword(
+        password: String?,
+    ): RewriteGameCommandResult<ClientSetFtpPasswordResponse> {
+        val playerIp = authenticatedPlayerIp()
+            ?: return RewriteGameCommandResult.Failure("Not connected to a rewrite game session.")
+        return gameCommandBroker.request(
+            commandName = "setftppassword",
+            payloadSerializer = ClientSetFtpPasswordPayload.serializer(),
+            payload = ClientSetFtpPasswordPayload(
+                ip = playerIp,
+                password = password,
+            ),
+            responseSerializer = ClientSetFtpPasswordResponse.serializer(),
             targetStateIds = listOf(playerIp),
         )
     }
@@ -1479,6 +1588,10 @@ class RewriteRootController(
         )
 
         RewriteShellCommand.PUBLIC_FTP -> RewritePublicFtpWindow(
+            controller = this,
+        )
+
+        RewriteShellCommand.SET_PUBLIC_FTP_PASSWORD -> RewriteSetPublicFtpPasswordWindow(
             controller = this,
         )
 

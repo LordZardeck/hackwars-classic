@@ -296,7 +296,7 @@
 - Verification scope: `./gradlew :RewriteClient:test :RewriteClient:uiTest`
 
 ### RW-CLIENT-W2C2 - FTP transfer parity and public-FTP password flows
-- Status: `ready`
+- Status: `done`
 - Priority: `P1`
 - Execution lane: `ftp_web`
 - Worker role: `worker`
