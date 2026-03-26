@@ -18,7 +18,7 @@
 
 ## Task Cards
 ### RW-CHAT-001A - Define canonical chat contracts and invariants
-- Status: `ready`
+- Status: `done`
 - Priority: `P1`
 - Execution lane: `contracts`
 - Worker role: `worker`
@@ -31,7 +31,7 @@
 - Verification scope: `./gradlew :RewriteProtocol:test :RewriteChatCore:test`
 
 ### RW-CHAT-001B - Map retained chat frames, payloads, and parity event catalog
-- Status: `todo`
+- Status: `ready`
 - Priority: `P1`
 - Execution lane: `contracts`
 - Worker role: `worker`
@@ -44,7 +44,7 @@
 - Verification scope: `./gradlew :RewriteProtocol:test :RewriteChatCore:test`
 
 ### RW-CHAT-002A - Implement retained chat session bootstrap and auth binding
-- Status: `todo`
+- Status: `ready`
 - Priority: `P1`
 - Execution lane: `bootstrap`
 - Worker role: `worker`
@@ -70,7 +70,7 @@
 - Verification scope: `./gradlew :RewriteChatCore:test :RewriteChatServer:test`
 
 ### RW-CHAT-003A - Implement retained channel lifecycle and moderation model
-- Status: `todo`
+- Status: `ready`
 - Priority: `P1`
 - Execution lane: `channels`
 - Worker role: `worker`
@@ -96,7 +96,7 @@
 - Verification scope: `./gradlew :RewriteChatCore:test :RewriteChatServer:test`
 
 ### RW-CHAT-004A - Implement retained relations, ignore, friend, and mute model
-- Status: `todo`
+- Status: `ready`
 - Priority: `P2`
 - Execution lane: `social`
 - Worker role: `worker`

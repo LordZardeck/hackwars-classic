@@ -2,8 +2,8 @@
 
 ## Status Dashboard
 - Active mode: `autonomous_rewrite_execution`
-- Current pass: `Pass 2 - Shell and core client recovery`
-- Current milestone focus: `M8 - Client MVC and parity recovery foundations`
+- Current pass: `Pass 6 - Utilities, help/tutorial, personal settings, and client chat`
+- Current milestone focus: `M7 - Chat-server completion`
 - Coordinator stop rule: continue until `M11` is `done`, or until the only remaining work is `blocked_external`
 - Parallel saturation target: `8` active subagents, or the maximum safe non-overlapping count when fewer than `8` disjoint tasks exist
 
@@ -86,8 +86,8 @@
 | `M3` Transport and offline harness foundations | `done` | Frame codec, fake auth, deterministic transport harness, and dev bootstrap seams exist and stay green. |
 | `M4` Persistence and importer foundations | `done` | Canonical schema slices, importer scaffolding, and migration validation are complete for retained scope. |
 | `M5` Game-core and retained runtime foundations | `done` | Typed contracts, scheduler/runtime basics, and retained server foundations are implemented and verified. |
-| `M6` Retained game-server transport completion | `in_progress` | Every retained client blocker that needs new GAME transport has a concrete game-server task and verified implementation. |
-| `M7` Chat-server completion | `todo` | Chat contracts, bootstrap, channels, moderation, messaging, relations, and parity events are implemented and verified. |
+| `M6` Retained game-server transport completion | `done` | Every retained client blocker that needs new GAME transport has a concrete game-server task and verified implementation. |
+| `M7` Chat-server completion | `in_progress` | Chat contracts, bootstrap, channels, moderation, messaging, relations, and parity events are implemented and verified. |
 | `M8` Client MVC and parity recovery foundations | `in_progress` | Strict MVC framework, look and feel, parity assets, IPv4 identity cleanup, screenshot harness, and shell/login recovery are in place. `Base MVC` means view-only Swing classes, immutable view models, and controller-owned listeners/state wiring. |
 | `M9` Retained client family parity completion | `todo` | Every retained client family reaches screenshot-backed legacy parity. `Ported` means screenshot-backed visual parity with deterministic workflow tests, not merely a functioning Kotlin window. |
 | `M10` Integration and blocker closure | `todo` | All retained blocked tasks are resolved or marked `blocked_external`, end-to-end rewrite flows are green, and feature inventory evidence is complete. |
