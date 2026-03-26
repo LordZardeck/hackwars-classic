@@ -239,7 +239,7 @@
 - Verification scope: `rg -n "Legacy UI reference|Parity acceptance" plans/rewrite/client/PLAN.md plans/rewrite/feature-inventory/PLAN.md`
 
 ### RW-M2-003 - Close retained chat, data, and protocol evidence gaps
-- Status: `ready`
+- Status: `done`
 - Priority: `P2`
 - Execution lane: `evidence`
 - Worker role: `explorer`
