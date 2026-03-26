@@ -13,8 +13,12 @@ import com.hackwars.rewrite.protocol.ClientComputerIdentity
 import com.hackwars.rewrite.protocol.ClientComputerLogEntry
 import com.hackwars.rewrite.protocol.ClientGameSnapshot
 import com.hackwars.rewrite.protocol.ClientLogState
+import com.hackwars.rewrite.protocol.ClientPersonalSettingsResponse
+import com.hackwars.rewrite.protocol.ClientPlayerProfileView
 import com.hackwars.rewrite.protocol.ClientNetworkState
 import com.hackwars.rewrite.protocol.ClientPreferenceState
+import com.hackwars.rewrite.protocol.ClientRequestPersonalSettingsPayload
+import com.hackwars.rewrite.protocol.ClientSavePersonalSettingsPayload
 import com.hackwars.rewrite.protocol.ClientSetPreferencePayload
 import com.hackwars.rewrite.protocol.ClientSetPreferenceResponse
 import com.hackwars.rewrite.protocol.RewriteClientJson
@@ -30,6 +34,7 @@ import javax.swing.JButton
 import javax.swing.JCheckBox
 import javax.swing.JComboBox
 import javax.swing.JLabel
+import javax.swing.JTextField
 import javax.swing.JTextArea
 import javax.swing.SwingUtilities
 import kotlin.test.Test
@@ -267,6 +272,220 @@ class RewriteUtilitiesUiTest {
                 }
             }
             assertEquals(1, session.sentFrames.count { it.auth_request != null })
+        } finally {
+            rewriteUiDisposeFrame(frame)
+        }
+    }
+
+    @Test
+    fun personalSettingsLaunchesFreshWindowsAndRendersLoadedProfile() {
+        assumeFalse(GraphicsEnvironment.isHeadless())
+
+        val sessionGateway = FakeUtilityUiSessionGateway()
+        val frame = utilitiesReadyFrame(sessionGateway = sessionGateway)
+        try {
+            SwingUtilities.invokeAndWait {
+                frame.controller.launchShellCommand(RewriteShellCommand.PERSONAL_SETTINGS)
+                frame.controller.launchShellCommand(RewriteShellCommand.PERSONAL_SETTINGS)
+            }
+
+            rewriteUiWaitUntil {
+                sessionGateway.latestGameSession()?.sentFrames?.count { it.command?.command_name == "requestpersonalsettings" } == 2
+            }
+
+            val commandPayloads = sessionGateway.latestGameSession()!!.sentFrames
+                .filter { it.command?.command_name == "requestpersonalsettings" }
+            commandPayloads.forEach { frameEnvelope ->
+                val command = frameEnvelope.command!!
+                frame.controller.accept(
+                    RewriteService.GAME,
+                    RewriteFrames.commandResponse(
+                        commandId = command.command_id,
+                        payload = RewriteClientJson.encode(
+                            ClientPersonalSettingsResponse.serializer(),
+                            ClientPersonalSettingsResponse(
+                                stateId = "192.0.2.10",
+                                profile = ClientPlayerProfileView(
+                                    displayName = "LOCALUSER",
+                                    imagePath = "images/nopic.png",
+                                    description = "Pilot profile",
+                                    location = "UGOPNet",
+                                ),
+                            ),
+                        ),
+                    ),
+                )
+            }
+
+            rewriteUiWaitUntil {
+                rewriteUiInvokeAndWaitResult {
+                    frame.desktopPane.allFrames
+                        .filter { it.name == "rewrite-personal-settings-window" }
+                        .all { window ->
+                            window.title == "Personal Settings - LOCALUSER" &&
+                                (rewriteUiFindNamedComponent(window, "rewrite-personal-settings-description") as JTextArea).text == "Pilot profile" &&
+                                (rewriteUiFindNamedComponent(window, "rewrite-personal-settings-location") as JTextField).text == "UGOPNet"
+                        }
+                }
+            }
+
+            val windows = rewriteUiInvokeAndWaitResult {
+                frame.desktopPane.allFrames.filter { it.name == "rewrite-personal-settings-window" }
+            }
+            assertEquals(2, windows.size)
+            val firstWindow = windows.first()
+            assertEquals("Personal Settings - LOCALUSER", firstWindow.title)
+            assertEquals("Pilot profile", (rewriteUiFindNamedComponent(firstWindow, "rewrite-personal-settings-description") as JTextArea).text)
+            assertEquals("UGOPNet", (rewriteUiFindNamedComponent(firstWindow, "rewrite-personal-settings-location") as JTextField).text)
+            assertTrue(rewriteUiFindNamedComponent(firstWindow, "rewrite-personal-settings-prev-button") is JButton)
+            assertTrue(rewriteUiFindNamedComponent(firstWindow, "rewrite-personal-settings-save-image-button") is JButton)
+            assertTrue(rewriteUiFindNamedComponent(firstWindow, "rewrite-personal-settings-save-description-button") is JButton)
+            assertTrue(rewriteUiFindNamedComponent(firstWindow, "rewrite-personal-settings-save-location-button") is JButton)
+        } finally {
+            rewriteUiDisposeFrame(frame)
+        }
+    }
+
+    @Test
+    fun personalSettingsSaveButtonsSendRetainedPayloads() {
+        assumeFalse(GraphicsEnvironment.isHeadless())
+
+        val sessionGateway = FakeUtilityUiSessionGateway()
+        val frame = utilitiesReadyFrame(sessionGateway = sessionGateway)
+        try {
+            SwingUtilities.invokeAndWait {
+                frame.controller.launchShellCommand(RewriteShellCommand.PERSONAL_SETTINGS)
+            }
+
+            val personalSettingsWindow = rewriteUiWaitForWindow(frame, "rewrite-personal-settings-window")
+            rewriteUiWaitUntil {
+                sessionGateway.latestGameSession()?.sentFrames?.any { it.command?.command_name == "requestpersonalsettings" } == true
+            }
+            val initialRequest = sessionGateway.latestGameSession()!!.sentFrames
+                .first { it.command?.command_name == "requestpersonalsettings" }
+                .command!!
+            frame.controller.accept(
+                RewriteService.GAME,
+                RewriteFrames.commandResponse(
+                    commandId = initialRequest.command_id,
+                    payload = RewriteClientJson.encode(
+                        ClientPersonalSettingsResponse.serializer(),
+                        ClientPersonalSettingsResponse(
+                            stateId = "192.0.2.10",
+                            profile = ClientPlayerProfileView(
+                                displayName = "LOCALUSER",
+                                imagePath = "images/nopic.png",
+                                description = "Original description",
+                                location = "Original location",
+                            ),
+                        ),
+                    ),
+                ),
+            )
+
+            rewriteUiWaitUntil {
+                (rewriteUiFindNamedComponent(personalSettingsWindow, "rewrite-personal-settings-save-image-button") as JButton).isEnabled
+            }
+
+            SwingUtilities.invokeAndWait {
+                (rewriteUiFindNamedComponent(personalSettingsWindow, "rewrite-personal-settings-next-button") as JButton).doClick()
+                (rewriteUiFindNamedComponent(personalSettingsWindow, "rewrite-personal-settings-save-image-button") as JButton).doClick()
+            }
+
+            rewriteUiWaitUntil {
+                sessionGateway.latestGameSession()?.sentFrames?.count { it.command?.command_name == "setpersonalsettings" } == 1
+            }
+            val imageSaveCommand = sessionGateway.latestGameSession()!!.sentFrames
+                .first { it.command?.command_name == "setpersonalsettings" }
+                .command!!
+            val imageSavePayload = RewriteClientJson.decode(
+                ClientSavePersonalSettingsPayload.serializer(),
+                imageSaveCommand.payload.toByteArray(),
+            )
+            assertEquals("images/Snow_001.png", imageSavePayload.imagePath)
+            assertEquals("Original description", imageSavePayload.description)
+            assertEquals("Original location", imageSavePayload.location)
+            frame.controller.accept(
+                RewriteService.GAME,
+                RewriteFrames.commandResponse(
+                    commandId = imageSaveCommand.command_id,
+                    payload = RewriteClientJson.encode(
+                        ClientPersonalSettingsResponse.serializer(),
+                        ClientPersonalSettingsResponse(
+                            stateId = "192.0.2.10",
+                            profile = ClientPlayerProfileView(
+                                displayName = "LOCALUSER",
+                                imagePath = "images/Snow_001.png",
+                                description = "Original description",
+                                location = "Original location",
+                            ),
+                        ),
+                    ),
+                ),
+            )
+            rewriteUiWaitUntil {
+                (rewriteUiFindNamedComponent(personalSettingsWindow, "rewrite-personal-settings-save-description-button") as JButton).isEnabled
+            }
+
+            SwingUtilities.invokeAndWait {
+                (rewriteUiFindNamedComponent(personalSettingsWindow, "rewrite-personal-settings-description") as JTextArea).text = "Updated description"
+                (rewriteUiFindNamedComponent(personalSettingsWindow, "rewrite-personal-settings-save-description-button") as JButton).doClick()
+            }
+            rewriteUiWaitUntil {
+                sessionGateway.latestGameSession()?.sentFrames?.count { it.command?.command_name == "setpersonalsettings" } == 2
+            }
+            val descriptionSaveCommand = sessionGateway.latestGameSession()!!.sentFrames
+                .filter { it.command?.command_name == "setpersonalsettings" }[1]
+                .command!!
+            val descriptionSavePayload = RewriteClientJson.decode(
+                ClientSavePersonalSettingsPayload.serializer(),
+                descriptionSaveCommand.payload.toByteArray(),
+            )
+            assertEquals("images/Snow_001.png", descriptionSavePayload.imagePath)
+            assertEquals("Updated description", descriptionSavePayload.description)
+            assertEquals("Original location", descriptionSavePayload.location)
+            frame.controller.accept(
+                RewriteService.GAME,
+                RewriteFrames.commandResponse(
+                    commandId = descriptionSaveCommand.command_id,
+                    payload = RewriteClientJson.encode(
+                        ClientPersonalSettingsResponse.serializer(),
+                        ClientPersonalSettingsResponse(
+                            stateId = "192.0.2.10",
+                            profile = ClientPlayerProfileView(
+                                displayName = "LOCALUSER",
+                                imagePath = "images/Snow_001.png",
+                                description = "Updated description",
+                                location = "Original location",
+                            ),
+                        ),
+                    ),
+                ),
+            )
+            rewriteUiWaitUntil {
+                (rewriteUiFindNamedComponent(personalSettingsWindow, "rewrite-personal-settings-save-location-button") as JButton).isEnabled
+            }
+
+            SwingUtilities.invokeAndWait {
+                (rewriteUiFindNamedComponent(personalSettingsWindow, "rewrite-personal-settings-location") as JTextField).text = "Updated location"
+                (rewriteUiFindNamedComponent(personalSettingsWindow, "rewrite-personal-settings-save-location-button") as JButton).doClick()
+            }
+            rewriteUiWaitUntil {
+                sessionGateway.latestGameSession()?.sentFrames?.count { it.command?.command_name == "setpersonalsettings" } == 3
+            }
+            val locationSaveCommand = sessionGateway.latestGameSession()!!.sentFrames
+                .filter { it.command?.command_name == "setpersonalsettings" }[2]
+                .command!!
+            val locationSavePayload = RewriteClientJson.decode(
+                ClientSavePersonalSettingsPayload.serializer(),
+                locationSaveCommand.payload.toByteArray(),
+            )
+            assertEquals("images/Snow_001.png", locationSavePayload.imagePath)
+            assertEquals("Updated description", locationSavePayload.description)
+            assertEquals("Updated location", locationSavePayload.location)
+
+            assertTrue(personalSettingsWindow.isDisplayable)
+            assertEquals("Personal Settings - LOCALUSER", personalSettingsWindow.title)
         } finally {
             rewriteUiDisposeFrame(frame)
         }

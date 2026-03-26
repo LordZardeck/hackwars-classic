@@ -6,11 +6,17 @@ import com.hackwars.rewrite.client.RewriteLoginAuthResult
 import com.hackwars.rewrite.client.RewriteRootController
 import com.hackwars.rewrite.client.RewriteServiceSession
 import com.hackwars.rewrite.client.RewriteServiceSessionGateway
+import com.hackwars.rewrite.client.shell.RewriteShellCommand
+import com.hackwars.rewrite.client.shell.RewriteShellWindowHost
 import com.hackwars.rewrite.protocol.ClientComputerIdentity
 import com.hackwars.rewrite.protocol.ClientComputerLogEntry
 import com.hackwars.rewrite.protocol.ClientGameSnapshot
 import com.hackwars.rewrite.protocol.ClientLogState
+import com.hackwars.rewrite.protocol.ClientPersonalSettingsResponse
 import com.hackwars.rewrite.protocol.ClientPreferenceState
+import com.hackwars.rewrite.protocol.ClientPlayerProfileView
+import com.hackwars.rewrite.protocol.ClientRequestPersonalSettingsPayload
+import com.hackwars.rewrite.protocol.ClientSavePersonalSettingsPayload
 import com.hackwars.rewrite.protocol.ClientSetPreferencePayload
 import com.hackwars.rewrite.protocol.ClientSetPreferenceResponse
 import com.hackwars.rewrite.protocol.RewriteClientJson
@@ -19,6 +25,7 @@ import com.hackwars.rewrite.protocol.RewriteService
 import hackwars.rewrite.v1.FrameEnvelope
 import java.awt.Component
 import java.time.Instant
+import javax.swing.JInternalFrame
 import javax.swing.JButton
 import javax.swing.JCheckBox
 import javax.swing.JTextArea
@@ -204,6 +211,143 @@ class RewriteUtilitiesTest {
     }
 
     @Test
+    fun requestPersonalSettingsHelperSendsExpectedPayload() = runTest {
+        val sessionGateway = FakeUtilitySessionGateway()
+        val controller = testController(
+            sessionGateway = sessionGateway,
+            scheduler = testScheduler,
+        )
+        controller.accept(
+            RewriteService.GAME,
+            RewriteFrames.authAccepted(
+                connectionId = "conn-1",
+                playFabId = "PF-LOCAL",
+                playerIp = "192.0.2.10",
+                heartbeatInterval = kotlin.time.Duration.parse("15s"),
+                sessionStartedAt = Instant.parse("2026-03-25T00:00:00Z"),
+            ),
+        )
+
+        val deferred = backgroundScope.async {
+            controller.requestPersonalSettings()
+        }
+        runCurrent()
+
+        val command = sessionGateway.requireLatestSession(RewriteService.GAME).sentFrames.single().command!!
+        val payload = RewriteClientJson.decode(
+            ClientRequestPersonalSettingsPayload.serializer(),
+            command.payload.toByteArray(),
+        )
+        assertEquals("requestpersonalsettings", command.command_name)
+        assertEquals("192.0.2.10", payload.ip)
+
+        controller.accept(
+            RewriteService.GAME,
+            RewriteFrames.commandResponse(
+                commandId = command.command_id,
+                payload = RewriteClientJson.encode(
+                    ClientPersonalSettingsResponse.serializer(),
+                    ClientPersonalSettingsResponse(
+                        stateId = "192.0.2.10",
+                        profile = ClientPlayerProfileView(
+                            displayName = "LOCALUSER",
+                            imagePath = "images/nopic.png",
+                            description = "Profile description",
+                            location = "UGOPNet",
+                        ),
+                    ),
+                ),
+            ),
+        )
+        runCurrent()
+
+        val result = deferred.await()
+        assertTrue(result is com.hackwars.rewrite.client.RewriteGameCommandResult.Success)
+        assertEquals("LOCALUSER", (result as com.hackwars.rewrite.client.RewriteGameCommandResult.Success).value.profile.displayName)
+    }
+
+    @Test
+    fun savePersonalSettingsHelperSendsExpectedPayload() = runTest {
+        val sessionGateway = FakeUtilitySessionGateway()
+        val controller = testController(
+            sessionGateway = sessionGateway,
+            scheduler = testScheduler,
+        )
+        controller.accept(
+            RewriteService.GAME,
+            RewriteFrames.authAccepted(
+                connectionId = "conn-1",
+                playFabId = "PF-LOCAL",
+                playerIp = "192.0.2.10",
+                heartbeatInterval = kotlin.time.Duration.parse("15s"),
+                sessionStartedAt = Instant.parse("2026-03-25T00:00:00Z"),
+            ),
+        )
+
+        val deferred = backgroundScope.async {
+            controller.savePersonalSettings(
+                imagePath = "images/Bill_001.png",
+                description = "Pilot profile",
+                location = "UGOPNet",
+            )
+        }
+        runCurrent()
+
+        val command = sessionGateway.requireLatestSession(RewriteService.GAME).sentFrames.single().command!!
+        val payload = RewriteClientJson.decode(
+            ClientSavePersonalSettingsPayload.serializer(),
+            command.payload.toByteArray(),
+        )
+        assertEquals("setpersonalsettings", command.command_name)
+        assertEquals("192.0.2.10", payload.ip)
+        assertEquals("images/Bill_001.png", payload.imagePath)
+        assertEquals("Pilot profile", payload.description)
+        assertEquals("UGOPNet", payload.location)
+
+        controller.accept(
+            RewriteService.GAME,
+            RewriteFrames.commandResponse(
+                commandId = command.command_id,
+                payload = RewriteClientJson.encode(
+                    ClientPersonalSettingsResponse.serializer(),
+                    ClientPersonalSettingsResponse(
+                        stateId = "192.0.2.10",
+                        profile = ClientPlayerProfileView(
+                            displayName = "LOCALUSER",
+                            imagePath = "images/Bill_001.png",
+                            description = "Pilot profile",
+                            location = "UGOPNet",
+                        ),
+                    ),
+                ),
+            ),
+        )
+        runCurrent()
+
+        val result = deferred.await()
+        assertTrue(result is com.hackwars.rewrite.client.RewriteGameCommandResult.Success)
+        assertEquals("Pilot profile", (result as com.hackwars.rewrite.client.RewriteGameCommandResult.Success).value.profile.description)
+    }
+
+    @Test
+    fun personalSettingsLaunchesFreshWindowsAndPreservesDuplicateBehavior() {
+        val controller = RewriteRootController(
+            gameConnectionConfig = RewriteGameConnectionConfig(),
+            authGateway = FixedUtilityAuthGateway(),
+            sessionGateway = FakeUtilitySessionGateway(),
+        )
+        val host = FakeWindowHost()
+        controller.attachShellHost(host)
+
+        controller.launchShellCommand(RewriteShellCommand.PERSONAL_SETTINGS)
+        controller.launchShellCommand(RewriteShellCommand.PERSONAL_SETTINGS)
+
+        assertEquals(2, host.showWindowCalls.size)
+        assertTrue(host.showWindowCalls.all { it.name == "rewrite-personal-settings-window" })
+        controller.shutdown()
+    }
+
+    @Test
     fun logWindowRendersDecodedEntriesAndStaysReadOnly() {
         val controller = RewriteRootController(
             authGateway = FixedUtilityAuthGateway(),
@@ -298,6 +442,20 @@ class RewriteUtilitiesTest {
         override suspend fun authenticate(email: String, password: CharArray): RewriteLoginAuthResult {
             return RewriteLoginAuthResult.success("PF-LOCAL", "SESSION-LOCAL")
         }
+    }
+
+    private class FakeWindowHost : RewriteShellWindowHost {
+        val showWindowCalls = mutableListOf<JInternalFrame>()
+
+        override fun showWindow(frame: JInternalFrame) {
+            showWindowCalls += frame
+        }
+
+        override fun focusWindow(frame: JInternalFrame) = Unit
+
+        override fun disposeAllWindows() = Unit
+
+        override fun renderTaskBar(state: com.hackwars.rewrite.client.shell.RewriteShellTaskBarState) = Unit
     }
 
     private class FakeUtilitySessionGateway : RewriteServiceSessionGateway {

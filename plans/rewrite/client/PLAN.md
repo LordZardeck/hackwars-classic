@@ -478,7 +478,7 @@
 - Verification scope: `./gradlew :RewriteProtocol:test :RewriteClient:test :RewriteClient:uiTest`
 
 ### RW-CLIENT-W7B - Personal Settings retained follow-up
-- Status: `ready`
+- Status: `done`
 - Priority: `P2`
 - Execution lane: `utilities_chat`
 - Worker role: `worker`

@@ -30,6 +30,7 @@ import com.hackwars.rewrite.client.systems.RewriteFirewallManagerWindow
 import com.hackwars.rewrite.client.systems.RewritePortManagementWindow
 import com.hackwars.rewrite.client.systems.RewriteWatchManagerWindow
 import com.hackwars.rewrite.client.utilities.RewriteLogWindow
+import com.hackwars.rewrite.client.utilities.RewritePersonalSettingsWindow
 import com.hackwars.rewrite.client.utilities.RewritePreferencesWindow
 import com.hackwars.rewrite.client.utilities.RewriteStartupUtilityCoordinator
 import com.hackwars.rewrite.client.web.RewriteSiteEditorWindow
@@ -74,6 +75,7 @@ import com.hackwars.rewrite.protocol.ClientRequestAttackPayload
 import com.hackwars.rewrite.protocol.ClientRequestCancelAttackPayload
 import com.hackwars.rewrite.protocol.ClientRequestScanPayload
 import com.hackwars.rewrite.protocol.ClientRequestHelpTopicListPayload
+import com.hackwars.rewrite.protocol.ClientRequestPersonalSettingsPayload
 import com.hackwars.rewrite.protocol.ClientRequestZombieAttackPayload
 import com.hackwars.rewrite.protocol.ClientRequestZombieCancelAttackPayload
 import com.hackwars.rewrite.protocol.ClientScanResponse
@@ -98,6 +100,7 @@ import com.hackwars.rewrite.protocol.ClientRequestPurchasePayload
 import com.hackwars.rewrite.protocol.ClientRequestWebpagePayload
 import com.hackwars.rewrite.protocol.ClientPurchaseResponse
 import com.hackwars.rewrite.protocol.ClientSaveFilePayload
+import com.hackwars.rewrite.protocol.ClientSavePersonalSettingsPayload
 import com.hackwars.rewrite.protocol.ClientSavePagePayload
 import com.hackwars.rewrite.protocol.ClientSavePageResponse
 import com.hackwars.rewrite.protocol.ClientSellFilePayload
@@ -106,6 +109,7 @@ import com.hackwars.rewrite.protocol.ClientSetFtpPasswordPayload
 import com.hackwars.rewrite.protocol.ClientSetFtpPasswordResponse
 import com.hackwars.rewrite.protocol.ClientSetPreferencePayload
 import com.hackwars.rewrite.protocol.ClientSetPreferenceResponse
+import com.hackwars.rewrite.protocol.ClientPersonalSettingsResponse
 import com.hackwars.rewrite.protocol.ClientStoredFile
 import com.hackwars.rewrite.protocol.ClientSecondaryDirectoryListingResponse
 import com.hackwars.rewrite.protocol.ClientSubmitWebpagePayload
@@ -274,6 +278,10 @@ class RewriteRootController(
         command: RewriteShellCommand,
         preferredPort: Int? = null,
     ) {
+        if (command == RewriteShellCommand.PERSONAL_SETTINGS) {
+            openPersonalSettingsWindow()
+            return
+        }
         if (command == RewriteShellCommand.CREATE_BOUNTY || command == RewriteShellCommand.ZOMBIE_ATTACK) {
             shellDialogs.open(command)
         } else {
@@ -606,6 +614,39 @@ class RewriteRootController(
                 value = value,
             ),
             responseSerializer = ClientSetPreferenceResponse.serializer(),
+            targetStateIds = listOf(playerIp),
+        )
+    }
+
+    internal suspend fun requestPersonalSettings(): RewriteGameCommandResult<ClientPersonalSettingsResponse> {
+        val playerIp = authenticatedPlayerIp()
+            ?: return RewriteGameCommandResult.Failure("Not connected to a rewrite game session.")
+        return gameCommandBroker.request(
+            commandName = "requestpersonalsettings",
+            payloadSerializer = ClientRequestPersonalSettingsPayload.serializer(),
+            payload = ClientRequestPersonalSettingsPayload(ip = playerIp),
+            responseSerializer = ClientPersonalSettingsResponse.serializer(),
+            targetStateIds = listOf(playerIp),
+        )
+    }
+
+    internal suspend fun savePersonalSettings(
+        imagePath: String? = null,
+        description: String? = null,
+        location: String? = null,
+    ): RewriteGameCommandResult<ClientPersonalSettingsResponse> {
+        val playerIp = authenticatedPlayerIp()
+            ?: return RewriteGameCommandResult.Failure("Not connected to a rewrite game session.")
+        return gameCommandBroker.request(
+            commandName = "setpersonalsettings",
+            payloadSerializer = ClientSavePersonalSettingsPayload.serializer(),
+            payload = ClientSavePersonalSettingsPayload(
+                ip = playerIp,
+                imagePath = imagePath,
+                description = description,
+                location = location,
+            ),
+            responseSerializer = ClientPersonalSettingsResponse.serializer(),
             targetStateIds = listOf(playerIp),
         )
     }
@@ -1558,6 +1599,13 @@ class RewriteRootController(
             ?: return
         editorWindow.openFile(file)
         shellHost?.focusWindow(editorWindow)
+    }
+
+    private fun openPersonalSettingsWindow() {
+        val currentHost = shellHost ?: return
+        val frame = RewritePersonalSettingsWindow(controller = this)
+        currentHost.showWindow(frame)
+        currentHost.focusWindow(frame)
     }
 
     private fun createShellWindow(
