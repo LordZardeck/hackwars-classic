@@ -1140,11 +1140,44 @@ class RewriteClientJsonTest {
 
         assertEquals("TARGET-IP", get.targetIp)
         assertEquals("/Secrets", get.putPath)
+        assertEquals("ignored", get.password)
         assertEquals("TARGET-IP", put.targetIp)
         assertEquals("/Inbox", put.putPath)
         assertEquals("get", response.operation)
         assertEquals(2, response.fulfilledQuantity)
         assertEquals("/Docs/remote.log", response.file.path)
+    }
+
+    @Test
+    fun decodesLegacyCompatibleSetFtpPasswordPayloadsAndResponses() {
+        val payload = """
+            {
+              "ip":"LOCAL-IP",
+              "password":"letmein",
+              "ignored":"ignored"
+            }
+        """.trimIndent().encodeToByteArray()
+        val responsePayload = """
+            {
+              "stateId":"LOCAL-IP",
+              "passwordSet":true,
+              "ignored":"ignored"
+            }
+        """.trimIndent().encodeToByteArray()
+
+        val request = RewriteClientJson.decode(
+            ClientSetFtpPasswordPayload.serializer(),
+            payload,
+        )
+        val response = RewriteClientJson.decode(
+            ClientSetFtpPasswordResponse.serializer(),
+            responsePayload,
+        )
+
+        assertEquals("LOCAL-IP", request.ip)
+        assertEquals("letmein", request.password)
+        assertEquals("LOCAL-IP", response.stateId)
+        assertTrue(response.passwordSet)
     }
 
     @Test

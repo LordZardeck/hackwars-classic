@@ -653,6 +653,12 @@ data class ClientSetPreferencePayload(
 )
 
 @Serializable
+data class ClientSetFtpPasswordPayload(
+    val ip: String,
+    val password: String? = null,
+)
+
+@Serializable
 data class ClientSellFilePayload(
     val ip: String,
     val location: String? = null,
@@ -691,6 +697,12 @@ data class ClientSetPreferenceResponse(
     val key: String,
     val value: String,
     val version: Long,
+)
+
+@Serializable
+data class ClientSetFtpPasswordResponse(
+    val stateId: String,
+    val passwordSet: Boolean,
 )
 
 @Serializable

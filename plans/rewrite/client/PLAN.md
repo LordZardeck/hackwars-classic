@@ -300,8 +300,8 @@
 - Priority: `P1`
 - Execution lane: `ftp_web`
 - Worker role: `worker`
-- Depends on: `RW-CLIENT-W2C1`, `RW-GS-T1`, `RW-GS-T2`, `RW-GS-T3`
-- Ready when: upload/download transport, `malget`, and public FTP password transport exist from the retained game server
+- Depends on: `RW-CLIENT-W2C1`, `RW-GS-T2`
+- Ready when: retained `malget` transport exists from the retained game server
 - Parallel with: `none`
 - Allowed write scope: `src/RewriteClient/**/network/**`, `src/RewriteClient/**/files/**`, `src/RewriteProtocol/**`
 - Autonomous next: `RW-CLIENT-C4B`

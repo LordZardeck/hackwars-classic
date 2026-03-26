@@ -46,6 +46,7 @@ import com.hackwars.rewrite.gamecore.FireAndForgetCommand
 import com.hackwars.rewrite.gamecore.FinalizeCancelledCommand
 import com.hackwars.rewrite.gamecore.FinalizeCancelledPayload
 import com.hackwars.rewrite.gamecore.FinalizeCancelledResponse
+import com.hackwars.rewrite.gamecore.FtpPasswordRepository
 import com.hackwars.rewrite.gamecore.FtpTransferResponse
 import com.hackwars.rewrite.gamecore.GameSessionBootstrapCommand
 import com.hackwars.rewrite.gamecore.GameSessionBootstrapResult
@@ -85,6 +86,7 @@ import com.hackwars.rewrite.gamecore.HttpHookRuntime
 import com.hackwars.rewrite.gamecore.InMemoryAttackProgramRegistry
 import com.hackwars.rewrite.gamecore.InMemoryCombatMaintenanceProgramRegistry
 import com.hackwars.rewrite.gamecore.InMemoryDailyIncomeProgramRegistry
+import com.hackwars.rewrite.gamecore.InMemoryFtpPasswordRepository
 import com.hackwars.rewrite.gamecore.NetworkDirectoryRepository
 import com.hackwars.rewrite.gamecore.NetworkSwitchResponse
 import com.hackwars.rewrite.gamecore.NoOpGameStatePublisher
@@ -146,6 +148,9 @@ import com.hackwars.rewrite.gamecore.SellFileResponse
 import com.hackwars.rewrite.gamecore.SetPreferenceCommand
 import com.hackwars.rewrite.gamecore.SetPreferenceCommandResponse
 import com.hackwars.rewrite.gamecore.SetPreferencePayload
+import com.hackwars.rewrite.gamecore.SetFtpPasswordCommand
+import com.hackwars.rewrite.gamecore.SetFtpPasswordPayload
+import com.hackwars.rewrite.gamecore.SetFtpPasswordResponse
 import com.hackwars.rewrite.gamecore.SavePageCommand
 import com.hackwars.rewrite.gamecore.SavePagePayload
 import com.hackwars.rewrite.gamecore.SavePageResponse
@@ -187,6 +192,7 @@ import com.hackwars.rewrite.gamecore.WithdrawPayload
 import com.hackwars.rewrite.gamecore.ZombieAttackCancelResponse
 import com.hackwars.rewrite.gamecore.ZombieAttackStartResponse
 import com.hackwars.rewrite.gamecore.attackLoadoutFromLegacyPayload
+import com.hackwars.rewrite.persistence.JdbcFtpPasswordRepository
 import com.hackwars.rewrite.persistence.JdbcNetworkDirectoryRepository
 import com.hackwars.rewrite.persistence.JdbcSearchCatalogRepository
 import com.hackwars.rewrite.persistence.RewritePostgresConnectionFactory
@@ -221,6 +227,9 @@ class RewriteGameProtocolAdapter(
     private val searchCatalogRepository: SearchCatalogRepository = JdbcSearchCatalogRepository(
         connectionFactory = RewritePostgresConnectionFactory.fromEnvironment(),
     ),
+    private val ftpPasswordRepository: FtpPasswordRepository = JdbcFtpPasswordRepository(
+        connectionFactory = RewritePostgresConnectionFactory.fromEnvironment(),
+    ),
     private val attackProgramRegistry: AttackProgramRegistry = InMemoryAttackProgramRegistry(),
     private val dailyIncomeProgramRegistry: DailyIncomeProgramRegistry = InMemoryDailyIncomeProgramRegistry(),
     private val combatMaintenanceProgramRegistry: CombatMaintenanceProgramRegistry = InMemoryCombatMaintenanceProgramRegistry(),
@@ -231,6 +240,7 @@ class RewriteGameProtocolAdapter(
         networkDirectoryRepository,
         searchCatalogRepository,
         attackProgramRegistry,
+        ftpPasswordRepository,
     ),
 ) {
     suspend fun onSessionStarted(
@@ -500,6 +510,7 @@ class RewriteGameProtocolAdapter(
             is WatchListResponse -> RewriteGameJson.encode(WatchListResponse.serializer(), result)
             is WatchMutationResponse -> RewriteGameJson.encode(WatchMutationResponse.serializer(), result)
             is SetPreferenceCommandResponse -> RewriteGameJson.encode(SetPreferenceCommandResponse.serializer(), result)
+            is SetFtpPasswordResponse -> RewriteGameJson.encode(SetFtpPasswordResponse.serializer(), result)
             is PageEditorResponse -> RewriteGameJson.encode(PageEditorResponse.serializer(), result)
             is SavePageResponse -> RewriteGameJson.encode(SavePageResponse.serializer(), result)
             is WebsiteRenderResponse -> RewriteGameJson.encode(WebsiteRenderResponse.serializer(), result)
@@ -517,6 +528,7 @@ class RewriteGameProtocolAdapter(
             networkDirectoryRepository: NetworkDirectoryRepository,
             searchCatalogRepository: SearchCatalogRepository,
             attackProgramRegistry: AttackProgramRegistry,
+            ftpPasswordRepository: FtpPasswordRepository = InMemoryFtpPasswordRepository(),
         ): CommandRegistry {
             return CommandRegistry()
                 .register("requestpage") { input ->
@@ -887,6 +899,16 @@ class RewriteGameProtocolAdapter(
                         value = payload.value,
                     )
                 }
+                .register("setftppassword") { input ->
+                    val payload = decodePayload(input, SetFtpPasswordPayload.serializer())
+                    val authenticatedStateId = requireAuthenticatedStateId(input)
+                    requirePayloadIpMatches(authenticatedStateId, payload.ip, input.commandName)
+                    SetFtpPasswordCommand(
+                        stateId = authenticatedStateId,
+                        password = payload.password,
+                        ftpPasswordRepository = ftpPasswordRepository,
+                    )
+                }
                 .register("requesttask") { input ->
                     val payload = decodePayload(input, RequestTaskPayload.serializer())
                     RequestTaskCommand(
@@ -1023,6 +1045,8 @@ class RewriteGameProtocolAdapter(
                         fileName = payload.name ?: error("File name is required for ${input.commandName}."),
                         fetchPath = payload.fetchPath,
                         targetPath = payload.putPath,
+                        password = payload.password,
+                        ftpPasswordRepository = ftpPasswordRepository,
                         requestedQuantity = payload.quantity ?: 1,
                     )
                 }
@@ -1037,6 +1061,8 @@ class RewriteGameProtocolAdapter(
                         fileName = payload.name ?: error("File name is required for ${input.commandName}."),
                         fetchPath = payload.fetchPath,
                         targetPath = payload.putPath,
+                        password = payload.password,
+                        ftpPasswordRepository = ftpPasswordRepository,
                         requestedQuantity = payload.quantity ?: 1,
                     )
                 }

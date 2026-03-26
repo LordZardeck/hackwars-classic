@@ -15,6 +15,7 @@ import com.hackwars.rewrite.gamecore.HardwareState
 import com.hackwars.rewrite.gamecore.HookSideEffectSink
 import com.hackwars.rewrite.gamecore.InMemoryAttackProgramRegistry
 import com.hackwars.rewrite.gamecore.InMemoryComputerStateRepository
+import com.hackwars.rewrite.gamecore.InMemoryFtpPasswordRepository
 import com.hackwars.rewrite.gamecore.InMemoryInterestRegistry
 import com.hackwars.rewrite.gamecore.InMemoryNetworkDirectoryRepository
 import com.hackwars.rewrite.gamecore.InstalledApplication
@@ -496,6 +497,7 @@ class RewriteGameQuestProtocolAdapterTest {
                 watchTriggerIntentSink = sink,
             ),
             combatMaintenanceProgramRegistry = DisabledCombatMaintenanceProgramRegistry,
+            ftpPasswordRepository = InMemoryFtpPasswordRepository(),
             interestRegistry = interests,
             serverId = "1",
             attackProgramRegistry = registry,

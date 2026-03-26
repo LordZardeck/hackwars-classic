@@ -9,6 +9,7 @@ import com.hackwars.rewrite.gamecore.EconomyState
 import com.hackwars.rewrite.gamecore.GameStateId
 import com.hackwars.rewrite.gamecore.HardwareState
 import com.hackwars.rewrite.gamecore.InMemoryComputerStateRepository
+import com.hackwars.rewrite.gamecore.InMemoryFtpPasswordRepository
 import com.hackwars.rewrite.gamecore.InMemoryInterestRegistry
 import com.hackwars.rewrite.gamecore.InMemoryNetworkDirectoryRepository
 import com.hackwars.rewrite.gamecore.InstalledWatch
@@ -83,6 +84,7 @@ class RewriteGameNetworkProtocolAdapterTest {
                 interestRegistry = interests,
             ),
             combatMaintenanceProgramRegistry = DisabledCombatMaintenanceProgramRegistry,
+            ftpPasswordRepository = InMemoryFtpPasswordRepository(),
             interestRegistry = interests,
             networkDirectoryRepository = testNetworkRepository(),
         )
@@ -349,6 +351,7 @@ class RewriteGameNetworkProtocolAdapterTest {
                 interestRegistry = interests,
             ),
             combatMaintenanceProgramRegistry = DisabledCombatMaintenanceProgramRegistry,
+            ftpPasswordRepository = InMemoryFtpPasswordRepository(),
             interestRegistry = interests,
             networkDirectoryRepository = testNetworkRepository(),
         )

@@ -5,12 +5,14 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 
 class FtpTransferCommandsTest {
     @Test
     fun getMovesRequestedQuantityFromRemoteToLocalAndPublishesFilesystemDeltas() = runTest {
         val localId = GameStateId("LOCAL-IP")
         val targetId = GameStateId("TARGET-IP")
+        val ftpPasswords = InMemoryFtpPasswordRepository(mapOf(targetId to "secret"))
         val repository = InMemoryComputerStateRepository(
             seededStates = mapOf(
                 localId to localState(
@@ -42,6 +44,8 @@ class FtpTransferCommandsTest {
                 fileName = "remote.log",
                 fetchPath = "/Docs",
                 targetPath = "/Secrets",
+                password = "secret",
+                ftpPasswordRepository = ftpPasswords,
                 requestedQuantity = 2,
             ),
             metadata = CommandMetadata(connectionId = "local-conn", requestId = "ftp-get-1"),
@@ -67,6 +71,7 @@ class FtpTransferCommandsTest {
     fun putMovesRequestedQuantityFromLocalToRemoteAndPublishesFilesystemDeltas() = runTest {
         val localId = GameStateId("LOCAL-IP")
         val targetId = GameStateId("TARGET-IP")
+        val ftpPasswords = InMemoryFtpPasswordRepository(mapOf(targetId to "secret"))
         val repository = InMemoryComputerStateRepository(
             seededStates = mapOf(
                 localId to localState(
@@ -98,6 +103,8 @@ class FtpTransferCommandsTest {
                 fileName = "upload.txt",
                 fetchPath = "/Public",
                 targetPath = "/Inbox",
+                password = "secret",
+                ftpPasswordRepository = ftpPasswords,
                 requestedQuantity = 2,
             ),
             metadata = CommandMetadata(connectionId = "local-conn", requestId = "ftp-put-1"),
@@ -157,6 +164,85 @@ class FtpTransferCommandsTest {
         }
 
         assertEquals("Target port 22 on TARGET-IP is not an FTP port for put.", failure.message)
+    }
+
+    @Test
+    fun getRejectsWrongRemoteFtpPasswordBeforeMutation() = runTest {
+        val localId = GameStateId("LOCAL-IP")
+        val targetId = GameStateId("TARGET-IP")
+        val ftpPasswords = InMemoryFtpPasswordRepository(mapOf(targetId to "secret"))
+        val repository = InMemoryComputerStateRepository(
+            seededStates = mapOf(
+                localId to localState(localId, files = emptyList()),
+                targetId to targetState(
+                    targetId,
+                    files = listOf(storedFile("/Secrets", "remote.log", quantity = 2, contents = "remote copy")),
+                ),
+            ),
+        )
+        val interests = InMemoryInterestRegistry().apply {
+            register("local-conn", localId)
+            register("target-conn", targetId)
+        }
+        val dispatcher = DefaultCommandDispatcher(repository, interests)
+
+        val failure = assertFailsWith<IllegalArgumentException> {
+            dispatcher.request(
+                command = GetFileCommand(
+                    requesterStateId = localId,
+                    targetStateId = targetId,
+                    portNumber = 17,
+                    fileName = "remote.log",
+                    fetchPath = "/Docs",
+                    targetPath = "/Secrets",
+                    password = "wrong",
+                    ftpPasswordRepository = ftpPasswords,
+                    requestedQuantity = 1,
+                ),
+            )
+        }
+
+        assertEquals("The password you provided to connect to this FTP site was incorrect.", failure.message)
+        assertNull(repository.load(localId)?.filesystem?.resolveFile("/Docs", "remote.log"))
+        assertEquals(2, repository.load(targetId)?.filesystem?.resolveFile("/Secrets", "remote.log")?.quantity)
+    }
+
+    @Test
+    fun putRejectsWrongRemoteFtpPasswordBeforeMutation() = runTest {
+        val localId = GameStateId("LOCAL-IP")
+        val targetId = GameStateId("TARGET-IP")
+        val ftpPasswords = InMemoryFtpPasswordRepository(mapOf(targetId to "secret"))
+        val repository = InMemoryComputerStateRepository(
+            seededStates = mapOf(
+                localId to localState(localId, files = listOf(storedFile("/Public", "upload.txt", quantity = 2))),
+                targetId to targetState(targetId, files = emptyList()),
+            ),
+        )
+        val interests = InMemoryInterestRegistry().apply {
+            register("local-conn", localId)
+            register("target-conn", targetId)
+        }
+        val dispatcher = DefaultCommandDispatcher(repository, interests)
+
+        val failure = assertFailsWith<IllegalArgumentException> {
+            dispatcher.request(
+                command = PutFileCommand(
+                    requesterStateId = localId,
+                    targetStateId = targetId,
+                    portNumber = 17,
+                    fileName = "upload.txt",
+                    fetchPath = "/Public",
+                    targetPath = "/Inbox",
+                    password = "wrong",
+                    ftpPasswordRepository = ftpPasswords,
+                    requestedQuantity = 1,
+                ),
+            )
+        }
+
+        assertEquals("The password you provided to connect to this FTP site was incorrect.", failure.message)
+        assertEquals(2, repository.load(localId)?.filesystem?.resolveFile("/Public", "upload.txt")?.quantity)
+        assertNull(repository.load(targetId)?.filesystem?.resolveFile("/Inbox", "upload.txt"))
     }
 
     private fun localState(

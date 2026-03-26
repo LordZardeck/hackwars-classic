@@ -95,6 +95,17 @@ class GameCoreContractsTest {
                     value = payload.value,
                 )
             }
+            .register("setftppassword") { input ->
+                val payload = RewriteGameJson.codec.decodeFromString(
+                    deserializer = SetFtpPasswordPayload.serializer(),
+                    string = input.payloadJson ?: error("Expected FTP password payload json."),
+                )
+                SetFtpPasswordCommand(
+                    stateId = input.targetStateIds.single(),
+                    password = payload.password,
+                    ftpPasswordRepository = InMemoryFtpPasswordRepository(),
+                )
+            }
 
         val scan = registry.requireCreate(
             CommandEnvelopeInput(
@@ -192,9 +203,33 @@ class GameCoreContractsTest {
                 metadata = CommandMetadata(),
             ),
         )
+        val setFtpPassword = registry.requireCreate(
+            CommandEnvelopeInput(
+                commandId = "ftp-pass-1",
+                commandName = "setftppassword",
+                targetStateIds = setOf(GameStateId("LOCAL-IP")),
+                payloadJson = RewriteGameJson.codec.encodeToString(
+                    serializer = SetFtpPasswordPayload.serializer(),
+                    value = SetFtpPasswordPayload(
+                        ip = "LOCAL-IP",
+                        password = "letmein",
+                    ),
+                ),
+                expectsResponse = true,
+                metadata = CommandMetadata(),
+            ),
+        )
 
         assertEquals(
-            setOf("requestscan", "changenetwork", "requestsearch", "fetchwatches", "installwatch", "setpreferences"),
+            setOf(
+                "requestscan",
+                "changenetwork",
+                "requestsearch",
+                "fetchwatches",
+                "installwatch",
+                "setpreferences",
+                "setftppassword",
+            ),
             registry.registeredNames(),
         )
         assertIs<RequestScanCommand>(scan)
@@ -203,5 +238,6 @@ class GameCoreContractsTest {
         assertIs<FetchWatchesCommand>(fetchWatches)
         assertIs<InstallWatchCommand>(installWatch)
         assertIs<SetPreferenceCommand>(setPreference)
+        assertIs<SetFtpPasswordCommand>(setFtpPassword)
     }
 }

@@ -158,6 +158,17 @@ interface ComputerStateRepository {
     suspend fun appendEvents(id: GameStateId, events: List<ComputerEvent>): ComputerState
 }
 
+interface FtpPasswordRepository {
+    suspend fun load(stateId: GameStateId): String?
+    suspend fun save(stateId: GameStateId, password: String?)
+}
+
+object NoOpFtpPasswordRepository : FtpPasswordRepository {
+    override suspend fun load(stateId: GameStateId): String? = null
+
+    override suspend fun save(stateId: GameStateId, password: String?) = Unit
+}
+
 class SnapshotCoordinator(
     val eventThreshold: Int = 50,
     val timeThreshold: Duration = 5.seconds,

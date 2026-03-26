@@ -89,6 +89,30 @@ class InMemoryComputerStateRepository(
     }
 }
 
+class InMemoryFtpPasswordRepository(
+    seededPasswords: Map<GameStateId, String?> = emptyMap(),
+) : FtpPasswordRepository {
+    private val passwords = seededPasswords
+        .mapNotNull { (stateId, password) -> password?.let { stateId to it } }
+        .toMap(mutableMapOf())
+    private val mutex = Mutex()
+
+    override suspend fun load(stateId: GameStateId): String? = mutex.withLock {
+        passwords[stateId]
+    }
+
+    override suspend fun save(stateId: GameStateId, password: String?) {
+        mutex.withLock {
+            val normalizedPassword = password?.takeUnless { it.isEmpty() }
+            if (normalizedPassword == null) {
+                passwords.remove(stateId)
+            } else {
+                passwords[stateId] = normalizedPassword
+            }
+        }
+    }
+}
+
 class InMemoryAttackProgramRegistry : AttackProgramRegistry {
     private val handlesByProgramId = mutableMapOf<String, ProgramHandle>()
     private val programIdsBySource = mutableMapOf<Pair<GameStateId, Int>, String>()

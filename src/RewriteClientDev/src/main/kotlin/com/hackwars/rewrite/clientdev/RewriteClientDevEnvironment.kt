@@ -24,6 +24,7 @@ import com.hackwars.rewrite.gamecore.InMemoryAttackProgramRegistry
 import com.hackwars.rewrite.gamecore.InMemoryCombatMaintenanceProgramRegistry
 import com.hackwars.rewrite.gamecore.InMemoryComputerStateRepository
 import com.hackwars.rewrite.gamecore.InMemoryDailyIncomeProgramRegistry
+import com.hackwars.rewrite.gamecore.InMemoryFtpPasswordRepository
 import com.hackwars.rewrite.gamecore.InMemoryInterestRegistry
 import com.hackwars.rewrite.gamecore.InMemoryNetworkDirectoryRepository
 import com.hackwars.rewrite.gamecore.InstalledApplication
@@ -115,6 +116,7 @@ class RewriteClientDevEnvironment(
         hookSideEffectSink = NoOpHookSideEffectSink,
         networkDirectoryRepository = networkDirectoryRepository,
         searchCatalogRepository = EmptySearchCatalogRepository,
+        ftpPasswordRepository = InMemoryFtpPasswordRepository(),
         attackProgramRegistry = attackProgramRegistry,
         dailyIncomeProgramRegistry = dailyIncomeProgramRegistry,
         combatMaintenanceProgramRegistry = combatMaintenanceProgramRegistry,

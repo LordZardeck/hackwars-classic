@@ -178,7 +178,7 @@
 - Verification scope: `./gradlew :RewriteHackScript:test :RewriteGameCore:test :RewritePersistence:test :RewriteGameServer:test :RewriteTestKit:integrationTest`
 
 ### RW-GS-T3 - Implement retained public FTP password transport
-- Status: `ready`
+- Status: `done`
 - Priority: `P1`
 - Execution lane: `profile_help`
 - Worker role: `worker`
@@ -245,7 +245,7 @@
 ## Client Unblock Map
 | Client task | Upstream server task(s) |
 | --- | --- |
-| `RW-CLIENT-W2C2` | `RW-GS-T1`, `RW-GS-T2`, `RW-GS-T3` |
+| `RW-CLIENT-W2C2` | `RW-GS-T2` |
 | `RW-CLIENT-W3C2` | `RW-GS-T5` |
 | `RW-CLIENT-W7B` | `RW-GS-T4` |
 | `RW-CLIENT-C9B` | `RW-GS-T6`, `RW-GS-T7` |

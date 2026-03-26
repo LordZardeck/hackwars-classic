@@ -34,6 +34,7 @@ import com.hackwars.rewrite.gamecore.HealPortResponse
 import com.hackwars.rewrite.gamecore.HardwareState
 import com.hackwars.rewrite.gamecore.InMemoryAttackProgramRegistry
 import com.hackwars.rewrite.gamecore.InMemoryComputerStateRepository
+import com.hackwars.rewrite.gamecore.InMemoryFtpPasswordRepository
 import com.hackwars.rewrite.gamecore.InMemoryInterestRegistry
 import com.hackwars.rewrite.gamecore.InMemoryNetworkDirectoryRepository
 import com.hackwars.rewrite.gamecore.InstalledApplication
@@ -3135,6 +3136,7 @@ class RewriteGameAttackProtocolAdapterTest {
                     coroutineScope = backgroundScope,
                 ),
             ),
+            ftpPasswordRepository = InMemoryFtpPasswordRepository(),
             interestRegistry = interests,
             serverId = "1",
             networkDirectoryRepository = InMemoryNetworkDirectoryRepository.defaultWorld("1"),

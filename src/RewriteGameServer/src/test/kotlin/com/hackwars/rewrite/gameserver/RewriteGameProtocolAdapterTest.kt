@@ -10,6 +10,7 @@ import com.hackwars.rewrite.gamecore.DecompileFilePayload
 import com.hackwars.rewrite.gamecore.DecompileFileResponse
 import com.hackwars.rewrite.gamecore.GameStateId
 import com.hackwars.rewrite.gamecore.InMemoryComputerStateRepository
+import com.hackwars.rewrite.gamecore.InMemoryFtpPasswordRepository
 import com.hackwars.rewrite.gamecore.InMemoryInterestRegistry
 import com.hackwars.rewrite.gamecore.InMemoryNetworkDirectoryRepository
 import com.hackwars.rewrite.gamecore.InstalledFirewall
@@ -20,6 +21,8 @@ import com.hackwars.rewrite.gamecore.RequestSecondaryDirectoryPayload
 import com.hackwars.rewrite.gamecore.RewriteGameJson
 import com.hackwars.rewrite.gamecore.SaveFilePayload
 import com.hackwars.rewrite.gamecore.SecondaryDirectoryListingResponse
+import com.hackwars.rewrite.gamecore.SetFtpPasswordPayload
+import com.hackwars.rewrite.gamecore.SetFtpPasswordResponse
 import com.hackwars.rewrite.gamecore.StateSectionsDeltaProjection
 import com.hackwars.rewrite.gamecore.StoredFile
 import com.hackwars.rewrite.gamecore.StoredFileKind
@@ -61,6 +64,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -307,6 +311,114 @@ class RewriteGameProtocolAdapterTest {
     }
 
     @Test
+    fun setFtpPasswordReturnsTypedResponseWithoutDeltaAndAppliesToTransfers() = runTest {
+        val seededLocal = localState().copy(
+            filesystem = localState().filesystem.saveFile(
+                StoredFile(
+                    path = buildFilePath("/Public", "upload.txt"),
+                    name = "upload.txt",
+                    kind = StoredFileKind.TEXT,
+                    contents = "local upload",
+                    quantity = 2,
+                ),
+            ),
+        )
+        val seededTarget = targetState().copy(
+            filesystem = targetState().filesystem.ensureDirectory("/Inbox"),
+        )
+        val fixture = createFixture(localState = seededLocal, targetState = seededTarget)
+        val target = fixture.authenticatedConnection("TARGET-IP")
+        val local = fixture.authenticatedConnection("LOCAL-IP")
+
+        target.send(
+            RewriteFrames.command(
+                commandId = "ftp-pass-1",
+                commandName = "setftppassword",
+                payload = RewriteGameJson.encode(
+                    serializer = SetFtpPasswordPayload.serializer(),
+                    value = SetFtpPasswordPayload(
+                        ip = "TARGET-IP",
+                        password = "vault",
+                    ),
+                ),
+                expectsResponse = true,
+            ),
+        )
+
+        val passwordResponseFrame = target.awaitFrame()
+        val passwordResponse = RewriteGameJson.decode(
+            serializer = SetFtpPasswordResponse.serializer(),
+            payload = passwordResponseFrame.command_response!!.payload.toByteArray(),
+        )
+
+        assertEquals("TARGET-IP", passwordResponse.stateId.value)
+        assertTrue(passwordResponse.passwordSet)
+        assertFalse(local.drainFrames().any { it.delta != null })
+
+        local.send(
+            RewriteFrames.command(
+                commandId = "put-bad-password",
+                commandName = "put",
+                payload = RewriteGameJson.encode(
+                    serializer = PutFilePayload.serializer(),
+                    value = PutFilePayload(
+                        ip = "LOCAL-IP",
+                        port = 17,
+                        name = "upload.txt",
+                        fetchPath = "/Public",
+                        putPath = "/Inbox",
+                        targetIp = "TARGET-IP",
+                        password = "wrong",
+                        quantity = 1,
+                    ),
+                ),
+                expectsResponse = true,
+            ),
+        )
+
+        val failure = local.awaitFrame()
+        assertEquals("COMMAND_FAILED", failure.command_response?.error?.code)
+        assertEquals(
+            "The password you provided to connect to this FTP site was incorrect.",
+            failure.command_response?.error?.message,
+        )
+        assertFalse(local.drainFrames().any { it.delta != null })
+
+        local.send(
+            RewriteFrames.command(
+                commandId = "put-good-password",
+                commandName = "put",
+                payload = RewriteGameJson.encode(
+                    serializer = PutFilePayload.serializer(),
+                    value = PutFilePayload(
+                        ip = "LOCAL-IP",
+                        port = 17,
+                        name = "upload.txt",
+                        fetchPath = "/Public",
+                        putPath = "/Inbox",
+                        targetIp = "TARGET-IP",
+                        password = "vault",
+                        quantity = 1,
+                    ),
+                ),
+                expectsResponse = true,
+            ),
+        )
+
+        val delta = local.awaitFrame()
+        val responseFrame = local.awaitFrame()
+        val response = RewriteGameJson.decode(
+            serializer = FtpTransferResponse.serializer(),
+            payload = responseFrame.command_response!!.payload.toByteArray(),
+        )
+
+        assertEquals(listOf("filesystem"), delta.delta?.delta_keys)
+        assertEquals("put", response.operation)
+        assertEquals(1, response.fulfilledQuantity)
+        assertEquals("vault", fixture.ftpPasswords.load(GameStateId("TARGET-IP")))
+    }
+
+    @Test
     fun saveCreateDeleteAndDeleteMultiFanOutFilesystemDeltas() = runTest {
         val fixture = createFixture()
         val primary = fixture.authenticatedConnection()
@@ -529,6 +641,7 @@ class RewriteGameProtocolAdapterTest {
     private fun TestScope.createFixture(
         localState: ComputerState = localState(),
         targetState: ComputerState = targetState(),
+        ftpPasswords: Map<GameStateId, String?> = emptyMap(),
     ): Fixture {
         val repository = InMemoryComputerStateRepository(
             seededStates = mapOf(
@@ -537,12 +650,14 @@ class RewriteGameProtocolAdapterTest {
             ),
         )
         val interests = InMemoryInterestRegistry()
+        val ftpPasswordRepository = InMemoryFtpPasswordRepository(ftpPasswords)
         val adapter = RewriteGameProtocolAdapter(
             dispatcher = DefaultCommandDispatcher(
                 repository = repository,
                 interestRegistry = interests,
             ),
             combatMaintenanceProgramRegistry = DisabledCombatMaintenanceProgramRegistry,
+            ftpPasswordRepository = ftpPasswordRepository,
             interestRegistry = interests,
             networkDirectoryRepository = InMemoryNetworkDirectoryRepository.defaultWorld("1"),
         )
@@ -550,6 +665,20 @@ class RewriteGameProtocolAdapterTest {
         val harness = InMemoryRewriteServiceHarness(
             adapter = harnessAdapter,
             verifier = FakeSessionTicketVerifier(
+                catalog = com.hackwars.rewrite.testkit.FakeSessionCatalog(
+                    accounts = listOf(
+                        com.hackwars.rewrite.testkit.FakePlayerAccount(
+                            playFabId = "PF-LOCALUSER",
+                            playerIp = "LOCAL-IP",
+                            sessionTicket = "SESSION-LOCALUSER",
+                        ),
+                        com.hackwars.rewrite.testkit.FakePlayerAccount(
+                            playFabId = "PF-TARGETUSER",
+                            playerIp = "TARGET-IP",
+                            sessionTicket = "SESSION-TARGETUSER",
+                        ),
+                    ),
+                ),
                 clock = { Instant.ofEpochMilli(testScheduler.currentTime) },
             ),
             scope = backgroundScope,
@@ -563,6 +692,7 @@ class RewriteGameProtocolAdapterTest {
         return Fixture(
             harness = harness,
             repository = repository,
+            ftpPasswords = ftpPasswordRepository,
         )
     }
 
@@ -685,11 +815,15 @@ class RewriteGameProtocolAdapterTest {
     }
 
     private fun authRequest(requestedIp: String = "LOCAL-IP"): FrameEnvelope {
+        val session = when (requestedIp) {
+            "TARGET-IP" -> "SESSION-TARGETUSER" to "PF-TARGETUSER"
+            else -> "SESSION-LOCALUSER" to "PF-LOCALUSER"
+        }
         return RewriteFrames.authRequest(
             service = RewriteService.GAME,
-            sessionTicket = "SESSION-LOCALUSER",
+            sessionTicket = session.first,
             clientBuild = "rewrite-it",
-            playFabIdHint = "PF-LOCALUSER",
+            playFabIdHint = session.second,
             requestedIp = requestedIp,
         )
     }
@@ -697,6 +831,7 @@ class RewriteGameProtocolAdapterTest {
     private data class Fixture(
         val harness: InMemoryRewriteServiceHarness,
         val repository: InMemoryComputerStateRepository,
+        val ftpPasswords: InMemoryFtpPasswordRepository,
     )
 
     private class HarnessBackedGameAdapter(

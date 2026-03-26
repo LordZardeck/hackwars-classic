@@ -11,6 +11,7 @@ import com.hackwars.rewrite.gamecore.FacebookTransferPayload
 import com.hackwars.rewrite.gamecore.FacebookWithdrawPayload
 import com.hackwars.rewrite.gamecore.GameStateId
 import com.hackwars.rewrite.gamecore.InMemoryComputerStateRepository
+import com.hackwars.rewrite.gamecore.InMemoryFtpPasswordRepository
 import com.hackwars.rewrite.gamecore.InMemoryInterestRegistry
 import com.hackwars.rewrite.gamecore.InMemoryNetworkDirectoryRepository
 import com.hackwars.rewrite.gamecore.InstalledApplication
@@ -391,6 +392,7 @@ class RewriteGameEconomyStoreProtocolAdapterTest {
                 interestRegistry = interests,
             ),
             combatMaintenanceProgramRegistry = DisabledCombatMaintenanceProgramRegistry,
+            ftpPasswordRepository = InMemoryFtpPasswordRepository(),
             interestRegistry = interests,
             serverId = "1",
             networkDirectoryRepository = InMemoryNetworkDirectoryRepository.defaultWorld("1"),

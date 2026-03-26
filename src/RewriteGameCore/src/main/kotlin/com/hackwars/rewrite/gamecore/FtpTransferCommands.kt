@@ -49,6 +49,8 @@ class GetFileCommand(
     private val fileName: String,
     private val fetchPath: String?,
     private val targetPath: String?,
+    private val password: String? = null,
+    private val ftpPasswordRepository: FtpPasswordRepository = NoOpFtpPasswordRepository,
     private val requestedQuantity: Int = 1,
     private val clock: () -> Long = { System.currentTimeMillis() },
 ) : RequestCommand<FtpTransferResponse> {
@@ -68,6 +70,12 @@ class GetFileCommand(
             portNumber = portNumber,
             now = clock(),
             commandName = name,
+        )
+        requireMatchingFtpPassword(
+            requesterStateId = requesterStateId,
+            targetStateId = targetStateId,
+            providedPassword = password,
+            ftpPasswordRepository = ftpPasswordRepository,
         )
 
         val remoteDirectory = normalizeDirectoryPath(targetPath, targetState.filesystem.currentPath)
@@ -109,6 +117,8 @@ class PutFileCommand(
     private val fileName: String,
     private val fetchPath: String?,
     private val targetPath: String?,
+    private val password: String? = null,
+    private val ftpPasswordRepository: FtpPasswordRepository = NoOpFtpPasswordRepository,
     private val requestedQuantity: Int = 1,
     private val clock: () -> Long = { System.currentTimeMillis() },
 ) : RequestCommand<FtpTransferResponse> {
@@ -128,6 +138,12 @@ class PutFileCommand(
             portNumber = portNumber,
             now = clock(),
             commandName = name,
+        )
+        requireMatchingFtpPassword(
+            requesterStateId = requesterStateId,
+            targetStateId = targetStateId,
+            providedPassword = password,
+            ftpPasswordRepository = ftpPasswordRepository,
         )
 
         val localDirectory = normalizeDirectoryPath(fetchPath, requesterState.filesystem.currentPath)
@@ -249,4 +265,22 @@ internal fun ComputerState.requireRemoteFtpPortAccess(
         "Target port $portNumber on ${id.value} is not an FTP port for $commandName."
     }
     return portState
+}
+
+private suspend fun requireMatchingFtpPassword(
+    requesterStateId: GameStateId,
+    targetStateId: GameStateId,
+    providedPassword: String?,
+    ftpPasswordRepository: FtpPasswordRepository,
+) {
+    if (requesterStateId == targetStateId) {
+        return
+    }
+    val expectedPassword = ftpPasswordRepository.load(targetStateId).orEmpty()
+    if (expectedPassword.isEmpty()) {
+        return
+    }
+    require(providedPassword.orEmpty() == expectedPassword) {
+        "The password you provided to connect to this FTP site was incorrect."
+    }
 }
