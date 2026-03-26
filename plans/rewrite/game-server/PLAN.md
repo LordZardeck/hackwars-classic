@@ -138,7 +138,7 @@
 - Verification scope: `./gradlew :RewriteHackScript:test :RewriteGameCore:test :RewriteGameServer:test`
 
 ### RW-GS-F5 - Attack, redirect, and zombie runtime foundation
-- Status: `in_progress`
+- Status: `done`
 - Priority: `P1`
 - Execution lane: `combat_runtime`
 - Worker role: `worker`
@@ -217,7 +217,7 @@
 - Verification scope: `./gradlew :RewriteGameCore:test :RewriteGameServer:test :RewriteTestKit:integrationTest`
 
 ### RW-GS-T6 - Close retained attack and redirect runtime finalizers and protocol parity
-- Status: `blocked`
+- Status: `ready`
 - Priority: `P1`
 - Execution lane: `combat_runtime`
 - Worker role: `worker`

@@ -3,7 +3,7 @@
 ## Status Dashboard
 - Active mode: `autonomous_rewrite_execution`
 - Current pass: `Pass 1 - Cross-cutting foundations`
-- Current milestone focus: `M5 - Game-core and retained runtime foundations`
+- Current milestone focus: `M6 - Retained game-server transport completion`
 - Coordinator stop rule: continue until `M11` is `done`, or until the only remaining work is `blocked_external`
 - Parallel saturation target: `8` active subagents, or the maximum safe non-overlapping count when fewer than `8` disjoint tasks exist
 
@@ -85,7 +85,7 @@
 | `M2` Evidence and inventory closure | `done` | Feature inventory rows are complete for retained scope, every row has legacy references and parity acceptance, and known gaps are tracked without ambiguity. |
 | `M3` Transport and offline harness foundations | `done` | Frame codec, fake auth, deterministic transport harness, and dev bootstrap seams exist and stay green. |
 | `M4` Persistence and importer foundations | `done` | Canonical schema slices, importer scaffolding, and migration validation are complete for retained scope. |
-| `M5` Game-core and retained runtime foundations | `in_progress` | Typed contracts, scheduler/runtime basics, and retained server foundations are implemented and verified. |
+| `M5` Game-core and retained runtime foundations | `done` | Typed contracts, scheduler/runtime basics, and retained server foundations are implemented and verified. |
 | `M6` Retained game-server transport completion | `in_progress` | Every retained client blocker that needs new GAME transport has a concrete game-server task and verified implementation. |
 | `M7` Chat-server completion | `todo` | Chat contracts, bootstrap, channels, moderation, messaging, relations, and parity events are implemented and verified. |
 | `M8` Client MVC and parity recovery foundations | `in_progress` | Strict MVC framework, look and feel, parity assets, IPv4 identity cleanup, screenshot harness, and shell/login recovery are in place. `Base MVC` means view-only Swing classes, immutable view models, and controller-owned listeners/state wiring. |
