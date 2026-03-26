@@ -31,6 +31,7 @@ ext {
             ':RewriteGameServer',
             ':RewriteChatServer',
             ':RewriteClient',
+            ':RewriteClientDev',
     ]
 }
 
@@ -252,4 +253,10 @@ tasks.register('rewriteAll') {
     group = 'verification'
     description = 'Alias for the full rewrite scaffold verification suite.'
     dependsOn 'rewriteCheck'
+}
+
+tasks.register('rewriteClientDev') {
+    group = 'application'
+    description = 'Runs the deterministic rewrite client dev launcher.'
+    dependsOn ':RewriteClientDev:run'
 }

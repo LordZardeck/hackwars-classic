@@ -1,9 +1,9 @@
 apply from: "${rootDir}/src/RewriteBuildLogic/gradle/rewrite-application.gradle"
 
-description = 'Rewrite Swing client application.'
+description = 'Deterministic local dev launcher for the rewrite Swing client.'
 
 application {
-    mainClass = 'com.hackwars.rewrite.client.RewriteClientKt'
+    mainClass = 'com.hackwars.rewrite.clientdev.RewriteClientDevKt'
 }
 
 repositories {
@@ -23,12 +23,10 @@ repositories {
 }
 
 dependencies {
-    implementation project(':RewriteProtocol')
+    implementation project(':RewriteClient')
     implementation project(':RewriteClientModel')
-    implementation 'com.playfab:client-sdk:0.256.260313@jar'
-    implementation 'com.google.code.gson:gson:2.10.1'
-    implementation 'com.github.weisj:jsvg:1.7.0'
+    implementation project(':RewriteGameCore')
+    implementation project(':RewriteGameServer')
+    implementation project(':RewriteTestKit')
     implementation "org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2"
-
-    uiTestImplementation project(':RewriteClientDev')
 }

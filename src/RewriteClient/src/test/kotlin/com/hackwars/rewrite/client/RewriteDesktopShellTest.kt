@@ -33,11 +33,10 @@ class RewriteDesktopShellTest {
         assertEquals("Hacking Tools", hackingToolsMenu.text)
         assertEquals(listOf("Port Scan", "Attack Port", "Redirect Port", "Zombie Attack"), menuItemTexts(hackingToolsMenu))
         assertEquals(
-            listOf("Script Editor", "Create Bounty", "Hacktendo Game Creator"),
+            listOf("Script Editor", "Create Bounty"),
             listOf(
                 applicationsMenu.getMenuComponent(3),
                 applicationsMenu.getMenuComponent(4),
-                applicationsMenu.getMenuComponent(5),
             ).map { component -> (component as JMenuItem).text },
         )
     }

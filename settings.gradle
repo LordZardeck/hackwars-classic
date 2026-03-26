@@ -68,3 +68,6 @@ project(':RewriteChatServer').projectDir = file('src/RewriteChatServer')
 
 include ':RewriteClient'
 project(':RewriteClient').projectDir = file('src/RewriteClient')
+
+include ':RewriteClientDev'
+project(':RewriteClientDev').projectDir = file('src/RewriteClientDev')

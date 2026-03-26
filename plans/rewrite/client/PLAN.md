@@ -100,6 +100,19 @@
   - Merges decoded game/chat notices into the shell message surfaces only after `RW-CLIENT-001B2` lands.
   - Popup/dialog routing and bottom-shell messaging stay together in this tranche.
 
+### RW-CLIENT-004 - Deterministic rewrite client dev run mode and backlog cleanup
+- Status: `in_progress`
+- Owner: `unassigned`
+- Depends on: `RW-CLIENT-003A`, `RW-CLIENT-002`
+- Allowed write scope: `:RewriteClientDev`, `:RewriteClient`, `:RewriteClientModel`, `:RewriteTestKit`, root Gradle/docs
+- Verification command: `./gradlew :RewriteClientDev:test :RewriteClient:test :RewriteClient:uiTest`
+- Artifacts: `build/reports/tests/test`
+- Commit rule: `single green commit only`
+- Notes:
+  - Adds a deterministic rewrite client dev launcher that uses the real in-memory GAME adapter path without PlayFab or a live rewrite server.
+  - Keeps `:RewriteClient:run` unchanged as the live-edge path while exposing `:RewriteClientDev:run` and the root alias `rewriteClientDev`.
+  - Removes Hacktendo and Command Prompt from rewrite client scope, and keeps `Set Public FTP Password` plus `RW-CLIENT-W2C2` blocked on missing rewrite transport.
+
 ## Window Family Lanes
 ### RW-CLIENT-W1A - Deposit, withdraw, and transfer windows plus correlated economy command responses
 - Status: `done`
@@ -322,7 +335,7 @@
   - Preserve channel, whisper, and relation semantics.
 
 ### RW-CLIENT-W7A - Preferences, log window, and startup utility preferences
-- Status: `in_progress`
+- Status: `done`
 - Owner: `unassigned`
 - Depends on: `RW-CLIENT-003A`
 - Allowed write scope: `:RewriteClient/client/utilities/**`
@@ -333,7 +346,7 @@
   - Owns the rewrite-backed utility slice first: `Preferences...`, `Log Window`, and startup preference application for rewrite-backed windows.
   - Persists the full legacy preference taxonomy through `setpreferences`, but only `network` and `logwindow` have live behavior in this slice.
 
-### RW-CLIENT-W7B - Command Prompt, Personal Settings, and remaining utility follow-up
+### RW-CLIENT-W7B - Personal Settings and remaining utility follow-up
 - Status: `todo`
 - Owner: `unassigned`
 - Depends on: `RW-CLIENT-W7A`
@@ -342,19 +355,8 @@
 - Artifacts: `build/reports/rewrite/ui`
 - Commit rule: `single green commit only`
 - Notes:
-  - Owns `Command Prompt`, `Personal Settings`, and the remaining non-chat shell utility follow-up.
+  - Owns `Personal Settings` and any remaining rewrite-backed non-chat utility follow-up once supporting profile data or mutation transport exists.
   - `Help` and `Tutorial` stay in `RW-CLIENT-W3C`, and public-FTP password remains blocked until rewrite transport exists.
-
-### RW-CLIENT-W8 - Hacktendo creator and player
-- Status: `todo`
-- Owner: `unassigned`
-- Depends on: `RW-CLIENT-003A`
-- Allowed write scope: `:RewriteClient/client/hacktendo/**`
-- Verification command: `./gradlew :RewriteClient:test :RewriteClient:uiTest`
-- Artifacts: `build/reports/rewrite/ui`
-- Commit rule: `single green commit only`
-- Notes:
-  - Includes currently broken-but-required player launch parity.
 
 ## Verification Gates
 - Every family needs isolated controller tests.

@@ -143,9 +143,18 @@ Run one module’s tests:
 
 Manual testing is still useful, especially for areas not yet covered by automation.
 
-If you need to run the app manually, start with:
+For rewrite client investigation, start with:
 
-- [LOCAL_RUN.md](/Users/lordzardeck/.codex/worktrees/306e/hackwars-classic-original/LOCAL_RUN.md)
+- `./gradlew rewriteClientDev`
+- [LOCAL_RUN.md](/Users/lordzardeck/.codex/worktrees/47a1/hackwars-classic-original/LOCAL_RUN.md)
+
+That path is the quickest way to reach a usable seeded desktop without PlayFab or a live rewrite server.
+
+Use `:RewriteClient:run` only when you explicitly need the live-edge rewrite client wiring.
+
+If you need to run the legacy stack manually, start with:
+
+- [LOCAL_RUN.md](/Users/lordzardeck/.codex/worktrees/47a1/hackwars-classic-original/LOCAL_RUN.md)
 
 The long-term direction is to keep moving important gameplay and client workflows out of manual-only verification and into the automated layers above.
 

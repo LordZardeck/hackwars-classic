@@ -1,8 +1,47 @@
 # HackWars Classic Local Run
 
-This repo contains a legacy MySQL JDBC driver that is compatible with MySQL 5.7, not MySQL 8.
+## 1. Rewrite Client Dev Mode
 
-## 1) Start Compatible MySQL (Docker)
+This is the recommended local investigation path for the rewrite desktop client. It does not require PlayFab or a live rewrite server, and it boots against a deterministic in-memory GAME harness with seeded data.
+
+Run either command from the repository root:
+
+```bash
+./gradlew rewriteClientDev
+```
+
+or
+
+```bash
+./gradlew :RewriteClientDev:run
+```
+
+Use these locked credentials at the login screen:
+
+- email: `localuser`
+- password: `password1234`
+
+Important notes:
+
+- `:RewriteClient:run` is still the live-edge rewrite client path and is unchanged by dev mode.
+- `:RewriteGameServer:run` is currently scaffold-only and is not a usable local gameplay backend.
+- Dev mode is GAME-only in this slice; CHAT remains out of scope.
+
+## 2. Live-Edge Rewrite Client
+
+If you specifically need the live-edge rewrite client wiring rather than the deterministic harness, launch:
+
+```bash
+./gradlew :RewriteClient:run
+```
+
+This path still expects the current live service dependencies and is not the recommended manual investigation path.
+
+## 3. Legacy Stack
+
+The legacy client/server stack below still relies on MySQL 5.7 compatibility, not MySQL 8.
+
+### Start Compatible MySQL (Docker)
 
 ```bash
 open -a OrbStack
@@ -22,7 +61,7 @@ docker logs -f hackwars-mysql57
 
 Stop tailing when you see: `ready for connections`.
 
-## 2) Import Databases
+### Import Databases
 
 ```bash
 mkdir -p /tmp/hwdb_20260312
@@ -37,7 +76,7 @@ mysql -h 127.0.0.1 -P 3306 -u root < /tmp/hwdb_20260312/chat.sql
 mysql -h 127.0.0.1 -P 3306 -u root < /tmp/hwdb_20260312/hackwars_drupal.sql
 ```
 
-## 3) Run Socket Services (2 terminals)
+### Run Socket Services (2 terminals)
 
 Terminal A:
 
@@ -51,13 +90,13 @@ Terminal B:
 ./gradlew :ChatServer:runChatServer
 ```
 
-## 4) Launch Client
+### Launch Client
 
 ```bash
 ./gradlew :Client:runClientDesktop
 ```
 
-## 5) Build Native Client App (Current OS)
+### Build Native Client App (Current OS)
 
 ```bash
 ./gradlew :Client:packageClientNative

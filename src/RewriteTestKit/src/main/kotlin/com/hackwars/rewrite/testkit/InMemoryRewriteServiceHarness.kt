@@ -102,6 +102,10 @@ class InMemoryClientConnection internal constructor(
         }
     }
 
+    suspend fun receiveNextFrame(): FrameEnvelope? {
+        return outbound.receiveCatching().getOrNull()
+    }
+
     fun drainFrames(): List<FrameEnvelope> {
         val drained = mutableListOf<FrameEnvelope>()
         while (true) {

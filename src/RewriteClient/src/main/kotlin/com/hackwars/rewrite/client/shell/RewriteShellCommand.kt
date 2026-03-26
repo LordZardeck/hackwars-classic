@@ -16,7 +16,6 @@ enum class RewriteShellCommand(
     ZOMBIE_ATTACK("Zombie Attack", listOf("Applications", "Hacking Tools")),
     SCRIPT_EDITOR("Script Editor", listOf("Applications")),
     CREATE_BOUNTY("Create Bounty", listOf("Applications")),
-    HACKTENDO_GAME_CREATOR("Hacktendo Game Creator", listOf("Applications")),
     SHOP_FTP("Shop FTP", listOf("Places")),
     PUBLIC_FTP("Public FTP", listOf("Places")),
     HOME("Home", listOf("Places")),

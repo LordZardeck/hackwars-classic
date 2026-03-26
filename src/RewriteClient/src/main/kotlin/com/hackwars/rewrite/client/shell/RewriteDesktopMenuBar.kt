@@ -57,7 +57,6 @@ class RewriteDesktopMenuBar(
             )
             add(commandItem(RewriteShellCommand.SCRIPT_EDITOR))
             add(commandItem(RewriteShellCommand.CREATE_BOUNTY))
-            add(commandItem(RewriteShellCommand.HACKTENDO_GAME_CREATOR))
         }
     }
 
