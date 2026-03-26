@@ -20,6 +20,9 @@ import com.hackwars.rewrite.protocol.ClientTextMessageUiEvent
 import com.hackwars.rewrite.protocol.ClientWatchKind
 import com.hackwars.rewrite.protocol.ClientWatchManagerState
 import com.hackwars.rewrite.protocol.ClientInstalledWatch
+import com.hackwars.rewrite.protocol.ClientNetworkState
+import com.hackwars.rewrite.protocol.ClientNpcCategory
+import com.hackwars.rewrite.protocol.ClientNpcDirectoryEntry
 import com.hackwars.rewrite.protocol.ClientZombieAttackUiEvent
 import com.hackwars.rewrite.protocol.RewriteClientJson
 import com.hackwars.rewrite.protocol.ConnectionLifecycleState
@@ -272,6 +275,104 @@ class RewriteClientModelTest {
         assertTrue(decoded.shellState?.filesystem?.filesByPath?.containsKey("/Public/notes.txt") == true)
         assertEquals(11, decoded.shellState?.runtime?.countdownSeconds)
         assertIs<ClientGameSectionsProjection>(decoded.lastDelta?.projection)
+    }
+
+    @Test
+    fun networkSnapshotAndDeltaMergeWithoutWipingOtherSections() {
+        val store = RewriteClientStore()
+        val snapshot = ClientGameSnapshot(
+            id = "LOCAL-IP",
+            version = 7,
+            economy = com.hackwars.rewrite.protocol.ClientEconomyState(
+                pettyCash = 125.0,
+                bankMoney = 25.0,
+            ),
+            network = ClientNetworkState(
+                currentNetworkName = "UGOPNet",
+                allowedNetworks = setOf("ProgNet"),
+                regularNpcs = listOf(
+                    ClientNpcDirectoryEntry(
+                        stateId = "ATTACK-NPC-1",
+                        displayName = "Root Attacker",
+                        title = "Attack NPC",
+                        category = ClientNpcCategory.REGULAR,
+                    ),
+                ),
+            ),
+        )
+        val delta = ClientGameSectionsProjection(
+            network = ClientNetworkState(
+                currentNetworkName = "ProgNet",
+                allowedNetworks = setOf("UGOPNet"),
+                regularNpcs = listOf(
+                    ClientNpcDirectoryEntry(
+                        stateId = "PROG-ATTACK-1",
+                        displayName = "Prog Runner",
+                        title = "Attack NPC",
+                        category = ClientNpcCategory.REGULAR,
+                    ),
+                ),
+            ),
+        )
+
+        store.recordInboundFrame(
+            service = RewriteService.GAME,
+            frame = RewriteFrames.snapshot(
+                gameStateId = "LOCAL-IP",
+                sequence = 7,
+                payload = RewriteClientJson.encode(ClientGameSnapshot.serializer(), snapshot),
+            ),
+        )
+        store.recordInboundFrame(
+            service = RewriteService.GAME,
+            frame = RewriteFrames.delta(
+                gameStateId = "LOCAL-IP",
+                sequence = 8,
+                changedPaths = listOf("network.currentNetworkName"),
+                deltaKeys = listOf("network"),
+                payload = RewriteClientJson.encode(ClientGameDeltaProjection.serializer(), delta),
+            ),
+        )
+
+        val decoded = store.snapshot().game.decodedGame
+        assertEquals("ProgNet", decoded.shellState?.network?.currentNetworkName)
+        assertEquals(setOf("UGOPNet"), decoded.shellState?.network?.allowedNetworks)
+        assertEquals("Prog Runner", decoded.shellState?.network?.regularNpcs?.single()?.displayName)
+        assertEquals(125.0, decoded.shellState?.economy?.pettyCash)
+    }
+
+    @Test
+    fun malformedNetworkPayloadStaysRawAndDoesNotCorruptPriorDecodedState() {
+        val store = RewriteClientStore()
+        val snapshot = ClientGameSnapshot(
+            id = "LOCAL-IP",
+            version = 7,
+            network = ClientNetworkState(currentNetworkName = "UGOPNet"),
+        )
+
+        store.recordInboundFrame(
+            service = RewriteService.GAME,
+            frame = RewriteFrames.snapshot(
+                gameStateId = "LOCAL-IP",
+                sequence = 7,
+                payload = RewriteClientJson.encode(ClientGameSnapshot.serializer(), snapshot),
+            ),
+        )
+        store.recordInboundFrame(
+            service = RewriteService.GAME,
+            frame = RewriteFrames.delta(
+                gameStateId = "LOCAL-IP",
+                sequence = 8,
+                changedPaths = listOf("network.currentNetworkName"),
+                deltaKeys = listOf("network"),
+                payload = "{".encodeToByteArray(),
+            ),
+        )
+
+        val state = store.snapshot().game
+        assertEquals("UGOPNet", state.decodedGame.shellState?.network?.currentNetworkName)
+        assertEquals(FramePayloadType.DELTA, state.inbox.lastDelta?.payloadType)
+        assertTrue(state.decodedGame.decodeErrors.isNotEmpty())
     }
 
     @Test

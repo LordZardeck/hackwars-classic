@@ -165,7 +165,7 @@
 ### RW-CLIENT-W2C - Shop FTP and Public FTP remote-directory plus transfer UI
 - Status: `todo`
 - Owner: `unassigned`
-- Depends on: `RW-CLIENT-W2A`, `RW-CLIENT-W5`
+- Depends on: `RW-CLIENT-W2A`, `RW-CLIENT-W5B`
 - Allowed write scope: `:RewriteClient/client/files/**`, `:RewriteClient/client/network/**`
 - Verification command: `./gradlew :RewriteClient:test :RewriteClient:uiTest`
 - Artifacts: `build/reports/rewrite/ui`
@@ -238,7 +238,7 @@
   - Equipment repair, equipment removal, and firewall removal remain deferred until rewrite transport exists.
 
 ### RW-CLIENT-W4C - Watch Manager plus watch protocol decode and mutations
-- Status: `in_progress`
+- Status: `done`
 - Owner: `unassigned`
 - Depends on: `RW-CLIENT-W4A`
 - Allowed write scope: `:RewriteProtocol`, `:RewriteClient/client/systems/**`, `:RewriteClient`
@@ -249,17 +249,41 @@
   - Owns `fetchwatches` plus watch mutation decode/dispatch and the real rewrite `Watch Manager`.
   - Selector updates must be fine-grained by watched value, not whole-state blasts.
 
-### RW-CLIENT-W5 - Network, scan, attack, redirect, zombie windows
-- Status: `todo`
+### RW-CLIENT-W5A - Network window, network-state decode, and port scan foundation
+- Status: `in_progress`
 - Owner: `unassigned`
 - Depends on: `RW-CLIENT-003A`
-- Allowed write scope: `:RewriteClient/client/network/**`
-- Verification command: `./gradlew :RewriteClient:test :RewriteClient:uiTest`
+- Allowed write scope: `:RewriteProtocol`, `:RewriteClientModel`, `:RewriteClient/client/network/**`, `:RewriteClient`
+- Verification command: `./gradlew :RewriteProtocol:test :RewriteClientModel:test :RewriteClient:test :RewriteClient:uiTest`
 - Artifacts: `build/reports/rewrite/ui`
 - Commit rule: `single green commit only`
 - Notes:
-  - Scan uses one-shot response flow.
-  - Attack windows bind to long-running program updates plus deltas.
+  - Owns decoded rewrite `network` state, `changenetwork`, and one-shot `requestscan`.
+  - Replaces the `Network` and `Port Scan` placeholders with real rewrite-owned windows.
+
+### RW-CLIENT-W5B - Attack Port and Redirect Port windows plus attack-file chooser follow-up
+- Status: `todo`
+- Owner: `unassigned`
+- Depends on: `RW-CLIENT-W5A`, `RW-CLIENT-W2A`
+- Allowed write scope: `:RewriteProtocol`, `:RewriteClient/client/network/**`, `:RewriteClient`
+- Verification command: `./gradlew :RewriteProtocol:test :RewriteClient:test :RewriteClient:uiTest`
+- Artifacts: `build/reports/rewrite/ui`
+- Commit rule: `single green commit only`
+- Notes:
+  - Owns `requestattack`, `requestcancelattack`, attack/redirect panes, `show_choices`, and the shared remote-target chooser follow-up.
+  - `RW-CLIENT-W2C` depends on this slice because remote transfer and attack-family follow-up share the same secondary-directory targeting surface.
+
+### RW-CLIENT-W5C - Zombie Attack launcher and pane
+- Status: `todo`
+- Owner: `unassigned`
+- Depends on: `RW-CLIENT-W5A`
+- Allowed write scope: `:RewriteProtocol`, `:RewriteClient/client/network/**`, `:RewriteClient`
+- Verification command: `./gradlew :RewriteProtocol:test :RewriteClient:test :RewriteClient:uiTest`
+- Artifacts: `build/reports/rewrite/ui`
+- Commit rule: `single green commit only`
+- Notes:
+  - Owns `requestzombieattack` and `requestzombiecancelattack` plus the rewrite zombie-attack launcher/pane.
+  - Keeps the longer-running zombie program lifecycle isolated from the initial decode-and-discovery slice in `RW-CLIENT-W5A`.
 
 ### RW-CLIENT-W6 - Chat shell, relations, and messaging views
 - Status: `todo`

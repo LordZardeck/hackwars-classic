@@ -90,6 +90,46 @@ class RewriteClientJsonTest {
                   }
                 }
               },
+              "network":{
+                "currentNetworkName":"UGOPNet",
+                "storeStateId":"store1",
+                "allowedNetworks":["ProgNet"],
+                "lastNetworkSwitchAtEpochMillis":12,
+                "regularNpcs":[
+                  {
+                    "stateId":"ATTACK-NPC-1",
+                    "displayName":"Root Attacker",
+                    "title":"Attack NPC",
+                    "category":"REGULAR"
+                  }
+                ],
+                "questNpcs":[
+                  {
+                    "stateId":"QUEST-NPC-1",
+                    "displayName":"Quest Guide",
+                    "title":"Quest NPC",
+                    "category":"QUEST"
+                  }
+                ],
+                "miningNpcs":[
+                  {
+                    "stateId":"MINE-NPC-1",
+                    "displayName":"Miner One",
+                    "title":"Mining NPC",
+                    "category":"MINING",
+                    "commodity":"Silicon"
+                  }
+                ],
+                "storeNpcs":[
+                  {
+                    "stateId":"store1",
+                    "displayName":"Shard Store",
+                    "title":"Store NPC",
+                    "category":"STORE"
+                  }
+                ],
+                "ignoredNetworkField":"ignored"
+              },
               "website":{"title":"Homepage","body":"Welcome","voteCount":3,"votesAvailable":1},
               "preferences":{"values":{"show_tutorials":"true"}},
               "stats":{"experienceByFamily":{"ATTACK":10.0},"totalLevel":2,"noobProtectionLevel":1},
@@ -111,6 +151,9 @@ class RewriteClientJsonTest {
         assertEquals("/Public", decoded.filesystem.currentPath)
         assertTrue(decoded.filesystem.directoriesByPath.containsKey("/Public"))
         assertEquals("HTTP", decoded.filesystem.filesByPath["/Public/http.bin"]?.compiledBinary?.applicationKind?.name)
+        assertEquals("UGOPNet", decoded.network.currentNetworkName)
+        assertEquals(setOf("ProgNet"), decoded.network.allowedNetworks)
+        assertEquals("Root Attacker", decoded.network.regularNpcs.single().displayName)
         assertEquals("Homepage", decoded.website.title)
         assertEquals("true", decoded.preferences.values["show_tutorials"])
         assertEquals(12, decoded.runtime.countdownSeconds)
@@ -122,6 +165,10 @@ class RewriteClientJsonTest {
             {
               "type":"state_sections",
               "economy":{"pettyCash":250.0,"bankMoney":15.0},
+              "network":{
+                "currentNetworkName":"ProgNet",
+                "allowedNetworks":["UGOPNet"]
+              },
               "runtime":{"countdownSeconds":11,"currentCpuLoad":9.0},
               "extraSection":"ignored"
             }
@@ -170,6 +217,7 @@ class RewriteClientJsonTest {
 
         assertIs<ClientGameSectionsProjection>(delta)
         assertEquals(250.0, delta.economy?.pettyCash)
+        assertEquals("ProgNet", delta.network?.currentNetworkName)
         assertIs<ClientGameStateSummaryProjection>(summary)
         assertEquals(9, summary.version)
         assertEquals(ClientProgramLifecycleStatus.RUNNING, program.status)
@@ -218,6 +266,74 @@ class RewriteClientJsonTest {
         assertEquals("/Public/Archive", response.directories.single().path)
         assertEquals("readme.txt", response.files.single().name)
         assertEquals(14, response.version)
+    }
+
+    @Test
+    fun decodesCurrentRewriteNetworkAndScanResponseShapes() {
+        val networkSwitchPayload = """
+            {
+              "stateId":"LOCAL-IP",
+              "requestedNetworkName":"ProgNet",
+              "currentNetworkName":"ProgNet",
+              "storeStateId":"store1",
+              "accepted":true,
+              "message":"Changed network to ProgNet.",
+              "version":9,
+              "ignored":"ignored"
+            }
+        """.trimIndent().encodeToByteArray()
+        val scanPayload = """
+            {
+              "requesterStateId":"LOCAL-IP",
+              "targetStateId":"10.0.0.8",
+              "accepted":true,
+              "chargedAmount":10.0,
+              "experienceAwarded":60.0,
+              "pettyCashAfter":90.0,
+              "scanningExperienceAfter":60.0,
+              "ports":[
+                {
+                  "number":6,
+                  "type":"Bank",
+                  "enabled":true,
+                  "dummy":false,
+                  "attacking":false,
+                  "cpuCost":3.0,
+                  "maxCpuCost":10.0,
+                  "health":88.0,
+                  "note":"LOCAL-IP",
+                  "defaultVisibility":"YES",
+                  "firewall":{
+                    "name":"Guard",
+                    "kind":"BASIC",
+                    "maker":"LOCAL-IP",
+                    "strength":25,
+                    "cpuCost":1.5
+                  },
+                  "ignored":"ignored"
+                }
+              ],
+              "requesterVersion":5,
+              "ignored":"ignored"
+            }
+        """.trimIndent().encodeToByteArray()
+
+        val networkSwitch = RewriteClientJson.decode(
+            ClientNetworkSwitchResponse.serializer(),
+            networkSwitchPayload,
+        )
+        val scan = RewriteClientJson.decode(
+            ClientScanResponse.serializer(),
+            scanPayload,
+        )
+
+        assertTrue(networkSwitch.accepted)
+        assertEquals("ProgNet", networkSwitch.currentNetworkName)
+        assertEquals("store1", networkSwitch.storeStateId)
+        assertTrue(scan.accepted)
+        assertEquals(10.0, scan.chargedAmount)
+        assertEquals(ClientDefaultPortVisibility.YES, scan.ports.single().defaultVisibility)
+        assertEquals("Guard", scan.ports.single().firewall?.name)
     }
 
     @Test

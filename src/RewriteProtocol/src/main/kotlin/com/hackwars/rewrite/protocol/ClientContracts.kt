@@ -31,6 +31,7 @@ data class ClientGameSnapshot(
     val ports: List<ClientPortState> = emptyList(),
     val watches: ClientWatchManagerState = ClientWatchManagerState(),
     val filesystem: ClientFilesystemState = ClientFilesystemState(),
+    val network: ClientNetworkState = ClientNetworkState(),
     val website: ClientWebsiteState = ClientWebsiteState(),
     val preferences: ClientPreferenceState = ClientPreferenceState(),
     val stats: ClientPlayerStatsState = ClientPlayerStatsState(),
@@ -52,6 +53,35 @@ data class ClientFilesystemState(
     val currentPath: String = "/",
     val directoriesByPath: Map<String, ClientDirectoryEntry> = emptyMap(),
     val filesByPath: Map<String, ClientStoredFile> = emptyMap(),
+)
+
+@Serializable
+enum class ClientNpcCategory {
+    REGULAR,
+    QUEST,
+    MINING,
+    STORE,
+}
+
+@Serializable
+data class ClientNpcDirectoryEntry(
+    val stateId: String = "",
+    val displayName: String = "",
+    val title: String = "",
+    val category: ClientNpcCategory = ClientNpcCategory.REGULAR,
+    val commodity: String? = null,
+)
+
+@Serializable
+data class ClientNetworkState(
+    val currentNetworkName: String = "",
+    val storeStateId: String? = null,
+    val allowedNetworks: Set<String> = emptySet(),
+    val lastNetworkSwitchAtEpochMillis: Long = 0L,
+    val regularNpcs: List<ClientNpcDirectoryEntry> = emptyList(),
+    val questNpcs: List<ClientNpcDirectoryEntry> = emptyList(),
+    val miningNpcs: List<ClientNpcDirectoryEntry> = emptyList(),
+    val storeNpcs: List<ClientNpcDirectoryEntry> = emptyList(),
 )
 
 @Serializable
@@ -402,6 +432,57 @@ data class ClientRuntimeState(
 )
 
 @Serializable
+enum class ClientDefaultPortVisibility {
+    UNKNOWN,
+    NO,
+    YES,
+}
+
+@Serializable
+data class ClientFirewallView(
+    val name: String = "",
+    val kind: ClientFirewallKind = ClientFirewallKind.NONE,
+    val maker: String = "",
+    val strength: Int = 0,
+    val cpuCost: Double = 0.0,
+)
+
+@Serializable
+data class ClientScannedPortView(
+    val number: Int = 0,
+    val type: String = "",
+    val enabled: Boolean = false,
+    val dummy: Boolean = false,
+    val attacking: Boolean = false,
+    val cpuCost: Double = 0.0,
+    val maxCpuCost: Double = 0.0,
+    val health: Double = 0.0,
+    val note: String = "",
+    val defaultVisibility: ClientDefaultPortVisibility = ClientDefaultPortVisibility.UNKNOWN,
+    val firewall: ClientFirewallView? = null,
+)
+
+@Serializable
+enum class ClientScanFailureCode {
+    INVALID_TARGET,
+    TARGET_NOT_FOUND,
+    SELF_TARGET,
+    ACTIVE_BANK_REQUIRED,
+    OVERHEATED,
+    INSUFFICIENT_PETTY_CASH,
+}
+
+@Serializable
+enum class ClientNetworkSwitchFailureCode {
+    INVALID_TARGET,
+    ALREADY_ON_NETWORK,
+    JAILED,
+    COOLDOWN,
+    DISALLOWED,
+    UNKNOWN_NETWORK,
+}
+
+@Serializable
 sealed interface ClientGameDeltaProjection
 
 @Serializable
@@ -413,6 +494,7 @@ data class ClientGameSectionsProjection(
     val ports: List<ClientPortState>? = null,
     val watches: ClientWatchManagerState? = null,
     val filesystem: ClientFilesystemState? = null,
+    val network: ClientNetworkState? = null,
     val website: ClientWebsiteState? = null,
     val preferences: ClientPreferenceState? = null,
     val stats: ClientPlayerStatsState? = null,
@@ -496,6 +578,46 @@ data class ClientTransferResponse(
     val targetPettyCashAfter: Double,
     val sourceVersion: Long,
     val targetVersion: Long,
+)
+
+@Serializable
+data class ClientChangeNetworkPayload(
+    val ip: String,
+    val network: String? = null,
+)
+
+@Serializable
+data class ClientNetworkSwitchResponse(
+    val stateId: String,
+    val requestedNetworkName: String,
+    val currentNetworkName: String,
+    val storeStateId: String? = null,
+    val accepted: Boolean,
+    val failureCode: ClientNetworkSwitchFailureCode? = null,
+    val message: String,
+    val version: Long,
+)
+
+@Serializable
+data class ClientRequestScanPayload(
+    val ip: String,
+    @SerialName("targetIP")
+    val targetIp: String? = null,
+)
+
+@Serializable
+data class ClientScanResponse(
+    val requesterStateId: String,
+    val targetStateId: String,
+    val accepted: Boolean,
+    val failureCode: ClientScanFailureCode? = null,
+    val failureMessage: String? = null,
+    val chargedAmount: Double = 0.0,
+    val experienceAwarded: Double = 0.0,
+    val pettyCashAfter: Double? = null,
+    val scanningExperienceAfter: Double? = null,
+    val ports: List<ClientScannedPortView> = emptyList(),
+    val requesterVersion: Long,
 )
 
 @Serializable

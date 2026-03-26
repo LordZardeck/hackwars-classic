@@ -9,6 +9,8 @@ import com.hackwars.rewrite.client.files.RewriteHomeWindow
 import com.hackwars.rewrite.client.files.RewriteLocalFileOpenTarget
 import com.hackwars.rewrite.client.files.RewriteScriptEditorWindow
 import com.hackwars.rewrite.client.files.routeLocalFileTarget
+import com.hackwars.rewrite.client.network.RewriteNetworkWindow
+import com.hackwars.rewrite.client.network.RewritePortScanWindow
 import com.hackwars.rewrite.client.shell.RewritePlaceholderInternalFrame
 import com.hackwars.rewrite.client.shell.RewriteShellCommand
 import com.hackwars.rewrite.client.shell.RewriteShellDialogCoordinator
@@ -40,6 +42,11 @@ import com.hackwars.rewrite.protocol.ClientExitWebpagePayload
 import com.hackwars.rewrite.protocol.ClientFileContentsResponse
 import com.hackwars.rewrite.protocol.ClientFilesystemState
 import com.hackwars.rewrite.protocol.ClientGameSnapshot
+import com.hackwars.rewrite.protocol.ClientNetworkState
+import com.hackwars.rewrite.protocol.ClientChangeNetworkPayload
+import com.hackwars.rewrite.protocol.ClientNetworkSwitchResponse
+import com.hackwars.rewrite.protocol.ClientRequestScanPayload
+import com.hackwars.rewrite.protocol.ClientScanResponse
 import com.hackwars.rewrite.protocol.ClientMakeBountyPayload
 import com.hackwars.rewrite.protocol.ClientHealPortPayload
 import com.hackwars.rewrite.protocol.ClientHealPortResponse
@@ -164,6 +171,12 @@ class RewriteRootController(
 
     fun gameFilesystemStateSelector(): Flow<ClientFilesystemState?> {
         return store.serviceFilesystemStateSelector(RewriteService.GAME)
+    }
+
+    fun gameNetworkState(): ClientNetworkState? = gameShellState()?.network
+
+    fun gameNetworkStateSelector(): Flow<ClientNetworkState?> {
+        return store.serviceNetworkStateSelector(RewriteService.GAME)
     }
 
     fun gameWatchState(): ClientWatchManagerState? = gameShellState()?.watches
@@ -337,6 +350,40 @@ class RewriteRootController(
             ),
             responseSerializer = ClientInstallFirewallResponse.serializer(),
             targetStateIds = listOf(playerIp),
+        )
+    }
+
+    internal suspend fun requestChangeNetwork(
+        targetNetwork: String?,
+    ): RewriteGameCommandResult<ClientNetworkSwitchResponse> {
+        val playerIp = authenticatedPlayerIp()
+            ?: return RewriteGameCommandResult.Failure("Not connected to a rewrite game session.")
+        return gameCommandBroker.request(
+            commandName = "changenetwork",
+            payloadSerializer = ClientChangeNetworkPayload.serializer(),
+            payload = ClientChangeNetworkPayload(
+                ip = playerIp,
+                network = targetNetwork,
+            ),
+            responseSerializer = ClientNetworkSwitchResponse.serializer(),
+            targetStateIds = listOf(playerIp),
+        )
+    }
+
+    internal suspend fun requestScan(
+        targetIp: String,
+    ): RewriteGameCommandResult<ClientScanResponse> {
+        val playerIp = authenticatedPlayerIp()
+            ?: return RewriteGameCommandResult.Failure("Not connected to a rewrite game session.")
+        return gameCommandBroker.request(
+            commandName = "requestscan",
+            payloadSerializer = ClientRequestScanPayload.serializer(),
+            payload = ClientRequestScanPayload(
+                ip = playerIp,
+                targetIp = targetIp,
+            ),
+            responseSerializer = ClientScanResponse.serializer(),
+            targetStateIds = listOf(playerIp, targetIp),
         )
     }
 
@@ -1078,6 +1125,14 @@ class RewriteRootController(
         )
 
         RewriteShellCommand.HOME -> RewriteHomeWindow(
+            controller = this,
+        )
+
+        RewriteShellCommand.NETWORK -> RewriteNetworkWindow(
+            controller = this,
+        )
+
+        RewriteShellCommand.PORT_SCAN -> RewritePortScanWindow(
             controller = this,
         )
 
