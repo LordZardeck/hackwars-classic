@@ -92,7 +92,7 @@ class RewriteNetworkWindowsUiTest {
                 button(window, "rewrite-network-map-node-prognet").doClick()
             }
 
-            waitUntil { sessionGateway.latestGameSession()!!.sentFrames.isNotEmpty() }
+            waitUntil { sessionGateway.latestGameSession()?.sentFrames?.isNotEmpty() == true }
             val command = sessionGateway.latestGameSession()!!.sentFrames.last().command!!
             val payload = RewriteClientJson.decode(
                 ClientChangeNetworkPayload.serializer(),
@@ -177,7 +177,7 @@ class RewriteNetworkWindowsUiTest {
                 button(window, "rewrite-port-scan-scan-button").doClick()
             }
 
-            waitUntil { sessionGateway.latestGameSession()!!.sentFrames.isNotEmpty() }
+            waitUntil { sessionGateway.latestGameSession()?.sentFrames?.isNotEmpty() == true }
             val successCommand = sessionGateway.latestGameSession()!!.sentFrames.last().command!!
             val successPayload = RewriteClientJson.decode(
                 ClientRequestScanPayload.serializer(),

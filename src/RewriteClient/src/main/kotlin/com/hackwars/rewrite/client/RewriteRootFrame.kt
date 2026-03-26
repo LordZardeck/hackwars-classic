@@ -6,6 +6,7 @@ import com.hackwars.rewrite.client.shell.DEFAULT_FRAME_TITLE
 import com.hackwars.rewrite.client.shell.RewriteDesktopShellView
 import com.hackwars.rewrite.client.shell.RewriteShellDialogHost
 import com.hackwars.rewrite.client.shell.RewriteShellChromePresenter
+import com.hackwars.rewrite.client.ui.RewriteUiBootstrap
 import com.hackwars.rewrite.clientmodel.RewriteClientBootstrapState
 import com.hackwars.rewrite.clientmodel.RewriteClientRoute
 import java.awt.BorderLayout
@@ -24,6 +25,7 @@ import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 
 class RewriteRootFrame(
+    uiBootstrap: Unit = RewriteUiBootstrap.installHackWarsLookAndFeel(),
     val controller: RewriteRootController = RewriteRootController(),
 ) : JFrame(DEFAULT_FRAME_TITLE) {
     companion object {
@@ -64,6 +66,7 @@ class RewriteRootFrame(
     }
 
     init {
+        check(uiBootstrap == Unit)
         LoginUiDefaults.install()
         controller.attachShellHost(shellHost)
         controller.attachDialogHost(object : RewriteShellDialogHost {

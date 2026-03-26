@@ -1,18 +1,25 @@
 package com.hackwars.rewrite.client.shell
 
-import java.awt.Image
+import com.hackwars.rewrite.client.ui.hackWarsImageIcon
+import com.hackwars.rewrite.client.ui.hackWarsScaledImage
 import javax.swing.ImageIcon
 
 private val shellIconCache = mutableMapOf<String, ImageIcon?>()
 
 fun shellImageIcon(iconName: String): ImageIcon? {
     return shellIconCache.getOrPut(iconName) {
-        object {}.javaClass.classLoader.getResource("images/shell/$iconName")?.let(::ImageIcon)
+        hackWarsImageIcon(
+            "images/legacy/$iconName",
+            "images/shell/$iconName",
+        )
     }
 }
 
 fun shellScaledImage(iconName: String, width: Int, height: Int): ImageIcon? {
-    val icon = shellImageIcon(iconName) ?: return null
-    val scaled = icon.image.getScaledInstance(width, height, Image.SCALE_SMOOTH)
-    return ImageIcon(scaled)
+    return hackWarsScaledImage(
+        width = width,
+        height = height,
+        "images/legacy/$iconName",
+        "images/shell/$iconName",
+    )
 }

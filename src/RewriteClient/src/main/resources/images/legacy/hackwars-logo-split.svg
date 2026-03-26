@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="24 16 80 96" role="img" aria-label="HackWars logo">
+  <defs>
+    <linearGradient id="bgGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#3f4d57"/>
+      <stop offset="52%" stop-color="#171f2b"/>
+      <stop offset="100%" stop-color="#06090f"/>
+    </linearGradient>
+    <linearGradient id="borderGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#4de0ff"/>
+      <stop offset="100%" stop-color="#0075d0"/>
+    </linearGradient>
+    <linearGradient id="hGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#2ceeff"/>
+      <stop offset="45%" stop-color="#0ed0ff"/>
+      <stop offset="100%" stop-color="#0a7ad2"/>
+    </linearGradient>
+    <linearGradient id="sheenGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.18"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+    <radialGradient id="vignette" cx="50%" cy="45%" r="60%">
+      <stop offset="58%" stop-color="#000000" stop-opacity="0"/>
+      <stop offset="100%" stop-color="#000000" stop-opacity="0.45"/>
+    </radialGradient>
+    <filter id="badgeGlow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="0" stdDeviation="2.2" flood-color="#14caff" flood-opacity="0.75"/>
+    </filter>
+    <filter id="hGlow" x="-35%" y="-35%" width="170%" height="170%">
+      <feDropShadow dx="0" dy="0" stdDeviation="1" flood-color="#11dbff" flood-opacity="0.85"/>
+    </filter>
+    <clipPath id="badgeClip">
+      <rect x="7.5" y="7.5" width="113" height="113" rx="15"/>
+    </clipPath>
+    <clipPath id="leftHalfClip">
+      <rect x="0" y="0" width="64" height="128"/>
+    </clipPath>
+    <clipPath id="rightHalfClip">
+      <rect x="64" y="0" width="64" height="128"/>
+    </clipPath>
+  </defs>
+
+  <path clip-path="url(#leftHalfClip)" fill="url(#hGrad)" fill-rule="evenodd" d="M26 20H44V54H84V20H102V96L90 108H38L26 96V20ZM44 66H58V96H44V66ZM70 66H84V96H70V66ZM58 66H70V74H58V66Z"/>
+  <path clip-path="url(#rightHalfClip)" fill="url(#bgGrad)" fill-rule="evenodd" d="M26 20H44V54H84V20H102V96L90 108H38L26 96V20ZM44 66H58V96H44V66ZM70 66H84V96H70V66ZM58 66H70V74H58V66Z"/>
+</svg>
