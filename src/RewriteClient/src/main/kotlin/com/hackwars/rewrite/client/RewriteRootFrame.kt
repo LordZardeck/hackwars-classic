@@ -1,13 +1,15 @@
 package com.hackwars.rewrite.client
 
+import com.hackwars.rewrite.client.auth.RewriteLoginSceneController
+import com.hackwars.rewrite.client.desktop.RewriteDesktopEntryController
+import com.hackwars.rewrite.client.desktop.RewriteDesktopEntryViewModel
 import com.hackwars.rewrite.client.login.LoginScene
-import com.hackwars.rewrite.client.login.LoginUiDefaults
 import com.hackwars.rewrite.client.shell.DEFAULT_FRAME_TITLE
+import com.hackwars.rewrite.client.shell.RewriteShellChromeBindingController
 import com.hackwars.rewrite.client.shell.RewriteShellChromeController
 import com.hackwars.rewrite.client.shell.RewriteDesktopShellView
 import com.hackwars.rewrite.client.shell.RewriteShellDialogHost
 import com.hackwars.rewrite.client.ui.RewriteUiBootstrap
-import com.hackwars.rewrite.clientmodel.RewriteClientBootstrapState
 import com.hackwars.rewrite.clientmodel.RewriteClientRoute
 import java.awt.BorderLayout
 import java.awt.CardLayout
@@ -15,13 +17,6 @@ import java.awt.event.WindowAdapter
 import java.awt.event.WindowEvent
 import javax.swing.JFrame
 import javax.swing.JPanel
-import javax.swing.SwingUtilities
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
-import kotlinx.coroutines.flow.collect
-import kotlinx.coroutines.launch
 
 class RewriteRootFrame(
     uiBootstrap: Unit = RewriteUiBootstrap.installHackWarsLookAndFeel(),
@@ -32,14 +27,8 @@ class RewriteRootFrame(
         private const val DESKTOP_CARD = "desktop"
     }
 
-    private val uiScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val cardLayout = CardLayout()
-    val loginScene: LoginScene = LoginScene().apply {
-        name = "rewrite-root-login"
-        onSubmitCredentials = { email, password ->
-            controller.submitLogin(email, password)
-        }
-    }
+    val loginScene: LoginScene = LoginScene().apply { name = "rewrite-root-login" }
     val shellHost = RewriteDesktopShellView()
     private val shellChromeController = RewriteShellChromeController(
         shellHost = shellHost,
@@ -57,10 +46,27 @@ class RewriteRootFrame(
         add(loginScene, LOGIN_CARD)
         add(desktopCard, DESKTOP_CARD)
     }
+    private val loginSceneController = RewriteLoginSceneController(
+        view = loginScene,
+        submitLogin = controller::submitLogin,
+    )
+    private val desktopEntryController = RewriteDesktopEntryController(
+        bootstrapStateFlow = controller.bootstrapStateSelector(),
+        initialBootstrapState = controller.bootstrapState(),
+        host = { state -> renderDesktopEntry(state) },
+        loginSceneController = loginSceneController,
+        onRouteChanged = shellChromeController::updateRoute,
+    )
+    private val shellChromeBindingController = RewriteShellChromeBindingController(
+        shellStateFlow = controller.gameShellStateSelector(),
+        initialShellState = controller.gameShellState(),
+        acceptedPlayerIpFlow = controller.gameAcceptedPlayerIpSelector(),
+        initialAcceptedPlayerIp = controller.snapshot().game.latestAcceptedSession?.playerIp,
+        shellChromeController = shellChromeController,
+    )
 
     init {
         check(uiBootstrap == Unit)
-        LoginUiDefaults.install()
         controller.attachDialogHost(object : RewriteShellDialogHost {
             override val ownerWindow = this@RewriteRootFrame
 
@@ -85,61 +91,30 @@ class RewriteRootFrame(
         )
         setSize(1280, 800)
         setLocationRelativeTo(null)
-        renderBootstrapState(controller.bootstrapState())
-        bindController()
         addWindowListener(object : WindowAdapter() {
             override fun windowClosing(event: WindowEvent) {
+                shellChromeBindingController.close()
+                desktopEntryController.close()
                 shellChromeController.close()
                 controller.shutdown()
-                uiScope.cancel()
             }
 
             override fun windowClosed(event: WindowEvent) {
+                shellChromeBindingController.close()
+                desktopEntryController.close()
                 shellChromeController.close()
                 controller.shutdown()
-                uiScope.cancel()
             }
         })
     }
 
-    private fun bindController() {
-        uiScope.launch {
-            controller.bootstrapStateSelector().collect { state ->
-                SwingUtilities.invokeLater {
-                    renderBootstrapState(state)
-                }
-            }
-        }
-        uiScope.launch {
-            controller.gameShellStateSelector().collect { shellState ->
-                SwingUtilities.invokeLater {
-                    shellChromeController.updateShellState(shellState)
-                }
-            }
-        }
-        uiScope.launch {
-            controller.gameAcceptedPlayerIpSelector().collect { playerIp ->
-                SwingUtilities.invokeLater {
-                    shellChromeController.updateAcceptedPlayerIp(playerIp)
-                }
-            }
-        }
-    }
-
-    private fun renderBootstrapState(state: RewriteClientBootstrapState) {
-        shellChromeController.updateRoute(state.route)
+    private fun renderDesktopEntry(state: RewriteDesktopEntryViewModel) {
         when (state.route) {
             RewriteClientRoute.LOGIN -> {
                 if (jMenuBar != null) {
                     jMenuBar = null
                 }
                 cardLayout.show(cardPanel, LOGIN_CARD)
-                val loginError = state.loginError
-                if (loginError != null) {
-                    loginScene.onServerAuthenticationFailure(loginError)
-                } else {
-                    loginScene.clearError()
-                }
             }
 
             RewriteClientRoute.BOOTSTRAPPING_GAME -> {
@@ -147,11 +122,9 @@ class RewriteRootFrame(
                     jMenuBar = null
                 }
                 cardLayout.show(cardPanel, LOGIN_CARD)
-                loginScene.showBootstrapStarted()
             }
 
             RewriteClientRoute.DESKTOP -> {
-                loginScene.clearError()
                 if (jMenuBar !== shellHost.menuBar) {
                     jMenuBar = shellHost.menuBar
                 }

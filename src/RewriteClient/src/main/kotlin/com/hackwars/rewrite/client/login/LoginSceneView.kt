@@ -1,6 +1,8 @@
 package com.hackwars.rewrite.client.login
 
+import com.hackwars.rewrite.client.auth.RewriteLoginViewModel
 import com.github.weisj.jsvg.attributes.ViewBox
+import com.hackwars.rewrite.client.mvc.RewriteView
 import java.awt.Dimension
 import java.awt.Graphics
 import java.awt.Graphics2D
@@ -8,21 +10,15 @@ import java.awt.GridBagConstraints
 import java.awt.GridBagLayout
 import java.awt.Insets
 import java.awt.RenderingHints
-import java.awt.event.HierarchyEvent
-import java.awt.event.HierarchyListener
 import java.awt.geom.Rectangle2D
 import javax.swing.Box
 import javax.swing.BoxLayout
 import javax.swing.JPanel
 import javax.swing.SwingUtilities
 import javax.swing.Timer
-import kotlin.concurrent.schedule
 import kotlin.math.hypot
-import kotlin.time.Duration.Companion.seconds
-import kotlin.time.DurationUnit
-import kotlin.time.toDuration
 
-abstract class LoginSceneView : LoginBackgroundPanel() {
+open class LoginSceneView : LoginBackgroundPanel(), RewriteView<RewriteLoginViewModel> {
     companion object {
         private const val PANEL_WIDTH = 710
         private const val PANEL_HEIGHT = 450
@@ -32,13 +28,11 @@ abstract class LoginSceneView : LoginBackgroundPanel() {
         private const val SPINNER_FRAME_DELAY_MS = 16
         private const val SPINNER_ROTATION_STEP_DEG = 3.8f
         private const val SPINNER_VERTICAL_OFFSET_PX = -10f
-        private val loginMinDuration = 2.seconds
 
         val spinnerRingDocument = svgResource("images/loading.svg")
         val spinnerGlowlineDocument = svgResource("images/glowline-curved.svg")
     }
 
-    private var authStartedAt = RewriteClientClock.nowNanos()
     private var isAuthenticating = false
         set(value) {
             if (field == value) {
@@ -60,6 +54,8 @@ abstract class LoginSceneView : LoginBackgroundPanel() {
     private val emptyColumn = JPanel().apply { isOpaque = false }
     private val formColumn = JPanel(GridBagLayout()).apply { isOpaque = false }
     protected val formPanel = LoginForm()
+    val loginForm: LoginForm
+        get() = formPanel
     private val formConstraints = GridBagConstraints().apply {
         gridx = 0
         gridy = 0
@@ -75,59 +71,14 @@ abstract class LoginSceneView : LoginBackgroundPanel() {
         layout = null
         preferredSize = Dimension(PANEL_WIDTH, PANEL_HEIGHT)
         buildColumns()
-        formPanel.isVisible = false
-
-        addHierarchyListener(object : HierarchyListener {
-            override fun hierarchyChanged(event: HierarchyEvent?) {
-                when {
-                    event != null && (event.changeFlags and HierarchyEvent.SHOWING_CHANGED.toLong()) != 0L ->
-                        java.util.Timer().schedule(1000) {
-                            runOnEdt { toggleLogin() }
-                        }
-                }
-            }
-        })
-
-        formPanel.addPasswordAuthenticationListener { event ->
-            authStartedAt = RewriteClientClock.nowNanos()
-            onUsernamePasswordAuthenticate(event.email, event.password)
-        }
+        render(RewriteLoginViewModel())
     }
 
-    fun clearError() {
-        formPanel.showError(null)
-    }
-
-    protected open fun onUsernamePasswordAuthenticate(email: String, password: CharArray) {
-        formPanel.showError(null)
-        isAuthenticating = true
-        toggleLogin(force = false)
-    }
-
-    open fun onAuthenticationFailure(reason: String) {
-        val resetLoginForm = {
-            formPanel.showError(reason)
-            isAuthenticating = false
-            toggleLogin(force = true)
-        }
-        val timeSinceAuthStarted = (RewriteClientClock.nowNanos() - authStartedAt).toDuration(DurationUnit.NANOSECONDS)
-        if (timeSinceAuthStarted < loginMinDuration) {
-            Timer((loginMinDuration - timeSinceAuthStarted).inWholeMilliseconds.toInt()) {
-                resetLoginForm()
-            }.apply {
-                isRepeats = false
-                start()
-            }
-            return
-        }
-        resetLoginForm()
-    }
-
-    fun showBootstrapStarted() {
+    override fun render(model: RewriteLoginViewModel) {
         runOnEdt {
-            clearError()
-            isAuthenticating = true
-            toggleLogin(force = false)
+            formPanel.showError(model.errorMessage)
+            isAuthenticating = model.isAuthenticating
+            toggleLogin(force = model.showForm)
         }
     }
 

@@ -75,14 +75,15 @@ class RewriteMvcArchitectureGuardrailTest {
     }
 
     private fun retainedViewCandidateFiles(): Set<String> {
-        val filePattern = Regex("""Rewrite.*(Window|Windows|Dialog|View|Browser|Rail|MenuBar|TaskBar)\.kt$""")
+        val filePattern = Regex("""(Rewrite.*(Window|Windows|Dialog|View|Browser|Rail|MenuBar|TaskBar)|LoginSceneView|LoginForm|LoginScene|LoginBackgroundPanel)\.kt$""")
         return Files.walk(clientRoot())
             .use { paths ->
                 paths.asSequence()
                     .filter { Files.isRegularFile(it) }
                     .filter { path ->
                         val relative = relativeToModule(path)
-                        relative.startsWith("src/main/kotlin/com/hackwars/rewrite/client/economy/") ||
+                        relative.startsWith("src/main/kotlin/com/hackwars/rewrite/client/login/") ||
+                            relative.startsWith("src/main/kotlin/com/hackwars/rewrite/client/economy/") ||
                             relative.startsWith("src/main/kotlin/com/hackwars/rewrite/client/files/") ||
                             relative.startsWith("src/main/kotlin/com/hackwars/rewrite/client/network/") ||
                             relative.startsWith("src/main/kotlin/com/hackwars/rewrite/client/systems/") ||
@@ -169,6 +170,10 @@ class RewriteMvcArchitectureGuardrailTest {
         )
 
         private val retainedViewViolationInventory: Map<String, Set<String>> = linkedMapOf(
+            "src/main/kotlin/com/hackwars/rewrite/client/login/LoginBackgroundPanel.kt" to emptySet(),
+            "src/main/kotlin/com/hackwars/rewrite/client/login/LoginForm.kt" to emptySet(),
+            "src/main/kotlin/com/hackwars/rewrite/client/login/LoginScene.kt" to emptySet(),
+            "src/main/kotlin/com/hackwars/rewrite/client/login/LoginSceneView.kt" to emptySet(),
             "src/main/kotlin/com/hackwars/rewrite/client/economy/RewriteBankingWindows.kt" to setOf(
                 "controller_import",
                 "protocol_import",

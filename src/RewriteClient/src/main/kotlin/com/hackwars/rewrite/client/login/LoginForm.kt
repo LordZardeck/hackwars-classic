@@ -4,7 +4,6 @@ import java.awt.BasicStroke
 import java.awt.BorderLayout
 import java.awt.Color
 import java.awt.Cursor
-import java.awt.Desktop
 import java.awt.Dimension
 import java.awt.Font
 import java.awt.Graphics
@@ -14,15 +13,10 @@ import java.awt.GridBagLayout
 import java.awt.Insets
 import java.awt.LinearGradientPaint
 import java.awt.Point
-import java.awt.event.MouseAdapter
-import java.awt.event.MouseEvent
 import java.awt.font.TextAttribute
 import java.awt.geom.Point2D
 import java.awt.geom.RoundRectangle2D
-import java.net.URI
 import java.text.AttributedString
-import java.util.EventListener
-import java.util.EventObject
 import javax.swing.BorderFactory
 import javax.swing.Box
 import javax.swing.BoxLayout
@@ -32,25 +26,10 @@ import javax.swing.JLabel
 import javax.swing.JPanel
 
 class LoginForm : JPanel(GridBagLayout()) {
-    sealed class AuthenticationEvent(source: Any) : EventObject(source)
-
-    class PasswordAuthenticationEvent(
-        source: Any,
-        val email: String,
-        val password: CharArray,
-    ) : AuthenticationEvent(source)
-
-    interface AuthenticationListener : EventListener
-
-    fun interface PasswordAuthenticationListener : AuthenticationListener {
-        fun onPasswordAuthenticate(event: PasswordAuthenticationEvent)
-    }
-
     companion object {
         private const val GLOW_INSET = 10f
         private const val OUTER_ARC = 40f
         private const val INNER_INSET = 1.25f
-        private const val SIGNUP_URL = "https://www.reddit.com/r/HackWars/"
 
         private val minFormSize = Dimension(320, 380)
         private val preferredFormSize = Dimension(420, 440)
@@ -64,29 +43,29 @@ class LoginForm : JPanel(GridBagLayout()) {
         alignmentX = CENTER_ALIGNMENT
         horizontalAlignment = JLabel.CENTER
     }
+    val emailField = LoginTextField().apply { text = "localuser" }
+    val passwordField = LoginPasswordField().apply { text = "password1234" }
+    val loginButton: JButton = LoginButton("LOGIN")
+    private val signupLink = SignupLinkLabel()
+    val signupLinkLabel: JLabel
+        get() = signupLink
     private val cardPanel = LoginCardPanel()
-
-    fun addPasswordAuthenticationListener(listener: PasswordAuthenticationListener) {
-        listenerList.add(PasswordAuthenticationListener::class.java, listener)
-    }
-
-    fun removePasswordAuthenticationListener(listener: PasswordAuthenticationListener) {
-        listenerList.remove(PasswordAuthenticationListener::class.java, listener)
-    }
-
-    fun firePasswordAuthenticationEvent(event: PasswordAuthenticationEvent) {
-        val listeners = listenerList.listenerList
-        var index = listeners.size - 2
-        while (index >= 0) {
-            if (listeners[index] === PasswordAuthenticationListener::class.java) {
-                (listeners[index + 1] as PasswordAuthenticationListener).onPasswordAuthenticate(event)
-            }
-            index -= 2
-        }
-    }
 
     fun showError(message: String?) {
         errorLabel.text = message?.takeIf { it.isNotBlank() } ?: " "
+    }
+
+    fun displayedErrorText(): String = errorLabel.text
+
+    fun snapshotCredentials(): com.hackwars.rewrite.client.auth.RewriteLoginCredentials {
+        return com.hackwars.rewrite.client.auth.RewriteLoginCredentials(
+            email = emailField.text,
+            password = passwordField.password,
+        )
+    }
+
+    fun setSignupLinkHovered(hovered: Boolean) {
+        signupLink.setHovered(hovered)
     }
 
     init {
@@ -196,21 +175,8 @@ class LoginForm : JPanel(GridBagLayout()) {
         private fun buildContent(container: JPanel) {
             val emailLabel = createLabel("Email")
             val passwordLabel = createLabel("Password")
-            val emailField = LoginTextField().apply { text = "localuser" }
-            val passwordField = LoginPasswordField().apply { text = "password1234" }
             val emailFieldPanel = LoginFieldPanel(emailField).apply { preferredSize = Dimension(200, 46) }
             val passwordFieldPanel = LoginFieldPanel(passwordField).apply { preferredSize = Dimension(200, 46) }
-            val loginButton = LoginButton("LOGIN").apply {
-                addActionListener {
-                    firePasswordAuthenticationEvent(
-                        PasswordAuthenticationEvent(
-                            this@LoginForm,
-                            emailField.text,
-                            passwordField.password,
-                        ),
-                    )
-                }
-            }
 
             container.add(leftRow(10, emailLabel))
             container.add(fillRow(emailFieldPanel))
@@ -239,37 +205,8 @@ class LoginForm : JPanel(GridBagLayout()) {
                 foreground = Color(0x9A, 0xA8, 0xB8)
                 font = smallFont
             }
-            val linkLabel = object : JLabel("Create one") {
-                override fun paintComponent(graphics: Graphics) {
-                    super.paintComponent(graphics)
-                    val g2 = graphics.create() as Graphics2D
-                    g2.color = Color(0x17, 0xAE, 0xFF)
-                    g2.stroke = BasicStroke(1f)
-                    val baseline = getFontMetrics(font).ascent
-                    val y = baseline + 6
-                    g2.drawLine(0, y, width - 1, y)
-                    g2.dispose()
-                }
-            }.apply {
-                isOpaque = false
-                foreground = Color(0x17, 0xAE, 0xFF)
+            signupLinkLabel.apply {
                 font = linkFont
-                cursor = Cursor.getPredefinedCursor(Cursor.HAND_CURSOR)
-                addMouseListener(object : MouseAdapter() {
-                    override fun mouseClicked(event: MouseEvent?) {
-                        openSignupUrl()
-                    }
-
-                    override fun mouseEntered(event: MouseEvent?) {
-                        foreground = Color(0x4D, 0xC5, 0xFF)
-                        repaint()
-                    }
-
-                    override fun mouseExited(event: MouseEvent?) {
-                        foreground = Color(0x17, 0xAE, 0xFF)
-                        repaint()
-                    }
-                })
             }
 
             return JPanel().apply {
@@ -278,21 +215,8 @@ class LoginForm : JPanel(GridBagLayout()) {
                 add(Box.createHorizontalGlue())
                 add(smallLabel)
                 add(Box.createHorizontalStrut(30))
-                add(linkLabel)
+                add(signupLinkLabel)
                 add(Box.createHorizontalGlue())
-            }
-        }
-
-        private fun openSignupUrl() {
-            if (!Desktop.isDesktopSupported()) {
-                return
-            }
-            val desktop = Desktop.getDesktop()
-            if (!desktop.isSupported(Desktop.Action.BROWSE)) {
-                return
-            }
-            runCatching {
-                desktop.browse(URI(SIGNUP_URL))
             }
         }
 
@@ -376,6 +300,33 @@ class LoginForm : JPanel(GridBagLayout()) {
             val drawX = ((width - layout.width) / 2f).toFloat()
             val drawY = ((height - layout.height) / 2f + g2.fontMetrics.ascent).toFloat() + textYOffset
             g2.drawString(iterator, drawX, drawY)
+            g2.dispose()
+        }
+    }
+
+    private inner class SignupLinkLabel : JLabel("Create one") {
+        private var hovered = false
+
+        init {
+            isOpaque = false
+            foreground = Color(0x17, 0xAE, 0xFF)
+            cursor = Cursor.getPredefinedCursor(Cursor.HAND_CURSOR)
+        }
+
+        fun setHovered(value: Boolean) {
+            hovered = value
+            foreground = if (hovered) Color(0x4D, 0xC5, 0xFF) else Color(0x17, 0xAE, 0xFF)
+            repaint()
+        }
+
+        override fun paintComponent(graphics: Graphics) {
+            super.paintComponent(graphics)
+            val g2 = graphics.create() as Graphics2D
+            g2.color = foreground
+            g2.stroke = BasicStroke(1f)
+            val baseline = getFontMetrics(font).ascent
+            val y = baseline + 6
+            g2.drawLine(0, y, width - 1, y)
             g2.dispose()
         }
     }

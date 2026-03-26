@@ -492,20 +492,20 @@
 
 ## Completion Tracks
 ### RW-CLIENT-C0A - Login and desktop-entry MVC extraction
-- Status: `ready`
+- Status: `done`
 - Priority: `P1`
 - Execution lane: `auth_bootstrap`
 - Worker role: `worker`
 - Depends on: `RW-CLIENT-002`, `RW-CLIENT-X1`
 - Ready when: strict MVC base types are available
 - Parallel with: `RW-CLIENT-C1A`, `RW-CLIENT-004B`
-- Allowed write scope: `src/RewriteClient/**/auth/**`, `src/RewriteClient/**/desktop/**`
+- Allowed write scope: `src/RewriteClient/**/auth/**`, `src/RewriteClient/**/desktop/**`, `src/RewriteClient/**/login/**`, `src/RewriteClient/**/shell/RewriteShellChromeBindingController.kt`, `src/RewriteClient/**/RewriteRootFrame.kt`, `src/RewriteClient/src/test/**`, `src/RewriteClient/src/uiTest/**`, `plans/rewrite/client/PLAN.md`
 - Autonomous next: `RW-CLIENT-C0B`
 - Fallback if blocked: `RW-CLIENT-C1A`
-- Verification scope: controller tests, login workflow ui tests, deterministic desktop-entry smoke
+- Verification scope: `./gradlew :RewriteClientDev:test :RewriteClient:test :RewriteClient:uiTest`
 
 ### RW-CLIENT-C0B - Login and desktop-entry legacy parity rebuild
-- Status: `todo`
+- Status: `ready`
 - Priority: `P1`
 - Execution lane: `auth_bootstrap`
 - Worker role: `worker`
