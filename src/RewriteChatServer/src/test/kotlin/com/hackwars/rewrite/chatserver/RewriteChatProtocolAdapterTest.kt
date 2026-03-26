@@ -16,10 +16,16 @@ import com.hackwars.rewrite.persistence.PersistedSessionTicket
 import com.hackwars.rewrite.protocol.ChatAddAdminPayload
 import com.hackwars.rewrite.protocol.ChatChannelAddEventPayload
 import com.hackwars.rewrite.protocol.ChatChannelCreatePayload
+import com.hackwars.rewrite.protocol.ChatChannelJoinEventPayload
+import com.hackwars.rewrite.protocol.ChatChannelKickEventPayload
 import com.hackwars.rewrite.protocol.ChatChannelJoinPayload
 import com.hackwars.rewrite.protocol.ChatChannelKickPayload
+import com.hackwars.rewrite.protocol.ChatChannelLeaveEventPayload
 import com.hackwars.rewrite.protocol.ChatChannelLeavePayload
+import com.hackwars.rewrite.protocol.ChatChannelRemoveEventPayload
 import com.hackwars.rewrite.protocol.ChatChannelTextEventPayload
+import com.hackwars.rewrite.protocol.ChatChannelTextMeEventPayload
+import com.hackwars.rewrite.protocol.ChatChannelTextMePayload
 import com.hackwars.rewrite.protocol.ChatChannelTextPayload
 import com.hackwars.rewrite.protocol.ChatErrorEventPayload
 import com.hackwars.rewrite.protocol.ChatMutePayload
@@ -531,6 +537,12 @@ class RewriteChatProtocolAdapterTest {
         )
 
         assertEquals(CommandResponseStatus.COMMAND_RESPONSE_STATUS_OK, frames.commandResponse().command_response?.status)
+        assertEquals("Ops", frames.channelJoinEvent().roster.channelName)
+        assertEquals(listOf("pf-localuser"), frames.channelJoinEvent().roster.users)
+        assertEquals("pf-localuser", frames.channelAddEvent().userToAdd)
+        assertEquals(true, frames.channelAddEvent().admin)
+        assertEquals("!SYSTEM!", frames.channelTextEvent().senderDisplayName)
+        assertEquals("You are now the channel admin", frames.channelTextEvent().message)
         assertEquals(
             listOf("General-0", "Trade-0", "Help-0", "Ops"),
             frames.subChannelsEvent().channels.map { it.channelName },
@@ -619,6 +631,13 @@ class RewriteChatProtocolAdapterTest {
         val connection = fixture.authenticatedConnection()
         connection.awaitFrame()
         connection.awaitFrame()
+        val aliceConnection = fixture.authenticatedConnection(
+            sessionTicket = "SESSION-ALICE",
+            playFabIdHint = "PF-ALICE",
+            requestedIp = "192.0.2.11",
+        )
+        aliceConnection.awaitFrame()
+        aliceConnection.awaitFrame()
 
         val frames = connection.sendChatCommand(
             commandName = "channel_leave",
@@ -628,12 +647,17 @@ class RewriteChatProtocolAdapterTest {
             ),
             serializer = ChatChannelLeavePayload.serializer(),
         )
+        val passiveFrames = aliceConnection.drainFrames()
 
         assertEquals(CommandResponseStatus.COMMAND_RESPONSE_STATUS_OK, frames.commandResponse().command_response?.status)
+        assertEquals("Ops", frames.channelLeaveEvent().channelName)
         assertEquals(listOf("General-0", "Trade-0", "Help-0"), frames.subChannelsEvent().channels.map { it.channelName })
         assertEquals(listOf("alice"), fixture.chatRepository.listMemberships("Ops").map { it.playerId })
         assertEquals(PersistedChannelRole.OWNER, fixture.chatRepository.listMemberships("Ops").single().role)
         assertEquals("alice", fixture.chatRepository.listChannels().first { it.channelId == "Ops" }.ownerPlayerId)
+        assertEquals("pf-localuser", passiveFrames.channelRemoveEvent().userToRemove)
+        assertEquals("!SYSTEM!", passiveFrames.channelTextEvent().senderDisplayName)
+        assertEquals("You are now the channel admin", passiveFrames.channelTextEvent().message)
     }
 
     @Test
@@ -681,6 +705,67 @@ class RewriteChatProtocolAdapterTest {
         assertEquals(CommandResponseStatus.COMMAND_RESPONSE_STATUS_OK, frames.commandResponse().command_response?.status)
         assertEquals(listOf("General-0", "Trade-0", "Help-0", "Ops"), frames.subChannelsEvent().channels.map { it.channelName })
         assertEquals(listOf("pf-localuser"), fixture.chatRepository.listMemberships("Ops").map { it.playerId })
+    }
+
+    @Test
+    fun kickChannelMemberPushesRetainedKickAndRemoveParityEvents() = runTest {
+        val fixture = createFixture()
+        fixture.chatRepository.upsertChannel(
+            PersistedChatChannel(
+                channelId = "Ops",
+                displayName = "Ops",
+                ownerPlayerId = "pf-localuser",
+                createdAt = Instant.parse("2026-03-26T10:06:00Z"),
+                channelPayload = """{"kind":"user","adminCanKick":true,"removeWhenEmpty":true}""",
+            ),
+        )
+        fixture.chatRepository.upsertMembership(
+            PersistedChatChannelMembership(
+                channelId = "Ops",
+                playerId = "pf-localuser",
+                role = PersistedChannelRole.OWNER,
+                joinedAt = Instant.parse("2026-03-26T10:06:01Z"),
+            ),
+        )
+        fixture.chatRepository.upsertMembership(
+            PersistedChatChannelMembership(
+                channelId = "Ops",
+                playerId = "alice",
+                role = PersistedChannelRole.MEMBER,
+                joinedAt = Instant.parse("2026-03-26T10:06:02Z"),
+            ),
+        )
+        val localConnection = fixture.authenticatedConnection()
+        localConnection.awaitFrame()
+        localConnection.awaitFrame()
+        val aliceConnection = fixture.authenticatedConnection(
+            sessionTicket = "SESSION-ALICE",
+            playFabIdHint = "PF-ALICE",
+            requestedIp = "192.0.2.11",
+        )
+        aliceConnection.awaitFrame()
+        aliceConnection.awaitFrame()
+
+        val frames = localConnection.sendChatCommand(
+            commandName = "channel_kick",
+            payload = ChatChannelKickPayload(
+                senderPlayerId = "pf-localuser",
+                channelName = "Ops",
+                targetPlayerId = "alice",
+            ),
+            serializer = ChatChannelKickPayload.serializer(),
+        )
+
+        val passiveFrames = aliceConnection.drainFrames()
+        assertEquals(CommandResponseStatus.COMMAND_RESPONSE_STATUS_OK, frames.commandResponse().command_response?.status)
+        assertEquals("alice", frames.channelRemoveEvent().userToRemove)
+        assertEquals(listOf("General-0", "Trade-0", "Help-0", "Ops"), frames.subChannelsEvent().channels.map { it.channelName })
+        assertEquals(
+            listOf(ChatParityEventType.CHANNEL_LEAVE.wireName, ChatParityEventType.CHANNEL_KICK.wireName),
+            passiveFrames.mapNotNull { it.chat_event?.event_type },
+        )
+        assertEquals("Ops", passiveFrames.channelLeaveEvent().channelName)
+        assertEquals("Ops", passiveFrames.channelKickEvent().channelName)
     }
 
     @Test
@@ -901,6 +986,64 @@ class RewriteChatProtocolAdapterTest {
     }
 
     @Test
+    fun channelTextMeFansOutWithRetainedEmoteEventType() = runTest {
+        val fixture = createFixture()
+        fixture.chatRepository.upsertChannel(
+            PersistedChatChannel(
+                channelId = "Ops",
+                displayName = "Ops",
+                ownerPlayerId = "pf-localuser",
+                createdAt = Instant.parse("2026-03-26T10:06:00Z"),
+                channelPayload = """{"kind":"user","adminCanKick":true,"removeWhenEmpty":true}""",
+            ),
+        )
+        fixture.chatRepository.upsertMembership(
+            PersistedChatChannelMembership(
+                channelId = "Ops",
+                playerId = "pf-localuser",
+                role = PersistedChannelRole.OWNER,
+                joinedAt = Instant.parse("2026-03-26T10:06:01Z"),
+            ),
+        )
+        fixture.chatRepository.upsertMembership(
+            PersistedChatChannelMembership(
+                channelId = "Ops",
+                playerId = "alice",
+                role = PersistedChannelRole.MEMBER,
+                joinedAt = Instant.parse("2026-03-26T10:06:02Z"),
+            ),
+        )
+        val localConnection = fixture.authenticatedConnection()
+        localConnection.awaitFrame()
+        localConnection.awaitFrame()
+        val aliceConnection = fixture.authenticatedConnection(
+            sessionTicket = "SESSION-ALICE",
+            playFabIdHint = "PF-ALICE",
+            requestedIp = "192.0.2.11",
+        )
+        aliceConnection.awaitFrame()
+        aliceConnection.awaitFrame()
+
+        val frames = localConnection.sendChatCommand(
+            commandName = "channel_text_me",
+            payload = ChatChannelTextMePayload(
+                senderPlayerId = "pf-localuser",
+                message = "waves",
+                channelName = "Ops",
+            ),
+            serializer = ChatChannelTextMePayload.serializer(),
+        )
+
+        assertEquals(CommandResponseStatus.COMMAND_RESPONSE_STATUS_OK, frames.commandResponse().command_response?.status)
+        assertEquals("waves", frames.channelTextMeEvent().message)
+        assertEquals("waves", aliceConnection.channelTextMeEvent().message)
+        assertEquals(
+            listOf(ChatParityEventType.CHANNEL_TEXT_ME.wireName),
+            fixture.chatRepository.loadChannelHistory("Ops", limit = 10).map { it.eventType },
+        )
+    }
+
+    @Test
     fun channelJoinPushesChannelAddToActiveSubscribers() = runTest {
         val fixture = createFixture()
         fixture.chatRepository.upsertChannel(
@@ -941,8 +1084,61 @@ class RewriteChatProtocolAdapterTest {
         )
 
         assertEquals(CommandResponseStatus.COMMAND_RESPONSE_STATUS_OK, frames.commandResponse().command_response?.status)
+        assertEquals("Ops", frames.channelJoinEvent().roster.channelName)
+        assertEquals(listOf("pf-localuser", "alice"), frames.channelJoinEvent().roster.users)
+        assertEquals("pf-localuser", frames.channelAddEvent().userToAdd)
         assertEquals(listOf("General-0", "Trade-0", "Help-0", "Ops"), frames.subChannelsEvent().channels.map { it.channelName })
         assertEquals("pf-localuser", aliceConnection.channelAddEvent().userToAdd)
+    }
+
+    @Test
+    fun disconnectingOwnerTransfersAdminAndPushesRetainedParityEvents() = runTest {
+        val fixture = createFixture()
+        fixture.chatRepository.upsertChannel(
+            PersistedChatChannel(
+                channelId = "Ops",
+                displayName = "Ops",
+                ownerPlayerId = "pf-localuser",
+                createdAt = Instant.parse("2026-03-26T10:06:00Z"),
+                channelPayload = """{"kind":"user","adminCanKick":true,"removeWhenEmpty":true}""",
+            ),
+        )
+        fixture.chatRepository.upsertMembership(
+            PersistedChatChannelMembership(
+                channelId = "Ops",
+                playerId = "pf-localuser",
+                role = PersistedChannelRole.OWNER,
+                joinedAt = Instant.parse("2026-03-26T10:06:01Z"),
+            ),
+        )
+        fixture.chatRepository.upsertMembership(
+            PersistedChatChannelMembership(
+                channelId = "Ops",
+                playerId = "alice",
+                role = PersistedChannelRole.MEMBER,
+                joinedAt = Instant.parse("2026-03-26T10:06:02Z"),
+            ),
+        )
+        val localConnection = fixture.authenticatedConnection()
+        localConnection.awaitFrame()
+        localConnection.awaitFrame()
+        val aliceConnection = fixture.authenticatedConnection(
+            sessionTicket = "SESSION-ALICE",
+            playFabIdHint = "PF-ALICE",
+            requestedIp = "192.0.2.11",
+        )
+        aliceConnection.awaitFrame()
+        aliceConnection.awaitFrame()
+
+        localConnection.close()
+        val passiveFrames = aliceConnection.drainFrames()
+
+        assertEquals(DisconnectReason.CLIENT_CLOSED, localConnection.disconnectReason())
+        assertEquals("alice", fixture.chatRepository.listChannels().first { it.channelId == "Ops" }.ownerPlayerId)
+        assertEquals(PersistedChannelRole.OWNER, fixture.chatRepository.listMemberships("Ops").single().role)
+        assertEquals("pf-localuser", passiveFrames.channelRemoveEvent().userToRemove)
+        assertEquals("!SYSTEM!", passiveFrames.channelTextEvent().senderDisplayName)
+        assertEquals("You are now the channel admin", passiveFrames.channelTextEvent().message)
     }
 
     @Test
@@ -1223,6 +1419,38 @@ class RewriteChatProtocolAdapterTest {
         )
     }
 
+    private fun List<FrameEnvelope>.channelJoinEvent(): ChatChannelJoinEventPayload {
+        val frame = first { it.chat_event?.event_type == ChatParityEventType.CHANNEL_JOIN.wireName }
+        return RewriteChatJson.decode(
+            serializer = ChatChannelJoinEventPayload.serializer(),
+            bytes = frame.chat_event!!.payload.toByteArray(),
+        )
+    }
+
+    private fun List<FrameEnvelope>.channelLeaveEvent(): ChatChannelLeaveEventPayload {
+        val frame = first { it.chat_event?.event_type == ChatParityEventType.CHANNEL_LEAVE.wireName }
+        return RewriteChatJson.decode(
+            serializer = ChatChannelLeaveEventPayload.serializer(),
+            bytes = frame.chat_event!!.payload.toByteArray(),
+        )
+    }
+
+    private fun List<FrameEnvelope>.channelRemoveEvent(): ChatChannelRemoveEventPayload {
+        val frame = first { it.chat_event?.event_type == ChatParityEventType.CHANNEL_REMOVE.wireName }
+        return RewriteChatJson.decode(
+            serializer = ChatChannelRemoveEventPayload.serializer(),
+            bytes = frame.chat_event!!.payload.toByteArray(),
+        )
+    }
+
+    private fun List<FrameEnvelope>.channelKickEvent(): ChatChannelKickEventPayload {
+        val frame = first { it.chat_event?.event_type == ChatParityEventType.CHANNEL_KICK.wireName }
+        return RewriteChatJson.decode(
+            serializer = ChatChannelKickEventPayload.serializer(),
+            bytes = frame.chat_event!!.payload.toByteArray(),
+        )
+    }
+
     private fun List<FrameEnvelope>.errorEvent(): ChatErrorEventPayload {
         val frame = first { it.chat_event?.event_type == ChatParityEventType.ERROR.wireName }
         return RewriteChatJson.decode(
@@ -1247,6 +1475,14 @@ class RewriteChatProtocolAdapterTest {
         )
     }
 
+    private fun List<FrameEnvelope>.channelTextMeEvent(): ChatChannelTextMeEventPayload {
+        val frame = first { it.chat_event?.event_type == ChatParityEventType.CHANNEL_TEXT_ME.wireName }
+        return RewriteChatJson.decode(
+            serializer = ChatChannelTextMeEventPayload.serializer(),
+            bytes = frame.chat_event!!.payload.toByteArray(),
+        )
+    }
+
     private fun List<FrameEnvelope>.whisperEvent(): ChatWhisperEventPayload {
         val frame = first { it.chat_event?.event_type == ChatParityEventType.WHISPER.wireName }
         return RewriteChatJson.decode(
@@ -1265,6 +1501,13 @@ class RewriteChatProtocolAdapterTest {
     private suspend fun InMemoryClientConnection.channelTextEvent(): ChatChannelTextEventPayload {
         return RewriteChatJson.decode(
             serializer = ChatChannelTextEventPayload.serializer(),
+            bytes = awaitFrame().chat_event!!.payload.toByteArray(),
+        )
+    }
+
+    private suspend fun InMemoryClientConnection.channelTextMeEvent(): ChatChannelTextMeEventPayload {
+        return RewriteChatJson.decode(
+            serializer = ChatChannelTextMeEventPayload.serializer(),
             bytes = awaitFrame().chat_event!!.payload.toByteArray(),
         )
     }

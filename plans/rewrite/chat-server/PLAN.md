@@ -154,7 +154,7 @@
 - Locked scope note: this card closes retained reciprocal `relation_add` fanout on chat login/logout, including the legacy inconsistency where login treats any outgoing relation as eligible while logout only fans out from friend-marked outgoing relations.
 
 ### RW-CHAT-005A - Emit retained chat protocol parity events
-- Status: `ready`
+- Status: `done`
 - Priority: `P1`
 - Execution lane: `contracts`
 - Worker role: `worker`
@@ -165,6 +165,7 @@
 - Autonomous next: `RW-CHAT-005B`
 - Fallback if blocked: `RW-CHAT-003B`
 - Verification scope: `./gradlew :RewriteProtocol:test :RewriteChatCore:test :RewriteChatServer:test`
+- Locked scope note: this card closes the retained parity event surface for actor-local `channel_join` and `channel_leave`, joiner-inclusive `channel_add`, kicker-inclusive `channel_remove`, retained `channel_text_me` persistence/event coverage, and `!SYSTEM! You are now the channel admin` handoff text on create, leave, kick, and disconnect-driven ownership transfer.
 
 ### RW-CHAT-005B - Close retained client-chat verification pack
 - Status: `todo`

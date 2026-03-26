@@ -525,9 +525,31 @@ class RewriteChatProtocolAdapter(
                 ),
             ),
         )
+        appendSystemChannelMessage(
+            channelName = payload.channelName,
+            message = CHANNEL_ADMIN_PROMOTION_MESSAGE,
+        )
+        val roster = loadChannelRoster(payload.channelName)
         return responseWithSubscribedChannelsRefresh(
             commandId = commandId,
             session = session,
+            extraFrames = listOf(
+                channelJoinFrame(
+                    receiverPlayerId = session.playerId,
+                    roster = roster,
+                ),
+                channelAddFrame(
+                    receiverPlayerId = session.playerId,
+                    channelName = payload.channelName,
+                    userToAdd = session.playerId,
+                    admin = true,
+                ),
+                systemChannelTextFrame(
+                    receiverPlayerId = session.playerId,
+                    channelName = payload.channelName,
+                    message = CHANNEL_ADMIN_PROMOTION_MESSAGE,
+                ),
+            ),
         )
     }
 
@@ -621,9 +643,33 @@ class RewriteChatProtocolAdapter(
                 ),
             )
         }
+        val actorFrames = mutableListOf(
+            channelJoinFrame(
+                receiverPlayerId = session.playerId,
+                roster = roster,
+            ),
+            channelAddFrame(
+                receiverPlayerId = session.playerId,
+                channelName = channel.channelId,
+                userToAdd = session.playerId,
+                admin = role != PersistedChannelRole.MEMBER,
+            ),
+        )
+        if (role == PersistedChannelRole.OWNER) {
+            appendSystemChannelMessage(
+                channelName = channel.channelId,
+                message = CHANNEL_ADMIN_PROMOTION_MESSAGE,
+            )
+            actorFrames += systemChannelTextFrame(
+                receiverPlayerId = session.playerId,
+                channelName = channel.channelId,
+                message = CHANNEL_ADMIN_PROMOTION_MESSAGE,
+            )
+        }
         return responseWithSubscribedChannelsRefresh(
             commandId = commandId,
             session = session,
+            extraFrames = actorFrames,
         )
     }
 
@@ -672,9 +718,19 @@ class RewriteChatProtocolAdapter(
                 ),
             )
         }
+        pushAdminPromotionNotice(
+            channelName = channel.channelId,
+            promotedOwnerId = removalResult.promotedOwnerId,
+        )
         return responseWithSubscribedChannelsRefresh(
             commandId = commandId,
             session = session,
+            extraFrames = listOf(
+                channelLeaveFrame(
+                    receiverPlayerId = session.playerId,
+                    channelName = channel.channelId,
+                ),
+            ),
         )
     }
 
@@ -751,7 +807,7 @@ class RewriteChatProtocolAdapter(
                 ),
             ),
         )
-        pushGeneratedFrames(removalResult.remainingPlayerIds - session.playerId) { receiverPlayerId ->
+        pushGeneratedFrames(removalResult.remainingPlayerIds) { receiverPlayerId ->
             listOf(
                 channelRemoveFrame(
                     receiverPlayerId = receiverPlayerId,
@@ -760,6 +816,10 @@ class RewriteChatProtocolAdapter(
                 ),
             )
         }
+        pushAdminPromotionNotice(
+            channelName = channel.channelId,
+            promotedOwnerId = removalResult.promotedOwnerId,
+        )
         return responseWithSubscribedChannelsRefresh(
             commandId = commandId,
             session = session,
@@ -1205,6 +1265,7 @@ class RewriteChatProtocolAdapter(
                 remainingPlayerIds = emptySet(),
             )
         }
+        var promotedOwnerId: String? = null
         if (channel.ownerPlayerId == removedMembership.playerId || removedMembership.role == PersistedChannelRole.OWNER) {
             val successor = remainingMemberships.first()
             if (successor.role != PersistedChannelRole.OWNER) {
@@ -1213,10 +1274,12 @@ class RewriteChatProtocolAdapter(
             if (channel.ownerPlayerId != successor.playerId) {
                 chatSocialRepository.upsertChannel(channel.copy(ownerPlayerId = successor.playerId))
             }
+            promotedOwnerId = successor.playerId
         }
         return RemovalResult(
             channelDeleted = false,
             remainingPlayerIds = remainingMemberships.mapTo(linkedSetOf()) { it.playerId },
+            promotedOwnerId = promotedOwnerId,
         )
     }
 
@@ -1538,6 +1601,20 @@ class RewriteChatProtocolAdapter(
         )
     }
 
+    private fun systemChannelTextFrame(
+        receiverPlayerId: String,
+        channelName: String,
+        message: String,
+    ): FrameEnvelope {
+        return channelTextFrame(
+            receiverPlayerId = receiverPlayerId,
+            channelName = channelName,
+            senderDisplayName = SYSTEM_SENDER_DISPLAY_NAME,
+            message = message,
+            emote = false,
+        )
+    }
+
     private fun channelTextFrame(
         receiverPlayerId: String,
         channelName: String,
@@ -1758,7 +1835,58 @@ class RewriteChatProtocolAdapter(
                     ),
                 )
             }
+            pushAdminPromotionNotice(
+                channelName = channel.channelId,
+                promotedOwnerId = removalResult.promotedOwnerId,
+            )
         }
+    }
+
+    private suspend fun pushAdminPromotionNotice(
+        channelName: String,
+        promotedOwnerId: String?,
+    ) {
+        if (promotedOwnerId == null) {
+            return
+        }
+        appendSystemChannelMessage(
+            channelName = channelName,
+            message = CHANNEL_ADMIN_PROMOTION_MESSAGE,
+        )
+        pushGeneratedFrames(setOf(promotedOwnerId)) { receiverPlayerId ->
+            listOf(
+                systemChannelTextFrame(
+                    receiverPlayerId = receiverPlayerId,
+                    channelName = channelName,
+                    message = CHANNEL_ADMIN_PROMOTION_MESSAGE,
+                ),
+            )
+        }
+    }
+
+    private suspend fun appendSystemChannelMessage(
+        channelName: String,
+        message: String,
+    ) {
+        chatSocialRepository.appendMessage(
+            PersistedChatMessage(
+                messageId = UUID.randomUUID().toString(),
+                messageKind = com.hackwars.rewrite.persistence.PersistedChatMessageKind.CHANNEL,
+                eventType = ChatParityEventType.CHANNEL_TEXT.wireName,
+                senderPlayerId = SYSTEM_SENDER_DISPLAY_NAME,
+                createdAt = clock(),
+                payload = RewriteChatJson.encode(
+                    serializer = ChatChannelTextEventPayload.serializer(),
+                    value = ChatChannelTextEventPayload(
+                        receiverPlayerId = "",
+                        channelName = channelName,
+                        senderDisplayName = SYSTEM_SENDER_DISPLAY_NAME,
+                        message = message,
+                    ),
+                ),
+                channelId = channelName,
+            ),
+        )
     }
 
     fun serviceAdapter(): RewriteServiceAdapter = RewriteChatServiceAdapter(this)
@@ -1820,6 +1948,8 @@ class RewriteChatProtocolAdapter(
         const val MAX_CHANNEL_NAME_LENGTH: Int = 18
         const val MAX_CHANNEL_PASSWORD_LENGTH: Int = 18
         const val MAX_RELATION_COMMENT_LENGTH: Int = 14
+        const val SYSTEM_SENDER_DISPLAY_NAME: String = "!SYSTEM!"
+        const val CHANNEL_ADMIN_PROMOTION_MESSAGE: String = "You are now the channel admin"
         val VALID_CHANNEL_NAME: Regex = Regex("^[A-Za-z0-9 ._<>-]{1,18}$")
 
         fun errorResponse(
@@ -1935,4 +2065,5 @@ private data class MembershipPayload(
 private data class RemovalResult(
     val channelDeleted: Boolean,
     val remainingPlayerIds: Set<String>,
+    val promotedOwnerId: String? = null,
 )
