@@ -93,7 +93,7 @@
 - Verification scope: `./gradlew :RewriteClient:test`
 
 ### RW-TEST-006 - Legacy screenshot baseline capture workflow
-- Status: `ready`
+- Status: `done`
 - Priority: `P0`
 - Execution lane: `ui_parity`
 - Worker role: `worker`
