@@ -602,4 +602,82 @@ class RewriteClientJsonTest {
         assertEquals(1, voteResponse.votesAvailableAfter)
         assertEquals(4, voteResponse.targetVoteCountAfter)
     }
+
+    @Test
+    fun decodesCurrentRewriteHealPortResponseShape() {
+        val payload = """
+            {
+              "stateId":"LOCAL-IP",
+              "portNumber":6,
+              "accepted":true,
+              "outcome":"SUCCESS",
+              "message":"healport-succeeded",
+              "chargedAmount":5.0,
+              "pettyCashAfter":20.0,
+              "healthAfter":100.0,
+              "healCountAfter":1,
+              "version":22,
+              "ignored":"ignored"
+            }
+        """.trimIndent().encodeToByteArray()
+
+        val response = RewriteClientJson.decode(
+            ClientHealPortResponse.serializer(),
+            payload,
+        )
+
+        assertEquals("LOCAL-IP", response.stateId)
+        assertTrue(response.accepted)
+        assertEquals(ClientHealPortOutcome.SUCCESS, response.outcome)
+        assertEquals(6, response.portNumber)
+        assertEquals(22, response.version)
+    }
+
+    @Test
+    fun decodesCurrentRewriteInstallApplicationAndFirewallResponses() {
+        val applicationPayload = """
+            {
+              "stateId":"LOCAL-IP",
+              "portNumber":6,
+              "installedApplication":{
+                "name":"bank.bin",
+                "kind":"BANKING",
+                "cpuCost":2.5,
+                "ignored":"ignored"
+              },
+              "defaultBankPort":6,
+              "version":23,
+              "ignored":"ignored"
+            }
+        """.trimIndent().encodeToByteArray()
+        val firewallPayload = """
+            {
+              "stateId":"LOCAL-IP",
+              "portNumber":6,
+              "installedFirewall":{
+                "name":"guard.fw",
+                "kind":"BASIC",
+                "cpuCost":1.5,
+                "ignored":"ignored"
+              },
+              "returnedFirewall":null,
+              "version":24,
+              "ignored":"ignored"
+            }
+        """.trimIndent().encodeToByteArray()
+
+        val applicationResponse = RewriteClientJson.decode(
+            ClientInstallApplicationResponse.serializer(),
+            applicationPayload,
+        )
+        val firewallResponse = RewriteClientJson.decode(
+            ClientInstallFirewallResponse.serializer(),
+            firewallPayload,
+        )
+
+        assertEquals("bank.bin", applicationResponse.installedApplication.name)
+        assertEquals(6, applicationResponse.defaultBankPort)
+        assertEquals("guard.fw", firewallResponse.installedFirewall.name)
+        assertEquals(24, firewallResponse.version)
+    }
 }

@@ -502,6 +502,26 @@ data class ClientRequestFilePayload(
 )
 
 @Serializable
+data class ClientHealPortPayload(
+    val ip: String,
+    val port: Int,
+)
+
+@Serializable
+data class ClientInstallApplicationPayload(
+    val path: String? = null,
+    val name: String,
+    val portNumber: Int,
+)
+
+@Serializable
+data class ClientInstallFirewallPayload(
+    val path: String? = null,
+    val name: String,
+    val portNumber: Int,
+)
+
+@Serializable
 data class ClientSaveFilePayload(
     val path: String? = null,
     val file: ClientStoredFile,
@@ -589,6 +609,32 @@ data class ClientMutationAcceptedResponse(
 )
 
 @Serializable
+data class ClientHealPortResponse(
+    val stateId: String,
+    val portNumber: Int,
+    val accepted: Boolean,
+    val outcome: ClientHealPortOutcome,
+    val message: String,
+    val chargedAmount: Double,
+    val pettyCashAfter: Double,
+    val healthAfter: Double? = null,
+    val healCountAfter: Int? = null,
+    val version: Long,
+)
+
+@Serializable
+enum class ClientHealPortOutcome {
+    SUCCESS,
+    PORT_NOT_FOUND,
+    INVALID_PORT,
+    ACTIVE_BANK_REQUIRED,
+    OVERHEATED,
+    WEAKENED,
+    HEAL_LIMIT_REACHED,
+    INSUFFICIENT_PETTY_CASH,
+}
+
+@Serializable
 data class ClientCompileFileResponse(
     val stateId: String,
     val compiledFile: ClientStoredFile,
@@ -603,6 +649,24 @@ data class ClientDecompileFileResponse(
     val decompiledFile: ClientStoredFile,
     val pettyCashAfter: Double,
     val experienceAfter: Double,
+    val version: Long,
+)
+
+@Serializable
+data class ClientInstallApplicationResponse(
+    val stateId: String,
+    val portNumber: Int,
+    val installedApplication: ClientInstalledApplication,
+    val defaultBankPort: Int? = null,
+    val version: Long,
+)
+
+@Serializable
+data class ClientInstallFirewallResponse(
+    val stateId: String,
+    val portNumber: Int,
+    val installedFirewall: ClientInstalledFirewall,
+    val returnedFirewall: ClientStoredFile? = null,
     val version: Long,
 )
 

@@ -15,6 +15,7 @@ import com.hackwars.rewrite.client.shell.RewriteShellDialogCoordinator
 import com.hackwars.rewrite.client.shell.RewriteShellDialogHost
 import com.hackwars.rewrite.client.shell.RewriteShellWindowCoordinator
 import com.hackwars.rewrite.client.shell.RewriteShellWindowHost
+import com.hackwars.rewrite.client.systems.RewritePortManagementWindow
 import com.hackwars.rewrite.client.web.RewriteSiteEditorWindow
 import com.hackwars.rewrite.client.web.RewriteWebBrowserWindow
 import com.hackwars.rewrite.clientmodel.RewriteClientBootstrapState
@@ -37,6 +38,12 @@ import com.hackwars.rewrite.protocol.ClientFileContentsResponse
 import com.hackwars.rewrite.protocol.ClientFilesystemState
 import com.hackwars.rewrite.protocol.ClientGameSnapshot
 import com.hackwars.rewrite.protocol.ClientMakeBountyPayload
+import com.hackwars.rewrite.protocol.ClientHealPortPayload
+import com.hackwars.rewrite.protocol.ClientHealPortResponse
+import com.hackwars.rewrite.protocol.ClientInstallApplicationPayload
+import com.hackwars.rewrite.protocol.ClientInstallApplicationResponse
+import com.hackwars.rewrite.protocol.ClientInstallFirewallPayload
+import com.hackwars.rewrite.protocol.ClientInstallFirewallResponse
 import com.hackwars.rewrite.protocol.ClientMutationAcceptedResponse
 import com.hackwars.rewrite.protocol.ClientPageEditorResponse
 import com.hackwars.rewrite.protocol.ClientProgramUpdate
@@ -229,6 +236,63 @@ class RewriteRootController(
             ),
             responseSerializer = ClientTransferResponse.serializer(),
             targetStateIds = listOf(playerIp, targetIp),
+        )
+    }
+
+    internal suspend fun requestHealPort(
+        portNumber: Int,
+    ): RewriteGameCommandResult<ClientHealPortResponse> {
+        val playerIp = authenticatedPlayerIp()
+            ?: return RewriteGameCommandResult.Failure("Not connected to a rewrite game session.")
+        return gameCommandBroker.request(
+            commandName = "healport",
+            payloadSerializer = ClientHealPortPayload.serializer(),
+            payload = ClientHealPortPayload(
+                ip = playerIp,
+                port = portNumber,
+            ),
+            responseSerializer = ClientHealPortResponse.serializer(),
+            targetStateIds = listOf(playerIp),
+        )
+    }
+
+    internal suspend fun requestInstallApplication(
+        path: String?,
+        name: String,
+        portNumber: Int,
+    ): RewriteGameCommandResult<ClientInstallApplicationResponse> {
+        val playerIp = authenticatedPlayerIp()
+            ?: return RewriteGameCommandResult.Failure("Not connected to a rewrite game session.")
+        return gameCommandBroker.request(
+            commandName = "installapplication",
+            payloadSerializer = ClientInstallApplicationPayload.serializer(),
+            payload = ClientInstallApplicationPayload(
+                path = path,
+                name = name,
+                portNumber = portNumber,
+            ),
+            responseSerializer = ClientInstallApplicationResponse.serializer(),
+            targetStateIds = listOf(playerIp),
+        )
+    }
+
+    internal suspend fun requestInstallFirewall(
+        path: String?,
+        name: String,
+        portNumber: Int,
+    ): RewriteGameCommandResult<ClientInstallFirewallResponse> {
+        val playerIp = authenticatedPlayerIp()
+            ?: return RewriteGameCommandResult.Failure("Not connected to a rewrite game session.")
+        return gameCommandBroker.request(
+            commandName = "installfirewall",
+            payloadSerializer = ClientInstallFirewallPayload.serializer(),
+            payload = ClientInstallFirewallPayload(
+                path = path,
+                name = name,
+                portNumber = portNumber,
+            ),
+            responseSerializer = ClientInstallFirewallResponse.serializer(),
+            targetStateIds = listOf(playerIp),
         )
     }
 
@@ -786,6 +850,20 @@ class RewriteRootController(
 
         RewriteShellCommand.HOME -> RewriteHomeWindow(
             controller = this,
+        )
+
+        RewriteShellCommand.PORT_MANAGEMENT -> RewritePortManagementWindow(
+            controller = this,
+            preferredPort = preferredPort,
+            onOpenAuxiliaryWindow = { window ->
+                shellHost?.let { currentHost ->
+                    currentHost.showWindow(window)
+                    currentHost.focusWindow(window)
+                }
+            },
+            onFocusAuxiliaryWindow = { window ->
+                shellHost?.focusWindow(window)
+            },
         )
 
         RewriteShellCommand.SCRIPT_EDITOR -> RewriteScriptEditorWindow(

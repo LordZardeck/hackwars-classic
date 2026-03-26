@@ -188,7 +188,7 @@
   - Store is purchase-only in this slice; seller/merchant management remains deferred.
 
 ### RW-CLIENT-W3B - Site Editor with `requestpage` / `savepage`
-- Status: `in_progress`
+- Status: `done`
 - Owner: `unassigned`
 - Depends on: `RW-CLIENT-W3A`
 - Allowed write scope: `:RewriteProtocol`, `:RewriteClient/client/web/**`, `:RewriteClient`
@@ -211,15 +211,41 @@
   - Owns `Help` and `Tutorial` windows plus broader browser-rendering parity work.
   - Search/bookmarks remain out of scope because the legacy remote endpoints behind them are gone.
 
-### RW-CLIENT-W4 - Port, watch, equipment, and firewall windows
-- Status: `todo`
+### RW-CLIENT-W4A - Port Management core on decoded port state plus heal/install transport
+- Status: `in_progress`
 - Owner: `unassigned`
 - Depends on: `RW-CLIENT-003A`
-- Allowed write scope: `:RewriteClient/client/systems/**`
+- Allowed write scope: `:RewriteProtocol`, `:RewriteClient/client/systems/**`, `:RewriteClient`
+- Verification command: `./gradlew :RewriteProtocol:test :RewriteClient:test :RewriteClient:uiTest`
+- Artifacts: `build/reports/rewrite/ui`
+- Commit rule: `single green commit only`
+- Notes:
+  - Covers the first real rewrite `Port Management` window over decoded port snapshot/delta state.
+  - Owns `healport`, `installapplication`, and `installfirewall` client transport decode/dispatch only.
+  - Shows enabled/default/dummy/note fields read-only in this slice; `portonoff`, default/dummy toggles, note editing, and public FTP password mutation stay deferred.
+
+### RW-CLIENT-W4B - Equipment Manager and Firewall Browser inventory surfaces
+- Status: `todo`
+- Owner: `unassigned`
+- Depends on: `RW-CLIENT-W4A`, `RW-CLIENT-W2A`
+- Allowed write scope: `:RewriteClient/client/systems/**`, `:RewriteClient`
 - Verification command: `./gradlew :RewriteClient:test :RewriteClient:uiTest`
 - Artifacts: `build/reports/rewrite/ui`
 - Commit rule: `single green commit only`
 - Notes:
+  - Owns the real rewrite `Equipment Manager` and `Firewall Browser` windows.
+  - Reuses local chooser/browser foundations and install flows from `RW-CLIENT-W4A`.
+
+### RW-CLIENT-W4C - Watch Manager plus watch protocol decode and mutations
+- Status: `todo`
+- Owner: `unassigned`
+- Depends on: `RW-CLIENT-W4A`
+- Allowed write scope: `:RewriteProtocol`, `:RewriteClient/client/systems/**`, `:RewriteClient`
+- Verification command: `./gradlew :RewriteProtocol:test :RewriteClient:test :RewriteClient:uiTest`
+- Artifacts: `build/reports/rewrite/ui`
+- Commit rule: `single green commit only`
+- Notes:
+  - Owns `fetchwatches` plus watch mutation decode/dispatch and the real rewrite `Watch Manager`.
   - Selector updates must be fine-grained by watched value, not whole-state blasts.
 
 ### RW-CLIENT-W5 - Network, scan, attack, redirect, zombie windows
