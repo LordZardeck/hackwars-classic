@@ -114,7 +114,7 @@
   - Keeps `Create Bounty` deferred until filesystem-backed file/path picking is available.
 
 ### RW-CLIENT-W1B - Create Bounty dialog and file-picker follow-up
-- Status: `todo`
+- Status: `in_progress`
 - Owner: `unassigned`
 - Depends on: `RW-CLIENT-W1A`, `RW-CLIENT-W2A`
 - Allowed write scope: `:RewriteClient/client/economy/**`, `:RewriteClient/client/files/**`
@@ -125,7 +125,7 @@
   - Depends on `RW-CLIENT-W2A` because bounty creation needs local filesystem-backed file and path selection, not the whole editor/FTP lane.
 
 ### RW-CLIENT-W2A - Filesystem decode, Home window, and reusable local chooser foundation
-- Status: `in_progress`
+- Status: `done`
 - Owner: `unassigned`
 - Depends on: `RW-CLIENT-003A`
 - Allowed write scope: `:RewriteProtocol`, `:RewriteClientModel`, `:RewriteClient/client/files/**`, `:RewriteClient`

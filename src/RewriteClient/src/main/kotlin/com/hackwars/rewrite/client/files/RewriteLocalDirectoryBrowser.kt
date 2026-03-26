@@ -71,6 +71,7 @@ internal data class RewriteLocalDirectoryBrowserState(
 
 internal class RewriteLocalDirectoryBrowserController(
     private val rootController: RewriteRootController,
+    private val directoryFilter: (ClientDirectoryEntry) -> Boolean = { true },
     private val fileFilter: (ClientStoredFile) -> Boolean = { true },
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
 ) : AutoCloseable {
@@ -224,15 +225,17 @@ internal class RewriteLocalDirectoryBrowserController(
     }
 
     private fun buildEntries(response: ClientDirectoryListingResponse): List<RewriteLocalDirectoryBrowserEntry> {
-        val directories = response.directories.map { directory ->
-            RewriteLocalDirectoryBrowserEntry(
-                path = directory.path,
-                name = directory.name,
-                description = directory.description,
-                type = RewriteLocalDirectoryEntryType.DIRECTORY,
-                directory = directory,
-            )
-        }
+        val directories = response.directories
+            .filter(directoryFilter)
+            .map { directory ->
+                RewriteLocalDirectoryBrowserEntry(
+                    path = directory.path,
+                    name = directory.name,
+                    description = directory.description,
+                    type = RewriteLocalDirectoryEntryType.DIRECTORY,
+                    directory = directory,
+                )
+            }
         val files = response.files
             .filter(fileFilter)
             .map { file ->
@@ -438,10 +441,12 @@ internal class RewriteLocalFileChooserWindow(
     controller: RewriteRootController,
     title: String,
     private val onFileSelected: (RewriteLocalFileSelection) -> Unit,
+    directoryFilter: (ClientDirectoryEntry) -> Boolean = { true },
     fileFilter: (ClientStoredFile) -> Boolean = { true },
 ) : JInternalFrame(title, true, true, true, true) {
     private val browserController = RewriteLocalDirectoryBrowserController(
         rootController = controller,
+        directoryFilter = directoryFilter,
         fileFilter = fileFilter,
     )
     private val browserPanel = RewriteLocalDirectoryBrowserPanel(

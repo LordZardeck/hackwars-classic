@@ -1,6 +1,7 @@
 package com.hackwars.rewrite.client
 
 import com.hackwars.rewrite.client.shell.RewriteShellCommand
+import com.hackwars.rewrite.protocol.ClientBountyCreatedResponse
 import com.hackwars.rewrite.protocol.ClientDirectoryEntry
 import com.hackwars.rewrite.protocol.ClientDirectoryListingResponse
 import com.hackwars.rewrite.clientmodel.RewriteClientRoute
@@ -10,9 +11,13 @@ import com.hackwars.rewrite.protocol.ClientEconomyState
 import com.hackwars.rewrite.protocol.ClientGameSnapshot
 import com.hackwars.rewrite.protocol.ClientInstalledApplication
 import com.hackwars.rewrite.protocol.ClientPortState
+import com.hackwars.rewrite.protocol.ClientMakeBountyPayload
 import com.hackwars.rewrite.protocol.ClientRequestDirectoryPayload
 import com.hackwars.rewrite.protocol.ClientRuntimeState
+import com.hackwars.rewrite.protocol.ClientStoredFileKind
 import com.hackwars.rewrite.protocol.ClientStoredFile
+import com.hackwars.rewrite.protocol.ClientCompiledBinaryMetadata
+import com.hackwars.rewrite.protocol.ClientApplicationKind
 import com.hackwars.rewrite.protocol.ClientTransferPayload
 import com.hackwars.rewrite.protocol.ClientWithdrawPayload
 import com.hackwars.rewrite.protocol.RewriteClientJson
@@ -26,12 +31,16 @@ import java.awt.Container
 import java.awt.GraphicsEnvironment
 import java.time.Instant
 import javax.swing.JButton
+import javax.swing.JCheckBox
 import javax.swing.JComboBox
+import javax.swing.JDialog
 import javax.swing.JFormattedTextField
 import javax.swing.JInternalFrame
 import javax.swing.JList
 import javax.swing.JLabel
+import javax.swing.JSpinner
 import javax.swing.SwingUtilities
+import javax.swing.JTextField
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -376,6 +385,193 @@ class RewriteRootFrameUiTest {
             waitUntil {
                 frame.desktopPane.allFrames.none { it.name == "rewrite-economy-window-deposit" }
             }
+        } finally {
+            disposeFrame(frame)
+        }
+    }
+
+    @Test
+    fun createBountyMenuLaunchesRealDialogAndReusesSingleInstance() {
+        assumeFalse(GraphicsEnvironment.isHeadless())
+
+        val frame = bankingReadyFrame()
+        try {
+            SwingUtilities.invokeAndWait {
+                frame.controller.launchShellCommand(RewriteShellCommand.CREATE_BOUNTY)
+                frame.controller.launchShellCommand(RewriteShellCommand.CREATE_BOUNTY)
+            }
+
+            val dialog = waitForDialog("Create Bounty")
+            waitUntil {
+                java.awt.Window.getWindows()
+                    .filterIsInstance<JDialog>()
+                    .count { it.isDisplayable && it.title == "Create Bounty" } == 1
+            }
+            assertEquals("rewrite-bounty-dialog", dialog.name)
+        } finally {
+            disposeFrame(frame)
+        }
+    }
+
+    @Test
+    fun createBountyBrowseFlowPopulatesSelectionAndClosesOnSuccess() {
+        assumeFalse(GraphicsEnvironment.isHeadless())
+
+        val sessionGateway = FakeUiSessionGateway()
+        val frame = bankingReadyFrame(sessionGateway = sessionGateway)
+        try {
+            SwingUtilities.invokeAndWait {
+                frame.controller.launchShellCommand(RewriteShellCommand.CREATE_BOUNTY)
+            }
+            val dialog = waitForDialog("Create Bounty")
+
+            SwingUtilities.invokeAndWait {
+                @Suppress("UNCHECKED_CAST")
+                (comboBox(dialog, "rewrite-bounty-type") as JComboBox<Any>).selectedIndex = 2
+            }
+            waitUntil { button(dialog, "rewrite-bounty-browse").isEnabled }
+
+            SwingUtilities.invokeAndWait {
+                checkBox(dialog, "rewrite-bounty-any-player").doClick()
+                button(dialog, "rewrite-bounty-browse").doClick()
+            }
+
+            val chooser = waitForWindow(frame, "rewrite-bounty-file-chooser-window")
+            waitUntil {
+                sessionGateway.latestGameSession()?.sentFrames?.isNotEmpty() == true
+            }
+            val directoryCommand = sessionGateway.latestGameSession()!!.sentFrames.last().command!!
+
+            frame.controller.accept(
+                RewriteService.GAME,
+                RewriteFrames.commandResponse(
+                    commandId = directoryCommand.command_id,
+                    payload = RewriteClientJson.encode(
+                        ClientDirectoryListingResponse.serializer(),
+                        ClientDirectoryListingResponse(
+                            stateId = "LOCAL-IP",
+                            path = "/Scripts",
+                            directories = listOf(
+                                ClientDirectoryEntry(path = "/Scripts/Public", name = "Public"),
+                            ),
+                            files = listOf(
+                                ClientStoredFile(
+                                    path = "/Scripts/installer.bin",
+                                    name = "installer.bin",
+                                    kind = ClientStoredFileKind.APPLICATION_BINARY,
+                                    compiledBinary = ClientCompiledBinaryMetadata(
+                                        applicationKind = ClientApplicationKind.ATTACK,
+                                    ),
+                                ),
+                                ClientStoredFile(
+                                    path = "/Scripts/watch.bin",
+                                    name = "watch.bin",
+                                    kind = ClientStoredFileKind.APPLICATION_BINARY,
+                                    compiledBinary = ClientCompiledBinaryMetadata(
+                                        applicationKind = ClientApplicationKind.WATCH,
+                                    ),
+                                ),
+                            ),
+                            version = 2,
+                        ),
+                    ),
+                ),
+            )
+
+            waitUntil { entryList(chooser).model.size == 1 }
+            SwingUtilities.invokeAndWait {
+                entryList(chooser).selectedIndex = 0
+                button(chooser, "rewrite-files-choose-button").doClick()
+            }
+
+            waitUntil { findComponent(dialog, "rewrite-bounty-file-field") != null }
+            assertEquals("installer.bin", (findComponent(dialog, "rewrite-bounty-file-field") as JTextField).text)
+
+            SwingUtilities.invokeAndWait {
+                spinner(dialog, "rewrite-bounty-reward").value = 125.0
+                button(dialog, "rewrite-bounty-create").doClick()
+            }
+
+            waitUntil {
+                sessionGateway.latestGameSession()!!.sentFrames.size >= 2
+            }
+            val bountyCommand = sessionGateway.latestGameSession()!!.sentFrames.last().command!!
+            val payload = RewriteClientJson.decode(
+                ClientMakeBountyPayload.serializer(),
+                bountyCommand.payload.toByteArray(),
+            )
+            assertEquals("*", payload.target)
+            assertEquals(2, payload.type)
+            assertEquals("installer.bin", payload.fname)
+            assertEquals("/Scripts", payload.folder)
+
+            frame.controller.accept(
+                RewriteService.GAME,
+                RewriteFrames.commandResponse(
+                    commandId = bountyCommand.command_id,
+                    payload = RewriteClientJson.encode(
+                        ClientBountyCreatedResponse.serializer(),
+                        ClientBountyCreatedResponse(
+                            creatorStateId = "LOCAL-IP",
+                            storeStateId = "store1",
+                            bountyFile = ClientStoredFile(
+                                path = "/Store/install-1.bnty",
+                                name = "install-1.bnty",
+                            ),
+                            reward = 125.0,
+                            creatorVersion = 3,
+                            storeVersion = 4,
+                        ),
+                    ),
+                ),
+            )
+
+            waitUntil { !dialog.isDisplayable }
+        } finally {
+            disposeFrame(frame)
+        }
+    }
+
+    @Test
+    fun failedCreateBountyResponseKeepsDialogOpenAndShowsInlineError() {
+        assumeFalse(GraphicsEnvironment.isHeadless())
+
+        val sessionGateway = FakeUiSessionGateway()
+        val frame = bankingReadyFrame(sessionGateway = sessionGateway)
+        try {
+            SwingUtilities.invokeAndWait {
+                frame.controller.launchShellCommand(RewriteShellCommand.CREATE_BOUNTY)
+            }
+            val dialog = waitForDialog("Create Bounty")
+
+            SwingUtilities.invokeAndWait {
+                checkBox(dialog, "rewrite-bounty-any-player").doClick()
+                spinner(dialog, "rewrite-bounty-reward").value = 25.0
+                button(dialog, "rewrite-bounty-create").doClick()
+            }
+
+            waitUntil {
+                sessionGateway.latestGameSession()?.sentFrames?.isNotEmpty() == true
+            }
+            val bountyCommand = sessionGateway.latestGameSession()!!.sentFrames.last().command!!
+
+            frame.controller.accept(
+                RewriteService.GAME,
+                RewriteFrames.commandResponse(
+                    commandId = bountyCommand.command_id,
+                    status = CommandResponseStatus.COMMAND_RESPONSE_STATUS_ERROR,
+                    error = ErrorEnvelope(
+                        code = "INSUFFICIENT_PETTY_CASH",
+                        message = "Not enough petty cash to create this bounty.",
+                        retryable = false,
+                    ),
+                ),
+            )
+
+            waitUntil {
+                label(dialog, "rewrite-bounty-error").text == "Not enough petty cash to create this bounty."
+            }
+            assertTrue(dialog.isDisplayable)
         } finally {
             disposeFrame(frame)
         }
@@ -755,6 +951,11 @@ class RewriteRootFrameUiTest {
             ?: error("Unable to find JComboBox named $name")
     }
 
+    private fun checkBox(root: Component, name: String): JCheckBox {
+        return findComponent(root, name) as? JCheckBox
+            ?: error("Unable to find JCheckBox named $name")
+    }
+
     private fun button(root: Component, name: String): JButton {
         return findComponent(root, name) as? JButton
             ?: error("Unable to find JButton named $name")
@@ -770,12 +971,30 @@ class RewriteRootFrameUiTest {
             ?: error("Unable to find amount field")
     }
 
+    private fun spinner(root: Component, name: String): JSpinner {
+        return findComponent(root, name) as? JSpinner
+            ?: error("Unable to find spinner named $name")
+    }
+
     private fun waitForWindow(
         frame: RewriteRootFrame,
         windowName: String,
     ): JInternalFrame {
         waitUntil { frame.desktopPane.allFrames.any { it.name == windowName } }
         return frame.desktopPane.allFrames.first { it.name == windowName }
+    }
+
+    private fun waitForDialog(
+        title: String,
+    ): JDialog {
+        waitUntil {
+            java.awt.Window.getWindows().any { window ->
+                window is JDialog && window.isDisplayable && window.title == title
+            }
+        }
+        return java.awt.Window.getWindows()
+            .filterIsInstance<JDialog>()
+            .first { it.isDisplayable && it.title == title }
     }
 
     private fun expectedWindowName(command: RewriteShellCommand): String = when (command) {
@@ -792,7 +1011,7 @@ class RewriteRootFrameUiTest {
         onFileSelected: (filePath: String, displayedPath: String) -> Unit,
     ): JInternalFrame {
         val chooserClass = Class.forName("com.hackwars.rewrite.client.files.RewriteLocalFileChooserWindow")
-        val constructor = chooserClass.declaredConstructors.first { it.parameterCount == 4 }
+        val constructor = chooserClass.declaredConstructors.first { it.parameterCount == 5 }
         constructor.isAccessible = true
         val chooser = constructor.newInstance(
             controller,
@@ -805,6 +1024,7 @@ class RewriteRootFrameUiTest {
                     onFileSelected(filePath, displayedPath)
                 }
             },
+            { _: Any? -> true },
             { _: Any? -> true },
         )
         return chooser as JInternalFrame

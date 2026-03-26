@@ -220,6 +220,50 @@ class RewriteClientJsonTest {
     }
 
     @Test
+    fun decodesCurrentRewriteMakeBountyResponseShape() {
+        val payload = """
+            {
+              "creatorStateId":"LOCAL-IP",
+              "storeStateId":"store1",
+              "bountyFile":{
+                "path":"/Store/LOCAL-IP-install-1.bnty",
+                "name":"LOCAL-IP-install-1.bnty",
+                "kind":"BOUNTY",
+                "contents":"bounty",
+                "description":"Install bounty",
+                "bountyMetadata":{
+                  "type":2,
+                  "target":"ENEMY-IP",
+                  "iterationsRemaining":3,
+                  "reward":125.0,
+                  "bountySourceStateId":"LOCAL-IP",
+                  "requiredMaker":"LOCAL-IP",
+                  "requiredScriptName":"installer.bin",
+                  "anonymous":false
+                },
+                "ignored":"ignored"
+              },
+              "reward":125.0,
+              "creatorVersion":12,
+              "storeVersion":25,
+              "ignored":"ignored"
+            }
+        """.trimIndent().encodeToByteArray()
+
+        val response = RewriteClientJson.decode(
+            ClientBountyCreatedResponse.serializer(),
+            payload,
+        )
+
+        assertEquals("LOCAL-IP", response.creatorStateId)
+        assertEquals("store1", response.storeStateId)
+        assertEquals("/Store/LOCAL-IP-install-1.bnty", response.bountyFile.path)
+        assertEquals(125.0, response.reward)
+        assertEquals(12, response.creatorVersion)
+        assertEquals(25, response.storeVersion)
+    }
+
+    @Test
     fun decodesCurrentRewriteUiEventVariants() {
         val attackMessage = RewriteClientJson.decode(
             ClientGameUiEvent.serializer(),

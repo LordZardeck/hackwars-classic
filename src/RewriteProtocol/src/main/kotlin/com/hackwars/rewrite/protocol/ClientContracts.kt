@@ -469,6 +469,28 @@ data class ClientTransferResponse(
 )
 
 @Serializable
+data class ClientMakeBountyPayload(
+    val sourceIp: String,
+    val anonymous: Boolean = false,
+    val target: String? = null,
+    val type: Int = 0,
+    val fname: String? = null,
+    val folder: String? = null,
+    val iterations: Int = 0,
+    val reward: Double = 0.0,
+)
+
+@Serializable
+data class ClientBountyCreatedResponse(
+    val creatorStateId: String,
+    val storeStateId: String,
+    val bountyFile: ClientStoredFile,
+    val reward: Double,
+    val creatorVersion: Long,
+    val storeVersion: Long,
+)
+
+@Serializable
 data class ClientRequestDirectoryPayload(
     val path: String? = null,
 )

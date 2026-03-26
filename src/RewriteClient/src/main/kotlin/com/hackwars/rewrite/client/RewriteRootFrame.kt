@@ -4,6 +4,7 @@ import com.hackwars.rewrite.client.login.LoginScene
 import com.hackwars.rewrite.client.login.LoginUiDefaults
 import com.hackwars.rewrite.client.shell.DEFAULT_FRAME_TITLE
 import com.hackwars.rewrite.client.shell.RewriteDesktopShellView
+import com.hackwars.rewrite.client.shell.RewriteShellDialogHost
 import com.hackwars.rewrite.client.shell.RewriteShellChromePresenter
 import com.hackwars.rewrite.clientmodel.RewriteClientBootstrapState
 import com.hackwars.rewrite.clientmodel.RewriteClientRoute
@@ -65,6 +66,19 @@ class RewriteRootFrame(
     init {
         LoginUiDefaults.install()
         controller.attachShellHost(shellHost)
+        controller.attachDialogHost(object : RewriteShellDialogHost {
+            override val ownerWindow = this@RewriteRootFrame
+
+            override fun showDialog(dialog: javax.swing.JDialog) {
+                dialog.setLocationRelativeTo(this@RewriteRootFrame)
+                dialog.isVisible = true
+            }
+
+            override fun focusDialog(dialog: javax.swing.JDialog) {
+                dialog.toFront()
+                dialog.requestFocus()
+            }
+        })
         defaultCloseOperation = DISPOSE_ON_CLOSE
         contentPane.layout = BorderLayout()
         contentPane.add(

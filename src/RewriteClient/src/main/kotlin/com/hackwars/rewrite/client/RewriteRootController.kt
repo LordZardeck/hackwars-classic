@@ -1,11 +1,14 @@
 package com.hackwars.rewrite.client
 
+import com.hackwars.rewrite.client.economy.RewriteCreateBountyDialog
 import com.hackwars.rewrite.client.economy.RewriteDepositWindow
 import com.hackwars.rewrite.client.economy.RewriteTransferWindow
 import com.hackwars.rewrite.client.economy.RewriteWithdrawWindow
 import com.hackwars.rewrite.client.files.RewriteHomeWindow
 import com.hackwars.rewrite.client.shell.RewritePlaceholderInternalFrame
 import com.hackwars.rewrite.client.shell.RewriteShellCommand
+import com.hackwars.rewrite.client.shell.RewriteShellDialogCoordinator
+import com.hackwars.rewrite.client.shell.RewriteShellDialogHost
 import com.hackwars.rewrite.client.shell.RewriteShellWindowCoordinator
 import com.hackwars.rewrite.client.shell.RewriteShellWindowHost
 import com.hackwars.rewrite.clientmodel.RewriteClientBootstrapState
@@ -16,10 +19,12 @@ import com.hackwars.rewrite.clientmodel.RewriteDecodedGameState
 import com.hackwars.rewrite.clientmodel.RewriteDecodedGameUiNotice
 import com.hackwars.rewrite.clientmodel.RewriteServiceState
 import com.hackwars.rewrite.protocol.ClientBankTransactionResponse
+import com.hackwars.rewrite.protocol.ClientBountyCreatedResponse
 import com.hackwars.rewrite.protocol.ClientDepositPayload
 import com.hackwars.rewrite.protocol.ClientDirectoryListingResponse
 import com.hackwars.rewrite.protocol.ClientFilesystemState
 import com.hackwars.rewrite.protocol.ClientGameSnapshot
+import com.hackwars.rewrite.protocol.ClientMakeBountyPayload
 import com.hackwars.rewrite.protocol.ClientProgramUpdate
 import com.hackwars.rewrite.protocol.ClientRequestDirectoryPayload
 import com.hackwars.rewrite.protocol.ClientTransferPayload
@@ -29,6 +34,8 @@ import com.hackwars.rewrite.protocol.RewriteFrames
 import com.hackwars.rewrite.protocol.RewriteService
 import hackwars.rewrite.v1.FrameEnvelope
 import java.time.Instant
+import java.awt.Window
+import javax.swing.JDialog
 import javax.swing.JInternalFrame
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
@@ -53,10 +60,12 @@ class RewriteRootController(
         sendFrame = { frame -> send(RewriteService.GAME, frame) },
     )
     private val shellWindows = RewriteShellWindowCoordinator(::createShellWindow)
+    private val shellDialogs = RewriteShellDialogCoordinator(::createShellDialog)
     private val bootstrapLock = Any()
     private var loginAttemptId: Long = 0
     private var activeLoginJob: Job? = null
     private var pendingGameBootstrap: PendingGameBootstrap? = null
+    private var shellHost: RewriteShellWindowHost? = null
 
     fun snapshot(): RewriteClientState = store.snapshot()
 
@@ -115,14 +124,23 @@ class RewriteRootController(
     }
 
     fun attachShellHost(host: RewriteShellWindowHost?) {
+        shellHost = host
         shellWindows.attachHost(host)
+    }
+
+    internal fun attachDialogHost(host: RewriteShellDialogHost?) {
+        shellDialogs.attachHost(host)
     }
 
     fun launchShellCommand(
         command: RewriteShellCommand,
         preferredPort: Int? = null,
     ) {
-        shellWindows.open(command, preferredPort)
+        if (command == RewriteShellCommand.CREATE_BOUNTY) {
+            shellDialogs.open(command)
+        } else {
+            shellWindows.open(command, preferredPort)
+        }
     }
 
     internal suspend fun requestDeposit(
@@ -194,6 +212,35 @@ class RewriteRootController(
             payloadSerializer = ClientRequestDirectoryPayload.serializer(),
             payload = ClientRequestDirectoryPayload(path = path),
             responseSerializer = ClientDirectoryListingResponse.serializer(),
+            targetStateIds = listOf(playerIp),
+        )
+    }
+
+    internal suspend fun requestMakeBounty(
+        anonymous: Boolean,
+        target: String,
+        type: Int,
+        fileName: String?,
+        folder: String?,
+        iterations: Int,
+        reward: Double,
+    ): RewriteGameCommandResult<ClientBountyCreatedResponse> {
+        val playerIp = authenticatedPlayerIp()
+            ?: return RewriteGameCommandResult.Failure("Not connected to a rewrite game session.")
+        return gameCommandBroker.request(
+            commandName = "makebounty",
+            payloadSerializer = ClientMakeBountyPayload.serializer(),
+            payload = ClientMakeBountyPayload(
+                sourceIp = playerIp,
+                anonymous = anonymous,
+                target = target,
+                type = type,
+                fname = fileName,
+                folder = folder,
+                iterations = iterations,
+                reward = reward,
+            ),
+            responseSerializer = ClientBountyCreatedResponse.serializer(),
             targetStateIds = listOf(playerIp),
         )
     }
@@ -271,6 +318,7 @@ class RewriteRootController(
         activeLoginJob = null
         clearPendingBootstrap()
         shellWindows.closeAll()
+        shellDialogs.closeAll()
         sessions.keys.toList().forEach(::closeService)
         workerScope.cancel()
     }
@@ -401,6 +449,7 @@ class RewriteRootController(
         activeLoginJob = null
         clearPendingBootstrap()
         shellWindows.closeAll()
+        shellDialogs.closeAll()
         closeService(RewriteService.GAME)
         store.resetService(RewriteService.GAME)
         store.showLoginScreen(error = null)
@@ -466,6 +515,26 @@ class RewriteRootController(
         )
 
         else -> RewritePlaceholderInternalFrame(command)
+    }
+
+    private fun createShellDialog(
+        command: RewriteShellCommand,
+        ownerWindow: Window?,
+    ): JDialog = when (command) {
+        RewriteShellCommand.CREATE_BOUNTY -> RewriteCreateBountyDialog(
+            owner = ownerWindow,
+            controller = this,
+            onOpenChooser = { chooser ->
+                val currentHost = shellHost ?: return@RewriteCreateBountyDialog
+                currentHost.showWindow(chooser)
+                currentHost.focusWindow(chooser)
+            },
+            onFocusChooser = { chooser ->
+                shellHost?.focusWindow(chooser)
+            },
+        )
+
+        else -> error("No dialog registered for ${command.name}")
     }
 
     private data class PendingGameBootstrap(

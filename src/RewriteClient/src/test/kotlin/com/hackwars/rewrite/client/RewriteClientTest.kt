@@ -5,13 +5,16 @@ import com.hackwars.rewrite.clientmodel.RewriteDecodedGameState
 import com.hackwars.rewrite.clientmodel.RewriteDecodedGameUiNotice
 import com.hackwars.rewrite.protocol.ClientAttackMessageUiEvent
 import com.hackwars.rewrite.protocol.ClientBankTransactionResponse
+import com.hackwars.rewrite.protocol.ClientBountyCreatedResponse
 import com.hackwars.rewrite.protocol.ClientDepositPayload
 import com.hackwars.rewrite.protocol.ClientEconomyState
 import com.hackwars.rewrite.protocol.ClientGameDeltaProjection
 import com.hackwars.rewrite.protocol.ClientGameSectionsProjection
 import com.hackwars.rewrite.protocol.ClientGameSnapshot
+import com.hackwars.rewrite.protocol.ClientMakeBountyPayload
 import com.hackwars.rewrite.protocol.ClientProgramLifecycleStatus
 import com.hackwars.rewrite.protocol.ClientProgramUpdate
+import com.hackwars.rewrite.protocol.ClientStoredFile
 import com.hackwars.rewrite.protocol.ClientTransferPayload
 import com.hackwars.rewrite.protocol.ClientTransferResponse
 import com.hackwars.rewrite.protocol.RewriteClientJson
@@ -397,6 +400,81 @@ class RewriteClientTest {
         assertIs<RewriteGameCommandResult.Success<ClientBankTransactionResponse>>(result)
         assertEquals(25.0, result.value.appliedAmount)
         assertEquals(command.command_id, controller.snapshot().game.inbox.lastCommandResponse?.metadata?.commandId)
+    }
+
+    @Test
+    fun requestMakeBountyUsesExpectedPayloadAndResolvesByCommandId() = runTest {
+        val sessionGateway = FakeRewriteServiceSessionGateway()
+        val controller = testController(
+            authGateway = RecordingRewriteLoginAuthGateway(),
+            sessionGateway = sessionGateway,
+            scheduler = testScheduler,
+        )
+        controller.accept(
+            RewriteService.GAME,
+            RewriteFrames.authAccepted(
+                connectionId = "conn-1",
+                playFabId = "PF-LOCAL",
+                playerIp = "LOCAL-IP",
+                heartbeatInterval = kotlin.time.Duration.parse("15s"),
+                sessionStartedAt = Instant.parse("2026-03-25T00:00:00Z"),
+            ),
+        )
+
+        val pending = backgroundScope.async(UnconfinedTestDispatcher(testScheduler)) {
+            controller.requestMakeBounty(
+                anonymous = true,
+                target = "*",
+                type = 2,
+                fileName = "installer.bin",
+                folder = "/Scripts",
+                iterations = 3,
+                reward = 125.0,
+            )
+        }
+        runCurrent()
+
+        val session = sessionGateway.requireLatestSession(RewriteService.GAME)
+        val command = session.sentFrames.single().command!!
+        val payload = RewriteClientJson.decode(
+            ClientMakeBountyPayload.serializer(),
+            command.payload.toByteArray(),
+        )
+        assertEquals("makebounty", command.command_name)
+        assertEquals("LOCAL-IP", payload.sourceIp)
+        assertTrue(payload.anonymous)
+        assertEquals("*", payload.target)
+        assertEquals(2, payload.type)
+        assertEquals("installer.bin", payload.fname)
+        assertEquals("/Scripts", payload.folder)
+        assertEquals(3, payload.iterations)
+        assertEquals(125.0, payload.reward)
+
+        controller.accept(
+            RewriteService.GAME,
+            RewriteFrames.commandResponse(
+                commandId = command.command_id,
+                payload = RewriteClientJson.encode(
+                    ClientBountyCreatedResponse.serializer(),
+                    ClientBountyCreatedResponse(
+                        creatorStateId = "LOCAL-IP",
+                        storeStateId = "store1",
+                        bountyFile = ClientStoredFile(
+                            path = "/Store/LOCAL-IP-install-1.bnty",
+                            name = "LOCAL-IP-install-1.bnty",
+                        ),
+                        reward = 125.0,
+                        creatorVersion = 4,
+                        storeVersion = 8,
+                    ),
+                ),
+            ),
+        )
+        advanceUntilIdle()
+
+        val result = pending.await()
+        assertIs<RewriteGameCommandResult.Success<ClientBountyCreatedResponse>>(result)
+        assertEquals("/Store/LOCAL-IP-install-1.bnty", result.value.bountyFile.path)
     }
 
     @Test
