@@ -18,6 +18,50 @@ import org.junit.jupiter.api.Assumptions.assumeFalse
 
 class RewriteClientDevModeUiTest {
     @Test
+    fun deterministicDevModeLoginSceneCanSubmitDefaultCredentialsAndReachDesktop() {
+        assumeFalse(GraphicsEnvironment.isHeadless())
+
+        rewriteUiFailureTriage(
+            suiteName = "RewriteClientDevModeUiTest",
+            testName = "deterministicDevModeLoginSceneCanSubmitDefaultCredentialsAndReachDesktop",
+            context = mapOf(
+                "surface" to "login-scene",
+                "route" to "desktop",
+            ),
+        ) {
+            val environment = RewriteClientDevEnvironment()
+            val frame = rewriteUiInvokeAndWaitResult {
+                RewriteRootFrame(
+                    controller = environment.createController(),
+                ).apply { isVisible = true }
+            }
+            try {
+                rewriteUiWaitUntil {
+                    rewriteUiInvokeAndWaitResult {
+                        frame.loginScene.isShowing && frame.loginScene.loginForm.isVisible
+                    }
+                }
+
+                rewriteUiInvokeAndWait {
+                    frame.loginScene.loginForm.loginButton.doClick()
+                }
+
+                rewriteUiWaitUntil {
+                    rewriteUiInvokeAndWaitResult {
+                        frame.desktopPane.isShowing && frame.jMenuBar != null
+                    }
+                }
+
+                assertTrue(rewriteUiInvokeAndWaitResult { frame.desktopPane.isShowing })
+                assertTrue(rewriteUiInvokeAndWaitResult { frame.jMenuBar != null })
+            } finally {
+                rewriteUiDisposeFrame(frame)
+                environment.close()
+            }
+        }
+    }
+
+    @Test
     fun deterministicDevModeCanReachDesktopAndOpenRepresentativeWindows() {
         assumeFalse(GraphicsEnvironment.isHeadless())
 

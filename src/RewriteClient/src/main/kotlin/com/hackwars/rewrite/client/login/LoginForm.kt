@@ -31,9 +31,9 @@ class LoginForm : JPanel(GridBagLayout()) {
         private const val OUTER_ARC = 40f
         private const val INNER_INSET = 1.25f
 
-        private val minFormSize = Dimension(320, 380)
-        private val preferredFormSize = Dimension(420, 440)
-        private val maxFormSize = Dimension(420, 540)
+        private val minFormSize = Dimension(320, 360)
+        private val preferredFormSize = Dimension(420, 420)
+        private val maxFormSize = Dimension(420, 520)
     }
 
     private val errorLabel = JLabel(" ").apply {
@@ -42,6 +42,12 @@ class LoginForm : JPanel(GridBagLayout()) {
         font = interFont(Font.PLAIN, 14f)
         alignmentX = CENTER_ALIGNMENT
         horizontalAlignment = JLabel.CENTER
+    }
+    private val errorPanel = JPanel(BorderLayout()).apply {
+        isOpaque = false
+        isVisible = false
+        border = BorderFactory.createEmptyBorder(8, 0, 0, 0)
+        add(errorLabel, BorderLayout.CENTER)
     }
     val emailField = LoginTextField().apply { text = "localuser" }
     val passwordField = LoginPasswordField().apply { text = "password1234" }
@@ -52,7 +58,11 @@ class LoginForm : JPanel(GridBagLayout()) {
     private val cardPanel = LoginCardPanel()
 
     fun showError(message: String?) {
-        errorLabel.text = message?.takeIf { it.isNotBlank() } ?: " "
+        val normalized = message?.takeIf { it.isNotBlank() }
+        errorLabel.text = normalized ?: " "
+        errorPanel.isVisible = normalized != null
+        revalidate()
+        repaint()
     }
 
     fun displayedErrorText(): String = errorLabel.text
@@ -183,8 +193,7 @@ class LoginForm : JPanel(GridBagLayout()) {
             container.add(Box.createVerticalStrut(10))
             container.add(leftRow(10, passwordLabel))
             container.add(fillRow(passwordFieldPanel))
-            container.add(Box.createVerticalStrut(8))
-            container.add(fillRow(errorLabel))
+            container.add(fillRow(errorPanel))
             container.add(fillRow(LoginFormSeparator()))
             container.add(fillRow(loginButton))
             container.add(Box.createVerticalStrut(20))

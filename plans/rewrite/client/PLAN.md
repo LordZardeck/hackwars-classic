@@ -505,20 +505,20 @@
 - Verification scope: `./gradlew :RewriteClientDev:test :RewriteClient:test :RewriteClient:uiTest`
 
 ### RW-CLIENT-C0B - Login and desktop-entry legacy parity rebuild
-- Status: `ready`
+- Status: `done`
 - Priority: `P1`
 - Execution lane: `auth_bootstrap`
 - Worker role: `worker`
 - Depends on: `RW-CLIENT-C0A`, `RW-CLIENT-X2`, `RW-CLIENT-X3`
 - Ready when: MVC extraction, look and feel, and IPv4 identity cleanup are available
 - Parallel with: `RW-CLIENT-C1B`
-- Allowed write scope: `src/RewriteClient/**/auth/**`, `src/RewriteClient/resources/**`
+- Allowed write scope: `src/RewriteClient/**/auth/**`, `src/RewriteClient/**/login/**`, `src/RewriteClient/resources/**`, `src/RewriteClient/src/test/**`, `src/RewriteClient/src/uiTest/**`, `plans/rewrite/client/PLAN.md`
 - Autonomous next: `RW-CLIENT-C0C`
 - Fallback if blocked: `RW-CLIENT-X3`
-- Verification scope: login parity screenshots, workflow ui tests, deterministic dev-mode login audit
+- Verification scope: `./gradlew :RewriteClientDev:test :RewriteClient:test :RewriteClient:uiTest`
 
 ### RW-CLIENT-C0C - Login and desktop-entry screenshot closure
-- Status: `todo`
+- Status: `ready`
 - Priority: `P1`
 - Execution lane: `auth_bootstrap`
 - Worker role: `verifier`
