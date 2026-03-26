@@ -594,4 +594,171 @@
             <dropTable tableName="rewrite_chat_channel"/>
         </rollback>
     </changeSet>
+
+    <changeSet id="rewrite-0005-player-computer-projection" author="codex">
+        <comment>Persist retained player profile metadata, computer projections, and query-friendly preferences or skill stats.</comment>
+
+        <createTable tableName="rewrite_player_profile">
+            <column name="player_id" type="varchar(64)">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="display_name" type="varchar(128)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="profile_image_path" type="varchar(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="profile_description" type="text">
+                <constraints nullable="false"/>
+            </column>
+            <column name="profile_location" type="varchar(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="profile_payload" type="jsonb">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <createTable tableName="rewrite_computer_projection">
+            <column name="computer_id" type="varchar(64)">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="player_id" type="varchar(64)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="ip_address" type="varchar(64)">
+                <constraints nullable="false" unique="true"/>
+            </column>
+            <column name="is_npc" type="boolean">
+                <constraints nullable="false"/>
+            </column>
+            <column name="current_network_name" type="varchar(64)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="last_login_at" type="timestamptz"/>
+            <column name="petty_cash" type="double precision">
+                <constraints nullable="false"/>
+            </column>
+            <column name="bank_money" type="double precision">
+                <constraints nullable="false"/>
+            </column>
+            <column name="default_bank_port" type="integer"/>
+            <column name="default_redirect_port" type="integer"/>
+            <column name="daily_pay_base_amount" type="double precision">
+                <constraints nullable="false"/>
+            </column>
+            <column name="daily_pay_reduction_multiplier" type="double precision">
+                <constraints nullable="false"/>
+            </column>
+            <column name="daily_pay_revenue_target_state_id" type="varchar(64)"/>
+            <column name="daily_pay_last_paid_at_epoch_millis" type="bigint">
+                <constraints nullable="false"/>
+            </column>
+            <column name="total_level" type="integer">
+                <constraints nullable="false"/>
+            </column>
+            <column name="noob_protection_level" type="integer">
+                <constraints nullable="false"/>
+            </column>
+            <column name="projection_payload" type="jsonb">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <createTable tableName="rewrite_computer_preference">
+            <column name="computer_id" type="varchar(64)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="preference_key" type="varchar(128)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="preference_value" type="text">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <addPrimaryKey
+            tableName="rewrite_computer_preference"
+            columnNames="computer_id, preference_key"
+            constraintName="pk_rewrite_computer_preference"/>
+
+        <createTable tableName="rewrite_computer_skill_stat">
+            <column name="computer_id" type="varchar(64)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="script_family" type="varchar(32)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="experience_points" type="double precision">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <addPrimaryKey
+            tableName="rewrite_computer_skill_stat"
+            columnNames="computer_id, script_family"
+            constraintName="pk_rewrite_computer_skill_stat"/>
+
+        <addForeignKeyConstraint
+            baseTableName="rewrite_player_profile"
+            baseColumnNames="player_id"
+            referencedTableName="rewrite_player_account"
+            referencedColumnNames="player_id"
+            constraintName="fk_rewrite_player_profile_account"/>
+
+        <addForeignKeyConstraint
+            baseTableName="rewrite_computer_projection"
+            baseColumnNames="computer_id"
+            referencedTableName="rewrite_computer_state"
+            referencedColumnNames="computer_id"
+            constraintName="fk_rewrite_computer_projection_state"/>
+
+        <addForeignKeyConstraint
+            baseTableName="rewrite_computer_projection"
+            baseColumnNames="player_id"
+            referencedTableName="rewrite_player_account"
+            referencedColumnNames="player_id"
+            constraintName="fk_rewrite_computer_projection_player"/>
+
+        <addForeignKeyConstraint
+            baseTableName="rewrite_computer_preference"
+            baseColumnNames="computer_id"
+            referencedTableName="rewrite_computer_projection"
+            referencedColumnNames="computer_id"
+            constraintName="fk_rewrite_computer_preference_projection"/>
+
+        <addForeignKeyConstraint
+            baseTableName="rewrite_computer_skill_stat"
+            baseColumnNames="computer_id"
+            referencedTableName="rewrite_computer_projection"
+            referencedColumnNames="computer_id"
+            constraintName="fk_rewrite_computer_skill_stat_projection"/>
+
+        <createIndex tableName="rewrite_computer_projection" indexName="idx_rewrite_computer_projection_player">
+            <column name="player_id"/>
+            <column name="current_network_name"/>
+        </createIndex>
+
+        <createIndex tableName="rewrite_computer_projection" indexName="idx_rewrite_computer_projection_network">
+            <column name="current_network_name"/>
+            <column name="is_npc"/>
+        </createIndex>
+
+        <createIndex tableName="rewrite_computer_preference" indexName="idx_rewrite_computer_preference_lookup">
+            <column name="computer_id"/>
+            <column name="preference_key"/>
+        </createIndex>
+
+        <createIndex tableName="rewrite_computer_skill_stat" indexName="idx_rewrite_computer_skill_stat_lookup">
+            <column name="computer_id"/>
+            <column name="script_family"/>
+        </createIndex>
+
+        <rollback>
+            <dropTable tableName="rewrite_computer_skill_stat"/>
+            <dropTable tableName="rewrite_computer_preference"/>
+            <dropTable tableName="rewrite_computer_projection"/>
+            <dropTable tableName="rewrite_player_profile"/>
+        </rollback>
+    </changeSet>
 </databaseChangeLog>

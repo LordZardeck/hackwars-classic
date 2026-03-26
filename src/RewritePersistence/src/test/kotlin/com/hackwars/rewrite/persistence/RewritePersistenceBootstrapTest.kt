@@ -49,6 +49,10 @@ class RewritePersistenceBootstrapTest {
             assertTableExists(it, "rewrite_chat_relation")
             assertTableExists(it, "rewrite_chat_channel_mute")
             assertTableExists(it, "rewrite_chat_presence")
+            assertTableExists(it, "rewrite_player_profile")
+            assertTableExists(it, "rewrite_computer_projection")
+            assertTableExists(it, "rewrite_computer_preference")
+            assertTableExists(it, "rewrite_computer_skill_stat")
         }
     }
 
@@ -56,7 +60,7 @@ class RewritePersistenceBootstrapTest {
     fun rollbackRemovesBootstrapTables() {
         withConnection {
             RewriteLiquibase.update(it)
-            RewriteLiquibase.rollback(it, 4)
+            RewriteLiquibase.rollback(it, 5)
 
             assertTableMissing(it, "rewrite_import_batch")
             assertTableMissing(it, "rewrite_player_account")
@@ -74,6 +78,10 @@ class RewritePersistenceBootstrapTest {
             assertTableMissing(it, "rewrite_chat_relation")
             assertTableMissing(it, "rewrite_chat_channel_mute")
             assertTableMissing(it, "rewrite_chat_presence")
+            assertTableMissing(it, "rewrite_player_profile")
+            assertTableMissing(it, "rewrite_computer_projection")
+            assertTableMissing(it, "rewrite_computer_preference")
+            assertTableMissing(it, "rewrite_computer_skill_stat")
         }
     }
 

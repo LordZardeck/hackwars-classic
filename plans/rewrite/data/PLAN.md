@@ -59,7 +59,7 @@
 - Verification scope: `./gradlew :RewritePersistence:test :RewritePersistence:migrationTest`
 
 ### RW-DATA-003B - Define retained player and computer schema slice
-- Status: `in_progress`
+- Status: `done`
 - Priority: `P1`
 - Execution lane: `schema`
 - Worker role: `worker`
@@ -98,7 +98,7 @@
 - Verification scope: `./gradlew :RewritePersistence:test :RewritePersistence:migrationTest`
 
 ### RW-DATA-004A - Build importer slices for retained auth, player, and computer data
-- Status: `todo`
+- Status: `ready`
 - Priority: `P2`
 - Execution lane: `importer`
 - Worker role: `worker`

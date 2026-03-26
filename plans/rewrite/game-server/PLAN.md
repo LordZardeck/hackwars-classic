@@ -191,7 +191,7 @@
 - Verification scope: `./gradlew :RewriteGameCore:test :RewritePersistence:test :RewriteGameServer:test :RewriteTestKit:integrationTest`
 
 ### RW-GS-T4 - Implement retained personal-settings and profile-mutation transport
-- Status: `blocked`
+- Status: `ready`
 - Priority: `P2`
 - Execution lane: `profile_help`
 - Worker role: `worker`
