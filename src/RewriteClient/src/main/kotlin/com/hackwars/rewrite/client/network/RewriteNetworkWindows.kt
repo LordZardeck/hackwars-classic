@@ -128,9 +128,28 @@ internal fun buildPortScanRows(response: ClientScanResponse): List<RewriteScanne
 }
 
 internal class RewriteNetworkWindow(
-    private val controller: RewriteRootController,
+    controller: RewriteRootController,
 ) : JInternalFrame("Network", true, true, true, true) {
-    private val windowScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    private val view = RewriteNetworkWindowView()
+    private val windowController = RewriteNetworkWindowController(
+        controller = controller,
+        view = view,
+    )
+
+    init {
+        name = "rewrite-shell-window-network"
+        defaultCloseOperation = DISPOSE_ON_CLOSE
+        size = Dimension(980, 600)
+        contentPane = view
+        addInternalFrameListener(object : InternalFrameAdapter() {
+            override fun internalFrameClosed(event: InternalFrameEvent) {
+                windowController.dispose()
+            }
+        })
+    }
+}
+
+internal class RewriteNetworkWindowView : JPanel(BorderLayout(0, 8)) {
     private val currentNetworkLabel = JLabel("Unknown").apply {
         name = "rewrite-network-current-name"
     }
@@ -157,32 +176,72 @@ internal class RewriteNetworkWindow(
         name = "rewrite-network-tabs"
     }
 
-    private var latestState: ClientNetworkState? = controller.gameNetworkState()
-    private var requestInFlight: Boolean = false
-    private var mapButtonsByNetwork: Map<String, JButton> = emptyMap()
-    private var lastRenderedMapNames: Set<String> = emptySet()
-
     init {
-        name = "rewrite-shell-window-network"
-        defaultCloseOperation = DISPOSE_ON_CLOSE
-        size = Dimension(980, 600)
-        contentPane = JPanel(BorderLayout(0, 8)).apply {
-            border = BorderFactory.createEmptyBorder(10, 10, 10, 10)
-            add(buildHeaderPanel(), BorderLayout.NORTH)
-            add(tabs, BorderLayout.CENTER)
-            add(buildFooterPanel(), BorderLayout.SOUTH)
-        }
+        border = BorderFactory.createEmptyBorder(10, 10, 10, 10)
+        add(buildHeaderPanel(), BorderLayout.NORTH)
+        add(tabs, BorderLayout.CENTER)
+        add(buildFooterPanel(), BorderLayout.SOUTH)
         tabs.addTab("Network", buildDirectoryPanel())
         tabs.addTab("Map", JScrollPane(mapPanel).apply {
             border = BorderFactory.createLineBorder(Color(0x33, 0x33, 0x33))
         })
-        addInternalFrameListener(object : InternalFrameAdapter() {
-            override fun internalFrameClosed(event: InternalFrameEvent) {
-                windowScope.cancel()
+    }
+
+    fun renderDirectory(viewModel: RewriteNetworkDirectoryView?) {
+        currentNetworkLabel.text = viewModel?.currentNetworkName ?: "Unknown"
+        allowedNetworksLabel.text = viewModel?.allowedNetworks?.joinToString(", ").takeUnless { it.isNullOrBlank() } ?: "None"
+        regularNpcList.setListData(viewModel?.regularNpcs?.toTypedArray() ?: emptyArray<String>())
+        questNpcList.setListData(viewModel?.questNpcs?.toTypedArray() ?: emptyArray<String>())
+        miningNpcList.setListData(viewModel?.miningNpcs?.toTypedArray() ?: emptyArray<String>())
+        storeNpcList.setListData(viewModel?.storeNpcs?.toTypedArray() ?: emptyArray<String>())
+    }
+
+    fun renderMapNodes(
+        state: ClientNetworkState?,
+        requestInFlight: Boolean,
+    ): Map<String, JButton> {
+        val nodeSpecs = buildNetworkMapNodes(state)
+        mapPanel.removeAll()
+        val buttons = nodeSpecs.associate { spec ->
+            val button = JButton(spec.networkName).apply {
+                name = "rewrite-network-map-node-${sanitizeNetworkName(spec.networkName)}"
+                background = spec.baseColor
+                foreground = Color.WHITE
+                isFocusPainted = false
+                isEnabled = !requestInFlight && state != null
+                border = if (spec.networkName == state?.currentNetworkName) {
+                    BorderFactory.createLineBorder(Color(0xFF, 0xEE, 0x88), 3)
+                } else {
+                    BorderFactory.createLineBorder(Color(0x22, 0x22, 0x22), 1)
+                }
             }
-        })
-        observeNetworkState()
-        renderState(latestState)
+            mapPanel.add(
+                button,
+                GridBagConstraints().apply {
+                    gridx = spec.gridx
+                    gridy = spec.gridy
+                    weightx = 1.0
+                    weighty = 1.0
+                    fill = GridBagConstraints.NONE
+                    anchor = GridBagConstraints.CENTER
+                    insets = Insets(12, 12, 12, 12)
+                },
+            )
+            spec.networkName to button
+        }
+        mapPanel.revalidate()
+        mapPanel.repaint()
+        return buttons
+    }
+
+    fun setStatus(text: String) {
+        statusLabel.text = text
+    }
+
+    fun currentStatusText(): String = statusLabel.text
+
+    fun setError(text: String) {
+        errorLabel.text = text
     }
 
     private fun buildHeaderPanel(): JPanel {
@@ -253,14 +312,30 @@ internal class RewriteNetworkWindow(
             add(errorLabel, BorderLayout.SOUTH)
         }
     }
+}
+
+internal class RewriteNetworkWindowController(
+    private val controller: RewriteRootController,
+    private val view: RewriteNetworkWindowView,
+) {
+    private val windowScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    private var latestState: ClientNetworkState? = controller.gameNetworkState()
+    private var requestInFlight: Boolean = false
+    private var mapButtonsByNetwork: Map<String, JButton> = emptyMap()
+
+    init {
+        observeNetworkState()
+        renderState(latestState)
+    }
+
+    fun dispose() {
+        windowScope.cancel()
+    }
 
     private fun observeNetworkState() {
         windowScope.launch {
             controller.gameNetworkStateSelector().collect { state ->
                 SwingUtilities.invokeLater {
-                    if (isClosed || !isDisplayable) {
-                        return@invokeLater
-                    }
                     latestState = state
                     renderState(state)
                 }
@@ -269,109 +344,84 @@ internal class RewriteNetworkWindow(
     }
 
     private fun renderState(state: ClientNetworkState?) {
-        val view = state?.let(::buildNetworkDirectoryView)
-        currentNetworkLabel.text = view?.currentNetworkName ?: "Unknown"
-        allowedNetworksLabel.text = view?.allowedNetworks?.joinToString(", ").takeUnless { it.isNullOrBlank() } ?: "None"
-        regularNpcList.setListData(view?.regularNpcs?.toTypedArray() ?: emptyArray<String>())
-        questNpcList.setListData(view?.questNpcs?.toTypedArray() ?: emptyArray<String>())
-        miningNpcList.setListData(view?.miningNpcs?.toTypedArray() ?: emptyArray<String>())
-        storeNpcList.setListData(view?.storeNpcs?.toTypedArray() ?: emptyArray<String>())
-        renderMapNodes(state)
-        if (!requestInFlight && state != null && statusLabel.text == "Waiting for network data...") {
-            statusLabel.text = "Viewing ${view?.currentNetworkName ?: "Unknown"}."
+        val viewModel = state?.let(::buildNetworkDirectoryView)
+        view.renderDirectory(viewModel)
+        mapButtonsByNetwork = view.renderMapNodes(state, requestInFlight)
+        bindMapButtons()
+        if (!requestInFlight && state != null && view.currentStatusText() == "Waiting for network data...") {
+            view.setStatus("Viewing ${viewModel?.currentNetworkName ?: "Unknown"}.")
         }
     }
 
-    private fun renderMapNodes(state: ClientNetworkState?) {
-        val nodeSpecs = buildNetworkMapNodes(state)
-        val nodeNames = nodeSpecs.mapTo(linkedSetOf(), RewriteNetworkMapNodeSpec::networkName)
-        if (nodeNames != lastRenderedMapNames) {
-            lastRenderedMapNames = nodeNames
-            mapPanel.removeAll()
-            mapButtonsByNetwork = nodeSpecs.associate { spec ->
-                val button = JButton(spec.networkName).apply {
-                    name = "rewrite-network-map-node-${sanitizeNetworkName(spec.networkName)}"
-                    background = spec.baseColor
-                    foreground = Color.WHITE
-                    isFocusPainted = false
-                    addActionListener { submitNetworkSwitch(spec.networkName) }
-                }
-                mapPanel.add(
-                    button,
-                    GridBagConstraints().apply {
-                        gridx = spec.gridx
-                        gridy = spec.gridy
-                        weightx = 1.0
-                        weighty = 1.0
-                        fill = GridBagConstraints.NONE
-                        anchor = GridBagConstraints.CENTER
-                        insets = Insets(12, 12, 12, 12)
-                    },
-                )
-                spec.networkName to button
-            }
-        }
-
+    private fun bindMapButtons() {
         mapButtonsByNetwork.forEach { (networkName, button) ->
-            val current = state?.currentNetworkName
-            button.isEnabled = !requestInFlight && state != null
-            button.border = if (networkName == current) {
-                BorderFactory.createLineBorder(Color(0xFF, 0xEE, 0x88), 3)
-            } else {
-                BorderFactory.createLineBorder(Color(0x22, 0x22, 0x22), 1)
-            }
+            button.actionListeners.forEach(button::removeActionListener)
+            button.addActionListener { submitNetworkSwitch(networkName) }
         }
-        mapPanel.revalidate()
-        mapPanel.repaint()
     }
 
     private fun submitNetworkSwitch(targetNetwork: String) {
         requestInFlight = true
-        statusLabel.text = "Switching to $targetNetwork..."
-        errorLabel.text = " "
-        renderMapNodes(latestState)
+        view.setStatus("Switching to $targetNetwork...")
+        view.setError(" ")
+        renderState(latestState)
         windowScope.launch {
             val result = controller.requestChangeNetwork(targetNetwork)
             SwingUtilities.invokeLater {
-                if (isClosed || !isDisplayable) {
-                    return@invokeLater
-                }
                 requestInFlight = false
                 when (result) {
                     is RewriteGameCommandResult.Success -> {
                         if (result.value.accepted) {
-                            statusLabel.text = result.value.message
-                            errorLabel.text = " "
+                            view.setStatus(result.value.message)
+                            view.setError(" ")
                         } else {
-                            statusLabel.text = "Viewing ${latestState?.currentNetworkName ?: "Unknown"}."
-                            errorLabel.text = result.value.message
+                            view.setStatus("Viewing ${latestState?.currentNetworkName ?: "Unknown"}.")
+                            view.setError(result.value.message)
                         }
                     }
 
                     is RewriteGameCommandResult.Failure -> {
-                        statusLabel.text = "Viewing ${latestState?.currentNetworkName ?: "Unknown"}."
-                        errorLabel.text = result.message
+                        view.setStatus("Viewing ${latestState?.currentNetworkName ?: "Unknown"}.")
+                        view.setError(result.message)
                     }
                 }
-                renderMapNodes(latestState)
+                renderState(latestState)
             }
         }
     }
 }
 
 internal class RewritePortScanWindow(
-    private val controller: RewriteRootController,
+    controller: RewriteRootController,
 ) : JInternalFrame("Port Scan", true, true, true, true) {
-    private val windowScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
-    private val ipInput = RewriteSegmentedIpInput().apply {
+    private val view = RewritePortScanWindowView()
+    private val windowController = RewritePortScanWindowController(
+        controller = controller,
+        view = view,
+    )
+
+    init {
+        name = "rewrite-shell-window-port_scan"
+        defaultCloseOperation = DISPOSE_ON_CLOSE
+        size = Dimension(920, 520)
+        contentPane = view
+        addInternalFrameListener(object : InternalFrameAdapter() {
+            override fun internalFrameClosed(event: InternalFrameEvent) {
+                windowController.dispose()
+            }
+        })
+    }
+}
+
+internal class RewritePortScanWindowView : JPanel(BorderLayout(0, 8)) {
+    val ipInput = RewriteSegmentedIpInput().apply {
         name = "rewrite-port-scan-ip-input"
     }
-    private val scanButton = JButton("Scan").apply {
+    val scanButton = JButton("Scan").apply {
         name = "rewrite-port-scan-scan-button"
-        addActionListener { submitScan() }
     }
     private val tableModel = RewritePortScanTableModel()
-    private val table = JTable(tableModel).apply {
+    val table = JTable(tableModel).apply {
         name = "rewrite-port-scan-table"
         fillsViewportHeight = true
         autoCreateRowSorter = false
@@ -385,25 +435,31 @@ internal class RewritePortScanWindow(
         foreground = Color(0xAA, 0x22, 0x22)
     }
 
-    private var requestInFlight: Boolean = false
-
     init {
-        name = "rewrite-shell-window-port_scan"
-        defaultCloseOperation = DISPOSE_ON_CLOSE
-        size = Dimension(920, 520)
-        contentPane = JPanel(BorderLayout(0, 8)).apply {
-            border = BorderFactory.createEmptyBorder(10, 10, 10, 10)
-            add(buildHeaderPanel(), BorderLayout.NORTH)
-            add(JScrollPane(table), BorderLayout.CENTER)
-            add(buildFooterPanel(), BorderLayout.SOUTH)
-        }
-        addInternalFrameListener(object : InternalFrameAdapter() {
-            override fun internalFrameClosed(event: InternalFrameEvent) {
-                windowScope.cancel()
-            }
-        })
-        renderState()
+        border = BorderFactory.createEmptyBorder(10, 10, 10, 10)
+        add(buildHeaderPanel(), BorderLayout.NORTH)
+        add(JScrollPane(table), BorderLayout.CENTER)
+        add(buildFooterPanel(), BorderLayout.SOUTH)
     }
+
+    fun setRequestInFlight(requestInFlight: Boolean) {
+        scanButton.isEnabled = !requestInFlight
+        ipInput.isEnabled = !requestInFlight
+    }
+
+    fun setStatus(text: String) {
+        statusLabel.text = text
+    }
+
+    fun setError(text: String) {
+        errorLabel.text = text
+    }
+
+    fun updateRows(rows: List<RewriteScannedPortRow>) {
+        tableModel.updateRows(rows)
+    }
+
+    fun currentStatusText(): String = statusLabel.text
 
     private fun buildHeaderPanel(): JPanel {
         return JPanel(FlowLayout(FlowLayout.LEFT, 8, 0)).apply {
@@ -421,34 +477,47 @@ internal class RewritePortScanWindow(
             add(errorLabel, BorderLayout.SOUTH)
         }
     }
+}
+
+internal class RewritePortScanWindowController(
+    private val controller: RewriteRootController,
+    private val view: RewritePortScanWindowView,
+) {
+    private val windowScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    private var requestInFlight: Boolean = false
+
+    init {
+        view.scanButton.addActionListener { submitScan() }
+        renderState()
+    }
+
+    fun dispose() {
+        windowScope.cancel()
+    }
 
     private fun renderState() {
-        scanButton.isEnabled = !requestInFlight
-        ipInput.isEnabled = !requestInFlight
+        view.setRequestInFlight(requestInFlight)
     }
 
     private fun submitScan() {
-        val targetIp = ipInput.valueOrNull()
+        val targetIp = view.ipInput.valueOrNull()
         if (targetIp == null) {
-            errorLabel.text = "Enter a complete target IP."
+            view.setError("Enter a complete target IP.")
             return
         }
         requestInFlight = true
-        statusLabel.text = "Scanning $targetIp..."
-        errorLabel.text = " "
+        view.setStatus("Scanning $targetIp...")
+        view.setError(" ")
         renderState()
         windowScope.launch {
             val result = controller.requestScan(targetIp)
             SwingUtilities.invokeLater {
-                if (isClosed || !isDisplayable) {
-                    return@invokeLater
-                }
                 requestInFlight = false
                 when (result) {
                     is RewriteGameCommandResult.Success -> renderScanResponse(targetIp, result.value)
                     is RewriteGameCommandResult.Failure -> {
-                        tableModel.updateRows(emptyList())
-                        errorLabel.text = result.message
+                        view.updateRows(emptyList())
+                        view.setError(result.message)
                     }
                 }
                 renderState()
@@ -461,14 +530,14 @@ internal class RewritePortScanWindow(
         response: ClientScanResponse,
     ) {
         if (!response.accepted) {
-            tableModel.updateRows(emptyList())
-            statusLabel.text = "Enter a target IP to scan."
-            errorLabel.text = response.failureMessage ?: "Scan failed."
+            view.updateRows(emptyList())
+            view.setStatus("Enter a target IP to scan.")
+            view.setError(response.failureMessage ?: "Scan failed.")
             return
         }
-        tableModel.updateRows(buildPortScanRows(response))
-        statusLabel.text = "Scanned $targetIp."
-        errorLabel.text = " "
+        view.updateRows(buildPortScanRows(response))
+        view.setStatus("Scanned $targetIp.")
+        view.setError(" ")
     }
 }
 

@@ -726,7 +726,7 @@
 - Verification scope: approved browser, store, site editor, help, and tutorial screenshot baselines
 
 ### RW-CLIENT-C6A - Network and Port Scan MVC extraction
-- Status: `todo`
+- Status: `done`
 - Priority: `P0`
 - Execution lane: `systems_network`
 - Worker role: `worker`

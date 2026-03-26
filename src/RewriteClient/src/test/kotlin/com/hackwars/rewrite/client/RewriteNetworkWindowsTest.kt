@@ -38,6 +38,17 @@ import kotlin.test.assertTrue
 @OptIn(ExperimentalCoroutinesApi::class)
 class RewriteNetworkWindowsTest {
     @Test
+    fun networkViewsStayBehaviorFreeUntilControllersBindActions() {
+        val networkView = com.hackwars.rewrite.client.network.RewriteNetworkWindowView()
+        val mapButtons = networkView.renderMapNodes(state = null, requestInFlight = false)
+        val portScanView = com.hackwars.rewrite.client.network.RewritePortScanWindowView()
+
+        assertEquals("Waiting for network data...", networkView.currentStatusText())
+        assertTrue(mapButtons.values.all { it.actionListeners.isEmpty() })
+        assertTrue(portScanView.scanButton.actionListeners.isEmpty())
+    }
+
+    @Test
     fun buildNetworkDirectoryViewAndMapNodesReflectDecodedState() {
         val state = ClientNetworkState(
             currentNetworkName = "UGOPNet",
