@@ -4,7 +4,11 @@ import com.hackwars.rewrite.client.economy.RewriteCreateBountyDialog
 import com.hackwars.rewrite.client.economy.RewriteDepositWindow
 import com.hackwars.rewrite.client.economy.RewriteTransferWindow
 import com.hackwars.rewrite.client.economy.RewriteWithdrawWindow
+import com.hackwars.rewrite.client.files.RewriteFilePropertiesWindow
 import com.hackwars.rewrite.client.files.RewriteHomeWindow
+import com.hackwars.rewrite.client.files.RewriteLocalFileOpenTarget
+import com.hackwars.rewrite.client.files.RewriteScriptEditorWindow
+import com.hackwars.rewrite.client.files.routeLocalFileTarget
 import com.hackwars.rewrite.client.shell.RewritePlaceholderInternalFrame
 import com.hackwars.rewrite.client.shell.RewriteShellCommand
 import com.hackwars.rewrite.client.shell.RewriteShellDialogCoordinator
@@ -22,11 +26,14 @@ import com.hackwars.rewrite.protocol.ClientBankTransactionResponse
 import com.hackwars.rewrite.protocol.ClientBountyCreatedResponse
 import com.hackwars.rewrite.protocol.ClientDepositPayload
 import com.hackwars.rewrite.protocol.ClientDirectoryListingResponse
+import com.hackwars.rewrite.protocol.ClientFileContentsResponse
 import com.hackwars.rewrite.protocol.ClientFilesystemState
 import com.hackwars.rewrite.protocol.ClientGameSnapshot
 import com.hackwars.rewrite.protocol.ClientMakeBountyPayload
 import com.hackwars.rewrite.protocol.ClientProgramUpdate
 import com.hackwars.rewrite.protocol.ClientRequestDirectoryPayload
+import com.hackwars.rewrite.protocol.ClientRequestFilePayload
+import com.hackwars.rewrite.protocol.ClientStoredFile
 import com.hackwars.rewrite.protocol.ClientTransferPayload
 import com.hackwars.rewrite.protocol.ClientTransferResponse
 import com.hackwars.rewrite.protocol.ClientWithdrawPayload
@@ -62,6 +69,7 @@ class RewriteRootController(
     private val shellWindows = RewriteShellWindowCoordinator(::createShellWindow)
     private val shellDialogs = RewriteShellDialogCoordinator(::createShellDialog)
     private val bootstrapLock = Any()
+    private val filePropertiesWindowsByPath = mutableMapOf<String, RewriteFilePropertiesWindow>()
     private var loginAttemptId: Long = 0
     private var activeLoginJob: Job? = null
     private var pendingGameBootstrap: PendingGameBootstrap? = null
@@ -216,6 +224,24 @@ class RewriteRootController(
         )
     }
 
+    internal suspend fun requestFile(
+        path: String?,
+        name: String,
+    ): RewriteGameCommandResult<ClientFileContentsResponse> {
+        val playerIp = authenticatedPlayerIp()
+            ?: return RewriteGameCommandResult.Failure("Not connected to a rewrite game session.")
+        return gameCommandBroker.request(
+            commandName = "requestfile",
+            payloadSerializer = ClientRequestFilePayload.serializer(),
+            payload = ClientRequestFilePayload(
+                path = path,
+                name = name,
+            ),
+            responseSerializer = ClientFileContentsResponse.serializer(),
+            targetStateIds = listOf(playerIp),
+        )
+    }
+
     internal suspend fun requestMakeBounty(
         anonymous: Boolean,
         target: String,
@@ -317,6 +343,7 @@ class RewriteRootController(
         activeLoginJob?.cancel()
         activeLoginJob = null
         clearPendingBootstrap()
+        closeFilePropertiesWindows()
         shellWindows.closeAll()
         shellDialogs.closeAll()
         sessions.keys.toList().forEach(::closeService)
@@ -448,6 +475,7 @@ class RewriteRootController(
         activeLoginJob?.cancel()
         activeLoginJob = null
         clearPendingBootstrap()
+        closeFilePropertiesWindows()
         shellWindows.closeAll()
         shellDialogs.closeAll()
         closeService(RewriteService.GAME)
@@ -491,6 +519,41 @@ class RewriteRootController(
         return snapshot().game.latestAcceptedSession?.playerIp?.takeIf { it.isNotBlank() }
     }
 
+    internal fun openLocalFile(file: ClientStoredFile) {
+        when (routeLocalFileTarget(file)) {
+            RewriteLocalFileOpenTarget.SCRIPT_EDITOR -> openFileInScriptEditor(file)
+            RewriteLocalFileOpenTarget.FILE_PROPERTIES -> openFileProperties(file)
+        }
+    }
+
+    internal fun openFileProperties(file: ClientStoredFile) {
+        val currentHost = shellHost ?: return
+        val existing = filePropertiesWindowsByPath[file.path]
+        if (existing != null && !existing.isClosed) {
+            existing.updateFile(file)
+            currentHost.focusWindow(existing)
+            return
+        }
+
+        val frame = RewriteFilePropertiesWindow(file)
+        frame.addInternalFrameListener(object : javax.swing.event.InternalFrameAdapter() {
+            override fun internalFrameClosed(event: javax.swing.event.InternalFrameEvent) {
+                filePropertiesWindowsByPath.remove(file.path, frame)
+            }
+        })
+        filePropertiesWindowsByPath[file.path] = frame
+        currentHost.showWindow(frame)
+        currentHost.focusWindow(frame)
+    }
+
+    internal fun openFileInScriptEditor(file: ClientStoredFile) {
+        shellWindows.open(RewriteShellCommand.SCRIPT_EDITOR)
+        val editorWindow = shellWindows.openWindow(RewriteShellCommand.SCRIPT_EDITOR) as? RewriteScriptEditorWindow
+            ?: return
+        editorWindow.openFile(file)
+        shellHost?.focusWindow(editorWindow)
+    }
+
     private fun createShellWindow(
         command: RewriteShellCommand,
         preferredPort: Int?,
@@ -514,7 +577,17 @@ class RewriteRootController(
             controller = this,
         )
 
+        RewriteShellCommand.SCRIPT_EDITOR -> RewriteScriptEditorWindow()
+
         else -> RewritePlaceholderInternalFrame(command)
+    }
+
+    private fun closeFilePropertiesWindows() {
+        val windows = filePropertiesWindowsByPath.values.toList()
+        filePropertiesWindowsByPath.clear()
+        windows.forEach { frame ->
+            runCatching { frame.dispose() }
+        }
     }
 
     private fun createShellDialog(

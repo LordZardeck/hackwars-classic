@@ -4,6 +4,7 @@ import com.hackwars.rewrite.client.shell.RewriteShellCommand
 import com.hackwars.rewrite.protocol.ClientBountyCreatedResponse
 import com.hackwars.rewrite.protocol.ClientDirectoryEntry
 import com.hackwars.rewrite.protocol.ClientDirectoryListingResponse
+import com.hackwars.rewrite.protocol.ClientFileContentsResponse
 import com.hackwars.rewrite.clientmodel.RewriteClientRoute
 import com.hackwars.rewrite.protocol.ClientBankTransactionResponse
 import com.hackwars.rewrite.protocol.ClientComputerIdentity
@@ -12,6 +13,8 @@ import com.hackwars.rewrite.protocol.ClientGameSnapshot
 import com.hackwars.rewrite.protocol.ClientInstalledApplication
 import com.hackwars.rewrite.protocol.ClientPortState
 import com.hackwars.rewrite.protocol.ClientMakeBountyPayload
+import com.hackwars.rewrite.protocol.ClientProgramScriptBundle
+import com.hackwars.rewrite.protocol.ClientProgramScriptSlot
 import com.hackwars.rewrite.protocol.ClientRequestDirectoryPayload
 import com.hackwars.rewrite.protocol.ClientRuntimeState
 import com.hackwars.rewrite.protocol.ClientStoredFileKind
@@ -40,7 +43,9 @@ import javax.swing.JList
 import javax.swing.JLabel
 import javax.swing.JSpinner
 import javax.swing.SwingUtilities
+import javax.swing.JTabbedPane
 import javax.swing.JTextField
+import javax.swing.JTextArea
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -680,6 +685,326 @@ class RewriteRootFrameUiTest {
     }
 
     @Test
+    fun scriptEditorMenuLaunchesRealWindowInsteadOfPlaceholder() {
+        assumeFalse(GraphicsEnvironment.isHeadless())
+
+        val frame = bankingReadyFrame()
+        try {
+            SwingUtilities.invokeAndWait {
+                frame.controller.launchShellCommand(RewriteShellCommand.SCRIPT_EDITOR)
+            }
+
+            val editorWindow = waitForWindow(frame, "rewrite-script-editor-window")
+            assertEquals("Script Editor", editorWindow.title)
+            assertEquals(
+                "Open a file from Home to view it.",
+                label(editorWindow, "rewrite-script-editor-empty-state").text,
+            )
+        } finally {
+            disposeFrame(frame)
+        }
+    }
+
+    @Test
+    fun homeOpenOnSourceFileLoadsReadOnlyScriptEditorAndReusesTab() {
+        assumeFalse(GraphicsEnvironment.isHeadless())
+
+        val sessionGateway = FakeUiSessionGateway()
+        val frame = bankingReadyFrame(sessionGateway = sessionGateway)
+        try {
+            SwingUtilities.invokeAndWait {
+                frame.controller.launchShellCommand(RewriteShellCommand.HOME)
+            }
+            val homeFrame = waitForWindow(frame, "rewrite-home-window")
+
+            waitUntil { sessionGateway.latestGameSession()?.sentFrames?.isNotEmpty() == true }
+            val directoryCommand = sessionGateway.latestGameSession()!!.sentFrames.last().command!!
+            frame.controller.accept(
+                RewriteService.GAME,
+                RewriteFrames.commandResponse(
+                    commandId = directoryCommand.command_id,
+                    payload = RewriteClientJson.encode(
+                        ClientDirectoryListingResponse.serializer(),
+                        ClientDirectoryListingResponse(
+                            stateId = "LOCAL-IP",
+                            path = "/Scripts",
+                            files = listOf(
+                                ClientStoredFile(
+                                    path = "/Scripts/attack.src",
+                                    name = "attack.src",
+                                    kind = ClientStoredFileKind.SCRIPT_SOURCE,
+                                ),
+                            ),
+                            version = 2,
+                        ),
+                    ),
+                ),
+            )
+
+            waitUntil { entryList(homeFrame).model.size == 1 }
+            SwingUtilities.invokeAndWait {
+                entryList(homeFrame).selectedIndex = 0
+                button(homeFrame, "rewrite-files-open-button").doClick()
+            }
+
+            waitUntil { sessionGateway.latestGameSession()!!.sentFrames.size >= 2 }
+            val firstFileCommand = sessionGateway.latestGameSession()!!.sentFrames.last().command!!
+            frame.controller.accept(
+                RewriteService.GAME,
+                RewriteFrames.commandResponse(
+                    commandId = firstFileCommand.command_id,
+                    payload = RewriteClientJson.encode(
+                        ClientFileContentsResponse.serializer(),
+                        ClientFileContentsResponse(
+                            stateId = "LOCAL-IP",
+                            file = ClientStoredFile(
+                                path = "/Scripts/attack.src",
+                                name = "attack.src",
+                                kind = ClientStoredFileKind.SCRIPT_SOURCE,
+                                scriptBundle = ClientProgramScriptBundle(
+                                    scriptsBySlot = mapOf(
+                                        ClientProgramScriptSlot.INITIALIZE to "init()",
+                                        ClientProgramScriptSlot.FINALIZE to "finish()",
+                                        ClientProgramScriptSlot.CONTINUE to "tick()",
+                                    ),
+                                ),
+                            ),
+                            version = 3,
+                        ),
+                    ),
+                ),
+            )
+
+            val editorWindow = waitForWindow(frame, "rewrite-script-editor-window")
+            waitUntil {
+                tabbedPane(editorWindow, "rewrite-script-editor-file-tabs").tabCount == 1
+            }
+            val fileTabs = tabbedPane(editorWindow, "rewrite-script-editor-file-tabs")
+            assertEquals(1, fileTabs.tabCount)
+            assertEquals("attack.src", fileTabs.getTitleAt(0))
+
+            val documentTabs = tabbedPane(editorWindow, "rewrite-script-editor-document-tabs-scripts-attack-src")
+            assertEquals(listOf("Initialize", "Finalize", "Continue"), (0 until documentTabs.tabCount).map(documentTabs::getTitleAt))
+            val area = textArea(editorWindow, "rewrite-script-editor-content-scripts-attack-src-initialize")
+            assertEquals("init()", area.text)
+            assertFalse(area.isEditable)
+
+            SwingUtilities.invokeAndWait {
+                button(homeFrame, "rewrite-files-open-button").doClick()
+            }
+            waitUntil { sessionGateway.latestGameSession()!!.sentFrames.size >= 3 }
+            val secondFileCommand = sessionGateway.latestGameSession()!!.sentFrames.last().command!!
+            frame.controller.accept(
+                RewriteService.GAME,
+                RewriteFrames.commandResponse(
+                    commandId = secondFileCommand.command_id,
+                    payload = RewriteClientJson.encode(
+                        ClientFileContentsResponse.serializer(),
+                        ClientFileContentsResponse(
+                            stateId = "LOCAL-IP",
+                            file = ClientStoredFile(
+                                path = "/Scripts/attack.src",
+                                name = "attack.src",
+                                kind = ClientStoredFileKind.SCRIPT_SOURCE,
+                                scriptBundle = ClientProgramScriptBundle(
+                                    scriptsBySlot = mapOf(
+                                        ClientProgramScriptSlot.INITIALIZE to "init()",
+                                        ClientProgramScriptSlot.FINALIZE to "finish()",
+                                        ClientProgramScriptSlot.CONTINUE to "tick()",
+                                    ),
+                                ),
+                            ),
+                            version = 4,
+                        ),
+                    ),
+                ),
+            )
+
+            waitUntil {
+                tabbedPane(editorWindow, "rewrite-script-editor-file-tabs").tabCount == 1
+            }
+            assertEquals(1, tabbedPane(editorWindow, "rewrite-script-editor-file-tabs").tabCount)
+        } finally {
+            disposeFrame(frame)
+        }
+    }
+
+    @Test
+    fun homePropertiesOpensRealFilePropertiesWindowAndReusesIt() {
+        assumeFalse(GraphicsEnvironment.isHeadless())
+
+        val sessionGateway = FakeUiSessionGateway()
+        val frame = bankingReadyFrame(sessionGateway = sessionGateway)
+        try {
+            SwingUtilities.invokeAndWait {
+                frame.controller.launchShellCommand(RewriteShellCommand.HOME)
+            }
+            val homeFrame = waitForWindow(frame, "rewrite-home-window")
+
+            waitUntil { sessionGateway.latestGameSession()?.sentFrames?.isNotEmpty() == true }
+            val directoryCommand = sessionGateway.latestGameSession()!!.sentFrames.last().command!!
+            frame.controller.accept(
+                RewriteService.GAME,
+                RewriteFrames.commandResponse(
+                    commandId = directoryCommand.command_id,
+                    payload = RewriteClientJson.encode(
+                        ClientDirectoryListingResponse.serializer(),
+                        ClientDirectoryListingResponse(
+                            stateId = "LOCAL-IP",
+                            path = "/Public",
+                            files = listOf(
+                                ClientStoredFile(
+                                    path = "/Public/http.bin",
+                                    name = "http.bin",
+                                    kind = ClientStoredFileKind.APPLICATION_BINARY,
+                                ),
+                            ),
+                            version = 2,
+                        ),
+                    ),
+                ),
+            )
+
+            waitUntil { entryList(homeFrame).model.size == 1 }
+            SwingUtilities.invokeAndWait {
+                entryList(homeFrame).selectedIndex = 0
+                button(homeFrame, "rewrite-files-properties-button").doClick()
+            }
+
+            waitUntil { sessionGateway.latestGameSession()!!.sentFrames.size >= 2 }
+            val firstFileCommand = sessionGateway.latestGameSession()!!.sentFrames.last().command!!
+            frame.controller.accept(
+                RewriteService.GAME,
+                RewriteFrames.commandResponse(
+                    commandId = firstFileCommand.command_id,
+                    payload = RewriteClientJson.encode(
+                        ClientFileContentsResponse.serializer(),
+                        ClientFileContentsResponse(
+                            stateId = "LOCAL-IP",
+                            file = ClientStoredFile(
+                                path = "/Public/http.bin",
+                                name = "http.bin",
+                                kind = ClientStoredFileKind.APPLICATION_BINARY,
+                                maker = "LOCAL-IP",
+                                price = 125.0,
+                                cpuCost = 3.5,
+                                quantity = 2,
+                                description = "HTTP binary",
+                            ),
+                            version = 5,
+                        ),
+                    ),
+                ),
+            )
+
+            val propertiesWindow = waitForWindow(frame, "rewrite-file-properties-window-public-http-bin")
+            waitUntil {
+                label(propertiesWindow, "rewrite-file-properties-name-value").text == "http.bin"
+            }
+            assertEquals("File Properties -- http.bin", propertiesWindow.title)
+            assertEquals("Application Binary", label(propertiesWindow, "rewrite-file-properties-type-value").text)
+            assertEquals("LOCAL-IP", label(propertiesWindow, "rewrite-file-properties-maker-value").text)
+            assertEquals("$125.00", label(propertiesWindow, "rewrite-file-properties-price-value").text)
+
+            SwingUtilities.invokeAndWait {
+                button(homeFrame, "rewrite-files-properties-button").doClick()
+            }
+            waitUntil { sessionGateway.latestGameSession()!!.sentFrames.size >= 3 }
+            val secondFileCommand = sessionGateway.latestGameSession()!!.sentFrames.last().command!!
+            frame.controller.accept(
+                RewriteService.GAME,
+                RewriteFrames.commandResponse(
+                    commandId = secondFileCommand.command_id,
+                    payload = RewriteClientJson.encode(
+                        ClientFileContentsResponse.serializer(),
+                        ClientFileContentsResponse(
+                            stateId = "LOCAL-IP",
+                            file = ClientStoredFile(
+                                path = "/Public/http.bin",
+                                name = "http.bin",
+                                kind = ClientStoredFileKind.APPLICATION_BINARY,
+                            ),
+                            version = 6,
+                        ),
+                    ),
+                ),
+            )
+
+            waitUntil {
+                frame.desktopPane.allFrames.count { it.title == "File Properties -- http.bin" } == 1
+            }
+            assertEquals(1, frame.desktopPane.allFrames.count { it.title == "File Properties -- http.bin" })
+        } finally {
+            disposeFrame(frame)
+        }
+    }
+
+    @Test
+    fun failedRequestFileKeepsHomeOpenAndShowsInlineError() {
+        assumeFalse(GraphicsEnvironment.isHeadless())
+
+        val sessionGateway = FakeUiSessionGateway()
+        val frame = bankingReadyFrame(sessionGateway = sessionGateway)
+        try {
+            SwingUtilities.invokeAndWait {
+                frame.controller.launchShellCommand(RewriteShellCommand.HOME)
+            }
+            val homeFrame = waitForWindow(frame, "rewrite-home-window")
+
+            waitUntil { sessionGateway.latestGameSession()?.sentFrames?.isNotEmpty() == true }
+            val directoryCommand = sessionGateway.latestGameSession()!!.sentFrames.last().command!!
+            frame.controller.accept(
+                RewriteService.GAME,
+                RewriteFrames.commandResponse(
+                    commandId = directoryCommand.command_id,
+                    payload = RewriteClientJson.encode(
+                        ClientDirectoryListingResponse.serializer(),
+                        ClientDirectoryListingResponse(
+                            stateId = "LOCAL-IP",
+                            path = "/Public",
+                            files = listOf(
+                                ClientStoredFile(
+                                    path = "/Public/readme.txt",
+                                    name = "readme.txt",
+                                    kind = ClientStoredFileKind.TEXT,
+                                ),
+                            ),
+                            version = 2,
+                        ),
+                    ),
+                ),
+            )
+
+            waitUntil { entryList(homeFrame).model.size == 1 }
+            SwingUtilities.invokeAndWait {
+                entryList(homeFrame).selectedIndex = 0
+                button(homeFrame, "rewrite-files-open-button").doClick()
+            }
+
+            waitUntil { sessionGateway.latestGameSession()!!.sentFrames.size >= 2 }
+            val fileCommand = sessionGateway.latestGameSession()!!.sentFrames.last().command!!
+            frame.controller.accept(
+                RewriteService.GAME,
+                RewriteFrames.commandResponse(
+                    commandId = fileCommand.command_id,
+                    status = CommandResponseStatus.COMMAND_RESPONSE_STATUS_ERROR,
+                    error = ErrorEnvelope(
+                        code = "FILE_NOT_FOUND",
+                        message = "File does not exist.",
+                        retryable = false,
+                    ),
+                ),
+            )
+
+            waitUntil { label(homeFrame, "rewrite-files-error").text == "File does not exist." }
+            assertTrue(homeFrame.isDisplayable)
+            assertEquals("File does not exist.", label(homeFrame, "rewrite-files-error").text)
+        } finally {
+            disposeFrame(frame)
+        }
+    }
+
+    @Test
     fun chooserFoundationCanRenderListingAndEmitSelectionCallback() {
         assumeFalse(GraphicsEnvironment.isHeadless())
 
@@ -971,6 +1296,16 @@ class RewriteRootFrameUiTest {
             ?: error("Unable to find amount field")
     }
 
+    private fun tabbedPane(root: Component, name: String): JTabbedPane {
+        return findComponent(root, name) as? JTabbedPane
+            ?: error("Unable to find JTabbedPane named $name")
+    }
+
+    private fun textArea(root: Component, name: String): JTextArea {
+        return findComponent(root, name) as? JTextArea
+            ?: error("Unable to find JTextArea named $name")
+    }
+
     private fun spinner(root: Component, name: String): JSpinner {
         return findComponent(root, name) as? JSpinner
             ?: error("Unable to find spinner named $name")
@@ -1002,6 +1337,7 @@ class RewriteRootFrameUiTest {
         RewriteShellCommand.WITHDRAW,
         RewriteShellCommand.TRANSFER -> "rewrite-economy-window-${command.stableId}"
         RewriteShellCommand.HOME -> "rewrite-home-window"
+        RewriteShellCommand.SCRIPT_EDITOR -> "rewrite-script-editor-window"
         else -> "rewrite-shell-window-${command.stableId}"
     }
 

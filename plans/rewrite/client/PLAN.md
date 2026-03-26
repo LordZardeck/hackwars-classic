@@ -114,7 +114,7 @@
   - Keeps `Create Bounty` deferred until filesystem-backed file/path picking is available.
 
 ### RW-CLIENT-W1B - Create Bounty dialog and file-picker follow-up
-- Status: `in_progress`
+- Status: `done`
 - Owner: `unassigned`
 - Depends on: `RW-CLIENT-W1A`, `RW-CLIENT-W2A`
 - Allowed write scope: `:RewriteClient/client/economy/**`, `:RewriteClient/client/files/**`
@@ -136,17 +136,30 @@
   - Covers local filesystem decode, the rewrite `Home` window, and the reusable local open-file chooser foundation.
   - Visible directory contents come from correlated `requestdirectory` responses, with client-owned displayed-path state and refresh-on-filesystem-delta behavior.
 
-### RW-CLIENT-W2B - File open/properties/image viewer plus Script Editor save/compile/decompile flows
-- Status: `todo`
+### RW-CLIENT-W2B1 - Requestfile decode, Home file actions, File Properties, and read-only Script Editor foundation
+- Status: `in_progress`
 - Owner: `unassigned`
 - Depends on: `RW-CLIENT-W2A`
+- Allowed write scope: `:RewriteProtocol`, `:RewriteClient/client/files/**`, `:RewriteClient`
+- Verification command: `./gradlew :RewriteProtocol:test :RewriteClient:test :RewriteClient:uiTest`
+- Artifacts: `build/reports/rewrite/ui`
+- Commit rule: `single green commit only`
+- Notes:
+  - Covers `requestfile`, Home file-open actions, rewrite `File Properties`, and the first read-only `Script Editor` host.
+  - Routes `SCRIPT_SOURCE`, `TEXT`, and `NOTE` into the editor and all other currently typed file kinds into `File Properties`.
+  - Image-viewer parity stays explicitly deferred until rewrite exposes typed image-file metadata; no filename/content heuristics are allowed in this tranche.
+
+### RW-CLIENT-W2B2 - Script Editor save/new/save-as plus compile/decompile mutation flows
+- Status: `todo`
+- Owner: `unassigned`
+- Depends on: `RW-CLIENT-W2B1`
 - Allowed write scope: `:RewriteClient/client/files/**`
 - Verification command: `./gradlew :RewriteClient:test :RewriteClient:uiTest`
 - Artifacts: `build/reports/rewrite/ui`
 - Commit rule: `single green commit only`
 - Notes:
-  - Covers `requestfile`, file properties, image viewing, and Script Editor open/save/compile/decompile parity.
-  - Keeps FTP browsing deferred to `RW-CLIENT-W2C`.
+  - Adds editable Script Editor flows on top of the `RW-CLIENT-W2B1` read-only foundation.
+  - Covers `savefile`, `compilefile`, `decompilefile`, and dirty-state handling without taking ownership of `Website Editor`.
 
 ### RW-CLIENT-W2C - Shop FTP and Public FTP remote-directory plus transfer UI
 - Status: `todo`

@@ -496,11 +496,24 @@ data class ClientRequestDirectoryPayload(
 )
 
 @Serializable
+data class ClientRequestFilePayload(
+    val path: String? = null,
+    val name: String,
+)
+
+@Serializable
 data class ClientDirectoryListingResponse(
     val stateId: String,
     val path: String,
     val directories: List<ClientDirectoryEntry> = emptyList(),
     val files: List<ClientStoredFile> = emptyList(),
+    val version: Long,
+)
+
+@Serializable
+data class ClientFileContentsResponse(
+    val stateId: String,
+    val file: ClientStoredFile? = null,
     val version: Long,
 )
 

@@ -1,5 +1,8 @@
 package com.hackwars.rewrite.client
 
+import com.hackwars.rewrite.client.files.RewriteLocalFileOpenTarget
+import com.hackwars.rewrite.client.files.buildReadOnlyEditorTabs
+import com.hackwars.rewrite.client.files.routeLocalFileTarget
 import com.hackwars.rewrite.clientmodel.RewriteClientRoute
 import com.hackwars.rewrite.clientmodel.RewriteDecodedGameState
 import com.hackwars.rewrite.clientmodel.RewriteDecodedGameUiNotice
@@ -8,13 +11,18 @@ import com.hackwars.rewrite.protocol.ClientBankTransactionResponse
 import com.hackwars.rewrite.protocol.ClientBountyCreatedResponse
 import com.hackwars.rewrite.protocol.ClientDepositPayload
 import com.hackwars.rewrite.protocol.ClientEconomyState
+import com.hackwars.rewrite.protocol.ClientFileContentsResponse
 import com.hackwars.rewrite.protocol.ClientGameDeltaProjection
 import com.hackwars.rewrite.protocol.ClientGameSectionsProjection
 import com.hackwars.rewrite.protocol.ClientGameSnapshot
 import com.hackwars.rewrite.protocol.ClientMakeBountyPayload
+import com.hackwars.rewrite.protocol.ClientProgramScriptBundle
+import com.hackwars.rewrite.protocol.ClientProgramScriptSlot
 import com.hackwars.rewrite.protocol.ClientProgramLifecycleStatus
 import com.hackwars.rewrite.protocol.ClientProgramUpdate
+import com.hackwars.rewrite.protocol.ClientRequestFilePayload
 import com.hackwars.rewrite.protocol.ClientStoredFile
+import com.hackwars.rewrite.protocol.ClientStoredFileKind
 import com.hackwars.rewrite.protocol.ClientTransferPayload
 import com.hackwars.rewrite.protocol.ClientTransferResponse
 import com.hackwars.rewrite.protocol.RewriteClientJson
@@ -475,6 +483,114 @@ class RewriteClientTest {
         val result = pending.await()
         assertIs<RewriteGameCommandResult.Success<ClientBountyCreatedResponse>>(result)
         assertEquals("/Store/LOCAL-IP-install-1.bnty", result.value.bountyFile.path)
+    }
+
+    @Test
+    fun requestFileUsesExpectedPayloadAndResolvesByCommandId() = runTest {
+        val sessionGateway = FakeRewriteServiceSessionGateway()
+        val controller = testController(
+            authGateway = RecordingRewriteLoginAuthGateway(),
+            sessionGateway = sessionGateway,
+            scheduler = testScheduler,
+        )
+        controller.accept(
+            RewriteService.GAME,
+            RewriteFrames.authAccepted(
+                connectionId = "conn-1",
+                playFabId = "PF-LOCAL",
+                playerIp = "LOCAL-IP",
+                heartbeatInterval = kotlin.time.Duration.parse("15s"),
+                sessionStartedAt = Instant.parse("2026-03-25T00:00:00Z"),
+            ),
+        )
+
+        val pending = backgroundScope.async(UnconfinedTestDispatcher(testScheduler)) {
+            controller.requestFile(path = "/Scripts", name = "attack.src")
+        }
+        runCurrent()
+
+        val session = sessionGateway.requireLatestSession(RewriteService.GAME)
+        val command = session.sentFrames.single().command!!
+        val payload = RewriteClientJson.decode(
+            ClientRequestFilePayload.serializer(),
+            command.payload.toByteArray(),
+        )
+        assertEquals("requestfile", command.command_name)
+        assertEquals("/Scripts", payload.path)
+        assertEquals("attack.src", payload.name)
+
+        controller.accept(
+            RewriteService.GAME,
+            RewriteFrames.commandResponse(
+                commandId = command.command_id,
+                payload = RewriteClientJson.encode(
+                    ClientFileContentsResponse.serializer(),
+                    ClientFileContentsResponse(
+                        stateId = "LOCAL-IP",
+                        file = ClientStoredFile(
+                            path = "/Scripts/attack.src",
+                            name = "attack.src",
+                            kind = ClientStoredFileKind.SCRIPT_SOURCE,
+                            contents = "legacy",
+                        ),
+                        version = 9,
+                    ),
+                ),
+            ),
+        )
+        advanceUntilIdle()
+
+        val result = pending.await()
+        assertIs<RewriteGameCommandResult.Success<ClientFileContentsResponse>>(result)
+        assertEquals("/Scripts/attack.src", result.value.file?.path)
+        assertEquals(command.command_id, controller.snapshot().game.inbox.lastCommandResponse?.metadata?.commandId)
+    }
+
+    @Test
+    fun localFileRoutingAndReadOnlyEditorTabsFollowLockedRules() {
+        val scriptSource = ClientStoredFile(
+            path = "/Scripts/bank.src",
+            name = "bank.src",
+            kind = ClientStoredFileKind.SCRIPT_SOURCE,
+            scriptBundle = ClientProgramScriptBundle(
+                scriptsBySlot = mapOf(
+                    ClientProgramScriptSlot.DEPOSIT to "deposit()",
+                    ClientProgramScriptSlot.WITHDRAW to "withdraw()",
+                    ClientProgramScriptSlot.TRANSFER to "transfer()",
+                ),
+            ),
+        )
+        val ftpSource = ClientStoredFile(
+            path = "/Scripts/ftp.src",
+            name = "ftp.src",
+            kind = ClientStoredFileKind.SCRIPT_SOURCE,
+            scriptBundle = ClientProgramScriptBundle(
+                scriptsBySlot = mapOf(
+                    ClientProgramScriptSlot.PUT to "put()",
+                    ClientProgramScriptSlot.GET to "get()",
+                ),
+            ),
+        )
+        val noteFile = ClientStoredFile(
+            path = "/Public/readme.note",
+            name = "readme.note",
+            kind = ClientStoredFileKind.NOTE,
+            contents = "hello",
+        )
+        val binaryFile = ClientStoredFile(
+            path = "/Public/http.bin",
+            name = "http.bin",
+            kind = ClientStoredFileKind.APPLICATION_BINARY,
+        )
+
+        assertEquals(RewriteLocalFileOpenTarget.SCRIPT_EDITOR, routeLocalFileTarget(scriptSource))
+        assertEquals(RewriteLocalFileOpenTarget.SCRIPT_EDITOR, routeLocalFileTarget(noteFile))
+        assertEquals(RewriteLocalFileOpenTarget.FILE_PROPERTIES, routeLocalFileTarget(binaryFile))
+
+        assertEquals(listOf("Deposit", "Withdraw", "Transfer"), buildReadOnlyEditorTabs(scriptSource).map { it.title })
+        assertEquals(listOf("Put", "Get"), buildReadOnlyEditorTabs(ftpSource).map { it.title })
+        assertEquals(listOf("Content"), buildReadOnlyEditorTabs(noteFile).map { it.title })
+        assertEquals("hello", buildReadOnlyEditorTabs(noteFile).single().content)
     }
 
     @Test

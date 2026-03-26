@@ -104,6 +104,13 @@ internal class RewriteLocalDirectoryBrowserController(
         store.update { state -> state.copy(selectedPath = selectedPath) }
     }
 
+    fun selectedEntry(): RewriteLocalDirectoryBrowserEntry? {
+        return snapshot().let { state ->
+            val selectedPath = state.selectedPath ?: return null
+            state.entries.firstOrNull { it.path == selectedPath }
+        }
+    }
+
     fun openSelectedDirectory() {
         val entry = selectedEntry() ?: return
         if (!entry.isDirectory) {
@@ -120,6 +127,12 @@ internal class RewriteLocalDirectoryBrowserController(
             displayedPath = currentDisplayedPath(),
             file = file,
         )
+    }
+
+    fun showInlineError(message: String?) {
+        store.update { state ->
+            state.copy(inlineError = message?.takeIf { it.isNotBlank() })
+        }
     }
 
     override fun close() {
@@ -250,11 +263,6 @@ internal class RewriteLocalDirectoryBrowserController(
         return directories + files
     }
 
-    private fun selectedEntry(): RewriteLocalDirectoryBrowserEntry? {
-        val selectedPath = snapshot().selectedPath ?: return null
-        return snapshot().entries.firstOrNull { it.path == selectedPath }
-    }
-
     private fun currentDisplayedPath(): String {
         val state = snapshot()
         return state.listing?.path ?: state.displayedPath
@@ -277,6 +285,10 @@ internal class RewriteLocalDirectoryBrowserPanel(
     private val primaryActionName: String,
     private val onPrimaryAction: () -> Unit,
     private val canRunPrimaryAction: (RewriteLocalDirectoryBrowserState) -> Boolean,
+    private val secondaryActionLabel: String? = null,
+    private val secondaryActionName: String? = null,
+    private val onSecondaryAction: (() -> Unit)? = null,
+    private val canRunSecondaryAction: ((RewriteLocalDirectoryBrowserState) -> Boolean)? = null,
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
 ) : JPanel(BorderLayout()) {
     private val pathValueLabel = JLabel("/").apply {
@@ -308,6 +320,14 @@ internal class RewriteLocalDirectoryBrowserPanel(
         name = primaryActionName
         addActionListener { onPrimaryAction() }
     }
+    val secondaryButton = secondaryActionLabel?.let { label ->
+        JButton(label).apply {
+            name = secondaryActionName
+            addActionListener {
+                onSecondaryAction?.invoke()
+            }
+        }
+    }
 
     init {
         name = "rewrite-files-browser-panel"
@@ -322,6 +342,7 @@ internal class RewriteLocalDirectoryBrowserPanel(
             add(upButton)
             add(homeButton)
             add(primaryButton)
+            secondaryButton?.let { add(it) }
         }
         val footer = JPanel(BorderLayout(0, 4)).apply {
             isOpaque = false
@@ -387,6 +408,7 @@ internal class RewriteLocalDirectoryBrowserPanel(
         errorLabel.text = state.inlineError ?: " "
         val primaryEnabled = !state.requestInFlight && canRunPrimaryAction(state)
         primaryButton.isEnabled = primaryEnabled
+        secondaryButton?.isEnabled = !state.requestInFlight && (canRunSecondaryAction?.invoke(state) == true)
         entryList.isEnabled = !state.requestInFlight
         upButton.isEnabled = !state.requestInFlight
         homeButton.isEnabled = !state.requestInFlight
@@ -411,14 +433,21 @@ internal class RewriteLocalDirectoryBrowserPanel(
 internal class RewriteHomeWindow(
     controller: RewriteRootController,
 ) : JInternalFrame("Home", true, true, true, true) {
+    private val windowScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val browserController = RewriteLocalDirectoryBrowserController(rootController = controller)
     private val browserPanel = RewriteLocalDirectoryBrowserPanel(
         browserController = browserController,
         primaryActionLabel = "Open",
         primaryActionName = "rewrite-files-open-button",
-        onPrimaryAction = { browserController.openSelectedDirectory() },
+        onPrimaryAction = { openSelection(controller) },
         canRunPrimaryAction = { state ->
-            state.entries.firstOrNull { it.path == state.selectedPath }?.isDirectory == true
+            state.entries.any { it.path == state.selectedPath }
+        },
+        secondaryActionLabel = "Properties",
+        secondaryActionName = "rewrite-files-properties-button",
+        onSecondaryAction = { showProperties(controller) },
+        canRunSecondaryAction = { state ->
+            state.entries.firstOrNull { it.path == state.selectedPath }?.file != null
         },
     )
 
@@ -431,9 +460,75 @@ internal class RewriteHomeWindow(
             override fun internalFrameClosed(event: InternalFrameEvent) {
                 browserPanel.close()
                 browserController.close()
+                windowScope.cancel()
             }
         })
         browserController.activate()
+    }
+
+    private fun openSelection(controller: RewriteRootController) {
+        val entry = browserController.selectedEntry() ?: return
+        if (entry.isDirectory) {
+            browserController.openSelectedDirectory()
+            return
+        }
+        val file = entry.file ?: return
+        browserController.showInlineError(null)
+        windowScope.launch {
+            val result = controller.requestFile(
+                path = parentDirectoryPath(file.path),
+                name = file.name,
+            )
+            SwingUtilities.invokeLater {
+                if (isClosed || !isDisplayable) {
+                    return@invokeLater
+                }
+                when (result) {
+                    is RewriteGameCommandResult.Success -> {
+                        val requestedFile = result.value.file
+                        if (requestedFile == null) {
+                            browserController.showInlineError("File does not exist.")
+                            return@invokeLater
+                        }
+                        controller.openLocalFile(requestedFile)
+                    }
+
+                    is RewriteGameCommandResult.Failure -> {
+                        browserController.showInlineError(result.message)
+                    }
+                }
+            }
+        }
+    }
+
+    private fun showProperties(controller: RewriteRootController) {
+        val file = browserController.selectedEntry()?.file ?: return
+        browserController.showInlineError(null)
+        windowScope.launch {
+            val result = controller.requestFile(
+                path = parentDirectoryPath(file.path),
+                name = file.name,
+            )
+            SwingUtilities.invokeLater {
+                if (isClosed || !isDisplayable) {
+                    return@invokeLater
+                }
+                when (result) {
+                    is RewriteGameCommandResult.Success -> {
+                        val requestedFile = result.value.file
+                        if (requestedFile == null) {
+                            browserController.showInlineError("File does not exist.")
+                            return@invokeLater
+                        }
+                        controller.openFileProperties(requestedFile)
+                    }
+
+                    is RewriteGameCommandResult.Failure -> {
+                        browserController.showInlineError(result.message)
+                    }
+                }
+            }
+        }
     }
 }
 

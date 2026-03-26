@@ -220,6 +220,54 @@ class RewriteClientJsonTest {
     }
 
     @Test
+    fun decodesCurrentRewriteRequestFileResponseShapeIncludingMissingFiles() {
+        val filePayload = """
+            {
+              "stateId":"LOCAL-IP",
+              "file":{
+                "path":"/Public/readme.txt",
+                "name":"readme.txt",
+                "kind":"TEXT",
+                "contents":"hello",
+                "description":"welcome",
+                "maker":"LOCAL-IP",
+                "price":12.5,
+                "cpuCost":1.25,
+                "quantity":2,
+                "ignored":"ignored"
+              },
+              "version":15,
+              "ignored":"ignored"
+            }
+        """.trimIndent().encodeToByteArray()
+        val missingPayload = """
+            {
+              "stateId":"LOCAL-IP",
+              "file":null,
+              "version":16,
+              "ignored":"ignored"
+            }
+        """.trimIndent().encodeToByteArray()
+
+        val response = RewriteClientJson.decode(
+            ClientFileContentsResponse.serializer(),
+            filePayload,
+        )
+        val missing = RewriteClientJson.decode(
+            ClientFileContentsResponse.serializer(),
+            missingPayload,
+        )
+
+        assertEquals("LOCAL-IP", response.stateId)
+        assertEquals("/Public/readme.txt", response.file?.path)
+        assertEquals("TEXT", response.file?.kind?.name)
+        assertEquals(15, response.version)
+        assertEquals("LOCAL-IP", missing.stateId)
+        assertEquals(null, missing.file)
+        assertEquals(16, missing.version)
+    }
+
+    @Test
     fun decodesCurrentRewriteMakeBountyResponseShape() {
         val payload = """
             {
