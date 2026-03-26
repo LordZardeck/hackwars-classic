@@ -38,6 +38,7 @@ import com.hackwars.rewrite.hackscript.IntHookValue
 import com.hackwars.rewrite.hackscript.StringHookValue
 import java.sql.Connection
 import java.sql.Timestamp
+import java.util.Base64
 
 class JdbcRewriteSeedSink(
     private val connectionFactory: () -> Connection,
@@ -55,6 +56,7 @@ class JdbcRewriteSeedSink(
                     is SeedComputerState -> upsertComputerState(connection, payload)
                     is SeedWorldDirectory -> upsertWorldDirectory(connection, payload)
                     is SeedInventorySnapshot -> applyInventorySnapshot(connection, payload)
+                    is SeedChatSocialSnapshot -> applyChatSocialSnapshot(connection, payload)
                 }
                 connection.commit()
             } catch (exception: Throwable) {
@@ -703,6 +705,219 @@ class JdbcRewriteSeedSink(
             statement.setString(2, payload.computerId)
             statement.executeUpdate()
         }
+        upsertWebsiteProjection(connection, updated)
+    }
+
+    private fun upsertWebsiteProjection(
+        connection: Connection,
+        state: ComputerState,
+    ) {
+        val canonicalAddress = state.identity.playerIp.ifBlank { state.id.value }.lowercase()
+        val revenueTargetStateId = state.website.storeRevenueTargetStateId?.value
+        val websitePayload =
+            """
+            {"stateId":"${state.id.value}","canonicalAddress":"$canonicalAddress","title":"${state.website.title}","bodyHtml":"${state.website.body}","voteCount":${state.website.voteCount},"votesAvailable":${state.website.votesAvailable},"storeRevenueTargetStateId":"${revenueTargetStateId.orEmpty()}"}
+            """.trimIndent()
+        connection.prepareStatement(
+            """
+            insert into rewrite_website_projection(
+                state_id,
+                canonical_address,
+                title,
+                body_html,
+                vote_count,
+                votes_available,
+                store_revenue_target_state_id,
+                website_payload
+            )
+            values (?, ?, ?, ?, ?, ?, ?, cast(? as jsonb))
+            on conflict (state_id) do update
+            set canonical_address = excluded.canonical_address,
+                title = excluded.title,
+                body_html = excluded.body_html,
+                vote_count = excluded.vote_count,
+                votes_available = excluded.votes_available,
+                store_revenue_target_state_id = excluded.store_revenue_target_state_id,
+                website_payload = excluded.website_payload
+            """.trimIndent(),
+        ).use { statement ->
+            statement.setString(1, state.id.value)
+            statement.setString(2, canonicalAddress)
+            statement.setString(3, state.website.title)
+            statement.setString(4, state.website.body)
+            statement.setInt(5, state.website.voteCount)
+            statement.setInt(6, state.website.votesAvailable)
+            statement.setString(7, revenueTargetStateId)
+            statement.setString(8, websitePayload)
+            statement.executeUpdate()
+        }
+    }
+
+    private fun applyChatSocialSnapshot(
+        connection: Connection,
+        payload: SeedChatSocialSnapshot,
+    ) {
+        payload.channels.forEach { channel ->
+            connection.prepareStatement(
+                """
+                insert into rewrite_chat_channel(
+                    channel_id,
+                    display_name,
+                    topic,
+                    owner_player_id,
+                    private_channel,
+                    created_at,
+                    channel_payload
+                )
+                values (?, ?, ?, ?, ?, ?, cast(? as jsonb))
+                on conflict (channel_id) do update
+                set display_name = excluded.display_name,
+                    topic = excluded.topic,
+                    owner_player_id = excluded.owner_player_id,
+                    private_channel = excluded.private_channel,
+                    created_at = excluded.created_at,
+                    channel_payload = excluded.channel_payload
+                """.trimIndent(),
+            ).use { statement ->
+                statement.setString(1, channel.channelId)
+                statement.setString(2, channel.displayName)
+                statement.setString(3, channel.topic)
+                statement.setString(4, channel.ownerPlayerId)
+                statement.setBoolean(5, channel.privateChannel)
+                statement.setTimestamp(6, Timestamp.from(channel.createdAt))
+                statement.setString(7, channel.channelPayload)
+                statement.executeUpdate()
+            }
+        }
+        payload.memberships.forEach { membership ->
+            connection.prepareStatement(
+                """
+                insert into rewrite_chat_channel_member(
+                    channel_id,
+                    player_id,
+                    role,
+                    joined_at,
+                    membership_payload
+                )
+                values (?, ?, ?, ?, cast(? as jsonb))
+                on conflict (channel_id, player_id) do update
+                set role = excluded.role,
+                    joined_at = excluded.joined_at,
+                    membership_payload = excluded.membership_payload
+                """.trimIndent(),
+            ).use { statement ->
+                statement.setString(1, membership.channelId)
+                statement.setString(2, membership.playerId)
+                statement.setString(3, membership.role.name)
+                statement.setTimestamp(4, Timestamp.from(membership.joinedAt))
+                statement.setString(5, membership.membershipPayload)
+                statement.executeUpdate()
+            }
+        }
+        payload.messages.forEach { message ->
+            connection.prepareStatement(
+                """
+                insert into rewrite_chat_message(
+                    message_id,
+                    message_kind,
+                    channel_id,
+                    sender_player_id,
+                    recipient_player_id,
+                    event_type,
+                    payload,
+                    created_at
+                )
+                values (?, ?, ?, ?, ?, ?, ?, ?)
+                """.trimIndent(),
+            ).use { statement ->
+                statement.setString(1, message.messageId)
+                statement.setString(2, message.messageKind.name)
+                statement.setString(3, message.channelId)
+                statement.setString(4, message.senderPlayerId)
+                statement.setString(5, message.recipientPlayerId)
+                statement.setString(6, message.eventType)
+                statement.setBytes(7, message.payload)
+                statement.setTimestamp(8, Timestamp.from(message.createdAt))
+                statement.executeUpdate()
+            }
+        }
+        payload.relations.forEach { relation ->
+            connection.prepareStatement(
+                """
+                insert into rewrite_chat_relation(
+                    player_id,
+                    target_player_id,
+                    relation_kind,
+                    created_at,
+                    relation_payload
+                )
+                values (?, ?, ?, ?, cast(? as jsonb))
+                on conflict (player_id, target_player_id, relation_kind) do update
+                set created_at = excluded.created_at,
+                    relation_payload = excluded.relation_payload
+                """.trimIndent(),
+            ).use { statement ->
+                statement.setString(1, relation.playerId)
+                statement.setString(2, relation.targetPlayerId)
+                statement.setString(3, relation.relationKind.name)
+                statement.setTimestamp(4, Timestamp.from(relation.createdAt))
+                statement.setString(5, relation.relationPayload)
+                statement.executeUpdate()
+            }
+        }
+        payload.channelMutes.forEach { mute ->
+            connection.prepareStatement(
+                """
+                insert into rewrite_chat_channel_mute(
+                    player_id,
+                    channel_id,
+                    muted_player_id,
+                    created_at,
+                    mute_payload
+                )
+                values (?, ?, ?, ?, cast(? as jsonb))
+                on conflict (player_id, channel_id, muted_player_id) do update
+                set created_at = excluded.created_at,
+                    mute_payload = excluded.mute_payload
+                """.trimIndent(),
+            ).use { statement ->
+                statement.setString(1, mute.playerId)
+                statement.setString(2, mute.channelId)
+                statement.setString(3, mute.mutedPlayerId)
+                statement.setTimestamp(4, Timestamp.from(mute.createdAt))
+                statement.setString(5, mute.mutePayload)
+                statement.executeUpdate()
+            }
+        }
+        payload.presence.forEach { presence ->
+            connection.prepareStatement(
+                """
+                insert into rewrite_chat_presence(
+                    connection_id,
+                    player_id,
+                    online_at,
+                    last_seen_at,
+                    offline_at,
+                    presence_payload
+                )
+                values (?, ?, ?, ?, ?, cast(? as jsonb))
+                on conflict (connection_id) do update
+                set player_id = excluded.player_id,
+                    online_at = excluded.online_at,
+                    last_seen_at = excluded.last_seen_at,
+                    offline_at = excluded.offline_at,
+                    presence_payload = excluded.presence_payload
+                """.trimIndent(),
+            ).use { statement ->
+                statement.setString(1, presence.connectionId)
+                statement.setString(2, presence.playerId)
+                statement.setTimestamp(3, Timestamp.from(presence.onlineAt))
+                statement.setTimestamp(4, Timestamp.from(presence.lastSeenAt))
+                statement.setTimestamp(5, presence.offlineAt?.let(Timestamp::from))
+                statement.setString(6, presence.presencePayload)
+                statement.executeUpdate()
+            }
+        }
     }
 
     private fun seedPayloadJson(payload: SeedPayload): String {
@@ -732,6 +947,16 @@ class JdbcRewriteSeedSink(
                     "\"${it.key}\":\"${it.value}\""
                 }
                 """{"type":"inventory","computerId":"${payload.computerId}","notes":$notesJson,"websiteTitle":"${payload.websiteTitle}","websiteBody":"${payload.websiteBody}","lastLoginAtEpochMillis":${payload.lastLoginAtEpochMillis ?: "null"},"votesAvailable":${payload.votesAvailable},"voteCount":${payload.voteCount},"totalLevel":${payload.totalLevel},"noobProtectionLevel":${payload.noobProtectionLevel},"pettyCash":${payload.pettyCash},"bankMoney":${payload.bankMoney},"commodities":$commoditiesJson,"commodityRespawn":$commodityRespawnJson,"currentNetworkName":"${payload.currentNetworkName}","allowedNetworks":$allowedNetworksJson,"lastNetworkSwitchAtEpochMillis":${payload.lastNetworkSwitchAtEpochMillis},"scanningExperience":${payload.scanningExperience},"firewallExperience":${payload.firewallExperience},"currentCpuLoad":${payload.currentCpuLoad},"cpuMax":${payload.cpuMax},"memoryType":${payload.memoryType},"watchCapacityBoost":${payload.watchCapacityBoost},"freezeImmune":${payload.freezeImmune},"destroyWatchesImmune":${payload.destroyWatchesImmune},"activeQuestLabelsById":$activeQuestsJson,"seedSaveFileName":"${payload.seedSaveFileName.orEmpty()}","enableBanking":${payload.enableBanking},"enableFtp":${payload.enableFtp},"enableHttp":${payload.enableHttp},"enableWatchBinary":${payload.enableWatchBinary},"seedInstalledWatchCount":${payload.seedInstalledWatchCount},"seedEnabledWatchCount":${payload.seedEnabledWatchCount},"seedWatchCpuCost":${payload.seedWatchCpuCost}}"""
+            }
+            is SeedChatSocialSnapshot -> {
+                val channelsJson = payload.channels.joinToString(prefix = "[", postfix = "]") { channel ->
+                    """{"channelId":"${channel.channelId}","displayName":"${channel.displayName}","ownerPlayerId":"${channel.ownerPlayerId}"}"""
+                }
+                val messagesJson = payload.messages.joinToString(prefix = "[", postfix = "]") { message ->
+                    val encodedPayload = Base64.getEncoder().encodeToString(message.payload)
+                    """{"messageId":"${message.messageId}","messageKind":"${message.messageKind.name}","eventType":"${message.eventType}","payloadBase64":"$encodedPayload"}"""
+                }
+                """{"type":"chat-social","channels":$channelsJson,"memberships":${payload.memberships.size},"messages":$messagesJson,"relations":${payload.relations.size},"channelMutes":${payload.channelMutes.size},"presence":${payload.presence.size}}"""
             }
         }
     }

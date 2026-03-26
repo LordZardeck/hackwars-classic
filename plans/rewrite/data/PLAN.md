@@ -111,7 +111,7 @@
 - Verification scope: `./gradlew :RewritePersistence:test :RewritePersistence:migrationTest`
 
 ### RW-DATA-004B - Build importer slices for retained world, website, chat, and social data
-- Status: `ready`
+- Status: `done`
 - Priority: `P2`
 - Execution lane: `importer`
 - Worker role: `worker`
@@ -124,7 +124,7 @@
 - Verification scope: `./gradlew :RewritePersistence:test :RewritePersistence:migrationTest`
 
 ### RW-DATA-005A - Add retained importer validation fixtures and migration evidence
-- Status: `todo`
+- Status: `ready`
 - Priority: `P2`
 - Execution lane: `audit`
 - Worker role: `worker`

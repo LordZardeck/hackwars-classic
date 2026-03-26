@@ -271,6 +271,18 @@ class RewritePersistenceBootstrapTest {
                 documentType = "inventory",
             )
         )
+        val worldBatch = coordinator.plan(
+            LegacyJsonDescriptor(
+                sourceLocation = "/legacy/world.json",
+                documentType = "world",
+            )
+        )
+        val chatSocialBatch = coordinator.plan(
+            LegacyJsonDescriptor(
+                sourceLocation = "/legacy/chat-social.json",
+                documentType = "chat-social",
+            )
+        )
 
         assertEquals("mysql-dump:/legacy/hackwars.sql", mysqlBatch.batchId)
         assertTrue(mysqlBatch.seedPayload is SeedPlayerAccount)
@@ -283,6 +295,28 @@ class RewritePersistenceBootstrapTest {
         assertEquals("json:/legacy/backup.json", jsonBatch.batchId)
         assertTrue(jsonBatch.seedPayload is SeedInventorySnapshot)
         assertEquals(listOf("inventory"), (jsonBatch.seedPayload as SeedInventorySnapshot).notes)
+
+        assertEquals("json:/legacy/world.json", worldBatch.batchId)
+        assertTrue(worldBatch.seedPayload is SeedWorldDirectory)
+
+        assertEquals("json:/legacy/chat-social.json", chatSocialBatch.batchId)
+        assertTrue(chatSocialBatch.seedPayload is SeedChatSocialSnapshot)
+    }
+
+    @Test
+    fun importerPlannerRejectsUnknownJsonDocumentTypes() {
+        val coordinator = LegacyImportCoordinator()
+
+        val failure = assertThrows<IllegalArgumentException> {
+            coordinator.plan(
+                LegacyJsonDescriptor(
+                    sourceLocation = "/legacy/unsupported.json",
+                    documentType = "economy",
+                )
+            )
+        }
+
+        assertEquals("Unsupported legacy JSON document type: economy", failure.message)
     }
 
     @Test
@@ -291,7 +325,7 @@ class RewritePersistenceBootstrapTest {
         val batch = LegacyImportCoordinator().plan(
             LegacyJsonDescriptor(
                 sourceLocation = "/legacy/seed.json",
-                documentType = "economy",
+                documentType = "inventory",
             )
         )
 

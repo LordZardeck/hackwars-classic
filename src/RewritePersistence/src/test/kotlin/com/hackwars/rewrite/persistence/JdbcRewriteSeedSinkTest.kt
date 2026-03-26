@@ -14,6 +14,7 @@ import org.testcontainers.containers.PostgreSQLContainer
 import org.testcontainers.junit.jupiter.Container
 import org.testcontainers.junit.jupiter.Testcontainers
 import kotlin.test.Test
+import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
@@ -449,6 +450,175 @@ class JdbcRewriteSeedSinkTest {
         assertEquals(GameStateId("computer-local"), state.id)
         assertEquals("198.51.100.10", state.identity.playerIp)
         assertEquals("Distinct Computer", state.website.title)
+    }
+
+    @Test
+    fun importerDualWritesWebsiteProjectionFromInventorySnapshot() {
+        resetDatabase()
+
+        writeBatch(
+            RewriteSeedBatch(
+                batchId = "player-website",
+                source = LegacyMySqlDumpDescriptor("/legacy/local.sql", "hackwars"),
+                seedPayload = SeedPlayerAccount(
+                    playerId = "local-user",
+                    playFabId = "PF-LOCAL",
+                    playerIp = "198.51.100.10",
+                ),
+                createdAt = Instant.EPOCH,
+            ),
+        )
+        writeBatch(
+            RewriteSeedBatch(
+                batchId = "computer-website",
+                source = LegacyXmlDescriptor("/legacy/local.xml", "computer"),
+                seedPayload = SeedComputerState(
+                    computerId = "computer-local",
+                    playerId = "local-user",
+                    ipAddress = "198.51.100.10",
+                ),
+                createdAt = Instant.EPOCH,
+            ),
+        )
+        writeBatch(
+            RewriteSeedBatch(
+                batchId = "inventory-website",
+                source = LegacyJsonDescriptor("/legacy/local-inventory.json", "inventory"),
+                seedPayload = SeedInventorySnapshot(
+                    computerId = "computer-local",
+                    notes = listOf("projection note"),
+                    websiteTitle = "Projected Website",
+                    websiteBody = "<html>Projected</html>",
+                    voteCount = 7,
+                    votesAvailable = 3,
+                ),
+                createdAt = Instant.EPOCH,
+            ),
+        )
+
+        val repository = JdbcWebsiteProjectionRepository(connectionFactory = ::newConnection)
+        val projection = kotlinx.coroutines.runBlocking {
+            repository.findWebsiteProjection("computer-local")
+        }
+
+        assertNotNull(projection)
+        assertEquals("198.51.100.10", projection.canonicalAddress)
+        assertEquals("Projected Website", projection.title)
+        assertEquals("<html>Projected</html>", projection.bodyHtml)
+        assertEquals(7, projection.voteCount)
+        assertEquals(3, projection.votesAvailable)
+    }
+
+    @Test
+    fun importerWritesChatAndSocialRowsThroughSeedSink() {
+        resetDatabase()
+
+        listOf(
+            SeedPlayerAccount("alice", "PF-ALICE", "198.51.100.11"),
+            SeedPlayerAccount("bob", "PF-BOB", "198.51.100.12"),
+            SeedPlayerAccount("charlie", "PF-CHARLIE", "198.51.100.13"),
+        ).forEachIndexed { index, player ->
+            writeBatch(
+                RewriteSeedBatch(
+                    batchId = "player-chat-${index + 1}",
+                    source = LegacyMySqlDumpDescriptor("/legacy/chat-${index + 1}.sql", "hackwars"),
+                    seedPayload = player,
+                    createdAt = Instant.EPOCH,
+                ),
+            )
+        }
+
+        val snapshot = SeedChatSocialSnapshot(
+            channels = listOf(
+                PersistedChatChannel(
+                    channelId = "global",
+                    displayName = "Global",
+                    topic = "General chat",
+                    ownerPlayerId = "alice",
+                    createdAt = Instant.parse("2026-03-26T12:00:00Z"),
+                    channelPayload = """{"kind":"global"}""",
+                ),
+            ),
+            memberships = listOf(
+                PersistedChatChannelMembership(
+                    channelId = "global",
+                    playerId = "alice",
+                    role = PersistedChannelRole.OWNER,
+                    joinedAt = Instant.parse("2026-03-26T12:00:01Z"),
+                    membershipPayload = """{"grantedBy":"system"}""",
+                ),
+                PersistedChatChannelMembership(
+                    channelId = "global",
+                    playerId = "bob",
+                    role = PersistedChannelRole.MEMBER,
+                    joinedAt = Instant.parse("2026-03-26T12:00:02Z"),
+                    membershipPayload = """{"grantedBy":"alice"}""",
+                ),
+            ),
+            messages = listOf(
+                PersistedChatMessage(
+                    messageId = "msg-1",
+                    messageKind = PersistedChatMessageKind.CHANNEL,
+                    channelId = "global",
+                    senderPlayerId = "alice",
+                    eventType = "CHAT_MESSAGE",
+                    payload = "Hello Bob".encodeToByteArray(),
+                    createdAt = Instant.parse("2026-03-26T12:01:00Z"),
+                ),
+            ),
+            relations = listOf(
+                PersistedChatRelation(
+                    playerId = "alice",
+                    targetPlayerId = "charlie",
+                    relationKind = PersistedRelationKind.FRIEND,
+                    createdAt = Instant.parse("2026-03-26T12:02:00Z"),
+                    relationPayload = """{"source":"import"}""",
+                ),
+            ),
+            channelMutes = listOf(
+                PersistedChannelMute(
+                    playerId = "alice",
+                    channelId = "global",
+                    mutedPlayerId = "charlie",
+                    createdAt = Instant.parse("2026-03-26T12:03:00Z"),
+                    mutePayload = """{"reason":"spam"}""",
+                ),
+            ),
+            presence = listOf(
+                PersistedChatPresence(
+                    connectionId = "chat-1",
+                    playerId = "alice",
+                    onlineAt = Instant.parse("2026-03-26T12:04:00Z"),
+                    lastSeenAt = Instant.parse("2026-03-26T12:04:30Z"),
+                    presencePayload = """{"service":"CHAT"}""",
+                ),
+            ),
+        )
+
+        writeBatch(
+            RewriteSeedBatch(
+                batchId = "chat-social-import",
+                source = LegacyJsonDescriptor("/legacy/chat-social.json", "chat-social"),
+                seedPayload = snapshot,
+                createdAt = Instant.EPOCH,
+            ),
+        )
+
+        val repository = JdbcChatSocialRepository(connectionFactory = ::newConnection)
+        val channels = kotlinx.coroutines.runBlocking { repository.listChannels() }
+        val memberships = kotlinx.coroutines.runBlocking { repository.listMemberships("global") }
+        val history = kotlinx.coroutines.runBlocking { repository.loadChannelHistory("global", limit = 10) }
+        val friends = kotlinx.coroutines.runBlocking { repository.listRelations("alice", PersistedRelationKind.FRIEND) }
+        val mutes = kotlinx.coroutines.runBlocking { repository.listChannelMutes("alice", "global") }
+        val presence = kotlinx.coroutines.runBlocking { repository.listActivePresence("alice") }
+
+        assertEquals(listOf("global"), channels.map { it.channelId })
+        assertEquals(listOf("alice", "bob"), memberships.map { it.playerId })
+        assertEquals(1, history.size)
+        assertContentEquals("Hello Bob".encodeToByteArray(), history.single().payload)
+        assertEquals(listOf("charlie"), friends.map { it.targetPlayerId })
+        assertEquals(listOf("charlie"), mutes.map { it.mutedPlayerId })
+        assertEquals(listOf("chat-1"), presence.map { it.connectionId })
     }
 
     private fun worldDirectoryBatch(): RewriteSeedBatch {

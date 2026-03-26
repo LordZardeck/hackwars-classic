@@ -105,27 +105,21 @@ class JdbcSearchCatalogRepositoryTest {
         newConnection().use { connection ->
             connection.prepareStatement(
                 """
-                insert into rewrite_website_projection(
-                    state_id,
-                    canonical_address,
-                    title,
-                    body_html,
-                    vote_count,
-                    votes_available,
-                    store_revenue_target_state_id,
-                    website_payload
-                )
-                values (?, ?, ?, ?, ?, ?, ?, cast(? as jsonb))
+                update rewrite_website_projection
+                set title = ?,
+                    body_html = ?,
+                    vote_count = ?,
+                    votes_available = ?,
+                    website_payload = cast(? as jsonb)
+                where state_id = ?
                 """.trimIndent(),
             ).use { statement ->
-                statement.setString(1, "ACTIVE-IP")
-                statement.setString(2, "active-ip")
-                statement.setString(3, "Projection Title")
-                statement.setString(4, "<html>projection body</html>")
-                statement.setInt(5, 9)
-                statement.setInt(6, 4)
-                statement.setString(7, null)
-                statement.setString(8, """{"source":"projection"}""")
+                statement.setString(1, "Projection Title")
+                statement.setString(2, "<html>projection body</html>")
+                statement.setInt(3, 9)
+                statement.setInt(4, 4)
+                statement.setString(5, """{"source":"projection"}""")
+                statement.setString(6, "ACTIVE-IP")
                 statement.executeUpdate()
             }
         }

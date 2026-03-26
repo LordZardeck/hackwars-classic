@@ -203,6 +203,152 @@ class RewritePersistenceMigrationSmokeTest {
         }
     }
 
+    @Test
+    fun migratedSchemaAcceptsWebsiteAndChatSocialImportBatches() {
+        DriverManager.getConnection(postgres.jdbcUrl, postgres.username, postgres.password).use { connection ->
+            connection.createStatement().use { statement ->
+                statement.execute("drop schema if exists public cascade")
+                statement.execute("create schema public")
+            }
+            RewriteLiquibase.update(connection)
+        }
+
+        val sink = JdbcRewriteSeedSink(
+            connectionFactory = {
+                DriverManager.getConnection(postgres.jdbcUrl, postgres.username, postgres.password)
+            },
+        )
+
+        runBlocking {
+            listOf(
+                SeedPlayerAccount("alice", "PF-ALICE", "198.51.100.11"),
+                SeedPlayerAccount("bob", "PF-BOB", "198.51.100.12"),
+                SeedPlayerAccount("charlie", "PF-CHARLIE", "198.51.100.13"),
+            ).forEachIndexed { index, player ->
+                sink.write(
+                    RewriteSeedBatch(
+                        batchId = "player-chat-${index + 1}",
+                        source = LegacyMySqlDumpDescriptor("/legacy/chat-${index + 1}.sql", "hackwars"),
+                        seedPayload = player,
+                        createdAt = Instant.EPOCH,
+                    ),
+                )
+            }
+            sink.write(
+                RewriteSeedBatch(
+                    batchId = "computer-website",
+                    source = LegacyXmlDescriptor("/legacy/local.xml", "computer"),
+                    seedPayload = SeedComputerState(
+                        computerId = "computer-local",
+                        playerId = "alice",
+                        ipAddress = "198.51.100.11",
+                    ),
+                    createdAt = Instant.EPOCH,
+                ),
+            )
+            sink.write(
+                RewriteSeedBatch(
+                    batchId = "inventory-website",
+                    source = LegacyJsonDescriptor("/legacy/local-inventory.json", "inventory"),
+                    seedPayload = SeedInventorySnapshot(
+                        computerId = "computer-local",
+                        notes = listOf("migration website"),
+                        websiteTitle = "Migrated Projection",
+                        websiteBody = "<html>Projection</html>",
+                        voteCount = 5,
+                        votesAvailable = 2,
+                    ),
+                    createdAt = Instant.EPOCH,
+                ),
+            )
+            sink.write(
+                RewriteSeedBatch(
+                    batchId = "chat-social-import",
+                    source = LegacyJsonDescriptor("/legacy/chat-social.json", "chat-social"),
+                    seedPayload = SeedChatSocialSnapshot(
+                        channels = listOf(
+                            PersistedChatChannel(
+                                channelId = "global",
+                                displayName = "Global",
+                                topic = "General chat",
+                                ownerPlayerId = "alice",
+                                createdAt = Instant.parse("2026-03-26T12:00:00Z"),
+                                channelPayload = """{"kind":"global"}""",
+                            ),
+                        ),
+                        memberships = listOf(
+                            PersistedChatChannelMembership(
+                                channelId = "global",
+                                playerId = "alice",
+                                role = PersistedChannelRole.OWNER,
+                                joinedAt = Instant.parse("2026-03-26T12:00:01Z"),
+                                membershipPayload = """{"grantedBy":"system"}""",
+                            ),
+                            PersistedChatChannelMembership(
+                                channelId = "global",
+                                playerId = "bob",
+                                role = PersistedChannelRole.MEMBER,
+                                joinedAt = Instant.parse("2026-03-26T12:00:02Z"),
+                                membershipPayload = """{"grantedBy":"alice"}""",
+                            ),
+                        ),
+                        messages = listOf(
+                            PersistedChatMessage(
+                                messageId = "msg-1",
+                                messageKind = PersistedChatMessageKind.CHANNEL,
+                                channelId = "global",
+                                senderPlayerId = "alice",
+                                eventType = "CHAT_MESSAGE",
+                                payload = "Hello Bob".encodeToByteArray(),
+                                createdAt = Instant.parse("2026-03-26T12:01:00Z"),
+                            ),
+                        ),
+                        relations = listOf(
+                            PersistedChatRelation(
+                                playerId = "alice",
+                                targetPlayerId = "charlie",
+                                relationKind = PersistedRelationKind.FRIEND,
+                                createdAt = Instant.parse("2026-03-26T12:02:00Z"),
+                                relationPayload = """{"source":"import"}""",
+                            ),
+                        ),
+                        channelMutes = listOf(
+                            PersistedChannelMute(
+                                playerId = "alice",
+                                channelId = "global",
+                                mutedPlayerId = "charlie",
+                                createdAt = Instant.parse("2026-03-26T12:03:00Z"),
+                                mutePayload = """{"reason":"spam"}""",
+                            ),
+                        ),
+                        presence = listOf(
+                            PersistedChatPresence(
+                                connectionId = "chat-1",
+                                playerId = "alice",
+                                onlineAt = Instant.parse("2026-03-26T12:04:00Z"),
+                                lastSeenAt = Instant.parse("2026-03-26T12:04:30Z"),
+                                presencePayload = """{"service":"CHAT"}""",
+                            ),
+                        ),
+                    ),
+                    createdAt = Instant.EPOCH,
+                ),
+            )
+        }
+
+        DriverManager.getConnection(postgres.jdbcUrl, postgres.username, postgres.password).use { connection ->
+            assertEquals(6, countRows(connection, "rewrite_import_batch"))
+            assertEquals(1, countRows(connection, "rewrite_website_projection"))
+            assertEquals(1, countRows(connection, "rewrite_chat_channel"))
+            assertEquals(2, countRows(connection, "rewrite_chat_channel_member"))
+            assertEquals(1, countRows(connection, "rewrite_chat_message"))
+            assertEquals(1, countRows(connection, "rewrite_chat_relation"))
+            assertEquals(1, countRows(connection, "rewrite_chat_channel_mute"))
+            assertEquals(1, countRows(connection, "rewrite_chat_presence"))
+            assertEquals("198.51.100.11", loadWebsiteCanonicalAddress(connection, "computer-local"))
+        }
+    }
+
     private fun tableExists(
         connection: java.sql.Connection,
         tableName: String,
@@ -247,6 +393,25 @@ class RewritePersistenceMigrationSmokeTest {
             """.trimIndent(),
         ).use { statement ->
             statement.setString(1, computerId)
+            statement.executeQuery().use { resultSet ->
+                assertTrue(resultSet.next())
+                return resultSet.getString(1)
+            }
+        }
+    }
+
+    private fun loadWebsiteCanonicalAddress(
+        connection: java.sql.Connection,
+        stateId: String,
+    ): String {
+        connection.prepareStatement(
+            """
+            select canonical_address
+            from rewrite_website_projection
+            where state_id = ?
+            """.trimIndent(),
+        ).use { statement ->
+            statement.setString(1, stateId)
             statement.executeQuery().use { resultSet ->
                 assertTrue(resultSet.next())
                 return resultSet.getString(1)

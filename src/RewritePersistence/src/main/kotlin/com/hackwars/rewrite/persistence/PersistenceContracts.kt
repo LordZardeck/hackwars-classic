@@ -212,10 +212,17 @@ class DefaultRewriteSeedPlanner : RewriteSeedPlanner {
                 playerId = source.rootElement.lowercase(),
                 ipAddress = "0.0.0.0",
             )
-            is LegacyJsonDescriptor -> SeedInventorySnapshot(
-                computerId = source.documentType.lowercase(),
-                notes = listOf(source.documentType),
-            )
+            is LegacyJsonDescriptor -> when (val documentType = source.documentType.lowercase()) {
+                "inventory" -> SeedInventorySnapshot(
+                    computerId = documentType,
+                    notes = listOf(source.documentType),
+                )
+                "world" -> SeedWorldDirectory(networks = emptyList())
+                "chat-social" -> SeedChatSocialSnapshot()
+                else -> throw IllegalArgumentException(
+                    "Unsupported legacy JSON document type: ${source.documentType}",
+                )
+            }
         }
 
         return RewriteSeedBatch(

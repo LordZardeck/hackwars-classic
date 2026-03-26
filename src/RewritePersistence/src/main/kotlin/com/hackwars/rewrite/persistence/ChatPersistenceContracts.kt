@@ -72,6 +72,15 @@ data class PersistedChatPresence(
     val presencePayload: String = "{}",
 )
 
+data class SeedChatSocialSnapshot(
+    val channels: List<PersistedChatChannel> = emptyList(),
+    val memberships: List<PersistedChatChannelMembership> = emptyList(),
+    val messages: List<PersistedChatMessage> = emptyList(),
+    val relations: List<PersistedChatRelation> = emptyList(),
+    val channelMutes: List<PersistedChannelMute> = emptyList(),
+    val presence: List<PersistedChatPresence> = emptyList(),
+) : SeedPayload
+
 interface ChatSocialRepository {
     suspend fun upsertChannel(channel: PersistedChatChannel)
 
