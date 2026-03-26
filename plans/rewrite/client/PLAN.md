@@ -298,7 +298,7 @@
   - `RW-CLIENT-W2C1` depends on this slice because shell FTP and attack-family follow-up share the same secondary-directory targeting surface.
 
 ### RW-CLIENT-W5C - Zombie Attack launcher and pane
-- Status: `in_progress`
+- Status: `done`
 - Owner: `unassigned`
 - Depends on: `RW-CLIENT-W5A`
 - Allowed write scope: `:RewriteProtocol`, `:RewriteClient/client/network/**`, `:RewriteClient`
@@ -321,16 +321,29 @@
 - Notes:
   - Preserve channel, whisper, and relation semantics.
 
-### RW-CLIENT-W7 - Settings, logs, command prompt, misc utilities
-- Status: `todo`
+### RW-CLIENT-W7A - Preferences, log window, and startup utility preferences
+- Status: `in_progress`
 - Owner: `unassigned`
 - Depends on: `RW-CLIENT-003A`
+- Allowed write scope: `:RewriteClient/client/utilities/**`
+- Verification command: `./gradlew :RewriteProtocol:test :RewriteClient:test :RewriteClient:uiTest`
+- Artifacts: `build/reports/rewrite/ui`
+- Commit rule: `single green commit only`
+- Notes:
+  - Owns the rewrite-backed utility slice first: `Preferences...`, `Log Window`, and startup preference application for rewrite-backed windows.
+  - Persists the full legacy preference taxonomy through `setpreferences`, but only `network` and `logwindow` have live behavior in this slice.
+
+### RW-CLIENT-W7B - Command Prompt, Personal Settings, and remaining utility follow-up
+- Status: `todo`
+- Owner: `unassigned`
+- Depends on: `RW-CLIENT-W7A`
 - Allowed write scope: `:RewriteClient/client/utilities/**`
 - Verification command: `./gradlew :RewriteClient:test :RewriteClient:uiTest`
 - Artifacts: `build/reports/rewrite/ui`
 - Commit rule: `single green commit only`
 - Notes:
-  - Includes personal settings, preferences, help, log window, and command prompt.
+  - Owns `Command Prompt`, `Personal Settings`, and the remaining non-chat shell utility follow-up.
+  - `Help` and `Tutorial` stay in `RW-CLIENT-W3C`, and public-FTP password remains blocked until rewrite transport exists.
 
 ### RW-CLIENT-W8 - Hacktendo creator and player
 - Status: `todo`

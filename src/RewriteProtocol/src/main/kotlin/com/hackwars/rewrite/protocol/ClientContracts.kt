@@ -647,6 +647,12 @@ data class ClientTransferPayload(
 )
 
 @Serializable
+data class ClientSetPreferencePayload(
+    val key: String,
+    val value: String,
+)
+
+@Serializable
 data class ClientSellFilePayload(
     val ip: String,
     val location: String? = null,
@@ -678,6 +684,13 @@ data class ClientTransferResponse(
     val targetPettyCashAfter: Double,
     val sourceVersion: Long,
     val targetVersion: Long,
+)
+
+@Serializable
+data class ClientSetPreferenceResponse(
+    val key: String,
+    val value: String,
+    val version: Long,
 )
 
 @Serializable

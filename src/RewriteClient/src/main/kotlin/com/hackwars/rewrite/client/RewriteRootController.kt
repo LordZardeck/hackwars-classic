@@ -26,6 +26,9 @@ import com.hackwars.rewrite.client.systems.RewriteEquipmentManagerWindow
 import com.hackwars.rewrite.client.systems.RewriteFirewallManagerWindow
 import com.hackwars.rewrite.client.systems.RewritePortManagementWindow
 import com.hackwars.rewrite.client.systems.RewriteWatchManagerWindow
+import com.hackwars.rewrite.client.utilities.RewriteLogWindow
+import com.hackwars.rewrite.client.utilities.RewritePreferencesWindow
+import com.hackwars.rewrite.client.utilities.RewriteStartupUtilityCoordinator
 import com.hackwars.rewrite.client.web.RewriteSiteEditorWindow
 import com.hackwars.rewrite.client.web.RewriteWebBrowserWindow
 import com.hackwars.rewrite.clientmodel.RewriteClientBootstrapState
@@ -54,9 +57,11 @@ import com.hackwars.rewrite.protocol.ClientFinalizeCancelledPayload
 import com.hackwars.rewrite.protocol.ClientFinalizeCancelledResponse
 import com.hackwars.rewrite.protocol.ClientGameSnapshot
 import com.hackwars.rewrite.protocol.ClientHookValue
+import com.hackwars.rewrite.protocol.ClientLogState
 import com.hackwars.rewrite.protocol.ClientNetworkState
 import com.hackwars.rewrite.protocol.ClientChangeNetworkPayload
 import com.hackwars.rewrite.protocol.ClientNetworkSwitchResponse
+import com.hackwars.rewrite.protocol.ClientPreferenceState
 import com.hackwars.rewrite.protocol.ClientRequestAttackPayload
 import com.hackwars.rewrite.protocol.ClientRequestCancelAttackPayload
 import com.hackwars.rewrite.protocol.ClientRequestScanPayload
@@ -87,6 +92,8 @@ import com.hackwars.rewrite.protocol.ClientSavePagePayload
 import com.hackwars.rewrite.protocol.ClientSavePageResponse
 import com.hackwars.rewrite.protocol.ClientSellFilePayload
 import com.hackwars.rewrite.protocol.ClientSellFileResponse
+import com.hackwars.rewrite.protocol.ClientSetPreferencePayload
+import com.hackwars.rewrite.protocol.ClientSetPreferenceResponse
 import com.hackwars.rewrite.protocol.ClientStoredFile
 import com.hackwars.rewrite.protocol.ClientSecondaryDirectoryListingResponse
 import com.hackwars.rewrite.protocol.ClientSubmitWebpagePayload
@@ -119,6 +126,7 @@ import java.time.Instant
 import java.awt.Window
 import javax.swing.JDialog
 import javax.swing.JInternalFrame
+import javax.swing.SwingUtilities
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -144,6 +152,9 @@ class RewriteRootController(
     )
     private val shellWindows = RewriteShellWindowCoordinator(::createShellWindow)
     private val shellDialogs = RewriteShellDialogCoordinator(::createShellDialog)
+    private val startupUtilityCoordinator = RewriteStartupUtilityCoordinator { command ->
+        launchShellCommand(command)
+    }
     private val bootstrapLock = Any()
     private val filePropertiesWindowsByPath = mutableMapOf<String, RewriteFilePropertiesWindow>()
     private val zombieAttackWindowsByKey = mutableMapOf<String, RewriteZombieAttackWindow>()
@@ -198,6 +209,18 @@ class RewriteRootController(
         return store.serviceFilesystemStateSelector(RewriteService.GAME)
     }
 
+    fun gamePreferenceState(): ClientPreferenceState? = gameShellState()?.preferences
+
+    fun gamePreferenceStateSelector(): Flow<ClientPreferenceState?> {
+        return store.servicePreferenceStateSelector(RewriteService.GAME)
+    }
+
+    fun gameLogState(): ClientLogState? = gameShellState()?.logs
+
+    fun gameLogStateSelector(): Flow<ClientLogState?> {
+        return store.serviceLogStateSelector(RewriteService.GAME)
+    }
+
     fun gameNetworkState(): ClientNetworkState? = gameShellState()?.network
 
     fun gameNetworkStateSelector(): Flow<ClientNetworkState?> {
@@ -225,6 +248,7 @@ class RewriteRootController(
     fun attachShellHost(host: RewriteShellWindowHost?) {
         shellHost = host
         shellWindows.attachHost(host)
+        maybeLaunchStartupUtilities()
     }
 
     internal fun attachDialogHost(host: RewriteShellDialogHost?) {
@@ -522,6 +546,24 @@ class RewriteRootController(
             ),
             responseSerializer = ClientSecondaryDirectoryListingResponse.serializer(),
             targetStateIds = listOf(playerIp, targetIp).distinct(),
+        )
+    }
+
+    internal suspend fun requestSetPreference(
+        key: String,
+        value: String,
+    ): RewriteGameCommandResult<ClientSetPreferenceResponse> {
+        val playerIp = authenticatedPlayerIp()
+            ?: return RewriteGameCommandResult.Failure("Not connected to a rewrite game session.")
+        return gameCommandBroker.request(
+            commandName = "setpreferences",
+            payloadSerializer = ClientSetPreferencePayload.serializer(),
+            payload = ClientSetPreferencePayload(
+                key = key,
+                value = value,
+            ),
+            responseSerializer = ClientSetPreferenceResponse.serializer(),
+            targetStateIds = listOf(playerIp),
         )
     }
 
@@ -1088,6 +1130,7 @@ class RewriteRootController(
         if (service == RewriteService.GAME) {
             gameCommandBroker.accept(frame)
             handleGameBootstrapFrame(frame)
+            maybeLaunchStartupUtilities()
         }
     }
 
@@ -1095,6 +1138,7 @@ class RewriteRootController(
         activeLoginJob?.cancel()
         activeLoginJob = null
         clearPendingBootstrap()
+        startupUtilityCoordinator.reset()
         closeFilePropertiesWindows()
         closeZombieAttackWindows()
         shellWindows.closeAll()
@@ -1153,7 +1197,9 @@ class RewriteRootController(
         when (outcome) {
             GameBootstrapOutcome.Ready -> {
                 activeLoginJob = null
+                startupUtilityCoordinator.noteAuthenticatedSessionReady(authenticatedPlayerIp())
                 store.showDesktop()
+                maybeLaunchStartupUtilities()
             }
 
             is GameBootstrapOutcome.Failed -> {
@@ -1228,6 +1274,7 @@ class RewriteRootController(
         activeLoginJob?.cancel()
         activeLoginJob = null
         clearPendingBootstrap()
+        startupUtilityCoordinator.reset()
         closeFilePropertiesWindows()
         closeZombieAttackWindows()
         shellWindows.closeAll()
@@ -1256,6 +1303,7 @@ class RewriteRootController(
         val session = sessions.remove(service) ?: return
         runCatching { session.close() }
         if (service == RewriteService.GAME) {
+            startupUtilityCoordinator.reset()
             gameCommandBroker.failAll("The rewrite game server closed the connection.", "SERVER_DISCONNECTED")
         }
         store.noteClosed(service)
@@ -1274,6 +1322,23 @@ class RewriteRootController(
     }
 
     internal fun currentAuthenticatedPlayerIp(): String? = authenticatedPlayerIp()
+
+    private fun maybeLaunchStartupUtilities() {
+        val currentShellHost = shellHost ?: return
+        val currentRoute = route()
+        val currentPlayerIp = authenticatedPlayerIp()
+        val currentShellState = gameShellState()
+        SwingUtilities.invokeLater {
+            if (shellHost !== currentShellHost) {
+                return@invokeLater
+            }
+            startupUtilityCoordinator.maybeLaunch(
+                route = currentRoute,
+                playerIp = currentPlayerIp,
+                shellState = currentShellState,
+            )
+        }
+    }
 
     internal fun allocateAttackWindowHandle(): Int = synchronized(attackWindowHandleLock) {
         val current = nextAttackWindowHandle
@@ -1471,6 +1536,14 @@ class RewriteRootController(
         )
 
         RewriteShellCommand.SITE_EDITOR -> RewriteSiteEditorWindow(
+            controller = this,
+        )
+
+        RewriteShellCommand.LOG_WINDOW -> RewriteLogWindow(
+            controller = this,
+        )
+
+        RewriteShellCommand.PREFERENCES -> RewritePreferencesWindow(
             controller = this,
         )
 

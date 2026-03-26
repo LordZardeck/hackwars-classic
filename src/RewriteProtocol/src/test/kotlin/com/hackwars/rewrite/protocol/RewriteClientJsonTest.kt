@@ -270,6 +270,27 @@ class RewriteClientJsonTest {
     }
 
     @Test
+    fun decodesCurrentRewriteSetPreferencesResponseShape() {
+        val payload = """
+            {
+              "key":"network",
+              "value":"false",
+              "version":23,
+              "ignored":"ignored"
+            }
+        """.trimIndent().encodeToByteArray()
+
+        val response = RewriteClientJson.decode(
+            ClientSetPreferenceResponse.serializer(),
+            payload,
+        )
+
+        assertEquals("network", response.key)
+        assertEquals("false", response.value)
+        assertEquals(23, response.version)
+    }
+
+    @Test
     fun decodesCurrentRewriteNetworkAndScanResponseShapes() {
         val networkSwitchPayload = """
             {

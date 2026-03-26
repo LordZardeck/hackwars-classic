@@ -6,7 +6,9 @@ import com.hackwars.rewrite.protocol.ClientGameSnapshot
 import com.hackwars.rewrite.protocol.ClientGameStateSummaryProjection
 import com.hackwars.rewrite.protocol.ClientGameUiEvent
 import com.hackwars.rewrite.protocol.ClientFilesystemState
+import com.hackwars.rewrite.protocol.ClientLogState
 import com.hackwars.rewrite.protocol.ClientNetworkState
+import com.hackwars.rewrite.protocol.ClientPreferenceState
 import com.hackwars.rewrite.protocol.ClientProgramUpdate
 import com.hackwars.rewrite.protocol.ClientWatchManagerState
 import com.hackwars.rewrite.protocol.ConnectionLifecycleState
@@ -72,6 +74,14 @@ class RewriteClientStore(initialState: RewriteClientState = RewriteClientState()
 
     fun serviceFilesystemStateSelector(service: RewriteService): Flow<ClientFilesystemState?> {
         return selector { it.service(service).decodedGame.shellState?.filesystem }
+    }
+
+    fun servicePreferenceStateSelector(service: RewriteService): Flow<ClientPreferenceState?> {
+        return selector { it.service(service).decodedGame.shellState?.preferences }
+    }
+
+    fun serviceLogStateSelector(service: RewriteService): Flow<ClientLogState?> {
+        return selector { it.service(service).decodedGame.shellState?.logs }
     }
 
     fun serviceNetworkStateSelector(service: RewriteService): Flow<ClientNetworkState?> {
