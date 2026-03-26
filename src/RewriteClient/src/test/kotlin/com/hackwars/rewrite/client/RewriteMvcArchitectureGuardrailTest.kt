@@ -131,19 +131,34 @@ class RewriteMvcArchitectureGuardrailTest {
     }
 
     private fun sourcePath(relativePath: String): Path {
-        val path = moduleRoot().resolve(relativePath)
+        val path = clientModuleRoot().resolve(relativePath)
         assertTrue(path.exists(), "Expected source file $relativePath to exist.")
         return path
     }
 
-    private fun mvcRoot(): Path = moduleRoot().resolve("src/main/kotlin/com/hackwars/rewrite/client/mvc")
+    private fun mvcRoot(): Path = clientModuleRoot().resolve("src/main/kotlin/com/hackwars/rewrite/client/mvc")
 
-    private fun clientRoot(): Path = moduleRoot().resolve("src/main/kotlin/com/hackwars/rewrite/client")
+    private fun clientRoot(): Path = clientModuleRoot().resolve("src/main/kotlin/com/hackwars/rewrite/client")
 
-    private fun moduleRoot(): Path = Paths.get("").toAbsolutePath()
+    private fun clientModuleRoot(): Path {
+        var cursor = Paths.get("").toAbsolutePath().normalize()
+        while (true) {
+            val moduleCandidate = cursor.resolve("src/main/kotlin/com/hackwars/rewrite/client")
+            if (moduleCandidate.exists()) {
+                return cursor
+            }
+            val repoCandidate = cursor.resolve("src/RewriteClient/src/main/kotlin/com/hackwars/rewrite/client")
+            if (repoCandidate.exists()) {
+                return cursor.resolve("src/RewriteClient")
+            }
+            cursor = cursor.parent ?: error(
+                "Unable to locate RewriteClient module root from ${Paths.get("").toAbsolutePath()}",
+            )
+        }
+    }
 
     private fun relativeToModule(path: Path): String =
-        moduleRoot().relativize(path.toAbsolutePath()).invariantSeparatorsPathString
+        clientModuleRoot().relativize(path.toAbsolutePath()).invariantSeparatorsPathString
 
     companion object {
         private val listenerRegistrationPattern = Regex(
