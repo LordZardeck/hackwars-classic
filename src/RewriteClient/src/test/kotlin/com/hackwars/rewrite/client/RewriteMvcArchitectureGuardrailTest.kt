@@ -273,6 +273,13 @@ class RewriteMvcArchitectureGuardrailTest {
             "src/main/kotlin/com/hackwars/rewrite/client/web/RewriteHtmlView.kt" to setOf(
                 "listener_registration",
             ),
+            "src/main/kotlin/com/hackwars/rewrite/client/web/RewriteHelpTutorialWindows.kt" to setOf(
+                "controller_import",
+                "protocol_import",
+                "coroutine_api",
+                "listener_registration",
+                "mixed_controller_file",
+            ),
             "src/main/kotlin/com/hackwars/rewrite/client/web/RewriteSiteEditorWindow.kt" to setOf(
                 "controller_import",
                 "protocol_import",

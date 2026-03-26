@@ -33,6 +33,7 @@ import com.hackwars.rewrite.client.utilities.RewritePreferencesWindow
 import com.hackwars.rewrite.client.utilities.RewriteStartupUtilityCoordinator
 import com.hackwars.rewrite.client.web.RewriteSiteEditorWindow
 import com.hackwars.rewrite.client.web.RewriteWebBrowserWindow
+import com.hackwars.rewrite.client.web.createTutorialWindowBinding
 import com.hackwars.rewrite.clientmodel.RewriteClientBootstrapState
 import com.hackwars.rewrite.clientmodel.RewriteClientRoute
 import com.hackwars.rewrite.clientmodel.RewriteClientState
@@ -58,6 +59,7 @@ import com.hackwars.rewrite.protocol.ClientFilesystemState
 import com.hackwars.rewrite.protocol.ClientFinalizeCancelledPayload
 import com.hackwars.rewrite.protocol.ClientFinalizeCancelledResponse
 import com.hackwars.rewrite.protocol.ClientGameSnapshot
+import com.hackwars.rewrite.protocol.ClientHelpTopicListResponse
 import com.hackwars.rewrite.protocol.ClientHookValue
 import com.hackwars.rewrite.protocol.ClientLogState
 import com.hackwars.rewrite.protocol.ClientNetworkState
@@ -67,6 +69,7 @@ import com.hackwars.rewrite.protocol.ClientPreferenceState
 import com.hackwars.rewrite.protocol.ClientRequestAttackPayload
 import com.hackwars.rewrite.protocol.ClientRequestCancelAttackPayload
 import com.hackwars.rewrite.protocol.ClientRequestScanPayload
+import com.hackwars.rewrite.protocol.ClientRequestHelpTopicListPayload
 import com.hackwars.rewrite.protocol.ClientRequestZombieAttackPayload
 import com.hackwars.rewrite.protocol.ClientRequestZombieCancelAttackPayload
 import com.hackwars.rewrite.protocol.ClientScanResponse
@@ -99,11 +102,13 @@ import com.hackwars.rewrite.protocol.ClientSetPreferenceResponse
 import com.hackwars.rewrite.protocol.ClientStoredFile
 import com.hackwars.rewrite.protocol.ClientSecondaryDirectoryListingResponse
 import com.hackwars.rewrite.protocol.ClientSubmitWebpagePayload
+import com.hackwars.rewrite.protocol.ClientTutorialResponse
 import com.hackwars.rewrite.protocol.ClientWatchListResponse
 import com.hackwars.rewrite.protocol.ClientWatchManagerState
 import com.hackwars.rewrite.protocol.ClientWatchMutationResponse
 import com.hackwars.rewrite.protocol.ClientFetchWatchesPayload
 import com.hackwars.rewrite.protocol.ClientInstallWatchPayload
+import com.hackwars.rewrite.protocol.ClientRequestTutorialPayload
 import com.hackwars.rewrite.protocol.ClientSetWatchNotePayload
 import com.hackwars.rewrite.protocol.ClientSetWatchOnOffPayload
 import com.hackwars.rewrite.protocol.ClientSetWatchObservedPortsPayload
@@ -549,6 +554,34 @@ class RewriteRootController(
             ),
             responseSerializer = ClientSecondaryDirectoryListingResponse.serializer(),
             targetStateIds = listOf(playerIp, targetIp).distinct(),
+        )
+    }
+
+    internal suspend fun requestHelpTopicList(
+        topicGroup: String? = null,
+    ): RewriteGameCommandResult<ClientHelpTopicListResponse> {
+        val playerIp = authenticatedPlayerIp()
+            ?: return RewriteGameCommandResult.Failure("Not connected to a rewrite game session.")
+        return gameCommandBroker.request(
+            commandName = "requesthelptopiclist",
+            payloadSerializer = ClientRequestHelpTopicListPayload.serializer(),
+            payload = ClientRequestHelpTopicListPayload(topicGroup = topicGroup),
+            responseSerializer = ClientHelpTopicListResponse.serializer(),
+            targetStateIds = listOf(playerIp),
+        )
+    }
+
+    internal suspend fun requestTutorial(
+        tutorialId: String? = null,
+    ): RewriteGameCommandResult<ClientTutorialResponse> {
+        val playerIp = authenticatedPlayerIp()
+            ?: return RewriteGameCommandResult.Failure("Not connected to a rewrite game session.")
+        return gameCommandBroker.request(
+            commandName = "requesttutorial",
+            payloadSerializer = ClientRequestTutorialPayload.serializer(),
+            payload = ClientRequestTutorialPayload(tutorialId = tutorialId),
+            responseSerializer = ClientTutorialResponse.serializer(),
+            targetStateIds = listOf(playerIp),
         )
     }
 
@@ -1564,6 +1597,20 @@ class RewriteRootController(
         command: RewriteShellCommand,
         preferredPort: Int?,
     ): RewriteFrameBinding {
+        if (command == RewriteShellCommand.TUTORIAL_FIRST_ATTACK) {
+            return createTutorialWindowBinding(
+                controller = this,
+                onOpenAuxiliaryWindow = { window ->
+                    shellHost?.let { currentHost ->
+                        currentHost.showWindow(window)
+                        currentHost.focusWindow(window)
+                    }
+                },
+                onFocusAuxiliaryWindow = { window ->
+                    shellHost?.focusWindow(window)
+                },
+            )
+        }
         return RewriteFrameBinding(
             frame = createShellWindow(command, preferredPort),
         )
