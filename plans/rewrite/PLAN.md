@@ -3,7 +3,7 @@
 ## Status Dashboard
 - Active mode: `autonomous_rewrite_execution`
 - Current pass: `Pass 1 - Cross-cutting foundations`
-- Current milestone focus: `M2 - Evidence and inventory closure`
+- Current milestone focus: `M4 - Persistence and importer foundations`
 - Coordinator stop rule: continue until `M11` is `done`, or until the only remaining work is `blocked_external`
 - Parallel saturation target: `8` active subagents, or the maximum safe non-overlapping count when fewer than `8` disjoint tasks exist
 
@@ -82,7 +82,7 @@
 | --- | --- | --- |
 | `M0` Planning normalization | `done` | All rewrite plan files use the autonomous task-card schema, the pass board is encoded, and no retained task uses vague blockers. |
 | `M1` Build and module foundations | `done` | Rewrite modules, Gradle conventions, and dependency guardrails are stable and green. |
-| `M2` Evidence and inventory closure | `in_progress` | Feature inventory rows are complete for retained scope, every row has legacy references and parity acceptance, and known gaps are tracked without ambiguity. |
+| `M2` Evidence and inventory closure | `done` | Feature inventory rows are complete for retained scope, every row has legacy references and parity acceptance, and known gaps are tracked without ambiguity. |
 | `M3` Transport and offline harness foundations | `done` | Frame codec, fake auth, deterministic transport harness, and dev bootstrap seams exist and stay green. |
 | `M4` Persistence and importer foundations | `in_progress` | Canonical schema slices, importer scaffolding, and migration validation are complete for retained scope. |
 | `M5` Game-core and retained runtime foundations | `in_progress` | Typed contracts, scheduler/runtime basics, and retained server foundations are implemented and verified. |
@@ -252,7 +252,7 @@
 - Verification scope: `rg -n "Execution lane|Worker role|Verification scope" plans/rewrite/chat-server/PLAN.md plans/rewrite/data/PLAN.md plans/rewrite/testing/PLAN.md`
 
 ### RW-M2-004 - Track retained parity gaps and unblock map without vague blockers
-- Status: `todo`
+- Status: `done`
 - Priority: `P1`
 - Execution lane: `evidence`
 - Worker role: `coordinator-owned`
