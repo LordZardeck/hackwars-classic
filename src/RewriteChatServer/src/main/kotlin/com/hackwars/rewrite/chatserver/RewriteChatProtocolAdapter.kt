@@ -11,21 +11,33 @@ import com.hackwars.rewrite.persistence.PersistedChannelRole
 import com.hackwars.rewrite.persistence.PersistedChannelMute
 import com.hackwars.rewrite.persistence.PersistedChatChannel
 import com.hackwars.rewrite.persistence.PersistedChatChannelMembership
+import com.hackwars.rewrite.persistence.PersistedChatMessage
 import com.hackwars.rewrite.persistence.PersistedChatRelation
 import com.hackwars.rewrite.persistence.PersistedChatPresence
 import com.hackwars.rewrite.persistence.PersistedRelationKind
 import com.hackwars.rewrite.persistence.PersistedServiceKind
 import com.hackwars.rewrite.persistence.PersistedServiceSession
 import com.hackwars.rewrite.protocol.ChatAddAdminPayload
+import com.hackwars.rewrite.protocol.ChatChannelAddEventPayload
 import com.hackwars.rewrite.protocol.ChatChannelCreatePayload
 import com.hackwars.rewrite.protocol.ChatChannelJoinPayload
+import com.hackwars.rewrite.protocol.ChatChannelJoinEventPayload
 import com.hackwars.rewrite.protocol.ChatChannelKickPayload
+import com.hackwars.rewrite.protocol.ChatChannelKickEventPayload
 import com.hackwars.rewrite.protocol.ChatChannelLeavePayload
+import com.hackwars.rewrite.protocol.ChatChannelLeaveEventPayload
+import com.hackwars.rewrite.protocol.ChatChannelRemoveEventPayload
+import com.hackwars.rewrite.protocol.ChatChannelTextEventPayload
+import com.hackwars.rewrite.protocol.ChatChannelTextMeEventPayload
+import com.hackwars.rewrite.protocol.ChatChannelTextMePayload
+import com.hackwars.rewrite.protocol.ChatChannelTextPayload
 import com.hackwars.rewrite.protocol.ChatErrorEventPayload
 import com.hackwars.rewrite.protocol.ChatMutePayload
 import com.hackwars.rewrite.protocol.ChatParityEventType
 import com.hackwars.rewrite.protocol.ChatRequestType
 import com.hackwars.rewrite.protocol.ChatSubChannelsPayload
+import com.hackwars.rewrite.protocol.ChatWhisperEventPayload
+import com.hackwars.rewrite.protocol.ChatWhisperPayload
 import com.hackwars.rewrite.protocol.RewriteChatJson
 import com.hackwars.rewrite.protocol.RewriteFrames
 import com.hackwars.rewrite.protocol.RewriteService
@@ -291,14 +303,42 @@ class RewriteChatProtocolAdapter(
             }
 
             ChatRequestType.CHANNEL_TEXT,
-            ChatRequestType.CHANNEL_TEXT_ME,
-            ChatRequestType.WHISPER,
-            -> requestErrorFrames(
+            -> decodeAndHandle<ChatChannelTextPayload>(
+                command = command,
+                session = session,
+                serializer = ChatChannelTextPayload.serializer(),
+            ) { payload ->
+                handleChannelText(
                     commandId = command.command_id,
-                    receiverPlayerId = session.playerId,
-                    code = "CHAT_REQUEST_OWNED_BY_RW_CHAT_003B",
-                    message = "Retained `${requestType.wireName}` lands in RW-CHAT-003B.",
+                    session = session,
+                    payload = payload,
+                    emote = false,
                 )
+            }
+
+            ChatRequestType.CHANNEL_TEXT_ME -> decodeAndHandle<ChatChannelTextMePayload>(
+                command = command,
+                session = session,
+                serializer = ChatChannelTextMePayload.serializer(),
+            ) { payload ->
+                handleChannelTextMe(
+                    commandId = command.command_id,
+                    session = session,
+                    payload = payload,
+                )
+            }
+
+            ChatRequestType.WHISPER -> decodeAndHandle<ChatWhisperPayload>(
+                command = command,
+                session = session,
+                serializer = ChatWhisperPayload.serializer(),
+            ) { payload ->
+                handleWhisper(
+                    commandId = command.command_id,
+                    session = session,
+                    payload = payload,
+                )
+            }
 
             ChatRequestType.RELATION_LIST,
             ChatRequestType.RELATION_ADD,
@@ -513,6 +553,21 @@ class RewriteChatProtocolAdapter(
                 ),
             ),
         )
+        val roster = loadChannelRoster(channel.channelId)
+        val otherRecipients = roster.users
+            .map(PlayerId::value)
+            .filterNot { it == session.playerId }
+            .toSet()
+        pushGeneratedFrames(otherRecipients) { receiverPlayerId ->
+            listOf(
+                channelAddFrame(
+                    receiverPlayerId = receiverPlayerId,
+                    channelName = channel.channelId,
+                    userToAdd = session.playerId,
+                    admin = role != PersistedChannelRole.MEMBER,
+                ),
+            )
+        }
         return responseWithSubscribedChannelsRefresh(
             commandId = commandId,
             session = session,
@@ -550,11 +605,20 @@ class RewriteChatProtocolAdapter(
                 message = "Retained chat player `${session.playerId}` is not subscribed to `${payload.channelName}`.",
             )
 
-        removeChannelMembership(
+        val removalResult = removeChannelMembership(
             channel = channel,
             memberships = memberships,
             removedMembership = actorMembership,
         )
+        pushGeneratedFrames(removalResult.remainingPlayerIds) { receiverPlayerId ->
+            listOf(
+                channelRemoveFrame(
+                    receiverPlayerId = receiverPlayerId,
+                    channelName = channel.channelId,
+                    userToRemove = session.playerId,
+                ),
+            )
+        }
         return responseWithSubscribedChannelsRefresh(
             commandId = commandId,
             session = session,
@@ -616,11 +680,33 @@ class RewriteChatProtocolAdapter(
             )
         }
 
-        removeChannelMembership(
+        val removalResult = removeChannelMembership(
             channel = channel,
             memberships = memberships,
             removedMembership = targetMembership,
         )
+        pushToPlayerIds(
+            playerIds = setOf(payload.targetPlayerId),
+            frames = listOf(
+                channelLeaveFrame(
+                    receiverPlayerId = payload.targetPlayerId,
+                    channelName = channel.channelId,
+                ),
+                channelKickFrame(
+                    receiverPlayerId = payload.targetPlayerId,
+                    channelName = channel.channelId,
+                ),
+            ),
+        )
+        pushGeneratedFrames(removalResult.remainingPlayerIds - session.playerId) { receiverPlayerId ->
+            listOf(
+                channelRemoveFrame(
+                    receiverPlayerId = receiverPlayerId,
+                    channelName = channel.channelId,
+                    userToRemove = payload.targetPlayerId,
+                ),
+            )
+        }
         return responseWithSubscribedChannelsRefresh(
             commandId = commandId,
             session = session,
@@ -748,11 +834,223 @@ class RewriteChatProtocolAdapter(
         return listOf(RewriteFrames.commandResponse(commandId = commandId))
     }
 
+    private suspend fun handleChannelText(
+        commandId: String,
+        session: AuthenticatedChatSession,
+        payload: ChatChannelTextPayload,
+        emote: Boolean,
+    ): List<FrameEnvelope> {
+        if (payload.senderPlayerId != session.playerId) {
+            return requestErrorFrames(
+                commandId = commandId,
+                receiverPlayerId = session.playerId,
+                code = "CHAT_SENDER_MISMATCH",
+                message = "Retained chat sender identity must match the authenticated player.",
+            )
+        }
+        validateChannelName(payload.channelName)?.let { return requestErrorFrames(commandId, session.playerId, "CHAT_INVALID_CHANNEL_NAME", it) }
+        if (payload.message.isBlank()) {
+            return requestErrorFrames(
+                commandId = commandId,
+                receiverPlayerId = session.playerId,
+                code = "CHAT_MESSAGE_BLANK",
+                message = "Retained chat messages must not be blank.",
+            )
+        }
+        val channel = loadChannel(payload.channelName)
+            ?: return requestErrorFrames(
+                commandId = commandId,
+                receiverPlayerId = session.playerId,
+                code = "CHAT_CHANNEL_NOT_FOUND",
+                message = "Retained chat channel `${payload.channelName}` does not exist.",
+            )
+        val memberships = chatSocialRepository.listMemberships(channel.channelId)
+        if (memberships.none { it.playerId == session.playerId }) {
+            return requestErrorFrames(
+                commandId = commandId,
+                receiverPlayerId = session.playerId,
+                code = "CHAT_NOT_SUBSCRIBED",
+                message = "Retained chat player `${session.playerId}` is not subscribed to `${payload.channelName}`.",
+            )
+        }
+
+        val recipients = memberships.map { it.playerId }
+        val deliverableRecipients = recipients.filter { recipientPlayerId ->
+            recipientPlayerId == session.playerId ||
+                !recipientIgnoresSender(
+                    recipientPlayerId = recipientPlayerId,
+                    senderPlayerId = session.playerId,
+                ) && !recipientMutedSenderInChannel(
+                    recipientPlayerId = recipientPlayerId,
+                    channelId = channel.channelId,
+                    senderPlayerId = session.playerId,
+                )
+        }
+        val createdAt = clock()
+        val eventType = if (emote) ChatParityEventType.CHANNEL_TEXT_ME.wireName else ChatParityEventType.CHANNEL_TEXT.wireName
+        val payloadBytes = if (emote) {
+            RewriteChatJson.encode(
+                serializer = ChatChannelTextMeEventPayload.serializer(),
+                value = ChatChannelTextMeEventPayload(
+                    receiverPlayerId = session.playerId,
+                    channelName = channel.channelId,
+                    senderDisplayName = session.playerId,
+                    message = payload.message,
+                ),
+            )
+        } else {
+            RewriteChatJson.encode(
+                serializer = ChatChannelTextEventPayload.serializer(),
+                value = ChatChannelTextEventPayload(
+                    receiverPlayerId = session.playerId,
+                    channelName = channel.channelId,
+                    senderDisplayName = session.playerId,
+                    message = payload.message,
+                ),
+            )
+        }
+        chatSocialRepository.appendMessage(
+            PersistedChatMessage(
+                messageId = UUID.randomUUID().toString(),
+                messageKind = com.hackwars.rewrite.persistence.PersistedChatMessageKind.CHANNEL,
+                eventType = eventType,
+                senderPlayerId = session.playerId,
+                createdAt = createdAt,
+                payload = payloadBytes,
+                channelId = channel.channelId,
+            ),
+        )
+        pushGeneratedFrames(deliverableRecipients.toSet() - session.playerId) { receiverPlayerId ->
+            listOf(
+                channelTextFrame(
+                    receiverPlayerId = receiverPlayerId,
+                    channelName = channel.channelId,
+                    senderDisplayName = session.playerId,
+                    message = payload.message,
+                    emote = emote,
+                ),
+            )
+        }
+        return listOf(
+            RewriteFrames.commandResponse(commandId = commandId),
+            channelTextFrame(
+                receiverPlayerId = session.playerId,
+                channelName = channel.channelId,
+                senderDisplayName = session.playerId,
+                message = payload.message,
+                emote = emote,
+            ),
+        )
+    }
+
+    private suspend fun handleChannelTextMe(
+        commandId: String,
+        session: AuthenticatedChatSession,
+        payload: ChatChannelTextMePayload,
+    ): List<FrameEnvelope> {
+        return handleChannelText(
+            commandId = commandId,
+            session = session,
+            payload = ChatChannelTextPayload(
+                senderPlayerId = payload.senderPlayerId,
+                message = payload.message,
+                channelName = payload.channelName,
+            ),
+            emote = true,
+        )
+    }
+
+    private suspend fun handleWhisper(
+        commandId: String,
+        session: AuthenticatedChatSession,
+        payload: ChatWhisperPayload,
+    ): List<FrameEnvelope> {
+        if (payload.senderPlayerId != session.playerId) {
+            return requestErrorFrames(
+                commandId = commandId,
+                receiverPlayerId = session.playerId,
+                code = "CHAT_SENDER_MISMATCH",
+                message = "Retained chat sender identity must match the authenticated player.",
+            )
+        }
+        if (payload.message.isBlank()) {
+            return requestErrorFrames(
+                commandId = commandId,
+                receiverPlayerId = session.playerId,
+                code = "CHAT_MESSAGE_BLANK",
+                message = "Retained whisper messages must not be blank.",
+            )
+        }
+        if (payload.receiverPlayerId == session.playerId) {
+            return requestErrorFrames(
+                commandId = commandId,
+                receiverPlayerId = session.playerId,
+                code = "CHAT_WHISPER_SELF_FORBIDDEN",
+                message = "Retained chat whispers cannot target the acting player.",
+            )
+        }
+        if (activeSessions.values.none { it.playerId == payload.receiverPlayerId }) {
+            return requestErrorFrames(
+                commandId = commandId,
+                receiverPlayerId = session.playerId,
+                code = "CHAT_WHISPER_TARGET_MISSING",
+                message = "Retained chat whisper target `${payload.receiverPlayerId}` could not be found.",
+            )
+        }
+        if (recipientIgnoresSender(payload.receiverPlayerId, session.playerId)) {
+            return requestErrorFrames(
+                commandId = commandId,
+                receiverPlayerId = session.playerId,
+                code = "CHAT_WHISPER_IGNORED",
+                message = "Retained chat whisper target `${payload.receiverPlayerId}` has you ignored.",
+            )
+        }
+
+        val createdAt = clock()
+        chatSocialRepository.appendMessage(
+            PersistedChatMessage(
+                messageId = UUID.randomUUID().toString(),
+                messageKind = com.hackwars.rewrite.persistence.PersistedChatMessageKind.WHISPER,
+                eventType = ChatParityEventType.WHISPER.wireName,
+                senderPlayerId = session.playerId,
+                createdAt = createdAt,
+                payload = RewriteChatJson.encode(
+                    serializer = ChatWhisperEventPayload.serializer(),
+                    value = ChatWhisperEventPayload(
+                        receiverPlayerId = payload.receiverPlayerId,
+                        senderDisplayName = session.playerId,
+                        message = payload.message,
+                    ),
+                ),
+                recipientPlayerId = payload.receiverPlayerId,
+            ),
+        )
+        pushGeneratedFrames(setOf(payload.receiverPlayerId)) { receiverPlayerId ->
+            listOf(
+                whisperFrame(
+                    receiverPlayerId = receiverPlayerId,
+                    whisperTargetPlayerId = payload.receiverPlayerId,
+                    senderDisplayName = session.playerId,
+                    message = payload.message,
+                ),
+            )
+        }
+        return listOf(
+            RewriteFrames.commandResponse(commandId = commandId),
+            whisperFrame(
+                receiverPlayerId = session.playerId,
+                whisperTargetPlayerId = payload.receiverPlayerId,
+                senderDisplayName = session.playerId,
+                message = payload.message,
+            ),
+        )
+    }
+
     private suspend fun removeChannelMembership(
         channel: PersistedChatChannel,
         memberships: List<PersistedChatChannelMembership>,
         removedMembership: PersistedChatChannelMembership,
-    ) {
+    ): RemovalResult {
         chatSocialRepository.deleteMembership(
             channelId = removedMembership.channelId,
             playerId = removedMembership.playerId,
@@ -765,7 +1063,10 @@ class RewriteChatProtocolAdapter(
             if (policy.removeWhenEmpty) {
                 chatSocialRepository.deleteChannel(channel.channelId)
             }
-            return
+            return RemovalResult(
+                channelDeleted = policy.removeWhenEmpty,
+                remainingPlayerIds = emptySet(),
+            )
         }
         if (channel.ownerPlayerId == removedMembership.playerId || removedMembership.role == PersistedChannelRole.OWNER) {
             val successor = remainingMemberships.first()
@@ -776,23 +1077,31 @@ class RewriteChatProtocolAdapter(
                 chatSocialRepository.upsertChannel(channel.copy(ownerPlayerId = successor.playerId))
             }
         }
+        return RemovalResult(
+            channelDeleted = false,
+            remainingPlayerIds = remainingMemberships.mapTo(linkedSetOf()) { it.playerId },
+        )
     }
 
     private suspend fun responseWithSubscribedChannelsRefresh(
         commandId: String,
         session: AuthenticatedChatSession,
+        extraFrames: List<FrameEnvelope> = emptyList(),
     ): List<FrameEnvelope> {
-        return listOf(
-            RewriteFrames.commandResponse(commandId = commandId),
-            RewriteFrames.chatEvent(
-                eventId = UUID.randomUUID().toString(),
-                eventType = ChatParityEventType.SUB_CHANNELS,
-                payload = RewriteChatJson.encode(
-                    serializer = com.hackwars.rewrite.protocol.ChatSubChannelsEventPayload.serializer(),
-                    value = RetainedChatBootstrapPolicy.projectSubscribedChannels(
-                        receiverPlayerId = PlayerId(session.playerId),
-                        channelRosters = loadSubscribedChannelRosters(session.playerId),
-                    ),
+        return listOf(RewriteFrames.commandResponse(commandId = commandId)) +
+            extraFrames +
+            subscribedChannelsRefreshFrame(session)
+    }
+
+    private suspend fun subscribedChannelsRefreshFrame(session: AuthenticatedChatSession): FrameEnvelope {
+        return RewriteFrames.chatEvent(
+            eventId = UUID.randomUUID().toString(),
+            eventType = ChatParityEventType.SUB_CHANNELS,
+            payload = RewriteChatJson.encode(
+                serializer = com.hackwars.rewrite.protocol.ChatSubChannelsEventPayload.serializer(),
+                value = RetainedChatBootstrapPolicy.projectSubscribedChannels(
+                    receiverPlayerId = PlayerId(session.playerId),
+                    channelRosters = loadSubscribedChannelRosters(session.playerId),
                 ),
             ),
         )
@@ -811,6 +1120,34 @@ class RewriteChatProtocolAdapter(
 
     private suspend fun loadChannel(channelId: String): PersistedChatChannel? {
         return chatSocialRepository.listChannels().firstOrNull { it.channelId == channelId }
+    }
+
+    private suspend fun loadChannelRoster(channelId: String): ChatChannelRoster {
+        val memberships = chatSocialRepository.listMemberships(channelId)
+        return ChatChannelRoster(
+            channelId = ChannelId(channelId),
+            users = memberships.sortedBy { it.joinedAt }.map { PlayerId(it.playerId) },
+            adminUsers = memberships
+                .filter { it.role != PersistedChannelRole.MEMBER }
+                .mapTo(linkedSetOf()) { PlayerId(it.playerId) },
+        )
+    }
+
+    private suspend fun recipientIgnoresSender(
+        recipientPlayerId: String,
+        senderPlayerId: String,
+    ): Boolean {
+        return chatSocialRepository.listRelations(recipientPlayerId, PersistedRelationKind.IGNORED)
+            .any { it.targetPlayerId == senderPlayerId }
+    }
+
+    private suspend fun recipientMutedSenderInChannel(
+        recipientPlayerId: String,
+        channelId: String,
+        senderPlayerId: String,
+    ): Boolean {
+        return chatSocialRepository.listChannelMutes(recipientPlayerId, channelId)
+            .any { it.mutedPlayerId == senderPlayerId }
     }
 
     private fun canKick(
@@ -933,6 +1270,157 @@ class RewriteChatProtocolAdapter(
         )
     }
 
+    private fun channelJoinFrame(
+        receiverPlayerId: String,
+        roster: ChatChannelRoster,
+    ): FrameEnvelope {
+        return RewriteFrames.chatEvent(
+            eventId = UUID.randomUUID().toString(),
+            eventType = ChatParityEventType.CHANNEL_JOIN,
+            channelName = roster.channelId.value,
+            payload = RewriteChatJson.encode(
+                serializer = ChatChannelJoinEventPayload.serializer(),
+                value = ChatChannelJoinEventPayload(
+                    receiverPlayerId = receiverPlayerId,
+                    roster = roster.toPayload(),
+                ),
+            ),
+        )
+    }
+
+    private fun channelLeaveFrame(
+        receiverPlayerId: String,
+        channelName: String,
+    ): FrameEnvelope {
+        return RewriteFrames.chatEvent(
+            eventId = UUID.randomUUID().toString(),
+            eventType = ChatParityEventType.CHANNEL_LEAVE,
+            channelName = channelName,
+            payload = RewriteChatJson.encode(
+                serializer = ChatChannelLeaveEventPayload.serializer(),
+                value = ChatChannelLeaveEventPayload(
+                    receiverPlayerId = receiverPlayerId,
+                    channelName = channelName,
+                ),
+            ),
+        )
+    }
+
+    private fun channelAddFrame(
+        receiverPlayerId: String,
+        channelName: String,
+        userToAdd: String,
+        admin: Boolean,
+    ): FrameEnvelope {
+        return RewriteFrames.chatEvent(
+            eventId = UUID.randomUUID().toString(),
+            eventType = ChatParityEventType.CHANNEL_ADD,
+            channelName = channelName,
+            payload = RewriteChatJson.encode(
+                serializer = ChatChannelAddEventPayload.serializer(),
+                value = ChatChannelAddEventPayload(
+                    receiverPlayerId = receiverPlayerId,
+                    channelName = channelName,
+                    userToAdd = userToAdd,
+                    admin = admin,
+                ),
+            ),
+        )
+    }
+
+    private fun channelRemoveFrame(
+        receiverPlayerId: String,
+        channelName: String,
+        userToRemove: String,
+    ): FrameEnvelope {
+        return RewriteFrames.chatEvent(
+            eventId = UUID.randomUUID().toString(),
+            eventType = ChatParityEventType.CHANNEL_REMOVE,
+            channelName = channelName,
+            payload = RewriteChatJson.encode(
+                serializer = ChatChannelRemoveEventPayload.serializer(),
+                value = ChatChannelRemoveEventPayload(
+                    receiverPlayerId = receiverPlayerId,
+                    channelName = channelName,
+                    userToRemove = userToRemove,
+                ),
+            ),
+        )
+    }
+
+    private fun channelKickFrame(
+        receiverPlayerId: String,
+        channelName: String,
+    ): FrameEnvelope {
+        return RewriteFrames.chatEvent(
+            eventId = UUID.randomUUID().toString(),
+            eventType = ChatParityEventType.CHANNEL_KICK,
+            channelName = channelName,
+            payload = RewriteChatJson.encode(
+                serializer = ChatChannelKickEventPayload.serializer(),
+                value = ChatChannelKickEventPayload(
+                    receiverPlayerId = receiverPlayerId,
+                    channelName = channelName,
+                ),
+            ),
+        )
+    }
+
+    private fun channelTextFrame(
+        receiverPlayerId: String,
+        channelName: String,
+        senderDisplayName: String,
+        message: String,
+        emote: Boolean,
+    ): FrameEnvelope {
+        return RewriteFrames.chatEvent(
+            eventId = UUID.randomUUID().toString(),
+            eventType = if (emote) ChatParityEventType.CHANNEL_TEXT_ME else ChatParityEventType.CHANNEL_TEXT,
+            channelName = channelName,
+            payload = if (emote) {
+                RewriteChatJson.encode(
+                    serializer = ChatChannelTextMeEventPayload.serializer(),
+                    value = ChatChannelTextMeEventPayload(
+                        receiverPlayerId = receiverPlayerId,
+                        channelName = channelName,
+                        senderDisplayName = senderDisplayName,
+                        message = message,
+                    ),
+                )
+            } else {
+                RewriteChatJson.encode(
+                    serializer = ChatChannelTextEventPayload.serializer(),
+                    value = ChatChannelTextEventPayload(
+                        receiverPlayerId = receiverPlayerId,
+                        channelName = channelName,
+                        senderDisplayName = senderDisplayName,
+                        message = message,
+                    ),
+                )
+            },
+        )
+    }
+
+    private fun whisperFrame(
+        receiverPlayerId: String,
+        whisperTargetPlayerId: String,
+        senderDisplayName: String,
+        message: String,
+    ): FrameEnvelope {
+        return RewriteFrames.chatEvent(
+            eventId = UUID.randomUUID().toString(),
+            eventType = ChatParityEventType.WHISPER,
+            payload = RewriteChatJson.encode(
+                serializer = ChatWhisperEventPayload.serializer(),
+                value = ChatWhisperEventPayload(
+                    receiverPlayerId = whisperTargetPlayerId,
+                    senderDisplayName = senderDisplayName,
+                    message = message,
+                ),
+            ),
+        )
+    }
+
     private suspend fun loadSubscribedChannelRosters(playerId: String): List<ChatChannelRoster> {
         return chatSocialRepository.listChannels()
             .sortedWith(
@@ -992,6 +1480,18 @@ class RewriteChatProtocolAdapter(
         for (connectionId in recipientConnectionIds) {
             for (frame in frames) {
                 pushFrame(connectionId, frame)
+            }
+        }
+    }
+
+    suspend fun pushGeneratedFrames(
+        playerIds: Set<String>,
+        frameBuilder: (receiverPlayerId: String) -> List<FrameEnvelope>,
+    ) {
+        val recipientSessions = activeSessions.values.filter { it.playerId in playerIds }
+        for (recipient in recipientSessions) {
+            for (frame in frameBuilder(recipient.playerId)) {
+                pushFrame(recipient.connectionId, frame)
             }
         }
     }
@@ -1118,4 +1618,9 @@ private data class ChannelPolicyPayload(
 private data class MembershipPayload(
     val source: String = "",
     val grantedBy: String = "",
+)
+
+private data class RemovalResult(
+    val channelDeleted: Boolean,
+    val remainingPlayerIds: Set<String>,
 )

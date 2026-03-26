@@ -112,7 +112,7 @@
 - Locked scope note: this card closes retained `sub_channels`, `channel_create`, `channel_join`, `channel_leave`, and `channel_kick`, plus actor-local roster refresh and empty-channel cleanup. Channel-scoped `add_admin` and `mute` contract/routing is closed in `RW-CHAT-001C`.
 
 ### RW-CHAT-003B - Implement retained channel fanout, history, and whisper pipeline
-- Status: `ready`
+- Status: `done`
 - Priority: `P1`
 - Execution lane: `channels`
 - Worker role: `worker`
