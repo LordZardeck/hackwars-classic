@@ -342,6 +342,144 @@ class RewriteClientJsonTest {
     }
 
     @Test
+    fun decodesCurrentRewriteWatchSnapshotAndDeltaShapes() {
+        val snapshotPayload = """
+            {
+              "id":"LOCAL-IP",
+              "version":22,
+              "identity":{"playerIp":"LOCAL-IP"},
+              "watches":{
+                "watches":[
+                  {
+                    "kind":"HEALTH",
+                    "enabled":true,
+                    "note":"Guard",
+                    "cpuCost":2.5,
+                    "quantityThreshold":75.0,
+                    "baselineQuantity":50.0,
+                    "installPort":6,
+                    "searchFirewallType":2,
+                    "observedPorts":[6,8],
+                    "contents":"compiled",
+                    "scriptBundle":{"family":"WATCH","scriptsBySlot":{"INITIALIZE":"watch()"}},
+                    "compiledBinary":{"scriptFamily":"WATCH","outputName":"watch.bin"},
+                    "ignored":"ignored"
+                  }
+                ]
+              }
+            }
+        """.trimIndent().encodeToByteArray()
+        val deltaPayload = """
+            {
+              "type":"state_sections",
+              "watches":{
+                "watches":[
+                  {
+                    "kind":"SCAN",
+                    "enabled":false,
+                    "note":"Scanner",
+                    "cpuCost":1.0,
+                    "quantityThreshold":0.0,
+                    "baselineQuantity":0.0,
+                    "installPort":4,
+                    "searchFirewallType":0,
+                    "observedPorts":[],
+                    "contents":"compiled"
+                  }
+                ]
+              },
+              "ignored":"ignored"
+            }
+        """.trimIndent().encodeToByteArray()
+
+        val snapshot = RewriteClientJson.decode(ClientGameSnapshot.serializer(), snapshotPayload)
+        val delta = RewriteClientJson.decode(ClientGameDeltaProjection.serializer(), deltaPayload)
+
+        assertEquals(1, snapshot.watches.watches.size)
+        assertEquals(ClientWatchKind.HEALTH, snapshot.watches.watches.single().kind)
+        assertEquals(listOf(6, 8), snapshot.watches.watches.single().observedPorts)
+        assertIs<ClientGameSectionsProjection>(delta)
+        assertEquals(ClientWatchKind.SCAN, delta.watches?.watches?.single()?.kind)
+    }
+
+    @Test
+    fun decodesCurrentRewriteWatchResponseAndPayloadShapesIncludingLegacyKeys() {
+        val fetchPayload = """
+            {
+              "stateId":"LOCAL-IP",
+              "watches":[
+                {
+                  "kind":"PETTY_CASH",
+                  "enabled":false,
+                  "note":"Cash",
+                  "cpuCost":1.5,
+                  "quantityThreshold":500.0,
+                  "baselineQuantity":0.0,
+                  "installPort":8,
+                  "searchFirewallType":1,
+                  "observedPorts":[8]
+                }
+              ],
+              "installedCount":1,
+              "maximumInstalledCount":21,
+              "activeCount":0,
+              "maximumActiveCount":6,
+              "currentCpuLoad":3.0,
+              "maximumCpuLoad":25.0,
+              "ignored":"ignored"
+            }
+        """.trimIndent().encodeToByteArray()
+        val mutationPayload = """
+            {
+              "stateId":"LOCAL-IP",
+              "operation":"setwatchnote",
+              "accepted":false,
+              "failureCode":"WATCH_NOT_FOUND",
+              "message":"Missing watch.",
+              "affectedWatchIndex":3,
+              "snapshot":{
+                "stateId":"LOCAL-IP",
+                "watches":[],
+                "installedCount":0,
+                "maximumInstalledCount":21,
+                "activeCount":0,
+                "maximumActiveCount":6,
+                "currentCpuLoad":0.0,
+                "maximumCpuLoad":25.0
+              }
+            }
+        """.trimIndent().encodeToByteArray()
+        val searchFirewallPayload = """
+            {
+              "ip":"LOCAL-IP",
+              "watchID":4,
+              "searchFireWall":6
+            }
+        """.trimIndent().encodeToByteArray()
+        val changeTypePayload = """
+            {
+              "ip":"LOCAL-IP",
+              "watchID":4,
+              "portID":2
+            }
+        """.trimIndent().encodeToByteArray()
+
+        val fetchResponse = RewriteClientJson.decode(ClientWatchListResponse.serializer(), fetchPayload)
+        val mutationResponse = RewriteClientJson.decode(ClientWatchMutationResponse.serializer(), mutationPayload)
+        val searchFirewall = RewriteClientJson.decode(ClientSetWatchSearchFirewallPayload.serializer(), searchFirewallPayload)
+        val changeType = RewriteClientJson.decode(ClientChangeWatchTypePayload.serializer(), changeTypePayload)
+
+        assertEquals("LOCAL-IP", fetchResponse.stateId)
+        assertEquals(ClientWatchKind.PETTY_CASH, fetchResponse.watches.single().kind)
+        assertEquals(21, fetchResponse.maximumInstalledCount)
+        assertEquals("setwatchnote", mutationResponse.operation)
+        assertEquals(ClientWatchMutationFailureCode.WATCH_NOT_FOUND, mutationResponse.failureCode)
+        assertEquals(3, mutationResponse.affectedWatchIndex)
+        assertEquals(6, searchFirewall.searchFirewall)
+        assertEquals(2, changeType.newType)
+    }
+
+    @Test
     fun decodesCurrentRewriteRequestPageAndSavePageResponseShapes() {
         val requestPagePayload = """
             {

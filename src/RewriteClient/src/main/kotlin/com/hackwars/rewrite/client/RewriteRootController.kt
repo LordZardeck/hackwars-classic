@@ -18,6 +18,7 @@ import com.hackwars.rewrite.client.shell.RewriteShellWindowHost
 import com.hackwars.rewrite.client.systems.RewriteEquipmentManagerWindow
 import com.hackwars.rewrite.client.systems.RewriteFirewallManagerWindow
 import com.hackwars.rewrite.client.systems.RewritePortManagementWindow
+import com.hackwars.rewrite.client.systems.RewriteWatchManagerWindow
 import com.hackwars.rewrite.client.web.RewriteSiteEditorWindow
 import com.hackwars.rewrite.client.web.RewriteWebBrowserWindow
 import com.hackwars.rewrite.clientmodel.RewriteClientBootstrapState
@@ -62,6 +63,19 @@ import com.hackwars.rewrite.protocol.ClientSavePagePayload
 import com.hackwars.rewrite.protocol.ClientSavePageResponse
 import com.hackwars.rewrite.protocol.ClientStoredFile
 import com.hackwars.rewrite.protocol.ClientSubmitWebpagePayload
+import com.hackwars.rewrite.protocol.ClientWatchListResponse
+import com.hackwars.rewrite.protocol.ClientWatchManagerState
+import com.hackwars.rewrite.protocol.ClientWatchMutationResponse
+import com.hackwars.rewrite.protocol.ClientFetchWatchesPayload
+import com.hackwars.rewrite.protocol.ClientInstallWatchPayload
+import com.hackwars.rewrite.protocol.ClientSetWatchNotePayload
+import com.hackwars.rewrite.protocol.ClientSetWatchOnOffPayload
+import com.hackwars.rewrite.protocol.ClientSetWatchObservedPortsPayload
+import com.hackwars.rewrite.protocol.ClientSetWatchQuantityPayload
+import com.hackwars.rewrite.protocol.ClientSetWatchSearchFirewallPayload
+import com.hackwars.rewrite.protocol.ClientChangeWatchPortPayload
+import com.hackwars.rewrite.protocol.ClientChangeWatchTypePayload
+import com.hackwars.rewrite.protocol.ClientDeleteWatchPayload
 import com.hackwars.rewrite.protocol.ClientTransferPayload
 import com.hackwars.rewrite.protocol.ClientTransferResponse
 import com.hackwars.rewrite.protocol.ClientVotePayload
@@ -150,6 +164,12 @@ class RewriteRootController(
 
     fun gameFilesystemStateSelector(): Flow<ClientFilesystemState?> {
         return store.serviceFilesystemStateSelector(RewriteService.GAME)
+    }
+
+    fun gameWatchState(): ClientWatchManagerState? = gameShellState()?.watches
+
+    fun gameWatchStateSelector(): Flow<ClientWatchManagerState?> {
+        return store.serviceWatchStateSelector(RewriteService.GAME)
     }
 
     fun gameProgramUpdatesSelector(): Flow<Map<String, ClientProgramUpdate>> {
@@ -316,6 +336,191 @@ class RewriteRootController(
                 portNumber = portNumber,
             ),
             responseSerializer = ClientInstallFirewallResponse.serializer(),
+            targetStateIds = listOf(playerIp),
+        )
+    }
+
+    internal suspend fun requestFetchWatches(): RewriteGameCommandResult<ClientWatchListResponse> {
+        val playerIp = authenticatedPlayerIp()
+            ?: return RewriteGameCommandResult.Failure("Not connected to a rewrite game session.")
+        return gameCommandBroker.request(
+            commandName = "fetchwatches",
+            payloadSerializer = ClientFetchWatchesPayload.serializer(),
+            payload = ClientFetchWatchesPayload(ip = playerIp),
+            responseSerializer = ClientWatchListResponse.serializer(),
+            targetStateIds = listOf(playerIp),
+        )
+    }
+
+    internal suspend fun requestInstallWatch(
+        path: String?,
+        name: String,
+        type: Int,
+        portNumber: Int,
+    ): RewriteGameCommandResult<ClientWatchMutationResponse> {
+        val playerIp = authenticatedPlayerIp()
+            ?: return RewriteGameCommandResult.Failure("Not connected to a rewrite game session.")
+        return gameCommandBroker.request(
+            commandName = "installwatch",
+            payloadSerializer = ClientInstallWatchPayload.serializer(),
+            payload = ClientInstallWatchPayload(
+                ip = playerIp,
+                path = path,
+                name = name,
+                type = type,
+                port = portNumber,
+            ),
+            responseSerializer = ClientWatchMutationResponse.serializer(),
+            targetStateIds = listOf(playerIp),
+        )
+    }
+
+    internal suspend fun requestSetWatchNote(
+        watchId: Int,
+        note: String,
+    ): RewriteGameCommandResult<ClientWatchMutationResponse> {
+        val playerIp = authenticatedPlayerIp()
+            ?: return RewriteGameCommandResult.Failure("Not connected to a rewrite game session.")
+        return gameCommandBroker.request(
+            commandName = "setwatchnote",
+            payloadSerializer = ClientSetWatchNotePayload.serializer(),
+            payload = ClientSetWatchNotePayload(
+                ip = playerIp,
+                watchId = watchId,
+                note = note,
+            ),
+            responseSerializer = ClientWatchMutationResponse.serializer(),
+            targetStateIds = listOf(playerIp),
+        )
+    }
+
+    internal suspend fun requestSetWatchOnOff(
+        watchId: Int,
+        state: Boolean,
+    ): RewriteGameCommandResult<ClientWatchMutationResponse> {
+        val playerIp = authenticatedPlayerIp()
+            ?: return RewriteGameCommandResult.Failure("Not connected to a rewrite game session.")
+        return gameCommandBroker.request(
+            commandName = "setwatchonoff",
+            payloadSerializer = ClientSetWatchOnOffPayload.serializer(),
+            payload = ClientSetWatchOnOffPayload(
+                ip = playerIp,
+                watchId = watchId,
+                state = state,
+            ),
+            responseSerializer = ClientWatchMutationResponse.serializer(),
+            targetStateIds = listOf(playerIp),
+        )
+    }
+
+    internal suspend fun requestSetWatchQuantity(
+        watchId: Int,
+        quantity: Double,
+    ): RewriteGameCommandResult<ClientWatchMutationResponse> {
+        val playerIp = authenticatedPlayerIp()
+            ?: return RewriteGameCommandResult.Failure("Not connected to a rewrite game session.")
+        return gameCommandBroker.request(
+            commandName = "setwatchquantity",
+            payloadSerializer = ClientSetWatchQuantityPayload.serializer(),
+            payload = ClientSetWatchQuantityPayload(
+                ip = playerIp,
+                watchId = watchId,
+                quantity = quantity,
+            ),
+            responseSerializer = ClientWatchMutationResponse.serializer(),
+            targetStateIds = listOf(playerIp),
+        )
+    }
+
+    internal suspend fun requestSetWatchObservedPorts(
+        watchId: Int,
+        observedPorts: List<Int>,
+    ): RewriteGameCommandResult<ClientWatchMutationResponse> {
+        val playerIp = authenticatedPlayerIp()
+            ?: return RewriteGameCommandResult.Failure("Not connected to a rewrite game session.")
+        return gameCommandBroker.request(
+            commandName = "setwatchobservedports",
+            payloadSerializer = ClientSetWatchObservedPortsPayload.serializer(),
+            payload = ClientSetWatchObservedPortsPayload(
+                ip = playerIp,
+                watchId = watchId,
+                observedPorts = observedPorts,
+            ),
+            responseSerializer = ClientWatchMutationResponse.serializer(),
+            targetStateIds = listOf(playerIp),
+        )
+    }
+
+    internal suspend fun requestSetWatchSearchFirewall(
+        watchId: Int,
+        searchFirewall: Int,
+    ): RewriteGameCommandResult<ClientWatchMutationResponse> {
+        val playerIp = authenticatedPlayerIp()
+            ?: return RewriteGameCommandResult.Failure("Not connected to a rewrite game session.")
+        return gameCommandBroker.request(
+            commandName = "setwatchsearchfirewall",
+            payloadSerializer = ClientSetWatchSearchFirewallPayload.serializer(),
+            payload = ClientSetWatchSearchFirewallPayload(
+                ip = playerIp,
+                watchId = watchId,
+                searchFirewall = searchFirewall,
+            ),
+            responseSerializer = ClientWatchMutationResponse.serializer(),
+            targetStateIds = listOf(playerIp),
+        )
+    }
+
+    internal suspend fun requestChangeWatchPort(
+        watchId: Int,
+        portId: Int,
+    ): RewriteGameCommandResult<ClientWatchMutationResponse> {
+        val playerIp = authenticatedPlayerIp()
+            ?: return RewriteGameCommandResult.Failure("Not connected to a rewrite game session.")
+        return gameCommandBroker.request(
+            commandName = "changewatchport",
+            payloadSerializer = ClientChangeWatchPortPayload.serializer(),
+            payload = ClientChangeWatchPortPayload(
+                ip = playerIp,
+                watchId = watchId,
+                portId = portId,
+            ),
+            responseSerializer = ClientWatchMutationResponse.serializer(),
+            targetStateIds = listOf(playerIp),
+        )
+    }
+
+    internal suspend fun requestChangeWatchType(
+        watchId: Int,
+        newType: Int,
+    ): RewriteGameCommandResult<ClientWatchMutationResponse> {
+        val playerIp = authenticatedPlayerIp()
+            ?: return RewriteGameCommandResult.Failure("Not connected to a rewrite game session.")
+        return gameCommandBroker.request(
+            commandName = "changewatchtype",
+            payloadSerializer = ClientChangeWatchTypePayload.serializer(),
+            payload = ClientChangeWatchTypePayload(
+                ip = playerIp,
+                watchId = watchId,
+                newType = newType,
+            ),
+            responseSerializer = ClientWatchMutationResponse.serializer(),
+            targetStateIds = listOf(playerIp),
+        )
+    }
+
+    internal suspend fun requestDeleteWatch(
+        watchId: Int,
+    ): RewriteGameCommandResult<ClientWatchMutationResponse> {
+        val playerIp = authenticatedPlayerIp()
+            ?: return RewriteGameCommandResult.Failure("Not connected to a rewrite game session.")
+        return gameCommandBroker.request(
+            commandName = "deletewatch",
+            payloadSerializer = ClientDeleteWatchPayload.serializer(),
+            payload = ClientDeleteWatchPayload(
+                ip = playerIp,
+                watchId = watchId,
+            ),
+            responseSerializer = ClientWatchMutationResponse.serializer(),
             targetStateIds = listOf(playerIp),
         )
     }
@@ -904,6 +1109,19 @@ class RewriteRootController(
         )
 
         RewriteShellCommand.FIREWALL_MANAGER -> RewriteFirewallManagerWindow(
+            controller = this,
+            onOpenAuxiliaryWindow = { window ->
+                shellHost?.let { currentHost ->
+                    currentHost.showWindow(window)
+                    currentHost.focusWindow(window)
+                }
+            },
+            onFocusAuxiliaryWindow = { window ->
+                shellHost?.focusWindow(window)
+            },
+        )
+
+        RewriteShellCommand.WATCH_MANAGER -> RewriteWatchManagerWindow(
             controller = this,
             onOpenAuxiliaryWindow = { window ->
                 shellHost?.let { currentHost ->

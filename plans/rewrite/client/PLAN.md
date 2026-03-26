@@ -225,7 +225,7 @@
   - Shows enabled/default/dummy/note fields read-only in this slice; `portonoff`, default/dummy toggles, note editing, and public FTP password mutation stay deferred.
 
 ### RW-CLIENT-W4B - Equipment Manager and Firewall Browser inventory surfaces
-- Status: `in_progress`
+- Status: `done`
 - Owner: `unassigned`
 - Depends on: `RW-CLIENT-W4A`, `RW-CLIENT-W2A`
 - Allowed write scope: `:RewriteProtocol`, `:RewriteClient/client/systems/**`, `:RewriteClient`
@@ -238,7 +238,7 @@
   - Equipment repair, equipment removal, and firewall removal remain deferred until rewrite transport exists.
 
 ### RW-CLIENT-W4C - Watch Manager plus watch protocol decode and mutations
-- Status: `todo`
+- Status: `in_progress`
 - Owner: `unassigned`
 - Depends on: `RW-CLIENT-W4A`
 - Allowed write scope: `:RewriteProtocol`, `:RewriteClient/client/systems/**`, `:RewriteClient`

@@ -29,6 +29,7 @@ data class ClientGameSnapshot(
     val economy: ClientEconomyState = ClientEconomyState(),
     val hardware: ClientHardwareState = ClientHardwareState(),
     val ports: List<ClientPortState> = emptyList(),
+    val watches: ClientWatchManagerState = ClientWatchManagerState(),
     val filesystem: ClientFilesystemState = ClientFilesystemState(),
     val website: ClientWebsiteState = ClientWebsiteState(),
     val preferences: ClientPreferenceState = ClientPreferenceState(),
@@ -275,6 +276,34 @@ data class ClientPortState(
 )
 
 @Serializable
+data class ClientWatchManagerState(
+    val watches: List<ClientInstalledWatch> = emptyList(),
+)
+
+@Serializable
+enum class ClientWatchKind {
+    HEALTH,
+    PETTY_CASH,
+    SCAN,
+}
+
+@Serializable
+data class ClientInstalledWatch(
+    val kind: ClientWatchKind,
+    val enabled: Boolean = false,
+    val note: String = "",
+    val cpuCost: Double = 0.0,
+    val quantityThreshold: Double = 0.0,
+    val baselineQuantity: Double = 0.0,
+    val installPort: Int = 0,
+    val searchFirewallType: Int = 0,
+    val observedPorts: List<Int> = emptyList(),
+    val contents: String = "",
+    val scriptBundle: ClientProgramScriptBundle? = null,
+    val compiledBinary: ClientCompiledBinaryMetadata? = null,
+)
+
+@Serializable
 data class ClientWeakenedPortAccessState(
     val actorStateId: String,
     val grantedAtEpochMillis: Long,
@@ -382,6 +411,7 @@ data class ClientGameSectionsProjection(
     val economy: ClientEconomyState? = null,
     val hardware: ClientHardwareState? = null,
     val ports: List<ClientPortState>? = null,
+    val watches: ClientWatchManagerState? = null,
     val filesystem: ClientFilesystemState? = null,
     val website: ClientWebsiteState? = null,
     val preferences: ClientPreferenceState? = null,
@@ -526,6 +556,86 @@ data class ClientInstallEquipmentPayload(
     val path: String? = null,
     val name: String,
     val slot: ClientEquipmentSlot,
+)
+
+@Serializable
+data class ClientFetchWatchesPayload(
+    val ip: String,
+)
+
+@Serializable
+data class ClientInstallWatchPayload(
+    val ip: String,
+    val path: String? = null,
+    val name: String? = null,
+    val type: Int? = null,
+    val port: Int? = null,
+)
+
+@Serializable
+data class ClientSetWatchNotePayload(
+    val ip: String,
+    @SerialName("watchID")
+    val watchId: Int? = null,
+    val note: String? = null,
+)
+
+@Serializable
+data class ClientSetWatchOnOffPayload(
+    val ip: String,
+    @SerialName("watchID")
+    val watchId: Int? = null,
+    val state: Boolean? = null,
+)
+
+@Serializable
+data class ClientSetWatchQuantityPayload(
+    val ip: String,
+    @SerialName("watchID")
+    val watchId: Int? = null,
+    val quantity: Double? = null,
+)
+
+@Serializable
+data class ClientSetWatchObservedPortsPayload(
+    val ip: String,
+    @SerialName("watchID")
+    val watchId: Int? = null,
+    val observedPorts: List<Int> = emptyList(),
+)
+
+@Serializable
+data class ClientSetWatchSearchFirewallPayload(
+    val ip: String,
+    @SerialName("watchID")
+    val watchId: Int? = null,
+    @SerialName("searchFireWall")
+    val searchFirewall: Int? = null,
+)
+
+@Serializable
+data class ClientChangeWatchPortPayload(
+    val ip: String,
+    @SerialName("watchId")
+    val watchId: Int? = null,
+    @SerialName("portId")
+    val portId: Int? = null,
+)
+
+@Serializable
+data class ClientChangeWatchTypePayload(
+    val ip: String,
+    @SerialName("watchID")
+    val watchId: Int? = null,
+    @SerialName("portID")
+    val newType: Int? = null,
+)
+
+@Serializable
+data class ClientDeleteWatchPayload(
+    val ip: String,
+    @SerialName("watchID")
+    val watchId: Int? = null,
 )
 
 @Serializable
@@ -683,6 +793,43 @@ data class ClientInstallFirewallResponse(
     val installedFirewall: ClientInstalledFirewall,
     val returnedFirewall: ClientStoredFile? = null,
     val version: Long,
+)
+
+@Serializable
+data class ClientWatchListResponse(
+    val stateId: String,
+    val watches: List<ClientInstalledWatch> = emptyList(),
+    val installedCount: Int,
+    val maximumInstalledCount: Int,
+    val activeCount: Int,
+    val maximumActiveCount: Int,
+    val currentCpuLoad: Double,
+    val maximumCpuLoad: Double,
+)
+
+@Serializable
+enum class ClientWatchMutationFailureCode {
+    WATCH_NOT_FOUND,
+    PORT_NOT_FOUND,
+    MISSING_FILE,
+    INVALID_FILE_TYPE,
+    INVALID_WATCH_KIND,
+    INSTALLED_LIMIT_REACHED,
+    ACTIVE_LIMIT_REACHED,
+    CPU_HEADROOM_EXCEEDED,
+    OVERHEATED,
+    INVALID_OBSERVED_PORTS,
+}
+
+@Serializable
+data class ClientWatchMutationResponse(
+    val stateId: String,
+    val operation: String,
+    val accepted: Boolean,
+    val failureCode: ClientWatchMutationFailureCode? = null,
+    val message: String,
+    val affectedWatchIndex: Int? = null,
+    val snapshot: ClientWatchListResponse,
 )
 
 @Serializable

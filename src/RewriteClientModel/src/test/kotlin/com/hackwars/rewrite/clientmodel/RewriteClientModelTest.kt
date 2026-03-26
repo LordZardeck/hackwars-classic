@@ -17,6 +17,9 @@ import com.hackwars.rewrite.protocol.ClientShowChoicesType
 import com.hackwars.rewrite.protocol.ClientShowChoicesUiEvent
 import com.hackwars.rewrite.protocol.ClientStoredFile
 import com.hackwars.rewrite.protocol.ClientTextMessageUiEvent
+import com.hackwars.rewrite.protocol.ClientWatchKind
+import com.hackwars.rewrite.protocol.ClientWatchManagerState
+import com.hackwars.rewrite.protocol.ClientInstalledWatch
 import com.hackwars.rewrite.protocol.ClientZombieAttackUiEvent
 import com.hackwars.rewrite.protocol.RewriteClientJson
 import com.hackwars.rewrite.protocol.ConnectionLifecycleState
@@ -346,6 +349,70 @@ class RewriteClientModelTest {
         assertEquals(1, decoded.uiNotices.size)
         assertIs<ClientAttackMessageUiEvent>(decoded.uiNotices.single().event)
         assertIs<ClientGameStateSummaryProjection>(decoded.lastDelta?.projection)
+    }
+
+    @Test
+    fun watchSnapshotAndWatchDeltaMergeWithoutWipingOtherDecodedSections() {
+        val store = RewriteClientStore()
+        store.recordInboundFrame(
+            service = RewriteService.GAME,
+            frame = RewriteFrames.snapshot(
+                gameStateId = "LOCAL-IP",
+                sequence = 30,
+                payload = RewriteClientJson.encode(
+                    ClientGameSnapshot.serializer(),
+                    ClientGameSnapshot(
+                        id = "LOCAL-IP",
+                        version = 30,
+                        economy = com.hackwars.rewrite.protocol.ClientEconomyState(pettyCash = 125.0),
+                        watches = ClientWatchManagerState(
+                            watches = listOf(
+                                ClientInstalledWatch(
+                                    kind = ClientWatchKind.HEALTH,
+                                    enabled = true,
+                                    note = "Guard",
+                                    cpuCost = 2.5,
+                                    quantityThreshold = 75.0,
+                                    installPort = 6,
+                                    observedPorts = listOf(6),
+                                ),
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+        )
+        store.recordInboundFrame(
+            service = RewriteService.GAME,
+            frame = RewriteFrames.delta(
+                gameStateId = "LOCAL-IP",
+                sequence = 31,
+                changedPaths = listOf("watches.watches"),
+                deltaKeys = listOf("watches"),
+                payload = RewriteClientJson.encode(
+                    ClientGameDeltaProjection.serializer(),
+                    ClientGameSectionsProjection(
+                        watches = ClientWatchManagerState(
+                            watches = listOf(
+                                ClientInstalledWatch(
+                                    kind = ClientWatchKind.SCAN,
+                                    enabled = false,
+                                    note = "Scanner",
+                                    cpuCost = 1.0,
+                                    quantityThreshold = 0.0,
+                                    installPort = 4,
+                                ),
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+        )
+
+        val decoded = store.snapshot().game.decodedGame
+        assertEquals(ClientWatchKind.HEALTH, decoded.latestSnapshot?.watches?.watches?.single()?.kind)
+        assertEquals(ClientWatchKind.SCAN, decoded.shellState?.watches?.watches?.single()?.kind)
+        assertEquals(125.0, decoded.shellState?.economy?.pettyCash)
     }
 
     @Test
