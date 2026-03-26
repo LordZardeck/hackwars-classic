@@ -251,12 +251,7 @@ class RewriteMvcArchitectureGuardrailTest {
                 "coroutine_api",
                 "listener_registration",
             ),
-            "src/main/kotlin/com/hackwars/rewrite/client/systems/RewritePortManagementWindow.kt" to setOf(
-                "controller_import",
-                "protocol_import",
-                "coroutine_api",
-                "listener_registration",
-            ),
+            "src/main/kotlin/com/hackwars/rewrite/client/systems/RewritePortManagementWindow.kt" to emptySet(),
             "src/main/kotlin/com/hackwars/rewrite/client/systems/RewriteWatchManagerWindow.kt" to setOf(
                 "controller_import",
                 "protocol_import",

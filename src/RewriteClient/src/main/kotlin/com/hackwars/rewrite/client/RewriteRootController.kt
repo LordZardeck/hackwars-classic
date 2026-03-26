@@ -27,7 +27,7 @@ import com.hackwars.rewrite.client.shell.RewriteShellWindowCoordinator
 import com.hackwars.rewrite.client.shell.RewriteShellWindowHost
 import com.hackwars.rewrite.client.systems.RewriteEquipmentManagerWindow
 import com.hackwars.rewrite.client.systems.RewriteFirewallManagerWindow
-import com.hackwars.rewrite.client.systems.RewritePortManagementWindow
+import com.hackwars.rewrite.client.systems.createPortManagementWindowBinding
 import com.hackwars.rewrite.client.systems.RewriteWatchManagerWindow
 import com.hackwars.rewrite.client.utilities.RewriteLogWindow
 import com.hackwars.rewrite.client.utilities.RewritePersonalSettingsWindow
@@ -1667,19 +1667,7 @@ class RewriteRootController(
             },
         )
 
-        RewriteShellCommand.PORT_MANAGEMENT -> RewritePortManagementWindow(
-            controller = this,
-            preferredPort = preferredPort,
-            onOpenAuxiliaryWindow = { window ->
-                shellHost?.let { currentHost ->
-                    currentHost.showWindow(window)
-                    currentHost.focusWindow(window)
-                }
-            },
-            onFocusAuxiliaryWindow = { window ->
-                shellHost?.focusWindow(window)
-            },
-        )
+        RewriteShellCommand.PORT_MANAGEMENT -> error("PORT_MANAGEMENT must be created via createShellWindowBinding()")
 
         RewriteShellCommand.EQUIPMENT_MANAGER -> RewriteEquipmentManagerWindow(
             controller = this,
@@ -1761,6 +1749,21 @@ class RewriteRootController(
         if (command == RewriteShellCommand.TUTORIAL_FIRST_ATTACK) {
             return createTutorialWindowBinding(
                 controller = this,
+                onOpenAuxiliaryWindow = { window ->
+                    shellHost?.let { currentHost ->
+                        currentHost.showWindow(window)
+                        currentHost.focusWindow(window)
+                    }
+                },
+                onFocusAuxiliaryWindow = { window ->
+                    shellHost?.focusWindow(window)
+                },
+            )
+        }
+        if (command == RewriteShellCommand.PORT_MANAGEMENT) {
+            return createPortManagementWindowBinding(
+                controller = this,
+                preferredPort = preferredPort,
                 onOpenAuxiliaryWindow = { window ->
                     shellHost?.let { currentHost ->
                         currentHost.showWindow(window)

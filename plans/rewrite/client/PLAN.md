@@ -765,7 +765,7 @@
 - Verification scope: approved Network and Port Scan screenshot baselines
 
 ### RW-CLIENT-C7A - Port Management MVC extraction
-- Status: `todo`
+- Status: `done`
 - Priority: `P0`
 - Execution lane: `systems_network`
 - Worker role: `worker`

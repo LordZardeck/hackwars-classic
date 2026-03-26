@@ -4,6 +4,7 @@ import com.hackwars.rewrite.client.systems.RewritePortManagementRow
 import com.hackwars.rewrite.client.systems.allowPortManagementApplicationFile
 import com.hackwars.rewrite.client.systems.allowPortManagementFirewallFile
 import com.hackwars.rewrite.client.systems.buildPortManagementRows
+import com.hackwars.rewrite.client.systems.buildPortManagementViewModel
 import com.hackwars.rewrite.protocol.ClientApplicationKind
 import com.hackwars.rewrite.protocol.ClientCompiledBinaryMetadata
 import com.hackwars.rewrite.protocol.ClientFirewallKind
@@ -101,6 +102,44 @@ class RewritePortManagementTest {
         )
         assertEquals("4/10", rows.single().cpuDisplay)
         assertEquals("92", rows.single().healthDisplay)
+    }
+
+    @Test
+    fun buildPortManagementViewModelReflectsSelectionAndRequestState() {
+        val rows = listOf(
+            RewritePortManagementRow(
+                number = 6,
+                programLabel = "bank.bin",
+                firewallLabel = "guard.fw",
+                currentCpuCost = 4.0,
+                maxCpuCost = 10.0,
+                health = 92.0,
+                healsLeft = 7,
+                defaultPort = true,
+                dummy = false,
+                enabled = true,
+                note = "Bank main",
+            ),
+        )
+
+        val model = buildPortManagementViewModel(
+            rows = rows,
+            selectedPortNumber = 6,
+            requestInFlight = true,
+            statusText = "Healing...",
+            errorText = " ",
+        )
+
+        assertEquals("Selected Port: 6", model.selectedPortLabel)
+        assertTrue(model.selectedEnabled)
+        assertTrue(model.selectedDefault)
+        assertFalse(model.selectedDummy)
+        assertEquals("Bank main", model.selectedNote)
+        assertFalse(model.healButtonEnabled)
+        assertFalse(model.installProgramButtonEnabled)
+        assertFalse(model.installFirewallButtonEnabled)
+        assertFalse(model.tableEnabled)
+        assertEquals("Healing...", model.statusText)
     }
 
     @Test
