@@ -1,5 +1,6 @@
 package com.hackwars.rewrite.client.shell
 
+import com.hackwars.rewrite.client.mvc.RewriteView
 import java.awt.Color
 import java.awt.Dimension
 import java.awt.Font
@@ -15,7 +16,7 @@ import javax.swing.JPanel
 import javax.swing.JProgressBar
 import javax.swing.SwingConstants
 
-class RewriteShellStatsRail : JPanel(GridBagLayout()) {
+class RewriteShellStatsRail : JPanel(GridBagLayout()), RewriteView<RewriteShellStatsRailState> {
     private val playerIpLabel = JLabel("").apply {
         name = "rewrite-shell-stats-ip"
         foreground = Color.WHITE
@@ -75,18 +76,18 @@ class RewriteShellStatsRail : JPanel(GridBagLayout()) {
         add(Box.createVerticalGlue(), constraints)
     }
 
-    fun render(state: RewriteShellStatsRailState) {
-        playerIpLabel.text = state.playerIp
-        pettyCashValueLabel.text = state.pettyCashText
-        bankValueLabel.text = state.bankMoneyText
-        hackOMeterValueLabel.text = state.hackOMeterText
-        voteOMeterValueLabel.text = state.voteOMeterText
-        cpuProgressBar.value = state.cpuPercent.coerceAtMost(100)
-        cpuProgressBar.string = state.cpuLoadText
-        state.commodities.forEach { commodity ->
+    override fun render(model: RewriteShellStatsRailState) {
+        playerIpLabel.text = model.playerIp
+        pettyCashValueLabel.text = model.pettyCashText
+        bankValueLabel.text = model.bankMoneyText
+        hackOMeterValueLabel.text = model.hackOMeterText
+        voteOMeterValueLabel.text = model.voteOMeterText
+        cpuProgressBar.value = model.cpuPercent.coerceAtMost(100)
+        cpuProgressBar.string = model.cpuLoadText
+        model.commodities.forEach { commodity ->
             commodityValueLabels[commodity.label]?.text = commodity.valueText
         }
-        state.skills.forEach { skill ->
+        model.skills.forEach { skill ->
             skillValueLabels[skill.label]?.text = "Lv ${skill.level}"
         }
     }
@@ -208,7 +209,7 @@ class RewriteShellStatsRail : JPanel(GridBagLayout()) {
     }
 }
 
-class RewriteShellCountdownLabel : JLabel("") {
+class RewriteShellCountdownLabel : JLabel(""), RewriteView<RewriteShellCountdownState> {
     init {
         name = "rewrite-shell-countdown"
         foreground = Color.WHITE
@@ -216,7 +217,7 @@ class RewriteShellCountdownLabel : JLabel("") {
         isOpaque = false
     }
 
-    fun render(state: RewriteShellCountdownState) {
-        text = state.text
+    override fun render(model: RewriteShellCountdownState) {
+        text = model.text
     }
 }

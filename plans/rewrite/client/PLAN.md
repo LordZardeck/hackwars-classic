@@ -153,7 +153,7 @@
 - Verification scope: `./gradlew :RewriteClientDev:test :RewriteClient:uiTest`
 
 ### RW-CLIENT-X1 - Strict MVC retrofit foundation
-- Status: `ready`
+- Status: `done`
 - Priority: `P0`
 - Execution lane: `cross_cutting`
 - Worker role: `worker`
@@ -166,7 +166,7 @@
 - Verification scope: `./gradlew :RewriteClient:test :RewriteClient:uiTest`
 
 ### RW-CLIENT-X2 - HackWars look-and-feel and parity asset foundation
-- Status: `todo`
+- Status: `ready`
 - Priority: `P0`
 - Execution lane: `cross_cutting`
 - Worker role: `worker`

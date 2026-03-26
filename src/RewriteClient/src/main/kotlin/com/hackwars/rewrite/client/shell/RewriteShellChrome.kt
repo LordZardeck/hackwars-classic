@@ -1,5 +1,6 @@
 package com.hackwars.rewrite.client.shell
 
+import com.hackwars.rewrite.client.mvc.RewriteViewModel
 import com.hackwars.rewrite.clientmodel.RewriteClientRoute
 import com.hackwars.rewrite.protocol.ClientGameSnapshot
 import java.text.DecimalFormat
@@ -13,7 +14,7 @@ data class RewriteShellChromeState(
     val countdownVisible: Boolean = false,
     val stats: RewriteShellStatsRailState = RewriteShellStatsRailState(),
     val countdown: RewriteShellCountdownState = RewriteShellCountdownState(),
-)
+) : RewriteViewModel
 
 data class RewriteShellStatsRailState(
     val playerIp: String = "",
@@ -25,7 +26,7 @@ data class RewriteShellStatsRailState(
     val cpuPercent: Int = 0,
     val commodities: List<RewriteShellCommodityValue> = defaultCommodityValues(),
     val skills: List<RewriteShellSkillValue> = defaultSkillValues(),
-) {
+) : RewriteViewModel {
     companion object {
         fun defaultCommodityValues(): List<RewriteShellCommodityValue> {
             return listOf(
@@ -57,18 +58,18 @@ data class RewriteShellCommodityValue(
     val label: String,
     val iconName: String,
     val valueText: String = "0",
-)
+) : RewriteViewModel
 
 data class RewriteShellSkillValue(
     val label: String,
     val iconName: String,
     val level: Int = 0,
-)
+) : RewriteViewModel
 
 data class RewriteShellCountdownState(
     val text: String = "",
     val disconnected: Boolean = false,
-)
+) : RewriteViewModel
 
 class RewriteShellChromePresenter {
     private var route: RewriteClientRoute = RewriteClientRoute.LOGIN

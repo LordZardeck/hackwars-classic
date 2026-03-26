@@ -1,5 +1,6 @@
 package com.hackwars.rewrite.client.shell
 
+import com.hackwars.rewrite.client.mvc.RewriteDialogBinding
 import java.awt.Window
 import java.awt.event.WindowAdapter
 import java.awt.event.WindowEvent
@@ -14,9 +15,9 @@ internal interface RewriteShellDialogHost {
 }
 
 internal class RewriteShellDialogCoordinator(
-    private val dialogFactory: (RewriteShellCommand, Window?) -> JDialog,
+    private val dialogFactory: (RewriteShellCommand, Window?) -> RewriteDialogBinding,
 ) {
-    private val openDialogs = linkedMapOf<RewriteShellCommand, JDialog>()
+    private val openDialogs = linkedMapOf<RewriteShellCommand, RewriteDialogBinding>()
     private var host: RewriteShellDialogHost? = null
 
     fun attachHost(host: RewriteShellDialogHost?) {
@@ -25,19 +26,22 @@ internal class RewriteShellDialogCoordinator(
 
     fun open(command: RewriteShellCommand) {
         val currentHost = host ?: return
-        val existing = openDialogs[command]
+        val existingBinding = openDialogs[command]
+        val existing = existingBinding?.dialog
         if (existing != null && existing.isDisplayable) {
             currentHost.focusDialog(existing)
             return
         }
 
-        val dialog = dialogFactory(command, currentHost.ownerWindow)
+        val binding = dialogFactory(command, currentHost.ownerWindow)
+        val dialog = binding.dialog
         dialog.addWindowListener(object : WindowAdapter() {
             override fun windowClosed(event: WindowEvent) {
-                openDialogs.remove(command, dialog)
+                openDialogs.remove(command, binding)
+                binding.close()
             }
         })
-        openDialogs[command] = dialog
+        openDialogs[command] = binding
         currentHost.showDialog(dialog)
         currentHost.focusDialog(dialog)
     }
@@ -45,12 +49,13 @@ internal class RewriteShellDialogCoordinator(
     fun closeAll() {
         val dialogs = openDialogs.values.toList()
         openDialogs.clear()
-        dialogs.forEach { dialog ->
-            runCatching { dialog.dispose() }
+        dialogs.forEach { binding ->
+            runCatching { binding.dialog.dispose() }
+            binding.close()
         }
     }
 
     fun openDialog(command: RewriteShellCommand): JDialog? {
-        return openDialogs[command]?.takeIf { it.isDisplayable }
+        return openDialogs[command]?.dialog?.takeIf { it.isDisplayable }
     }
 }

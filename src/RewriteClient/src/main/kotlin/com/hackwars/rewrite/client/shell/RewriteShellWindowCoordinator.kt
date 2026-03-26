@@ -1,15 +1,16 @@
 package com.hackwars.rewrite.client.shell
 
+import com.hackwars.rewrite.client.mvc.RewriteFrameBinding
 import javax.swing.JInternalFrame
 import javax.swing.event.InternalFrameAdapter
 import javax.swing.event.InternalFrameEvent
 
 class RewriteShellWindowCoordinator(
-    private val frameFactory: (RewriteShellCommand, Int?) -> JInternalFrame = { command, _ ->
-        RewritePlaceholderInternalFrame(command)
+    private val frameFactory: (RewriteShellCommand, Int?) -> RewriteFrameBinding = { command, _ ->
+        RewriteFrameBinding(RewritePlaceholderInternalFrame(command))
     },
 ) {
-    private val openWindows = linkedMapOf<RewriteShellCommand, JInternalFrame>()
+    private val openWindows = linkedMapOf<RewriteShellCommand, RewriteFrameBinding>()
     private var host: RewriteShellWindowHost? = null
 
     fun attachHost(host: RewriteShellWindowHost?) {
@@ -21,20 +22,23 @@ class RewriteShellWindowCoordinator(
         preferredPort: Int? = null,
     ) {
         val currentHost = host ?: return
-        val existing = openWindows[command]
+        val existingBinding = openWindows[command]
+        val existing = existingBinding?.frame
         if (existing != null && !existing.isClosed) {
             (existing as? RewritePreferredPortWindow)?.applyPreferredPort(preferredPort)
             currentHost.focusWindow(existing)
             return
         }
 
-        val frame = frameFactory(command, preferredPort)
+        val binding = frameFactory(command, preferredPort)
+        val frame = binding.frame
         frame.addInternalFrameListener(object : InternalFrameAdapter() {
             override fun internalFrameClosed(event: InternalFrameEvent) {
-                openWindows.remove(command, frame)
+                openWindows.remove(command, binding)
+                binding.close()
             }
         })
-        openWindows[command] = frame
+        openWindows[command] = binding
         currentHost.showWindow(frame)
         currentHost.focusWindow(frame)
     }
@@ -42,13 +46,15 @@ class RewriteShellWindowCoordinator(
     fun closeAll() {
         val windows = openWindows.values.toList()
         openWindows.clear()
-        windows.forEach { frame ->
-            runCatching { frame.dispose() }
+        windows.forEach { binding ->
+            runCatching { binding.frame.dispose() }
+            binding.close()
         }
         host?.disposeAllWindows()
     }
 
-    fun openWindowCount(): Int = openWindows.values.count { !it.isClosed }
+    fun openWindowCount(): Int = openWindows.values.count { !it.frame.isClosed }
 
-    fun openWindow(command: RewriteShellCommand): JInternalFrame? = openWindows[command]?.takeIf { !it.isClosed }
+    fun openWindow(command: RewriteShellCommand): JInternalFrame? =
+        openWindows[command]?.frame?.takeIf { !it.isClosed }
 }

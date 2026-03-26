@@ -80,7 +80,7 @@
 - Verification scope: `./gradlew rewriteUiTest`
 
 ### RW-TEST-005 - MVC architecture guardrail tests
-- Status: `todo`
+- Status: `ready`
 - Priority: `P0`
 - Execution lane: `audits`
 - Worker role: `worker`

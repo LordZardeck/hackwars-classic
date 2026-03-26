@@ -1,6 +1,7 @@
 package com.hackwars.rewrite.client.shell
 
 import com.github.weisj.jsvg.attributes.ViewBox
+import com.hackwars.rewrite.client.mvc.RewriteView
 import com.hackwars.rewrite.client.login.svgResource
 import java.awt.AlphaComposite
 import java.awt.BorderLayout
@@ -29,7 +30,7 @@ interface RewriteShellWindowHost {
 
 class RewriteDesktopShellView(
     private val onCommandSelected: (RewriteShellCommand) -> Unit,
-) : JPanel(BorderLayout()), RewriteShellWindowHost {
+) : JPanel(BorderLayout()), RewriteShellWindowHost, RewriteView<RewriteShellChromeState> {
     val desktopPane = RewriteDesktopBackgroundPane()
     val menuBar = RewriteDesktopMenuBar(onCommandSelected = onCommandSelected)
     val statsRail = RewriteShellStatsRail().apply {
@@ -107,13 +108,17 @@ class RewriteDesktopShellView(
         })
     }
 
-    fun renderChrome(state: RewriteShellChromeState) {
-        statsRail.render(state.stats)
-        statsRail.isVisible = state.statsVisible
-        countdownLabel.render(state.countdown)
-        countdownLabel.isVisible = state.countdownVisible
+    override fun render(model: RewriteShellChromeState) {
+        statsRail.render(model.stats)
+        statsRail.isVisible = model.statsVisible
+        countdownLabel.render(model.countdown)
+        countdownLabel.isVisible = model.countdownVisible
         layoutShellChrome()
         desktopPane.repaint()
+    }
+
+    fun renderChrome(state: RewriteShellChromeState) {
+        render(state)
     }
 
     private fun layoutShellChrome() {

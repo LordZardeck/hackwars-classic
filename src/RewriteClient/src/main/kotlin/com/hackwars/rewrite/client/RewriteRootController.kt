@@ -9,6 +9,8 @@ import com.hackwars.rewrite.client.files.RewriteHomeWindow
 import com.hackwars.rewrite.client.files.RewriteLocalFileOpenTarget
 import com.hackwars.rewrite.client.files.RewriteScriptEditorWindow
 import com.hackwars.rewrite.client.files.routeLocalFileTarget
+import com.hackwars.rewrite.client.mvc.RewriteDialogBinding
+import com.hackwars.rewrite.client.mvc.RewriteFrameBinding
 import com.hackwars.rewrite.client.network.RewriteAttackWindow
 import com.hackwars.rewrite.client.network.RewritePublicFtpWindow
 import com.hackwars.rewrite.client.network.RewriteShopFtpWindow
@@ -150,8 +152,8 @@ class RewriteRootController(
     private val gameCommandBroker = RewriteGameCommandBroker(
         sendFrame = { frame -> send(RewriteService.GAME, frame) },
     )
-    private val shellWindows = RewriteShellWindowCoordinator(::createShellWindow)
-    private val shellDialogs = RewriteShellDialogCoordinator(::createShellDialog)
+    private val shellWindows = RewriteShellWindowCoordinator(::createShellWindowBinding)
+    private val shellDialogs = RewriteShellDialogCoordinator(::createShellDialogBinding)
     private val startupUtilityCoordinator = RewriteStartupUtilityCoordinator { command ->
         launchShellCommand(command)
     }
@@ -1550,6 +1552,15 @@ class RewriteRootController(
         else -> RewritePlaceholderInternalFrame(command)
     }
 
+    private fun createShellWindowBinding(
+        command: RewriteShellCommand,
+        preferredPort: Int?,
+    ): RewriteFrameBinding {
+        return RewriteFrameBinding(
+            frame = createShellWindow(command, preferredPort),
+        )
+    }
+
     private fun closeFilePropertiesWindows() {
         val windows = filePropertiesWindowsByPath.values.toList()
         filePropertiesWindowsByPath.clear()
@@ -1594,6 +1605,15 @@ class RewriteRootController(
         )
 
         else -> error("No dialog registered for ${command.name}")
+    }
+
+    private fun createShellDialogBinding(
+        command: RewriteShellCommand,
+        ownerWindow: Window?,
+    ): RewriteDialogBinding {
+        return RewriteDialogBinding(
+            dialog = createShellDialog(command, ownerWindow),
+        )
     }
 
     private data class PendingGameBootstrap(
