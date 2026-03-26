@@ -235,15 +235,9 @@ class RewriteMvcArchitectureGuardrailTest {
                 "coroutine_api",
                 "listener_registration",
             ),
-            "src/main/kotlin/com/hackwars/rewrite/client/shell/RewriteDesktopMenuBar.kt" to setOf(
-                "listener_registration",
-            ),
-            "src/main/kotlin/com/hackwars/rewrite/client/shell/RewriteDesktopShellView.kt" to setOf(
-                "listener_registration",
-            ),
-            "src/main/kotlin/com/hackwars/rewrite/client/shell/RewriteDesktopTaskBar.kt" to setOf(
-                "listener_registration",
-            ),
+            "src/main/kotlin/com/hackwars/rewrite/client/shell/RewriteDesktopMenuBar.kt" to emptySet(),
+            "src/main/kotlin/com/hackwars/rewrite/client/shell/RewriteDesktopShellView.kt" to emptySet(),
+            "src/main/kotlin/com/hackwars/rewrite/client/shell/RewriteDesktopTaskBar.kt" to emptySet(),
             "src/main/kotlin/com/hackwars/rewrite/client/shell/RewritePreferredPortWindow.kt" to emptySet(),
             "src/main/kotlin/com/hackwars/rewrite/client/shell/RewriteShellStatsRail.kt" to emptySet(),
             "src/main/kotlin/com/hackwars/rewrite/client/systems/RewriteInventoryWindows.kt" to setOf(

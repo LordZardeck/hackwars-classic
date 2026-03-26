@@ -11,10 +11,12 @@ class RewriteShellWindowCoordinator(
     },
 ) {
     private val openWindows = linkedMapOf<RewriteShellCommand, RewriteFrameBinding>()
+    private val minimizedIcons = mutableListOf<JInternalFrame.JDesktopIcon>()
     private var host: RewriteShellWindowHost? = null
 
     fun attachHost(host: RewriteShellWindowHost?) {
         this.host = host
+        host?.renderTaskBar(currentTaskBarState())
     }
 
     fun open(
@@ -33,7 +35,23 @@ class RewriteShellWindowCoordinator(
         val binding = frameFactory(command, preferredPort)
         val frame = binding.frame
         frame.addInternalFrameListener(object : InternalFrameAdapter() {
+            override fun internalFrameIconified(event: InternalFrameEvent) {
+                if (frame.desktopIcon !in minimizedIcons) {
+                    minimizedIcons += frame.desktopIcon
+                    host?.renderTaskBar(currentTaskBarState())
+                }
+            }
+
+            override fun internalFrameDeiconified(event: InternalFrameEvent) {
+                if (minimizedIcons.remove(frame.desktopIcon)) {
+                    host?.renderTaskBar(currentTaskBarState())
+                }
+            }
+
             override fun internalFrameClosed(event: InternalFrameEvent) {
+                if (minimizedIcons.remove(frame.desktopIcon)) {
+                    host?.renderTaskBar(currentTaskBarState())
+                }
                 openWindows.remove(command, binding)
                 binding.close()
             }
@@ -46,6 +64,7 @@ class RewriteShellWindowCoordinator(
     fun closeAll() {
         val windows = openWindows.values.toList()
         openWindows.clear()
+        minimizedIcons.clear()
         windows.forEach { binding ->
             runCatching { binding.frame.dispose() }
             binding.close()
@@ -57,4 +76,8 @@ class RewriteShellWindowCoordinator(
 
     fun openWindow(command: RewriteShellCommand): JInternalFrame? =
         openWindows[command]?.frame?.takeIf { !it.isClosed }
+
+    private fun currentTaskBarState(): RewriteShellTaskBarState {
+        return RewriteShellTaskBarState(minimizedIcons = minimizedIcons.toList())
+    }
 }

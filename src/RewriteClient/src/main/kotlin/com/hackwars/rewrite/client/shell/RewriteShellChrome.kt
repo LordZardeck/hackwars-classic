@@ -6,6 +6,7 @@ import com.hackwars.rewrite.protocol.ClientGameSnapshot
 import java.text.DecimalFormat
 import java.text.NumberFormat
 import java.util.Locale
+import javax.swing.JInternalFrame
 
 data class RewriteShellChromeState(
     val route: RewriteClientRoute = RewriteClientRoute.LOGIN,
@@ -69,6 +70,10 @@ data class RewriteShellSkillValue(
 data class RewriteShellCountdownState(
     val text: String = "",
     val disconnected: Boolean = false,
+) : RewriteViewModel
+
+data class RewriteShellTaskBarState(
+    val minimizedIcons: List<JInternalFrame.JDesktopIcon> = emptyList(),
 ) : RewriteViewModel
 
 class RewriteShellChromePresenter {

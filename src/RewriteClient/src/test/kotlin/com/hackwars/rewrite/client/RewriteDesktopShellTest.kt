@@ -14,7 +14,7 @@ import kotlin.test.assertTrue
 class RewriteDesktopShellTest {
     @Test
     fun menuTaxonomyMatchesLegacyLabelsAndGrouping() {
-        val menuBar = RewriteDesktopMenuBar {}
+        val menuBar = RewriteDesktopMenuBar()
 
         assertEquals(
             listOf("Applications", "Places", "System", "Tutorials"),
@@ -47,7 +47,7 @@ class RewriteDesktopShellTest {
             authGateway = DeterministicRewriteLoginAuthGateway(),
             sessionGateway = NoOpRewriteServiceSessionGateway,
         )
-        val shellHost = RewriteDesktopShellView(controller::launchShellCommand)
+        val shellHost = RewriteDesktopShellView()
         controller.attachShellHost(shellHost)
 
         invokeAndWait {
@@ -70,7 +70,7 @@ class RewriteDesktopShellTest {
             authGateway = DeterministicRewriteLoginAuthGateway(),
             sessionGateway = NoOpRewriteServiceSessionGateway,
         )
-        val shellHost = RewriteDesktopShellView(controller::launchShellCommand)
+        val shellHost = RewriteDesktopShellView()
         controller.attachShellHost(shellHost)
 
         invokeAndWait {
@@ -90,16 +90,26 @@ class RewriteDesktopShellTest {
 
     @Test
     fun minimizingAndRestoringFramesUpdatesTaskBar() {
-        val shellHost = RewriteDesktopShellView {}
+        val shellHost = RewriteDesktopShellView()
+        val controller = RewriteRootController(
+            authGateway = DeterministicRewriteLoginAuthGateway(),
+            sessionGateway = NoOpRewriteServiceSessionGateway,
+        )
+        controller.attachShellHost(shellHost)
 
         invokeAndWait {
-            val frames = mutableListOf<RewritePlaceholderInternalFrame>()
-            RewriteShellCommand.entries.take(10).forEach { command ->
-                val frame = RewritePlaceholderInternalFrame(command)
-                frames += frame
-                shellHost.showWindow(frame)
-                frame.isIcon = true
-            }
+            val frames = mutableListOf<javax.swing.JInternalFrame>()
+            RewriteShellCommand.entries
+                .filterNot { command ->
+                    command == RewriteShellCommand.CREATE_BOUNTY || command == RewriteShellCommand.ZOMBIE_ATTACK
+                }
+                .take(10)
+                .forEach { command ->
+                    controller.launchShellCommand(command)
+                    val frame = shellHost.desktopPane.allFrames.single { it.title == command.title }
+                    frames += frame
+                    frame.isIcon = true
+                }
 
             assertEquals(10, shellHost.menuBar.taskBar.minimizedApplicationCount())
 
@@ -108,6 +118,7 @@ class RewriteDesktopShellTest {
 
             assertEquals(9, shellHost.menuBar.taskBar.minimizedApplicationCount())
         }
+        controller.shutdown()
     }
 
     @Test
@@ -116,7 +127,7 @@ class RewriteDesktopShellTest {
             authGateway = DeterministicRewriteLoginAuthGateway(),
             sessionGateway = NoOpRewriteServiceSessionGateway,
         )
-        val shellHost = RewriteDesktopShellView(controller::launchShellCommand)
+        val shellHost = RewriteDesktopShellView()
         controller.attachShellHost(shellHost)
 
         invokeAndWait {

@@ -1,5 +1,6 @@
 package com.hackwars.rewrite.client.shell
 
+import com.hackwars.rewrite.client.mvc.RewriteView
 import java.awt.BorderLayout
 import java.awt.Color
 import java.awt.Dimension
@@ -13,7 +14,7 @@ import javax.swing.JScrollPane
 import javax.swing.SwingUtilities
 import javax.swing.border.EmptyBorder
 
-class RewriteDesktopTaskBar : JPanel(BorderLayout()) {
+class RewriteDesktopTaskBar : JPanel(BorderLayout()), RewriteView<RewriteShellTaskBarState> {
     private enum class ScrollDirection {
         LEFT,
         RIGHT,
@@ -34,15 +35,10 @@ class RewriteDesktopTaskBar : JPanel(BorderLayout()) {
         horizontalScrollBarPolicy = JScrollPane.HORIZONTAL_SCROLLBAR_NEVER
         verticalScrollBarPolicy = JScrollPane.VERTICAL_SCROLLBAR_NEVER
         viewport.view = minimizedApplications
-        viewport.addChangeListener { updateScrollButtonsEnabledState() }
     }
 
-    val leftScrollButton = createScrollButton("rewrite-shell-taskbar-scroll-left", "<") {
-        scrollMinimizedApplications(ScrollDirection.LEFT)
-    }
-    val rightScrollButton = createScrollButton("rewrite-shell-taskbar-scroll-right", ">") {
-        scrollMinimizedApplications(ScrollDirection.RIGHT)
-    }
+    val leftScrollButton = createScrollButton("rewrite-shell-taskbar-scroll-left", "<")
+    val rightScrollButton = createScrollButton("rewrite-shell-taskbar-scroll-right", ">")
 
     init {
         name = "rewrite-shell-taskbar"
@@ -61,27 +57,29 @@ class RewriteDesktopTaskBar : JPanel(BorderLayout()) {
         updateScrollButtonsEnabledState()
     }
 
-    fun addDesktopIcon(icon: JInternalFrame.JDesktopIcon) {
-        styleDesktopIcon(icon)
-        if (icon.parent !== minimizedApplications) {
+    fun minimizedApplicationCount(): Int = minimizedApplications.componentCount
+
+    fun scrollLeft() {
+        scrollMinimizedApplications(ScrollDirection.LEFT)
+    }
+
+    fun scrollRight() {
+        scrollMinimizedApplications(ScrollDirection.RIGHT)
+    }
+
+    override fun doLayout() {
+        super.doLayout()
+        updateScrollButtonsEnabledState()
+    }
+
+    override fun render(model: RewriteShellTaskBarState) {
+        minimizedApplications.removeAll()
+        model.minimizedIcons.forEach { icon ->
+            styleDesktopIcon(icon)
             minimizedApplications.add(icon)
         }
         revalidateTaskBar()
     }
-
-    fun removeDesktopIcon(icon: JInternalFrame.JDesktopIcon) {
-        if (icon.parent === minimizedApplications) {
-            minimizedApplications.remove(icon)
-            revalidateTaskBar()
-        }
-    }
-
-    fun clearIcons() {
-        minimizedApplications.removeAll()
-        revalidateTaskBar()
-    }
-
-    fun minimizedApplicationCount(): Int = minimizedApplications.componentCount
 
     private fun revalidateTaskBar() {
         minimizedApplications.revalidate()
@@ -89,14 +87,13 @@ class RewriteDesktopTaskBar : JPanel(BorderLayout()) {
         queueScrollButtonsEnabledStateUpdate()
     }
 
-    private fun createScrollButton(name: String, text: String, action: () -> Unit): JButton {
+    private fun createScrollButton(name: String, text: String): JButton {
         return JButton(text).apply {
             this.name = name
             isContentAreaFilled = false
             isFocusPainted = false
             isEnabled = false
             preferredSize = Dimension(18, preferredSize.height)
-            addActionListener { action() }
         }
     }
 

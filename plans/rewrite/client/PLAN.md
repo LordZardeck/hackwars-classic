@@ -148,7 +148,7 @@
 - Ready when: look and feel and IPv4 cleanup are available to deterministic fixtures
 - Parallel with: `RW-CLIENT-C1A`, `RW-TEST-004`
 - Allowed write scope: `src/RewriteClientDev/**`, `src/RewriteTestKit/**`, `src/RewriteClient/**`
-- Autonomous next: `RW-CLIENT-C0C`
+- Autonomous next: `RW-CLIENT-C1A`
 - Fallback if blocked: `RW-CLIENT-X3`
 - Verification scope: `./gradlew :RewriteClientDev:test :RewriteClient:uiTest`
 
@@ -522,7 +522,7 @@
 - Priority: `P1`
 - Execution lane: `auth_bootstrap`
 - Worker role: `verifier`
-- Depends on: `RW-CLIENT-C0B`, `RW-CLIENT-X4`, `RW-TEST-007`
+- Depends on: `RW-CLIENT-C0B`, `RW-CLIENT-X4`
 - Ready when: parity rebuild and screenshot harness glue are complete
 - Parallel with: `RW-CLIENT-C1C`
 - Allowed write scope: `src/RewriteClient/src/uiTest/**`, `src/RewriteClientDev/**`
@@ -531,7 +531,7 @@
 - Verification scope: screenshot baseline approval, deterministic login/startup artifact capture
 
 ### RW-CLIENT-C1A - Shell chrome, stats rail, and taskbar MVC extraction
-- Status: `ready`
+- Status: `done`
 - Priority: `P0`
 - Execution lane: `shell_chrome`
 - Worker role: `worker`
@@ -539,12 +539,12 @@
 - Ready when: strict MVC base types exist and shell foundation is landed
 - Parallel with: `RW-CLIENT-C0A`, `RW-CLIENT-X2`
 - Allowed write scope: `src/RewriteClient/**/shell/**`, `src/RewriteClient/**/desktop/**`
-- Autonomous next: `RW-CLIENT-C1B`
+- Autonomous next: `RW-CLIENT-C0A`
 - Fallback if blocked: `RW-CLIENT-003B2`
 - Verification scope: controller tests for shell state derivation, ui workflow tests for taskbar and focus routing
 
 ### RW-CLIENT-C1B - Shell chrome, stats rail, and taskbar legacy parity rebuild
-- Status: `todo`
+- Status: `blocked`
 - Priority: `P0`
 - Execution lane: `shell_chrome`
 - Worker role: `worker`
@@ -561,7 +561,7 @@
 - Priority: `P0`
 - Execution lane: `shell_chrome`
 - Worker role: `verifier`
-- Depends on: `RW-CLIENT-C1B`, `RW-CLIENT-X4`, `RW-TEST-007`
+- Depends on: `RW-CLIENT-C1B`, `RW-CLIENT-X4`
 - Ready when: shell parity rebuild and screenshot harness glue are complete
 - Parallel with: `RW-CLIENT-C0C`
 - Allowed write scope: `src/RewriteClient/src/uiTest/**`

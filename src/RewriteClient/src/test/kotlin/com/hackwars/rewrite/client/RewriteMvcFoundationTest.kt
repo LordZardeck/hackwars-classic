@@ -76,6 +76,8 @@ class RewriteMvcFoundationTest {
         }
 
         override fun disposeAllWindows() = Unit
+
+        override fun renderTaskBar(state: com.hackwars.rewrite.client.shell.RewriteShellTaskBarState) = Unit
     }
 
     private inline fun invokeAndWait(crossinline block: () -> Unit) {

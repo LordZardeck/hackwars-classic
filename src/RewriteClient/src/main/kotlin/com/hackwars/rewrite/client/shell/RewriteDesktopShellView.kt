@@ -17,22 +17,17 @@ import javax.swing.JLayeredPane
 import javax.swing.JLabel
 import javax.swing.JPanel
 import javax.swing.SwingConstants
-import java.awt.event.ComponentAdapter
-import java.awt.event.ComponentEvent
-import javax.swing.event.InternalFrameAdapter
-import javax.swing.event.InternalFrameEvent
 
 interface RewriteShellWindowHost {
     fun showWindow(frame: JInternalFrame)
     fun focusWindow(frame: JInternalFrame)
     fun disposeAllWindows()
+    fun renderTaskBar(state: RewriteShellTaskBarState)
 }
 
-class RewriteDesktopShellView(
-    private val onCommandSelected: (RewriteShellCommand) -> Unit,
-) : JPanel(BorderLayout()), RewriteShellWindowHost, RewriteView<RewriteShellChromeState> {
+class RewriteDesktopShellView : JPanel(BorderLayout()), RewriteShellWindowHost, RewriteView<RewriteShellChromeState> {
     val desktopPane = RewriteDesktopBackgroundPane()
-    val menuBar = RewriteDesktopMenuBar(onCommandSelected = onCommandSelected)
+    val menuBar = RewriteDesktopMenuBar()
     val statsRail = RewriteShellStatsRail().apply {
         isVisible = false
     }
@@ -46,17 +41,16 @@ class RewriteDesktopShellView(
         name = "rewrite-shell-host"
         desktopPane.add(statsRail, JLayeredPane.PALETTE_LAYER)
         desktopPane.add(countdownLabel, JLayeredPane.PALETTE_LAYER)
-        desktopPane.addComponentListener(object : ComponentAdapter() {
-            override fun componentResized(event: ComponentEvent) {
-                layoutShellChrome()
-            }
-        })
         add(desktopPane, BorderLayout.CENTER)
+    }
+
+    override fun doLayout() {
+        super.doLayout()
+        layoutShellChrome()
     }
 
     override fun showWindow(frame: JInternalFrame) {
         if (frame.parent !== desktopPane) {
-            installTaskBarLifecycle(frame)
             desktopPane.add(frame)
             frame.setLocation(
                 48 + ((nextCascadeIndex % 8) * 28),
@@ -89,23 +83,11 @@ class RewriteDesktopShellView(
         desktopPane.allFrames.toList().forEach { frame ->
             runCatching { frame.dispose() }
         }
-        menuBar.taskBar.clearIcons()
+        menuBar.taskBar.render(RewriteShellTaskBarState())
     }
 
-    private fun installTaskBarLifecycle(frame: JInternalFrame) {
-        frame.addInternalFrameListener(object : InternalFrameAdapter() {
-            override fun internalFrameIconified(event: InternalFrameEvent) {
-                menuBar.taskBar.addDesktopIcon(frame.desktopIcon)
-            }
-
-            override fun internalFrameDeiconified(event: InternalFrameEvent) {
-                menuBar.taskBar.removeDesktopIcon(frame.desktopIcon)
-            }
-
-            override fun internalFrameClosed(event: InternalFrameEvent) {
-                menuBar.taskBar.removeDesktopIcon(frame.desktopIcon)
-            }
-        })
+    override fun renderTaskBar(state: RewriteShellTaskBarState) {
+        menuBar.taskBar.render(state)
     }
 
     override fun render(model: RewriteShellChromeState) {
