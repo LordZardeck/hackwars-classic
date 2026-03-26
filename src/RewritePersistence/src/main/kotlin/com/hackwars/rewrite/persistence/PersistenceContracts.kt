@@ -88,6 +88,8 @@ data class SeedInventorySnapshot(
     val noobProtectionLevel: Int = 0,
     val pettyCash: Double = 0.0,
     val bankMoney: Double = 0.0,
+    val commodities: List<Double> = List(5) { 0.0 },
+    val commodityRespawn: List<Double> = commodities,
     val currentNetworkName: String = "UGOPNet",
     val allowedNetworks: List<String> = emptyList(),
     val lastNetworkSwitchAtEpochMillis: Long = 0L,

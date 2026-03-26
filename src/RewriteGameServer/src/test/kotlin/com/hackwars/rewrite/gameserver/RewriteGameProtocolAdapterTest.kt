@@ -49,6 +49,7 @@ import hackwars.rewrite.v1.CommandEnvelope
 import hackwars.rewrite.v1.FrameEnvelope
 import java.time.Instant
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.yield
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
@@ -412,6 +413,7 @@ class RewriteGameProtocolAdapterTest {
                 repository = repository,
                 interestRegistry = interests,
             ),
+            combatMaintenanceProgramRegistry = DisabledCombatMaintenanceProgramRegistry,
             interestRegistry = interests,
             networkDirectoryRepository = InMemoryNetworkDirectoryRepository.defaultWorld("1"),
         )
@@ -548,6 +550,8 @@ class RewriteGameProtocolAdapterTest {
         connection.send(authRequest())
         connection.awaitFrame()
         connection.awaitFrame()
+        yield()
+        connection.drainFrames()
         return connection
     }
 

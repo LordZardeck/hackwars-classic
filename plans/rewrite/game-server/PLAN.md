@@ -488,7 +488,7 @@
   - Keeps watch-side zombie compatibility and broader zombie UX polish deferred to the next slice.
 
 ### RW-GS-S5B2B2B3B2C3C - watch-side zombie compatibility and zombie UX polish
-- Status: `in_progress`
+- Status: `done`
 - Owner: `codex`
 - Depends on: `RW-GS-S5B2B2B3B2C3B`
 - Allowed write scope: `:RewriteHackScript`, `:RewriteGameCore`, `:RewriteGameServer`, `:RewritePersistence`
@@ -499,29 +499,96 @@
   - Owns watch-side `zombieAttack(...)` compatibility and the remaining zombie-specific UX polish after the controller runtime foundation and public wires are stable.
   - Adds typed `show_choices` UI delivery for direct and zombie attack sessions, including controller-only routing for zombie sessions and persisted once-per-session prompt state.
   - Watch-triggered `zombieAttack(...)` now reuses the same internal zombie-session admission, charge, CPU reservation, and failure-UI mapping as the public zombie transport without adding a correlated response surface.
-  - Keeps `launchnetworkattack` plus redirecting or shipping-port semantics deferred until the rewrite has the needed typed port and network models.
+  - Keeps `launchnetworkattack`, redirect UI parity, and broader shipping-port semantics deferred to `RW-GS-S5C2B`.
 
-### RW-GS-S5C - Redirect, zombie, and combat cleanup
-- Status: `todo`
-- Owner: `unassigned`
-- Depends on: `RW-GS-S5B2B2B3B2C3`
-- Allowed write scope: `:RewriteGameCore`, `:RewriteGameServer`
-- Verification command: `./gradlew :RewriteGameCore:test :RewriteGameServer:test`
+### RW-GS-S5C1A - weakened-port access plus `healport` or `finalizecancelled` cleanup core
+- Status: `done`
+- Owner: `codex`
+- Depends on: `RW-GS-S5B2B2B3B2C3C`
+- Allowed write scope: `:RewriteGameCore`, `:RewriteGameServer`, `:RewritePersistence`
+- Verification command: `./gradlew :RewriteGameCore:test :RewritePersistence:test :RewritePersistence:migrationTest :RewriteGameServer:test :RewriteTestKit:integrationTest`
 - Artifacts: `build/reports/tests/test`
 - Commit rule: `single green commit only`
 - Notes:
-  - Owns redirect, zombie-attack, heal-port, finalize-cancelled, and the remaining combat cleanup flows once the base attack-program runtime exists.
+  - Adds typed weakened-port access persistence on breached choice-capable ports, grants ownership to the attacker or zombie controller, and keeps that access alive after the attack session is removed.
+  - Adds public rewrite `healport` and `finalizecancelled` commands with typed correlated responses and delta-first ordering.
+  - Successful post-breach helper finalizers now reuse the shared weakened-port reset helper to heal the target port back to `100.0`, clear weakened access, reset `healCount`, and refresh health-watch baselines.
+  - Adds explicit-heal equipment cost multiplier state while keeping passive heal timers and weakened-access expiry deferred.
 
-### RW-GS-S6 - Hacktendo-specific server behavior
-- Status: `todo`
+### RW-GS-S5C1B - passive heal, weakened-access timeout, and remaining combat-reset runtime cleanup
+- Status: `done`
+- Owner: `codex`
+- Depends on: `RW-GS-S5C1A`
+- Allowed write scope: `:RewriteGameCore`, `:RewriteGameServer`, `:RewritePersistence`
+- Verification command: `./gradlew :RewriteGameCore:test :RewritePersistence:test :RewriteGameServer:test :RewriteTestKit:integrationTest`
+- Artifacts: `build/reports/tests/test`
+- Commit rule: `single green commit only`
+- Notes:
+  - Adds the hidden session-loaded combat-maintenance runtime, with immediate start plus `2_000` ms refresh cadence and session-end teardown when the last subscriber disconnects.
+  - Persists passive-heal cadence state, weakened-access last-access timestamps, and overheat cooldown timestamps or port flags.
+  - Owns passive port healing, weakened-access expiry, persistent overheat cooldown, overheat-driven attack cancellation, and the remaining runtime combat-reset cleanup after the explicit `healport` / `finalizecancelled` core lands.
+  - Keeps redirect runtime, redirect UI parity, `launchnetworkattack`, and broader shipping-port cleanup deferred to `RW-GS-S5C2A` and `RW-GS-S5C2B`.
+
+### RW-GS-S5C2A - redirect runtime core on existing attack transport
+- Status: `in_progress`
+- Owner: `codex`
+- Depends on: `RW-GS-S5C1B`
+- Allowed write scope: `:RewriteHackScript`, `:RewriteGameCore`, `:RewriteGameServer`, `:RewritePersistence`
+- Verification command: `./gradlew :RewriteHackScript:test :RewriteGameCore:test :RewritePersistence:test :RewritePersistence:migrationTest :RewriteGameServer:test :RewriteTestKit:integrationTest`
+- Artifacts: `build/reports/tests/test`
+- Commit rule: `single green commit only`
+- Notes:
+  - Owns rewrite `ApplicationKind.REDIRECT`, redirect binary/install replay, `defaultRedirectPort`, `commodityRespawn`, and redirect-session persistence on the existing `requestattack` / `requestcancelattack` transport.
+  - Adds redirect-program runtime execution, redirect script commodity-selection helpers, deterministic commodity payout and redirect-XP gain, NPC commodity respawn, and requester-scoped `ProgramUpdate.programType = "redirect"`.
+  - Keeps redirect feedback parity, `launchnetworkattack` compatibility, zombie redirecting, and broader shipping-port UX polish deferred to `RW-GS-S5C2B1` and `RW-GS-S5C2B2`.
+
+### RW-GS-S5C2B1 - redirect feedback and protocol parity on existing attack transport
+- Status: `in_progress`
 - Owner: `unassigned`
+- Depends on: `RW-GS-S5C2A`
+- Allowed write scope: `:RewriteGameCore`, `:RewriteGameServer`
+- Verification command: `./gradlew :RewriteGameCore:test :RewriteGameServer:test :RewriteTestKit:integrationTest`
+- Artifacts: `build/reports/tests/test`
+- Commit rule: `single green commit only`
+- Notes:
+  - Owns redirect failure, receipt, timeout, completion, and pane-targeted feedback on the existing `requestattack` / `requestcancelattack` transport without adding new public wires.
+  - Keeps rewrite-client redirect window parity and broader shipping-choice consumption deferred to the client W5 slice.
+
+### RW-GS-S5C2B2 - internal `launchnetworkattack` compatibility over note-trigger plumbing
+- Status: `in_progress`
+- Owner: `unassigned`
+- Depends on: `RW-GS-S5C2A`
+- Allowed write scope: `:RewriteGameCore`
+- Verification command: `./gradlew :RewriteGameCore:test`
+- Artifacts: `build/reports/tests/test`
+- Commit rule: `single green commit only`
+- Notes:
+  - Owns the internal-only `LaunchNetworkAttackCommand` compatibility helper that dispatches `RequestTriggerNoteCommand("netbomb")` with rewrite-resolved default attack, bank, HTTP, and redirect ports.
+  - Keeps full data-driven network attack scheduling and any public `launchnetworkattack` transport deferred.
+
+### RW-GS-S6A - Hacktendo `requestgame` load bridge
+- Status: `done`
+- Owner: `codex`
 - Depends on: `RW-GS-S2`
 - Allowed write scope: `:RewriteGameCore`, `:RewriteGameServer`
 - Verification command: `./gradlew :RewriteGameCore:test :RewriteGameServer:test`
 - Artifacts: `build/reports/tests/test`
 - Commit rule: `single green commit only`
 - Notes:
-  - Preserve required Hacktendo flows, including currently broken legacy ones.
+  - Owns rewrite `requestgame` transport for creator and player file-open flows, including full file load plus root-scoped `/$name.save` hydration into typed rewrite load values.
+  - Keeps the command delta-free, reuses existing `savefile` and `requestsave` behavior unchanged, and leaves client-native Hacktendo launch issues outside this server-first slice.
+
+### RW-GS-S6B - `hacktendoActivate` and `hacktendoTarget` compatibility no-op transport
+- Status: `in_progress`
+- Owner: `unassigned`
+- Depends on: `RW-GS-S6A`
+- Allowed write scope: `:RewriteGameCore`, `:RewriteGameServer`
+- Verification command: `./gradlew :RewriteGameCore:test :RewriteGameServer:test`
+- Artifacts: `build/reports/tests/test`
+- Commit rule: `single green commit only`
+- Notes:
+  - Owns rewrite compatibility handling for runtime `hacktendoActivate` and `hacktendoTarget` commands without inventing new gameplay semantics.
+  - Keeps any disabled `HacktendoPacket` MMO flow, native player parity, and broader Hacktendo UI work deferred.
 
 ## Verification Gates
 - Every command gets mocked tests for accepted input, rejected input, lifetime expiry, emitted deltas, nested dispatch, and cancellation.

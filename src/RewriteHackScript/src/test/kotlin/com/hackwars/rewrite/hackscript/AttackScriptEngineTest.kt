@@ -201,6 +201,47 @@ class AttackScriptEngineTest {
     }
 
     @Test
+    fun redirectCommodityHelpersProduceTypedEffectsInAllPhasesAndRejectArguments() {
+        val initialize = engine.execute(
+            script = """int main() { redirectDuctTape(); return 0; }""",
+            input = input(phase = AttackExecutionPhase.INITIALIZE),
+        )
+        val continuePhase = engine.execute(
+            script = """int main() { redirectGermanium(); redirectPlutonium(); return 0; }""",
+            input = input(phase = AttackExecutionPhase.CONTINUE),
+        )
+        val finalizePhase = engine.execute(
+            script = """int main() { redirectYBCO(); return 0; }""",
+            input = input(phase = AttackExecutionPhase.FINALIZE),
+        )
+        val wrongCount = engine.execute(
+            script = """int main() { redirectSilicon(1); return 0; }""",
+            input = input(phase = AttackExecutionPhase.CONTINUE),
+        )
+
+        assertEquals(
+            listOf(AttackSelectRedirectCommodityEffect(commodityId = 0)),
+            assertNotNull(initialize.result).effects,
+        )
+        assertTrue(initialize.diagnostics.isEmpty())
+        assertEquals(
+            listOf(
+                AttackSelectRedirectCommodityEffect(commodityId = 1),
+                AttackSelectRedirectCommodityEffect(commodityId = 4),
+            ),
+            assertNotNull(continuePhase.result).effects,
+        )
+        assertTrue(continuePhase.diagnostics.isEmpty())
+        assertEquals(
+            listOf(AttackSelectRedirectCommodityEffect(commodityId = 3)),
+            assertNotNull(finalizePhase.result).effects,
+        )
+        assertTrue(finalizePhase.diagnostics.isEmpty())
+        assertEquals("BAD_ARGUMENT_COUNT", wrongCount.diagnostics.single().code)
+        assertNull(wrongCount.result)
+    }
+
+    @Test
     fun unsupportedPhaseUsageAddsDiagnosticsButDoesNotCrash() {
         val initializeDelete = engine.execute(
             script = """int main() { deleteLogs("REMOTE-IP"); return 0; }""",

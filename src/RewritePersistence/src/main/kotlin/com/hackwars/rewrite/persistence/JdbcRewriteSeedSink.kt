@@ -551,7 +551,9 @@ class JdbcRewriteSeedSink(
             economy = current.economy.copy(
                 pettyCash = payload.pettyCash,
                 bankMoney = payload.bankMoney,
+                commodities = payload.commodities.normalizedCommodityList(),
                 defaultBankPort = if (payload.enableBanking) 6 else null,
+                commodityRespawn = payload.commodityRespawn.normalizedCommodityList(),
             ),
             filesystem = filesystem,
             ports = ports,
@@ -630,13 +632,19 @@ class JdbcRewriteSeedSink(
             }
             is SeedInventorySnapshot -> {
                 val notesJson = payload.notes.joinToString(prefix = "[", postfix = "]") { "\"$it\"" }
+                val commoditiesJson = payload.commodities.normalizedCommodityList().joinToString(prefix = "[", postfix = "]")
+                val commodityRespawnJson = payload.commodityRespawn.normalizedCommodityList().joinToString(prefix = "[", postfix = "]")
                 val allowedNetworksJson = payload.allowedNetworks.joinToString(prefix = "[", postfix = "]") { "\"$it\"" }
                 val activeQuestsJson = payload.activeQuestLabelsById.entries.joinToString(prefix = "{", postfix = "}") {
                     "\"${it.key}\":\"${it.value}\""
                 }
-                """{"type":"inventory","computerId":"${payload.computerId}","notes":$notesJson,"websiteTitle":"${payload.websiteTitle}","websiteBody":"${payload.websiteBody}","lastLoginAtEpochMillis":${payload.lastLoginAtEpochMillis ?: "null"},"votesAvailable":${payload.votesAvailable},"voteCount":${payload.voteCount},"totalLevel":${payload.totalLevel},"noobProtectionLevel":${payload.noobProtectionLevel},"pettyCash":${payload.pettyCash},"bankMoney":${payload.bankMoney},"currentNetworkName":"${payload.currentNetworkName}","allowedNetworks":$allowedNetworksJson,"lastNetworkSwitchAtEpochMillis":${payload.lastNetworkSwitchAtEpochMillis},"scanningExperience":${payload.scanningExperience},"firewallExperience":${payload.firewallExperience},"currentCpuLoad":${payload.currentCpuLoad},"cpuMax":${payload.cpuMax},"memoryType":${payload.memoryType},"watchCapacityBoost":${payload.watchCapacityBoost},"freezeImmune":${payload.freezeImmune},"destroyWatchesImmune":${payload.destroyWatchesImmune},"activeQuestLabelsById":$activeQuestsJson,"seedSaveFileName":"${payload.seedSaveFileName.orEmpty()}","enableBanking":${payload.enableBanking},"enableFtp":${payload.enableFtp},"enableHttp":${payload.enableHttp},"enableWatchBinary":${payload.enableWatchBinary},"seedInstalledWatchCount":${payload.seedInstalledWatchCount},"seedEnabledWatchCount":${payload.seedEnabledWatchCount},"seedWatchCpuCost":${payload.seedWatchCpuCost}}"""
+                """{"type":"inventory","computerId":"${payload.computerId}","notes":$notesJson,"websiteTitle":"${payload.websiteTitle}","websiteBody":"${payload.websiteBody}","lastLoginAtEpochMillis":${payload.lastLoginAtEpochMillis ?: "null"},"votesAvailable":${payload.votesAvailable},"voteCount":${payload.voteCount},"totalLevel":${payload.totalLevel},"noobProtectionLevel":${payload.noobProtectionLevel},"pettyCash":${payload.pettyCash},"bankMoney":${payload.bankMoney},"commodities":$commoditiesJson,"commodityRespawn":$commodityRespawnJson,"currentNetworkName":"${payload.currentNetworkName}","allowedNetworks":$allowedNetworksJson,"lastNetworkSwitchAtEpochMillis":${payload.lastNetworkSwitchAtEpochMillis},"scanningExperience":${payload.scanningExperience},"firewallExperience":${payload.firewallExperience},"currentCpuLoad":${payload.currentCpuLoad},"cpuMax":${payload.cpuMax},"memoryType":${payload.memoryType},"watchCapacityBoost":${payload.watchCapacityBoost},"freezeImmune":${payload.freezeImmune},"destroyWatchesImmune":${payload.destroyWatchesImmune},"activeQuestLabelsById":$activeQuestsJson,"seedSaveFileName":"${payload.seedSaveFileName.orEmpty()}","enableBanking":${payload.enableBanking},"enableFtp":${payload.enableFtp},"enableHttp":${payload.enableHttp},"enableWatchBinary":${payload.enableWatchBinary},"seedInstalledWatchCount":${payload.seedInstalledWatchCount},"seedEnabledWatchCount":${payload.seedEnabledWatchCount},"seedWatchCpuCost":${payload.seedWatchCpuCost}}"""
             }
         }
+    }
+
+    private fun List<Double>.normalizedCommodityList(): List<Double> {
+        return List(5) { index -> getOrNull(index) ?: 0.0 }
     }
 
     private fun serializeSeedSaveRows(valuesByKey: Map<String, HookValue>): String {

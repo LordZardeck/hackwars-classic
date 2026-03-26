@@ -100,6 +100,70 @@ class RequestSaveCommand(
     }
 }
 
+class RequestGameCommand(
+    private val stateId: GameStateId,
+    private val path: String?,
+    private val fileName: String?,
+) : RequestCommand<RequestGameResponse> {
+    override val name: String = "requestgame"
+    override val lifetime: CommandLifetime = CommandLifetime.defaultRequest
+    override val targetStateIds: Set<GameStateId> = setOf(stateId)
+
+    override suspend fun execute(context: CommandContext): RequestGameResponse {
+        val state = context.loadState(stateId) ?: ComputerState.empty(stateId, playerIp = stateId.value)
+        val requestedName = fileName.orEmpty().trim()
+        val file = requestedName
+            .takeIf { it.isNotEmpty() }
+            ?.let { state.filesystem.resolveFile(path, it)?.copy() }
+        val loadValues = requestedName
+            .takeIf { it.isNotEmpty() }
+            ?.let { resolveRequestGameLoadValues(state, it) }
+            ?: emptyMap()
+        return RequestGameResponse(
+            stateId = stateId,
+            file = file,
+            loadValues = loadValues,
+            version = state.version,
+        )
+    }
+}
+
+class HacktendoActivateCommand(
+    private val stateId: GameStateId,
+    private val activateId: Int,
+    private val activateType: Int,
+) : FireAndForgetCommand {
+    override val name: String = "hacktendoActivate"
+    override val lifetime: CommandLifetime = CommandLifetime.defaultFireAndForget
+    override val targetStateIds: Set<GameStateId> = setOf(stateId)
+
+    override suspend fun execute(context: CommandContext) {
+        // Legacy server behavior only parsed and accepted this runtime packet.
+        activateId
+        activateType
+    }
+}
+
+class HacktendoTargetCommand(
+    private val stateId: GameStateId,
+    private val targetX: Int,
+    private val targetY: Int,
+    private val currentX: Int,
+    private val currentY: Int,
+) : FireAndForgetCommand {
+    override val name: String = "hacktendoTarget"
+    override val lifetime: CommandLifetime = CommandLifetime.defaultFireAndForget
+    override val targetStateIds: Set<GameStateId> = setOf(stateId)
+
+    override suspend fun execute(context: CommandContext) {
+        // Legacy server behavior only parsed and accepted this runtime packet.
+        targetX
+        targetY
+        currentX
+        currentY
+    }
+}
+
 class ClueDataCommand(
     private val stateId: GameStateId,
     private val targetIp: String,
@@ -305,6 +369,106 @@ class RequestTriggerNoteCommand(
     }
 }
 
+internal enum class LaunchNetworkAttackFailureCode {
+    PLAYER_STATE_NOT_FOUND,
+    NPC_STATE_NOT_FOUND,
+}
+
+internal data class LaunchNetworkAttackResponse(
+    val playerStateId: GameStateId,
+    val npcStateId: GameStateId,
+    val accepted: Boolean,
+    val failureCode: LaunchNetworkAttackFailureCode? = null,
+    val message: String,
+    val dispatched: Boolean,
+)
+
+internal class LaunchNetworkAttackCommand(
+    private val playerStateId: GameStateId,
+    private val npcStateId: GameStateId,
+    private val clock: () -> Long = { System.currentTimeMillis() },
+) : RequestCommand<LaunchNetworkAttackResponse> {
+    override val name: String = "launchnetworkattack"
+    override val lifetime: CommandLifetime = CommandLifetime.defaultRequest
+    override val targetStateIds: Set<GameStateId> = setOf(playerStateId, npcStateId)
+
+    override suspend fun execute(context: CommandContext): LaunchNetworkAttackResponse {
+        val states = context.loadStates(targetStateIds)
+        val playerState = states[playerStateId] ?: return failure(
+            playerStateId = playerStateId,
+            npcStateId = npcStateId,
+            code = LaunchNetworkAttackFailureCode.PLAYER_STATE_NOT_FOUND,
+            message = "player-state-missing",
+        )
+        val npcState = states[npcStateId] ?: return failure(
+            playerStateId = playerStateId,
+            npcStateId = npcStateId,
+            code = LaunchNetworkAttackFailureCode.NPC_STATE_NOT_FOUND,
+            message = "npc-state-missing",
+        )
+
+        val now = clock()
+        val triggerParameters = linkedMapOf<String, HookValue>().apply {
+            put("playerip", StringHookValue(playerState.id.value))
+            put("defaultattack", IntHookValue(playerState.activeLaunchNetworkAttackPortNumber(ApplicationKind.ATTACK, now)))
+            put("defaultbank", IntHookValue(playerState.activeLaunchNetworkAttackPortNumber(ApplicationKind.BANKING, now)))
+            put("defaulthttp", IntHookValue(playerState.activeLaunchNetworkAttackPortNumber(ApplicationKind.HTTP, now)))
+            put("defaultredirecting", IntHookValue(playerState.activeLaunchNetworkAttackPortNumber(ApplicationKind.REDIRECT, now)))
+        }
+        context.request(
+            RequestTriggerNoteCommand(
+                stateId = playerStateId,
+                targetStateId = npcState.id,
+                note = "netbomb",
+                sourceIp = playerState.id.value,
+                triggerParameters = triggerParameters,
+            ),
+        )
+
+        return LaunchNetworkAttackResponse(
+            playerStateId = playerStateId,
+            npcStateId = npcStateId,
+            accepted = true,
+            message = "launchnetworkattack-dispatched",
+            dispatched = true,
+        )
+    }
+
+    private fun failure(
+        playerStateId: GameStateId,
+        npcStateId: GameStateId,
+        code: LaunchNetworkAttackFailureCode,
+        message: String,
+    ): LaunchNetworkAttackResponse {
+        return LaunchNetworkAttackResponse(
+            playerStateId = playerStateId,
+            npcStateId = npcStateId,
+            accepted = false,
+            failureCode = code,
+            message = message,
+            dispatched = false,
+        )
+    }
+}
+
+private fun ComputerState.activeLaunchNetworkAttackPortNumber(
+    kind: ApplicationKind,
+    now: Long = System.currentTimeMillis(),
+): Int {
+    val portNumber = ports.firstOrNull { port ->
+        port.defaultPort &&
+            port.enabled &&
+            !port.isFrozenAt(now) &&
+            !port.overheated &&
+            port.installedApplication?.kind == kind
+    }?.number ?: return 0
+
+    return when (kind) {
+        ApplicationKind.REDIRECT -> economy.defaultRedirectPort.takeIf { it == portNumber } ?: 0
+        else -> portNumber
+    }
+}
+
 @Serializable
 data class RequestTaskPayload(
     val fileName: String? = null,
@@ -318,6 +482,29 @@ data class RequestSavePayload(
     val fileName: String,
     val triggerParameters: Map<String, HookValue> = emptyMap(),
     val targetIp: String? = null,
+)
+
+@Serializable
+data class RequestGamePayload(
+    val ip: String,
+    val path: String? = null,
+    val name: String? = null,
+)
+
+@Serializable
+data class HacktendoActivatePayload(
+    val activateID: Int,
+    val activateType: Int,
+    val ip: String? = null,
+)
+
+@Serializable
+data class HacktendoTargetPayload(
+    val targetX: Int,
+    val targetY: Int,
+    val ip: String? = null,
+    val currentX: Int,
+    val currentY: Int,
 )
 
 @Serializable
@@ -370,6 +557,44 @@ private fun serializeSaveRows(triggerParameters: Map<String, HookValue>): String
             append('\n')
         }
     }
+}
+
+private fun resolveRequestGameLoadValues(
+    state: ComputerState,
+    fileName: String,
+): Map<String, HookValue> {
+    val saveFile = state.filesystem.filesByPath[buildFilePath("/", "$fileName.save")] ?: return emptyMap()
+    return saveFile.saveMetadata?.valuesByKey ?: parseLegacySaveRows(saveFile.contents)
+}
+
+private fun parseLegacySaveRows(contents: String): Map<String, HookValue> {
+    val parsed = linkedMapOf<String, HookValue>()
+    contents.lineSequence().forEach { row ->
+        if (row.isBlank()) {
+            return@forEach
+        }
+        val parts = row.split('\t')
+        if (parts.size < 3) {
+            return@forEach
+        }
+        val key = parts[0].trim()
+        val type = parts[1].trim()
+        val rawValue = parts.subList(2, parts.size).joinToString("\t")
+        if (key.isEmpty()) {
+            return@forEach
+        }
+        val parsedValue = when (type) {
+            "string" -> StringHookValue(rawValue)
+            "bool" -> BooleanHookValue(java.lang.Boolean.valueOf(rawValue))
+            "int" -> rawValue.toIntOrNull()?.let(::IntHookValue)
+            "float" -> rawValue.toDoubleOrNull()?.let(::FloatHookValue)
+            else -> null
+        }
+        if (parsedValue != null) {
+            parsed[key] = parsedValue
+        }
+    }
+    return parsed
 }
 
 private fun HookValue.toLegacySaveType(): String = when (this) {

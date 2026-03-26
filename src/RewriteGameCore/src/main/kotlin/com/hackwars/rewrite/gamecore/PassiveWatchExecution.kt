@@ -307,7 +307,7 @@ internal fun PlayerStatsState.watchLevel(): Int = legacyLevelForXp(skillExperien
 internal fun ComputerState.port(portNumber: Int): PortState? = ports.firstOrNull { it.number == portNumber }
 
 private fun PortState?.isInstallPortOverheated(state: ComputerState): Boolean {
-    return this != null && state.hardware.cpuMax > 0.0 && state.runtime.currentCpuLoad > state.hardware.cpuMax
+    return this != null && state.isCurrentlyOverheated(System.currentTimeMillis())
 }
 
 private fun PortState.isBankingApplication(): Boolean {

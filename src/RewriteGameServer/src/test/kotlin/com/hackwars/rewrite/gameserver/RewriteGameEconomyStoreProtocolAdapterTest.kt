@@ -49,6 +49,7 @@ import com.hackwars.rewrite.testkit.RewriteServiceAdapter
 import hackwars.rewrite.v1.FrameEnvelope
 import java.time.Instant
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.yield
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
@@ -389,6 +390,7 @@ class RewriteGameEconomyStoreProtocolAdapterTest {
                 repository = repository,
                 interestRegistry = interests,
             ),
+            combatMaintenanceProgramRegistry = DisabledCombatMaintenanceProgramRegistry,
             interestRegistry = interests,
             serverId = "1",
             networkDirectoryRepository = InMemoryNetworkDirectoryRepository.defaultWorld("1"),
@@ -439,6 +441,8 @@ class RewriteGameEconomyStoreProtocolAdapterTest {
         connection.send(authRequest(requestedIp))
         connection.awaitFrame()
         connection.awaitFrame()
+        yield()
+        connection.drainFrames()
         return connection
     }
 

@@ -168,6 +168,7 @@ class PassiveWatchCommandsTest {
     @Test
     fun overheatedPettyCashWatchesNeitherFireNorRefreshBaseline() = runTest {
         val stateId = GameStateId("LOCAL-IP")
+        val overheatStartedAtEpochMillis = System.currentTimeMillis()
         val repository = InMemoryComputerStateRepository(
             seededStates = mapOf(
                 stateId to passiveWatchState(
@@ -175,6 +176,7 @@ class PassiveWatchCommandsTest {
                     pettyCash = 40.0,
                     bankMoney = 40.0,
                     currentCpuLoad = 120.0,
+                    overheatStartedAtEpochMillis = overheatStartedAtEpochMillis,
                     cpuMax = 100.0,
                     watches = listOf(
                         passiveWatch(
@@ -323,6 +325,7 @@ class PassiveWatchCommandsTest {
         val alreadyBelowId = GameStateId("TARGET-BELOW")
         val disabledId = GameStateId("TARGET-DISABLED")
         val overheatedId = GameStateId("TARGET-OVERHEATED")
+        val overheatStartedAtEpochMillis = System.currentTimeMillis()
         val repository = InMemoryComputerStateRepository(
             seededStates = mapOf(
                 alreadyBelowId to healthWatchState(
@@ -353,6 +356,7 @@ class PassiveWatchCommandsTest {
                 overheatedId to healthWatchState(
                     stateId = overheatedId,
                     currentCpuLoad = 120.0,
+                    overheatStartedAtEpochMillis = overheatStartedAtEpochMillis,
                     cpuMax = 100.0,
                     watches = listOf(
                         passiveWatch(
@@ -505,6 +509,7 @@ private fun passiveWatchState(
     pettyCash: Double,
     bankMoney: Double,
     currentCpuLoad: Double = 0.0,
+    overheatStartedAtEpochMillis: Long? = null,
     cpuMax: Double = 100.0,
     stats: PlayerStatsState = PlayerStatsState(),
     watches: List<InstalledWatch>,
@@ -520,7 +525,10 @@ private fun passiveWatchState(
             defaultBankPort = 6,
         ),
         hardware = HardwareState(cpuMax = cpuMax),
-        runtime = RuntimeState(currentCpuLoad = currentCpuLoad),
+        runtime = RuntimeState(
+            currentCpuLoad = currentCpuLoad,
+            overheatStartedAtEpochMillis = overheatStartedAtEpochMillis,
+        ),
         stats = stats,
         ports = listOf(passiveBankingPort()),
         watches = WatchManagerState(watches = watches),
@@ -531,6 +539,7 @@ private fun healthWatchState(
     stateId: GameStateId,
     health: Double = 100.0,
     currentCpuLoad: Double = 0.0,
+    overheatStartedAtEpochMillis: Long? = null,
     cpuMax: Double = 100.0,
     stats: PlayerStatsState = PlayerStatsState(),
     watches: List<InstalledWatch>,
@@ -541,7 +550,10 @@ private fun healthWatchState(
         playerIp = stateId.value,
     ).copy(
         hardware = HardwareState(cpuMax = cpuMax),
-        runtime = RuntimeState(currentCpuLoad = currentCpuLoad),
+        runtime = RuntimeState(
+            currentCpuLoad = currentCpuLoad,
+            overheatStartedAtEpochMillis = overheatStartedAtEpochMillis,
+        ),
         stats = stats,
         ports = listOf(
             PortState(

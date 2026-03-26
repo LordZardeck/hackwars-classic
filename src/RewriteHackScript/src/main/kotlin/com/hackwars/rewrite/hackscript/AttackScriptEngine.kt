@@ -132,6 +132,12 @@ data class AttackSendMessageEffect(
 data object AttackShowChoicesEffect : AttackRuntimeEffect
 
 @Serializable
+@SerialName("attack_select_redirect_commodity")
+data class AttackSelectRedirectCommodityEffect(
+    val commodityId: Int,
+) : AttackRuntimeEffect
+
+@Serializable
 @SerialName("attack_authorize_zombie")
 data class AttackAuthorizeZombieEffect(
     val targetIp: String,
@@ -409,6 +415,36 @@ private class AttackScriptHost(
                 } else {
                     state.effects += AttackShowChoicesEffect
                 }
+                HackValue.IntValue(0)
+            }
+
+            "redirectDuctTape" -> {
+                ensure(arguments.isEmpty(), "BAD_ARGUMENT_COUNT", "redirectDuctTape expects 0 arguments.")
+                state.effects += AttackSelectRedirectCommodityEffect(commodityId = 0)
+                HackValue.IntValue(0)
+            }
+
+            "redirectGermanium" -> {
+                ensure(arguments.isEmpty(), "BAD_ARGUMENT_COUNT", "redirectGermanium expects 0 arguments.")
+                state.effects += AttackSelectRedirectCommodityEffect(commodityId = 1)
+                HackValue.IntValue(0)
+            }
+
+            "redirectSilicon" -> {
+                ensure(arguments.isEmpty(), "BAD_ARGUMENT_COUNT", "redirectSilicon expects 0 arguments.")
+                state.effects += AttackSelectRedirectCommodityEffect(commodityId = 2)
+                HackValue.IntValue(0)
+            }
+
+            "redirectYBCO" -> {
+                ensure(arguments.isEmpty(), "BAD_ARGUMENT_COUNT", "redirectYBCO expects 0 arguments.")
+                state.effects += AttackSelectRedirectCommodityEffect(commodityId = 3)
+                HackValue.IntValue(0)
+            }
+
+            "redirectPlutonium" -> {
+                ensure(arguments.isEmpty(), "BAD_ARGUMENT_COUNT", "redirectPlutonium expects 0 arguments.")
+                state.effects += AttackSelectRedirectCommodityEffect(commodityId = 4)
                 HackValue.IntValue(0)
             }
 

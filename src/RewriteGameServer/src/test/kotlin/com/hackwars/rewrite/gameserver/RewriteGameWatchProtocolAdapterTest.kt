@@ -39,6 +39,7 @@ import com.hackwars.rewrite.testkit.RewriteServiceAdapter
 import hackwars.rewrite.v1.FrameEnvelope
 import java.time.Instant
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.yield
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
@@ -206,6 +207,7 @@ class RewriteGameWatchProtocolAdapterTest {
                 repository = repository,
                 interestRegistry = interests,
             ),
+            combatMaintenanceProgramRegistry = DisabledCombatMaintenanceProgramRegistry,
             interestRegistry = interests,
             serverId = "1",
             networkDirectoryRepository = InMemoryNetworkDirectoryRepository.defaultWorld("1"),
@@ -245,6 +247,8 @@ class RewriteGameWatchProtocolAdapterTest {
         )
         connection.awaitFrame()
         val snapshotFrame = connection.awaitFrame()
+        yield()
+        connection.drainFrames()
         val snapshot = RewriteGameJson.decode(
             serializer = ComputerState.serializer(),
             payload = snapshotFrame.snapshot!!.payload.toByteArray(),

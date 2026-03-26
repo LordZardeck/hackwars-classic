@@ -241,6 +241,61 @@ class FilesystemInstallCommandsTest {
     }
 
     @Test
+    fun installingRedirectApplicationsSeedsTheFirstDefaultRedirectPort() = runTest {
+        val stateId = GameStateId("LOCAL-IP")
+        val base = localState(stateId)
+        val redirectBinary = StoredFile(
+            path = buildFilePath("/Public", "redirect.bin"),
+            name = "redirect.bin",
+            kind = StoredFileKind.APPLICATION_BINARY,
+            contents = "redirect source",
+            quantity = 2,
+            compiledBinary = CompiledBinaryMetadata(
+                scriptFamily = ScriptFamily.REDIRECT,
+                applicationKind = ApplicationKind.REDIRECT,
+                outputName = "redirect.bin",
+                experienceAward = 3.0,
+            ),
+            scriptBundle = ProgramScriptBundle(family = ScriptFamily.REDIRECT),
+        )
+        val repository = InMemoryComputerStateRepository(
+            seededStates = mapOf(stateId to base.copy(filesystem = base.filesystem.saveFile(redirectBinary))),
+        )
+        val interests = InMemoryInterestRegistry().apply {
+            register("conn-1", stateId)
+        }
+        val dispatcher = DefaultCommandDispatcher(repository, interests)
+
+        val firstInstall = dispatcher.request(
+            command = InstallApplicationCommand(
+                stateId = stateId,
+                path = "/Public",
+                fileName = "redirect.bin",
+                portNumber = 81,
+            ),
+            metadata = CommandMetadata(connectionId = "conn-1"),
+            publisher = RecordingGameStatePublisher(),
+        )
+        val secondInstall = dispatcher.request(
+            command = InstallApplicationCommand(
+                stateId = stateId,
+                path = "/Public",
+                fileName = "redirect.bin",
+                portNumber = 82,
+            ),
+            metadata = CommandMetadata(connectionId = "conn-1"),
+            publisher = RecordingGameStatePublisher(),
+        )
+
+        val updated = requireNotNull(repository.load(stateId))
+        assertEquals(ApplicationKind.REDIRECT, firstInstall.installedApplication.kind)
+        assertEquals(ApplicationKind.REDIRECT, secondInstall.installedApplication.kind)
+        assertEquals(81, updated.economy.defaultRedirectPort)
+        assertTrue(updated.port(81)?.defaultPort == true)
+        assertFalse(updated.port(82)?.defaultPort == true)
+    }
+
+    @Test
     fun installApplicationConsumesBinaryCreatesPortAndSetsDefaultBank() = runTest {
         val stateId = GameStateId("LOCAL-IP")
         val repository = InMemoryComputerStateRepository(seededStates = mapOf(stateId to localState(stateId)))
@@ -349,6 +404,11 @@ class FilesystemInstallCommandsTest {
         val interests = InMemoryInterestRegistry()
         interests.register("conn-1", stateId)
         val dispatcher = DefaultCommandDispatcher(repository, interests)
+        val decompileRepository = InMemoryComputerStateRepository(seededStates = mapOf(stateId to localState(stateId)))
+        val decompileInterests = InMemoryInterestRegistry().apply {
+            register("conn-2", stateId)
+        }
+        val decompileDispatcher = DefaultCommandDispatcher(decompileRepository, decompileInterests)
 
         val response = dispatcher.request(
             command = InstallEquipmentCommand(
@@ -359,11 +419,23 @@ class FilesystemInstallCommandsTest {
             ),
             metadata = CommandMetadata(connectionId = "conn-1"),
         )
+        val decompile = decompileDispatcher.request(
+            command = DecompileFileCommand(
+                stateId = stateId,
+                path = "/Public",
+                fileName = "cpu-card.bin",
+            ),
+            metadata = CommandMetadata(connectionId = "conn-2"),
+        )
         val state = repository.load(stateId)
 
         requireNotNull(state)
         assertEquals(EquipmentSlot.CPU, response.slot)
         assertEquals("cpu-card.bin", state.hardware.equipmentSlots[EquipmentSlot.CPU]?.name)
+        assertEquals(0.5, state.hardware.equipmentSlots[EquipmentSlot.CPU]?.healCostMultiplier)
+        assertEquals(-2, state.hardware.equipmentSlots[EquipmentSlot.CPU]?.healModifierDelta)
+        assertEquals(0.5, decompile.decompiledFile.compiledBinary?.healCostMultiplier)
+        assertEquals(-2, decompile.decompiledFile.compiledBinary?.healModifierDelta)
 
         assertFailsWith<IllegalArgumentException> {
             dispatcher.request(
@@ -493,6 +565,8 @@ class FilesystemInstallCommandsTest {
                     compiledBinary = CompiledBinaryMetadata(
                         equipmentSlot = EquipmentSlot.CPU,
                         outputName = "cpu-card.bin",
+                        healCostMultiplier = 0.5,
+                        healModifierDelta = -2,
                     ),
                 ),
             )

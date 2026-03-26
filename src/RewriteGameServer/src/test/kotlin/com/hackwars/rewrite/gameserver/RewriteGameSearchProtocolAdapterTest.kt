@@ -30,6 +30,7 @@ import com.hackwars.rewrite.testkit.RewriteServiceAdapter
 import hackwars.rewrite.v1.FrameEnvelope
 import java.time.Instant
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.yield
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
@@ -159,6 +160,7 @@ class RewriteGameSearchProtocolAdapterTest {
                 repository = repository,
                 interestRegistry = interests,
             ),
+            combatMaintenanceProgramRegistry = DisabledCombatMaintenanceProgramRegistry,
             interestRegistry = interests,
             clock = { 20.days.inWholeMilliseconds + testScheduler.currentTime },
             networkDirectoryRepository = InMemoryNetworkDirectoryRepository.defaultWorld(),
@@ -209,6 +211,8 @@ class RewriteGameSearchProtocolAdapterTest {
         )
         connection.awaitFrame()
         connection.awaitFrame()
+        yield()
+        connection.drainFrames()
         return connection
     }
 

@@ -9,6 +9,8 @@ import com.hackwars.rewrite.gamecore.ComputerState
 import com.hackwars.rewrite.gamecore.DeltaProjection
 import com.hackwars.rewrite.gamecore.EconomyState
 import com.hackwars.rewrite.gamecore.GameStateId
+import com.hackwars.rewrite.gamecore.HacktendoActivatePayload
+import com.hackwars.rewrite.gamecore.HacktendoTargetPayload
 import com.hackwars.rewrite.gamecore.HardwareState
 import com.hackwars.rewrite.gamecore.HookSideEffectSink
 import com.hackwars.rewrite.gamecore.InMemoryAttackProgramRegistry
@@ -19,11 +21,14 @@ import com.hackwars.rewrite.gamecore.InstalledApplication
 import com.hackwars.rewrite.gamecore.MakeBountyPayload
 import com.hackwars.rewrite.gamecore.PortState
 import com.hackwars.rewrite.gamecore.QuestState
+import com.hackwars.rewrite.gamecore.RequestGamePayload
+import com.hackwars.rewrite.gamecore.RequestGameResponse
 import com.hackwars.rewrite.gamecore.RequestSavePayload
 import com.hackwars.rewrite.gamecore.RequestTaskPayload
 import com.hackwars.rewrite.gamecore.RequestTriggerPayload
 import com.hackwars.rewrite.gamecore.RewriteGameJson
 import com.hackwars.rewrite.gamecore.SaveFileRequestResponse
+import com.hackwars.rewrite.gamecore.SaveFileMetadata
 import com.hackwars.rewrite.gamecore.ScriptFamily
 import com.hackwars.rewrite.gamecore.StateSectionsDeltaProjection
 import com.hackwars.rewrite.gamecore.StoredFile
@@ -55,10 +60,12 @@ import com.hackwars.rewrite.testkit.RewriteServiceAdapter
 import hackwars.rewrite.v1.FrameEnvelope
 import java.time.Instant
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.yield
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -138,6 +145,162 @@ class RewriteGameQuestProtocolAdapterTest {
         assertEquals(listOf("filesystem"), delta.delta?.delta_keys)
         assertEquals("/quest-progress.save", response.file.path)
         assertEquals(StoredFileKind.SAVE_DATA, response.file.kind)
+    }
+
+    @Test
+    fun requestGameReturnsCorrelatedResponseWithoutDeltas() = runTest {
+        val fixture = createFixture(localState = hacktendoLocalState())
+        val local = fixture.authenticatedConnection("LOCAL-IP")
+
+        local.send(
+            RewriteFrames.command(
+                commandId = "game-1",
+                commandName = "requestgame",
+                payload = RewriteGameJson.encode(
+                    serializer = RequestGamePayload.serializer(),
+                    value = RequestGamePayload(
+                        ip = "LOCAL-IP",
+                        path = "/Games",
+                        name = "adventure",
+                    ),
+                ),
+                expectsResponse = true,
+            ),
+        )
+
+        val responseFrame = local.awaitFrame()
+        val response = RewriteGameJson.decode(
+            serializer = RequestGameResponse.serializer(),
+            payload = responseFrame.command_response!!.payload.toByteArray(),
+        )
+
+        assertEquals("adventure", response.file?.name)
+        assertEquals("<game>adventure</game>", response.file?.contents)
+        assertEquals(StringHookValue("starter"), response.loadValues["name"])
+        assertEquals(IntHookValue(7), response.loadValues["score"])
+        assertTrue(local.drainFrames().none { it.delta != null })
+    }
+
+    @Test
+    fun requestGameRejectsAuthenticatedIpMismatchThroughStandardValidation() = runTest {
+        val fixture = createFixture(localState = hacktendoLocalState())
+        val local = fixture.authenticatedConnection("LOCAL-IP")
+
+        assertFailsWith<IllegalArgumentException> {
+            local.send(
+                RewriteFrames.command(
+                    commandId = "game-2",
+                    commandName = "requestgame",
+                    payload = RewriteGameJson.encode(
+                        serializer = RequestGamePayload.serializer(),
+                        value = RequestGamePayload(
+                            ip = "OTHER-IP",
+                            path = "/Games",
+                            name = "adventure",
+                        ),
+                    ),
+                    expectsResponse = true,
+                ),
+            )
+        }
+
+        assertTrue(local.drainFrames().isEmpty())
+    }
+
+    @Test
+    fun hacktendoRuntimeCommandsAreFireAndForgetNoOpsWithoutFrames() = runTest {
+        val fixture = createFixture(localState = hacktendoLocalState())
+        val local = fixture.authenticatedConnection("LOCAL-IP")
+
+        local.send(
+            RewriteFrames.command(
+                commandId = "hack-activate-1",
+                commandName = "hacktendoActivate",
+                payload = RewriteGameJson.encode(
+                    serializer = HacktendoActivatePayload.serializer(),
+                    value = HacktendoActivatePayload(
+                        activateID = 5,
+                        activateType = 6,
+                        ip = null,
+                    ),
+                ),
+                expectsResponse = false,
+            ),
+        )
+        local.send(
+            RewriteFrames.command(
+                commandId = "hack-target-1",
+                commandName = "hacktendoTarget",
+                payload = RewriteGameJson.encode(
+                    serializer = HacktendoTargetPayload.serializer(),
+                    value = HacktendoTargetPayload(
+                        targetX = 1,
+                        targetY = 2,
+                        ip = "",
+                        currentX = 3,
+                        currentY = 4,
+                    ),
+                ),
+                expectsResponse = false,
+            ),
+        )
+
+        assertTrue(local.drainFrames().isEmpty())
+    }
+
+    @Test
+    fun hacktendoRuntimeCommandsReturnEmptyOkAckWhenResponseIsRequested() = runTest {
+        val fixture = createFixture(localState = hacktendoLocalState())
+        val local = fixture.authenticatedConnection("LOCAL-IP")
+
+        local.send(
+            RewriteFrames.command(
+                commandId = "hack-target-2",
+                commandName = "hacktendoTarget",
+                payload = RewriteGameJson.encode(
+                    serializer = HacktendoTargetPayload.serializer(),
+                    value = HacktendoTargetPayload(
+                        targetX = 10,
+                        targetY = 11,
+                        ip = "LOCAL-IP",
+                        currentX = 12,
+                        currentY = 13,
+                    ),
+                ),
+                expectsResponse = true,
+            ),
+        )
+
+        val response = local.awaitFrame()
+        assertEquals("hack-target-2", response.command_response?.command_id)
+        assertTrue(response.command_response?.payload?.toByteArray()?.isEmpty() == true)
+        assertTrue(local.drainFrames().isEmpty())
+    }
+
+    @Test
+    fun hacktendoRuntimeCommandsRejectAuthenticatedIpMismatchThroughStandardValidation() = runTest {
+        val fixture = createFixture(localState = hacktendoLocalState())
+        val local = fixture.authenticatedConnection("LOCAL-IP")
+
+        assertFailsWith<IllegalArgumentException> {
+            local.send(
+                RewriteFrames.command(
+                    commandId = "hack-activate-2",
+                    commandName = "hacktendoActivate",
+                    payload = RewriteGameJson.encode(
+                        serializer = HacktendoActivatePayload.serializer(),
+                        value = HacktendoActivatePayload(
+                            activateID = 8,
+                            activateType = 9,
+                            ip = "OTHER-IP",
+                        ),
+                    ),
+                    expectsResponse = false,
+                ),
+            )
+        }
+
+        assertTrue(local.drainFrames().isEmpty())
     }
 
     @Test
@@ -332,6 +495,7 @@ class RewriteGameQuestProtocolAdapterTest {
                 attackProgramRegistry = registry,
                 watchTriggerIntentSink = sink,
             ),
+            combatMaintenanceProgramRegistry = DisabledCombatMaintenanceProgramRegistry,
             interestRegistry = interests,
             serverId = "1",
             attackProgramRegistry = registry,
@@ -386,6 +550,8 @@ class RewriteGameQuestProtocolAdapterTest {
         )
         connection.awaitFrame()
         connection.awaitFrame()
+        yield()
+        connection.drainFrames()
         return connection
     }
 
@@ -474,6 +640,35 @@ class RewriteGameQuestProtocolAdapterTest {
                 ),
             ),
         )
+    }
+
+    private fun hacktendoLocalState(): ComputerState {
+        val base = localState()
+        val filesystem = base.filesystem
+            .ensureDirectory("/Games")
+            .saveFile(
+                StoredFile(
+                    path = buildFilePath("/Games", "adventure"),
+                    name = "adventure",
+                    kind = StoredFileKind.TEXT,
+                    contents = "<game>adventure</game>",
+                ),
+            )
+            .saveFile(
+                StoredFile(
+                    path = buildFilePath("/", "adventure.save"),
+                    name = "adventure.save",
+                    kind = StoredFileKind.SAVE_DATA,
+                    contents = "unused\tstring\tignored\n",
+                    saveMetadata = SaveFileMetadata(
+                        valuesByKey = linkedMapOf(
+                            "name" to StringHookValue("starter"),
+                            "score" to IntHookValue(7),
+                        ),
+                    ),
+                ),
+            )
+        return base.copy(filesystem = filesystem)
     }
 
     private fun watchZombieControllerState(): ComputerState {

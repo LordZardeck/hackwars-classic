@@ -155,7 +155,10 @@ class AttackCommandsTest {
         )
         val overheated = requestAttack(
             attackerState = attackerState(attackerId).copy(
-                runtime = RuntimeState(currentCpuLoad = 101.0),
+                runtime = RuntimeState(
+                    currentCpuLoad = 101.0,
+                    overheatStartedAtEpochMillis = System.currentTimeMillis(),
+                ),
             ),
             targetState = targetState(targetId),
         )
@@ -476,6 +479,8 @@ class AttackCommandsTest {
 
         val updatedTarget = requireNotNull(repository.load(targetId))
         assertEquals(97.8, updatedTarget.port(25)?.health)
+        assertEquals(0, updatedTarget.port(25)?.healCount)
+        assertNull(updatedTarget.port(25)?.weakenedAccess)
         assertEquals(1, publisher.uiEvents.size)
         assertEquals(setOf("target-conn"), publisher.uiEvents.single().first)
         assertEquals("tick-message", assertIs<TextMessageUiEvent>(publisher.uiEvents.single().second).message)
@@ -536,7 +541,7 @@ class AttackCommandsTest {
 
         requireNotNull(updatedAttacker)
         requireNotNull(updatedTarget)
-        assertEquals(97.8, updatedTarget.port(25)?.health)
+        assertEquals(100.0, updatedTarget.port(25)?.health)
         assertEquals(listOf("OTHER-IP"), updatedTarget.logs.entries.map { it.sourceIp })
         assertTrue(updatedAttacker.combat.activeAttacksBySourcePort.isEmpty())
         assertTrue(updatedTarget.combat.incomingAttacksByTargetPort.isEmpty())
@@ -544,7 +549,7 @@ class AttackCommandsTest {
         assertEquals(2, publisher.deltas.size)
         val targetDelta = publisher.deltas.single { it.first == setOf("target-conn") }.second
         val attackerDelta = publisher.deltas.single { it.first == setOf("attacker-conn") }.second
-        assertEquals(setOf("logs", "ports", "combat"), targetDelta.deltaKeys)
+        assertEquals(setOf("logs", "combat"), targetDelta.deltaKeys)
         assertEquals(setOf("combat", "ports", "runtime", "stats"), attackerDelta.deltaKeys)
         assertEquals(ProgramLifecycleStatus.CANCELLED, publisher.programUpdates.single().second.status)
     }
@@ -608,12 +613,12 @@ class AttackCommandsTest {
         val updatedAttacker = requireNotNull(repository.load(attackerId))
         val updatedTarget = requireNotNull(repository.load(targetId))
 
-        assertEquals(97.8, updatedTarget.port(25)?.health)
+        assertEquals(100.0, updatedTarget.port(25)?.health)
         assertEquals(listOf("keep-scan", "keep-disabled", "keep-other-port"), updatedTarget.watches.watches.map { it.note })
         assertEquals(5.0, updatedTarget.runtime.currentCpuLoad)
         assertTrue(updatedAttacker.combat.activeAttacksBySourcePort.isEmpty())
         assertTrue(updatedTarget.combat.incomingAttacksByTargetPort.isEmpty())
-        assertEquals(setOf("watches", "runtime", "ports", "combat"), publisher.deltas.single { it.first == setOf("target-conn") }.second.deltaKeys)
+        assertEquals(setOf("watches", "runtime", "combat"), publisher.deltas.single { it.first == setOf("target-conn") }.second.deltaKeys)
         val attackerDelta = publisher.deltas.single { it.first == setOf("attacker-conn") }.second
         assertEquals(setOf("combat", "ports", "runtime", "stats"), attackerDelta.deltaKeys)
         assertEquals(ProgramLifecycleStatus.CANCELLED, publisher.programUpdates.single().second.status)
@@ -682,7 +687,7 @@ class AttackCommandsTest {
         assertTrue(updatedTarget.watches.watches.isEmpty())
         assertTrue(updatedTarget.logs.entries.isEmpty())
         assertEquals(0.0, updatedTarget.stats.skillExperience(ScriptFamily.WATCH))
-        assertEquals(97.8, updatedTarget.port(25)?.health)
+        assertEquals(100.0, updatedTarget.port(25)?.health)
     }
 
     @Test
@@ -736,10 +741,10 @@ class AttackCommandsTest {
         val updatedTarget = repository.load(targetId)
         requireNotNull(updatedTarget)
         assertEquals("LOCAL touched this host", updatedTarget.logs.entries.single().renderedLine)
-        assertEquals(97.8, updatedTarget.port(25)?.health)
+        assertEquals(100.0, updatedTarget.port(25)?.health)
         val targetDelta = publisher.deltas.single { it.first == setOf("target-conn") }.second
         val attackerDelta = publisher.deltas.single { it.first == setOf("attacker-conn") }.second
-        assertEquals(setOf("logs", "ports", "combat"), targetDelta.deltaKeys)
+        assertEquals(setOf("logs", "combat"), targetDelta.deltaKeys)
         assertEquals(setOf("combat", "ports", "runtime", "stats"), attackerDelta.deltaKeys)
         assertEquals(ProgramLifecycleStatus.CANCELLED, publisher.programUpdates.single().second.status)
     }
@@ -1012,7 +1017,7 @@ class AttackCommandsTest {
 
         assertEquals(130.0, updatedAttacker.economy.pettyCash)
         assertEquals(40.0, updatedTarget.economy.pettyCash)
-        assertEquals(97.8, updatedTarget.port(25)?.health)
+        assertEquals(100.0, updatedTarget.port(25)?.health)
         assertContains(updatedAttacker.logs.entries.single().renderedLine, "cash-fired")
         assertTrue(updatedTarget.logs.entries.isEmpty())
         assertEquals(130.0, updatedAttacker.watches.watches.single().baselineQuantity)
@@ -1023,7 +1028,7 @@ class AttackCommandsTest {
         assertTrue(updatedTarget.combat.incomingAttacksByTargetPort.isEmpty())
         val targetDelta = publisher.deltas.single { it.first == setOf("target-conn") }.second
         val attackerDelta = publisher.deltas.single { it.first == setOf("attacker-conn") }.second
-        assertEquals(setOf("economy", "watches", "ports", "combat"), targetDelta.deltaKeys)
+        assertEquals(setOf("economy", "watches", "combat"), targetDelta.deltaKeys)
         assertEquals(setOf("economy", "logs", "watches", "stats", "combat", "ports", "runtime"), attackerDelta.deltaKeys)
         assertEquals(ProgramLifecycleStatus.CANCELLED, publisher.programUpdates.single().second.status)
     }
@@ -1285,7 +1290,7 @@ class AttackCommandsTest {
 
         assertEquals(140.0, updatedAttacker.economy.pettyCash)
         assertEquals(0.0, updatedTarget.economy.pettyCash)
-        assertEquals(0.0, updatedTarget.port(25)?.health)
+        assertEquals(100.0, updatedTarget.port(25)?.health)
         assertTrue(updatedAttacker.combat.activeAttacksBySourcePort.isEmpty())
         assertTrue(updatedTarget.combat.incomingAttacksByTargetPort.isEmpty())
         assertEquals(setOf("economy", "ports", "combat"), publisher.deltas.single { it.first == setOf("target-conn") }.second.deltaKeys)
@@ -1365,8 +1370,8 @@ class AttackCommandsTest {
         assertEquals(110.0, updatedAttacker.economy.pettyCash)
         assertEquals(60.0, updatedTarget.economy.pettyCash)
         assertEquals(100.0, updatedTarget.port(25)?.health)
-        assertEquals(97.8, updatedTarget.port(26)?.health)
-        assertEquals(setOf("economy", "ports", "combat"), publisher.deltas.single { it.first == setOf("target-conn") }.second.deltaKeys)
+        assertEquals(100.0, updatedTarget.port(26)?.health)
+        assertEquals(setOf("economy", "combat"), publisher.deltas.single { it.first == setOf("target-conn") }.second.deltaKeys)
         assertEquals(setOf("economy", "combat", "ports", "runtime", "stats"), publisher.deltas.single { it.first == setOf("attacker-conn") }.second.deltaKeys)
         assertEquals(ProgramLifecycleStatus.CANCELLED, publisher.programUpdates.single().second.status)
     }
@@ -1450,7 +1455,7 @@ class AttackCommandsTest {
         val updatedTarget = requireNotNull(repository.load(targetId))
         val receivedFile = requireNotNull(updatedAttacker.filesystem.resolveFile("/", "alpha.txt"))
 
-        assertEquals(97.8, updatedTarget.port(25)?.health)
+        assertEquals(100.0, updatedTarget.port(25)?.health)
         assertEquals("alpha", receivedFile.contents)
         assertEquals("loot", receivedFile.description)
         assertEquals("npc", receivedFile.maker)
@@ -1463,7 +1468,7 @@ class AttackCommandsTest {
         assertNotNull(updatedTarget.filesystem.resolveFile("/Public", "zeta.txt"))
         assertTrue(updatedAttacker.combat.activeAttacksBySourcePort.isEmpty())
         assertTrue(updatedTarget.combat.incomingAttacksByTargetPort.isEmpty())
-        assertEquals(setOf("filesystem", "ports", "combat"), publisher.deltas.single { it.first == setOf("target-conn") }.second.deltaKeys)
+        assertEquals(setOf("filesystem", "combat"), publisher.deltas.single { it.first == setOf("target-conn") }.second.deltaKeys)
         assertEquals(setOf("filesystem", "combat", "ports", "runtime", "stats"), publisher.deltas.single { it.first == setOf("attacker-conn") }.second.deltaKeys)
         assertEquals(ProgramLifecycleStatus.CANCELLED, publisher.programUpdates.single().second.status)
     }
@@ -1535,7 +1540,7 @@ class AttackCommandsTest {
         assertEquals("keep-me", attackerCopy.description)
         assertEquals(2, targetRemaining.quantity)
         assertEquals("target", targetRemaining.contents)
-        assertEquals(97.8, updatedTarget.port(25)?.health)
+        assertEquals(100.0, updatedTarget.port(25)?.health)
         assertEquals(ProgramLifecycleStatus.CANCELLED, publisher.programUpdates.single().second.status)
     }
 
@@ -1780,7 +1785,7 @@ class AttackCommandsTest {
 
         assertNotNull(updatedAttacker.filesystem.resolveFile("/", "loot.txt"))
         assertNull(updatedTarget.filesystem.resolveFile("/Public", "loot.txt"))
-        assertEquals(0.0, updatedTarget.port(25)?.health)
+        assertEquals(100.0, updatedTarget.port(25)?.health)
         assertTrue(updatedAttacker.combat.activeAttacksBySourcePort.isEmpty())
         assertTrue(updatedTarget.combat.incomingAttacksByTargetPort.isEmpty())
         assertEquals(setOf("filesystem", "ports", "combat"), publisher.deltas.single { it.first == setOf("target-conn") }.second.deltaKeys)
@@ -1855,8 +1860,8 @@ class AttackCommandsTest {
         assertNotNull(updatedAttacker.filesystem.resolveFile("/", "loot.txt"))
         assertNull(updatedTarget.filesystem.resolveFile("/Public", "loot.txt"))
         assertEquals(100.0, updatedTarget.port(25)?.health)
-        assertEquals(97.8, updatedTarget.port(26)?.health)
-        assertEquals(setOf("filesystem", "ports", "combat"), publisher.deltas.single { it.first == setOf("target-conn") }.second.deltaKeys)
+        assertEquals(100.0, updatedTarget.port(26)?.health)
+        assertEquals(setOf("filesystem", "combat"), publisher.deltas.single { it.first == setOf("target-conn") }.second.deltaKeys)
         assertEquals(setOf("filesystem", "combat", "ports", "runtime", "stats"), publisher.deltas.single { it.first == setOf("attacker-conn") }.second.deltaKeys)
         assertEquals(ProgramLifecycleStatus.CANCELLED, publisher.programUpdates.single().second.status)
     }
@@ -2058,7 +2063,7 @@ class AttackCommandsTest {
         val updatedApplication = requireNotNull(updatedTarget.port(25)?.installedApplication)
 
         assertNull(updatedAttacker.filesystem.resolveFile("/Public", "worm.bin"))
-        assertEquals(0.0, updatedTarget.port(25)?.health)
+        assertEquals(100.0, updatedTarget.port(25)?.health)
         assertEquals(targetApplication.name, updatedApplication.name)
         assertEquals(targetApplication.kind, updatedApplication.kind)
         assertEquals(targetApplication.binaryPath, updatedApplication.binaryPath)
@@ -2745,7 +2750,7 @@ class AttackCommandsTest {
         val updatedTarget = repository.load(targetId)
         requireNotNull(updatedTarget)
         assertEquals(listOf("OTHER-IP"), updatedTarget.logs.entries.map { it.sourceIp })
-        assertEquals(0.0, updatedTarget.port(25)?.health)
+        assertEquals(100.0, updatedTarget.port(25)?.health)
         val targetDelta = publisher.deltas.single { it.first == setOf("target-conn") }.second
         val attackerDelta = publisher.deltas.single { it.first == setOf("attacker-conn") }.second
         assertEquals(setOf("logs", "ports", "combat"), targetDelta.deltaKeys)
@@ -2810,7 +2815,7 @@ class AttackCommandsTest {
         val updatedAttacker = requireNotNull(repository.load(attackerId))
         val updatedTarget = requireNotNull(repository.load(targetId))
 
-        assertEquals(0.0, updatedTarget.port(25)?.health)
+        assertEquals(100.0, updatedTarget.port(25)?.health)
         assertEquals(listOf("keep-scan"), updatedTarget.watches.watches.map { it.note })
         assertEquals(3.0, updatedTarget.runtime.currentCpuLoad)
         assertTrue(updatedAttacker.combat.activeAttacksBySourcePort.isEmpty())
@@ -3284,8 +3289,8 @@ class AttackCommandsTest {
         assertEquals(listOf("original-port"), updatedTarget.watches.watches.map { it.note })
         assertEquals(2.0, updatedTarget.runtime.currentCpuLoad)
         assertEquals(100.0, updatedTarget.port(25)?.health)
-        assertEquals(97.8, updatedTarget.port(26)?.health)
-        assertEquals(setOf("watches", "runtime", "ports", "combat"), publisher.deltas.single { it.first == setOf("target-conn") }.second.deltaKeys)
+        assertEquals(100.0, updatedTarget.port(26)?.health)
+        assertEquals(setOf("watches", "runtime", "combat"), publisher.deltas.single { it.first == setOf("target-conn") }.second.deltaKeys)
         assertEquals(ProgramLifecycleStatus.CANCELLED, publisher.programUpdates.single().second.status)
     }
 
@@ -3364,8 +3369,8 @@ class AttackCommandsTest {
         assertEquals(GameStateId("REV-IP"), updatedTarget.dailyPay.revenueTargetStateId)
         assertEquals(0.3, updatedTarget.dailyPay.reductionMultiplier)
         assertEquals(100.0, updatedTarget.port(25)?.health)
-        assertEquals(97.8, updatedTarget.port(26)?.health)
-        assertEquals(setOf("dailyPay", "ports", "combat"), publisher.deltas.single { it.first == setOf("target-conn") }.second.deltaKeys)
+        assertEquals(100.0, updatedTarget.port(26)?.health)
+        assertEquals(setOf("dailyPay", "combat"), publisher.deltas.single { it.first == setOf("target-conn") }.second.deltaKeys)
         assertEquals(listOf(setOf("attacker-conn"), setOf("attacker-conn")), publisher.uiEvents.map { it.first })
         val retargetMessage = assertIs<AttackMessageUiEvent>(publisher.uiEvents[0].second)
         assertEquals("Daily pay successfully changed.", retargetMessage.message)
@@ -3435,7 +3440,7 @@ class AttackCommandsTest {
 
         val updatedTarget = requireNotNull(repository.load(targetId))
 
-        assertEquals(0.0, updatedTarget.port(25)?.health)
+        assertEquals(100.0, updatedTarget.port(25)?.health)
         assertEquals(GameStateId("REV-IP"), updatedTarget.dailyPay.revenueTargetStateId)
         assertEquals(0.3, updatedTarget.dailyPay.reductionMultiplier)
         assertEquals(listOf(setOf("attacker-conn"), setOf("attacker-conn")), publisher.uiEvents.map { it.first })
@@ -3668,6 +3673,39 @@ class AttackCommandsTest {
         assertEquals(AttackStartFailureCode.INVALID_TARGET_PORT, frozen.response.failureCode)
         assertFalse(frozen.response.accepted)
         assertTrue(expired.response.accepted)
+    }
+
+    @Test
+    fun requestAttackRejectsPortsThatRemainWeakenedAfterPassiveHeal() = runTest {
+        val attackerId = GameStateId("ATTACKER-IP")
+        val targetId = GameStateId("TARGET-IP")
+
+        val weakened = requestAttack(
+            attackerState = attackerState(attackerId),
+            targetState = targetState(targetId).copy(
+                ports = listOf(
+                    PortState(
+                        number = 25,
+                        type = "http",
+                        enabled = true,
+                        health = 35.0,
+                        weakenedAccess = WeakenedPortAccessState(
+                            actorStateId = GameStateId("OTHER-IP"),
+                            grantedAtEpochMillis = 1_000L,
+                            lastAccessedAtEpochMillis = 1_000L,
+                        ),
+                        installedApplication = InstalledApplication(
+                            name = "target-http.bin",
+                            kind = ApplicationKind.HTTP,
+                            cpuCost = 2.0,
+                        ),
+                    ),
+                ),
+            ),
+        )
+
+        assertEquals(AttackStartFailureCode.INVALID_TARGET_PORT, weakened.response.failureCode)
+        assertFalse(weakened.response.accepted)
     }
 
     @Test
@@ -4696,7 +4734,7 @@ class AttackCommandsTest {
         assertEquals(setOf("controller-conn"), publisher.programUpdates.single().first)
         assertTrue(publisher.deltas.any { it.first == setOf("controller-conn") && it.second.deltaKeys == setOf("filesystem", "stats") })
         assertTrue(publisher.deltas.any { it.first == setOf("zombie-conn") && it.second.deltaKeys == setOf("combat", "ports", "runtime") })
-        assertTrue(publisher.deltas.any { it.first == setOf("target-conn") && it.second.deltaKeys == setOf("filesystem", "ports", "combat") })
+        assertTrue(publisher.deltas.any { it.first == setOf("target-conn") && it.second.deltaKeys == setOf("filesystem", "combat") })
     }
 
     @Test
@@ -4963,6 +5001,272 @@ class AttackCommandsTest {
 
         assertTrue(publisher.uiEvents.isEmpty())
         assertFalse(requireNotNull(repository.load(attackerId)).combat.activeAttacksBySourcePort.getValue(12).choicesShown)
+    }
+
+    @Test
+    fun requestAttackStartsRedirectSessionsOnExistingTransport() = runTest {
+        val attackerId = GameStateId("ATTACKER-IP")
+        val targetId = GameStateId("TARGET-IP")
+        val repository = InMemoryComputerStateRepository(
+            seededStates = mapOf(
+                attackerId to redirectAttackerState(attackerId),
+                targetId to redirectTargetState(targetId),
+            ),
+        )
+        val interests = InMemoryInterestRegistry().apply {
+            register("attacker-conn", attackerId)
+            register("target-conn", targetId)
+        }
+        val publisher = RecordingGameStatePublisher()
+        val registry = InMemoryAttackProgramRegistry()
+        val dispatcher = dispatcher(repository, interests)
+
+        val response = dispatcher.request(
+            command = RequestAttackCommand(
+                attackerStateId = attackerId,
+                targetStateId = targetId,
+                sourceIp = attackerId.value,
+                sourcePort = 12,
+                targetPort = 25,
+                loadout = AttackLoadout(),
+                attackProgramRegistry = registry,
+            ),
+            metadata = CommandMetadata(connectionId = "attacker-conn", requestId = "redirect-start"),
+            publisher = publisher,
+        )
+        runCurrent()
+
+        val updatedAttacker = requireNotNull(repository.load(attackerId))
+        val session = requireNotNull(updatedAttacker.combat.activeAttacksBySourcePort[12])
+
+        assertTrue(response.accepted)
+        assertEquals(AttackSessionKind.REDIRECT, response.session?.sessionKind)
+        assertEquals("redirect-started", response.message)
+        assertEquals(AttackSessionKind.REDIRECT, session.sessionKind)
+        assertEquals(90.0, response.pettyCashAfter)
+        assertEquals(90.0, updatedAttacker.economy.pettyCash)
+        assertEquals(0, session.redirectCommodityId)
+        assertEquals(0.0, session.redirectXpAwardedOnTarget)
+        assertEquals("redirect", publisher.programUpdates.single().second.programType)
+        assertEquals("redirect-started", publisher.programUpdates.single().second.progress.message)
+        assertEquals(ProgramLifecycleStatus.RUNNING, publisher.programUpdates.single().second.status)
+    }
+
+    @Test
+    fun redirectTickTransfersCommodityAwardsRedirectXpAndResetsTargetOnCompletion() = runTest {
+        val attackerId = GameStateId("ATTACKER-IP")
+        val targetId = GameStateId("TARGET-IP")
+        val repository = InMemoryComputerStateRepository(
+            seededStates = mapOf(
+                attackerId to redirectAttackerState(
+                    attackerId,
+                    redirectScriptBundle = redirectScriptBundle(
+                        continueScript = """int main() { redirectSilicon(); return 0; }""",
+                    ),
+                ),
+                targetId to redirectTargetState(
+                    stateId = targetId,
+                    health = 2.0,
+                    isNpc = true,
+                    commodities = listOf(0.0, 0.0, 50.0, 0.0, 0.0),
+                ),
+            ),
+        )
+        val interests = InMemoryInterestRegistry().apply {
+            register("attacker-conn", attackerId)
+            register("target-conn", targetId)
+        }
+        val publisher = RecordingGameStatePublisher()
+        val registry = InMemoryAttackProgramRegistry()
+        val dispatcher = dispatcher(repository, interests)
+
+        dispatcher.request(
+            command = RequestAttackCommand(
+                attackerStateId = attackerId,
+                targetStateId = targetId,
+                sourceIp = attackerId.value,
+                sourcePort = 12,
+                targetPort = 25,
+                loadout = AttackLoadout(),
+                attackProgramRegistry = registry,
+            ),
+            metadata = CommandMetadata(connectionId = "attacker-conn", requestId = "redirect-complete-start"),
+            publisher = publisher,
+        )
+        runCurrent()
+        publisher.deltas.clear()
+        publisher.programUpdates.clear()
+
+        advanceTimeBy(180_100)
+        runCurrent()
+
+        val updatedAttacker = requireNotNull(repository.load(attackerId))
+        val updatedTarget = requireNotNull(repository.load(targetId))
+
+        assertEquals(50.0, updatedAttacker.economy.commodities[2])
+        assertEquals(0.0, updatedTarget.economy.commodities[2])
+        assertEquals(2_000.0, updatedAttacker.stats.skillExperience(ScriptFamily.REDIRECT))
+        assertEquals(100.0, updatedTarget.port(25)?.health)
+        assertNull(updatedTarget.port(25)?.weakenedAccess)
+        assertTrue(updatedAttacker.combat.activeAttacksBySourcePort.isEmpty())
+        assertTrue(updatedTarget.combat.incomingAttacksByTargetPort.isEmpty())
+        assertEquals(4, publisher.uiEvents.size)
+        val receiptPaneMessage = assertIs<AttackMessageUiEvent>(publisher.uiEvents[0].second)
+        assertEquals("Received 50 Silicon.", receiptPaneMessage.message)
+        assertEquals(12, receiptPaneMessage.port)
+        assertEquals(attackerId.value, receiptPaneMessage.ip)
+        assertEquals(AttackPaneType.REDIRECT, receiptPaneMessage.paneType)
+        assertEquals(0, receiptPaneMessage.windowHandle)
+        assertEquals(
+            "Received 50 Silicon from TARGET-IP.",
+            assertIs<TextMessageUiEvent>(publisher.uiEvents[1].second).message,
+        )
+        val finishedPaneMessage = assertIs<AttackMessageUiEvent>(publisher.uiEvents[2].second)
+        assertEquals("Finished redirecting.", finishedPaneMessage.message)
+        assertEquals(AttackPaneType.REDIRECT, finishedPaneMessage.paneType)
+        assertEquals(0, finishedPaneMessage.windowHandle)
+        assertEquals(
+            "Port 12 finished redirecting.",
+            assertIs<TextMessageUiEvent>(publisher.uiEvents[3].second).message,
+        )
+        assertEquals("redirect", publisher.programUpdates.last().second.programType)
+        assertEquals("redirect-finished", publisher.programUpdates.last().second.progress.message)
+        assertEquals(ProgramLifecycleStatus.COMPLETED, publisher.programUpdates.last().second.status)
+    }
+
+    @Test
+    fun redirectStartFailurePublishesPopupWithoutChangingDirectAttackUiBehavior() = runTest {
+        val attackerId = GameStateId("ATTACKER-IP")
+        val targetId = GameStateId("TARGET-IP")
+        val lowCashAttacker = redirectAttackerState(attackerId)
+        val repository = InMemoryComputerStateRepository(
+            seededStates = mapOf(
+                attackerId to lowCashAttacker.copy(
+                    economy = lowCashAttacker.economy.copy(pettyCash = 5.0),
+                ),
+                targetId to redirectTargetState(targetId),
+            ),
+        )
+        val interests = InMemoryInterestRegistry().apply {
+            register("attacker-conn", attackerId)
+            register("target-conn", targetId)
+        }
+        val publisher = RecordingGameStatePublisher()
+        val dispatcher = dispatcher(repository, interests)
+
+        val response = dispatcher.request(
+            command = RequestAttackCommand(
+                attackerStateId = attackerId,
+                targetStateId = targetId,
+                sourceIp = attackerId.value,
+                sourcePort = 12,
+                targetPort = 25,
+                loadout = AttackLoadout(),
+            ),
+            metadata = CommandMetadata(connectionId = "attacker-conn", requestId = "redirect-start-fail"),
+            publisher = publisher,
+        )
+
+        assertFalse(response.accepted)
+        assertEquals(AttackStartFailureCode.INSUFFICIENT_PETTY_CASH, response.failureCode)
+        assertEquals(1, publisher.uiEvents.size)
+        val popup = assertIs<PopupUiEvent>(publisher.uiEvents.single().second)
+        assertEquals("You must have \$10 in your petty cash to start a redirect.", popup.message)
+        assertEquals(PopupUiStyle.ERROR, popup.style)
+        assertTrue(publisher.programUpdates.isEmpty())
+    }
+
+    @Test
+    fun redirectTimeoutPublishesRedirectPaneMessageAndTimeoutProgress() = runTest {
+        val attackerId = GameStateId("ATTACKER-IP")
+        val targetId = GameStateId("TARGET-IP")
+        val repository = InMemoryComputerStateRepository(
+            seededStates = mapOf(
+                attackerId to redirectAttackerState(attackerId),
+                targetId to redirectTargetState(targetId),
+            ),
+        )
+        val interests = InMemoryInterestRegistry().apply {
+            register("attacker-conn", attackerId)
+            register("target-conn", targetId)
+        }
+        val publisher = RecordingGameStatePublisher()
+        val registry = InMemoryAttackProgramRegistry()
+        val dispatcher = dispatcher(repository, interests)
+
+        dispatcher.request(
+            command = RequestAttackCommand(
+                attackerStateId = attackerId,
+                targetStateId = targetId,
+                sourceIp = attackerId.value,
+                sourcePort = 12,
+                targetPort = 25,
+                loadout = AttackLoadout(),
+                windowHandle = 7,
+                attackProgramRegistry = registry,
+            ),
+            metadata = CommandMetadata(connectionId = "attacker-conn", requestId = "redirect-timeout-start"),
+            publisher = publisher,
+        )
+        runCurrent()
+
+        advanceTimeBy(450_100)
+        runCurrent()
+
+        val timeoutMessage = assertIs<AttackMessageUiEvent>(publisher.uiEvents.last().second)
+        assertEquals(AttackPaneType.REDIRECT, timeoutMessage.paneType)
+        assertEquals(7, timeoutMessage.windowHandle)
+        assertEquals("Your redirect application reached its maximum timeout for redirecting off one port.", timeoutMessage.message)
+        assertEquals("redirect-timeout", publisher.programUpdates.last().second.progress.message)
+        assertEquals(ProgramLifecycleStatus.CANCELLED, publisher.programUpdates.last().second.status)
+    }
+
+    @Test
+    fun directAttackShowChoicesMapsRedirectTargetsToShipping() = runTest {
+        val attackerId = GameStateId("ATTACKER-IP")
+        val targetId = GameStateId("TARGET-IP")
+        val repository = InMemoryComputerStateRepository(
+            seededStates = mapOf(
+                attackerId to attackerState(
+                    attackerId,
+                    attackScriptBundle = attackScriptBundle(
+                        continueScript = """int main() { showChoices(); cancelAttack(); return 0; }""",
+                    ),
+                ),
+                targetId to redirectTargetState(targetId),
+            ),
+        )
+        val interests = InMemoryInterestRegistry().apply {
+            register("attacker-conn", attackerId)
+            register("target-conn", targetId)
+        }
+        val publisher = RecordingGameStatePublisher()
+        val registry = InMemoryAttackProgramRegistry()
+        val dispatcher = dispatcher(repository, interests)
+
+        dispatcher.request(
+            command = RequestAttackCommand(
+                attackerStateId = attackerId,
+                targetStateId = targetId,
+                sourceIp = attackerId.value,
+                sourcePort = 12,
+                targetPort = 25,
+                loadout = AttackLoadout(),
+                attackProgramRegistry = registry,
+            ),
+            metadata = CommandMetadata(connectionId = "attacker-conn", requestId = "show-choices-shipping"),
+            publisher = publisher,
+        )
+        runCurrent()
+        publisher.uiEvents.clear()
+        publisher.programUpdates.clear()
+
+        advanceTimeBy(180_100)
+        runCurrent()
+
+        val choiceEvent = assertIs<ShowChoicesUiEvent>(publisher.uiEvents.single().second)
+        assertEquals(ShowChoicesType.SHIPPING, choiceEvent.choiceType)
+        assertEquals(setOf("attacker-conn"), publisher.uiEvents.single().first)
     }
 
     private suspend fun TestScope.requestAttack(
@@ -5258,6 +5562,75 @@ class AttackCommandsTest {
                 continueScript?.let { put(ProgramScriptSlot.CONTINUE, it) }
                 finalize?.let { put(ProgramScriptSlot.FINALIZE, it) }
             },
+        )
+    }
+
+    private fun redirectScriptBundle(
+        initialize: String? = null,
+        continueScript: String? = null,
+        finalize: String? = null,
+    ): ProgramScriptBundle {
+        return ProgramScriptBundle(
+            family = ScriptFamily.REDIRECT,
+            scriptsBySlot = buildMap {
+                initialize?.let { put(ProgramScriptSlot.INITIALIZE, it) }
+                continueScript?.let { put(ProgramScriptSlot.CONTINUE, it) }
+                finalize?.let { put(ProgramScriptSlot.FINALIZE, it) }
+            },
+        )
+    }
+
+    private fun redirectAttackerState(
+        stateId: GameStateId,
+        redirectScriptBundle: ProgramScriptBundle? = null,
+        redirectXp: Double = 0.0,
+    ): ComputerState {
+        val base = attackerState(stateId)
+        return base.copy(
+            stats = base.stats.copy(
+                experienceByFamily = base.stats.experienceByFamily + (ScriptFamily.REDIRECT to redirectXp),
+            ),
+            ports = base.ports.map { port ->
+                if (port.number == 12) {
+                    port.copy(
+                        type = "redirect",
+                        installedApplication = InstalledApplication(
+                            name = "redirect.bin",
+                            kind = ApplicationKind.REDIRECT,
+                            cpuCost = 8.0,
+                            scriptBundle = redirectScriptBundle,
+                        ),
+                    )
+                } else {
+                    port
+                }
+            },
+        )
+    }
+
+    private fun redirectTargetState(
+        stateId: GameStateId,
+        health: Double = 100.0,
+        isNpc: Boolean = false,
+        commodities: List<Double> = List(5) { 0.0 },
+        commodityRespawn: List<Double> = commodities,
+    ): ComputerState {
+        val base = targetState(
+            stateId = stateId,
+            health = health,
+            isNpc = isNpc,
+            portType = "redirect",
+            installedApplication = InstalledApplication(
+                name = "redirect-target.bin",
+                kind = ApplicationKind.REDIRECT,
+                cpuCost = 4.0,
+            ),
+        )
+        return base.copy(
+            economy = base.economy.copy(
+                commodities = List(5) { index -> commodities.getOrNull(index) ?: 0.0 },
+                commodityRespawn = List(5) { index -> commodityRespawn.getOrNull(index) ?: 0.0 },
+            ),
         )
     }
 

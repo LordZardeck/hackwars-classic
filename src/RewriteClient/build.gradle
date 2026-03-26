@@ -6,8 +6,27 @@ application {
     mainClass = 'com.hackwars.rewrite.client.RewriteClientKt'
 }
 
+repositories {
+    ivy {
+        name = 'PlayFabGitHubRaw'
+        url = uri('https://raw.githubusercontent.com/PlayFab/JavaSDK')
+        patternLayout {
+            artifact '/versioned/builds/[artifact]-[revision].[ext]'
+        }
+        metadataSources {
+            artifact()
+        }
+        content {
+            includeModule('com.playfab', 'client-sdk')
+        }
+    }
+}
+
 dependencies {
     implementation project(':RewriteProtocol')
     implementation project(':RewriteClientModel')
+    implementation 'com.playfab:client-sdk:0.256.260313@jar'
+    implementation 'com.google.code.gson:gson:2.10.1'
+    implementation 'com.github.weisj:jsvg:1.7.0'
     implementation "org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2"
 }

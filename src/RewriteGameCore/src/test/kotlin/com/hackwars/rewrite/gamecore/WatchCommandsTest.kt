@@ -249,6 +249,7 @@ class WatchCommandsTest {
                     stateId = stateId,
                     installedWatches = listOf(seededWatch(enabled = true, note = "hot", cpuCost = 5.0)),
                     currentCpuLoad = 105.0,
+                    overheatStartedAtEpochMillis = System.currentTimeMillis(),
                     cpuMax = 100.0,
                 ),
             ),
@@ -360,6 +361,7 @@ private fun localWatchState(
     pettyCash: Double = 250.0,
     installedWatches: List<InstalledWatch> = emptyList(),
     currentCpuLoad: Double = 0.0,
+    overheatStartedAtEpochMillis: Long? = null,
     cpuMax: Double = 100.0,
     memoryType: Int = 0,
     watchCpuCost: Double = 5.0,
@@ -393,7 +395,10 @@ private fun localWatchState(
         ),
         filesystem = filesystem,
         watches = WatchManagerState(watches = installedWatches),
-        runtime = state.runtime.copy(currentCpuLoad = currentCpuLoad),
+        runtime = state.runtime.copy(
+            currentCpuLoad = currentCpuLoad,
+            overheatStartedAtEpochMillis = overheatStartedAtEpochMillis,
+        ),
     )
 }
 

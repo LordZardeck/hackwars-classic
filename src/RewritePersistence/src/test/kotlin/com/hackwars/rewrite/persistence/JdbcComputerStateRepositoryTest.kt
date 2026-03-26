@@ -4,6 +4,7 @@ import com.hackwars.rewrite.gamecore.ComputerState
 import com.hackwars.rewrite.gamecore.ComputerEvent
 import com.hackwars.rewrite.gamecore.AttackScriptReference
 import com.hackwars.rewrite.gamecore.AttackMode
+import com.hackwars.rewrite.gamecore.AttackSessionKind
 import com.hackwars.rewrite.gamecore.AttackSessionState
 import com.hackwars.rewrite.gamecore.AttackTargetView
 import com.hackwars.rewrite.gamecore.CompiledBinaryMetadata
@@ -65,6 +66,7 @@ import com.hackwars.rewrite.gamecore.WatchInstalledEvent
 import com.hackwars.rewrite.gamecore.WatchKind
 import com.hackwars.rewrite.gamecore.WatchManagerState
 import com.hackwars.rewrite.gamecore.WatchManagerUpdatedEvent
+import com.hackwars.rewrite.gamecore.WeakenedPortAccessState
 import com.hackwars.rewrite.gamecore.WebsiteSavedEvent
 import com.hackwars.rewrite.gamecore.WebsiteVoteCountAdjustedEvent
 import com.hackwars.rewrite.gamecore.WebsiteVotesAvailableAdjustedEvent
@@ -487,6 +489,11 @@ class JdbcComputerStateRepositoryTest {
             ),
         )
         val initialState = baseState.copy(
+            economy = baseState.economy.copy(
+                defaultRedirectPort = 44,
+                commodities = listOf(1.0, 2.0, 3.0, 4.0, 5.0),
+                commodityRespawn = listOf(5.0, 4.0, 3.0, 2.0, 1.0),
+            ),
             ports = baseState.ports.map { port ->
                 if (port.number == 12) {
                     port.copy(
@@ -505,6 +512,7 @@ class JdbcComputerStateRepositoryTest {
             sourcePort = 12,
             targetStateId = GameStateId("TARGET-IP"),
             targetPort = 25,
+            sessionKind = AttackSessionKind.REDIRECT,
             attackMode = AttackMode.ZOMBIE,
             controllerStateId = GameStateId("CONTROLLER-IP"),
             authorizedZombieStateId = GameStateId("CONTROLLER-IP"),
@@ -521,6 +529,8 @@ class JdbcComputerStateRepositoryTest {
             ),
             targetCyclePorts = listOf(25, 7, 8),
             targetCycleCursor = 0,
+            redirectCommodityId = 3,
+            redirectXpAwardedOnTarget = 125.0,
             choicesShown = true,
             windowHandle = 4,
             secondaryPorts = listOf(7, 8),
@@ -549,9 +559,14 @@ class JdbcComputerStateRepositoryTest {
                         "combat.activeAttacksBySourcePort.12",
                         "combat.incomingAttacksByTargetPort.25",
                         "ports.25.health",
+                        "ports.25.healCount",
+                        "ports.25.weakenedAccess",
+                        "ports.25.overheated",
                         "ports.25.freezeExpiresAtEpochMillis",
                         "ports.12.attacking",
                         "runtime.currentCpuLoad",
+                        "runtime.healCounter",
+                        "runtime.overheatStartedAtEpochMillis",
                     ),
                     deltaKeyList = setOf("ports", "combat", "runtime"),
                     combat = CombatState(
@@ -571,12 +586,24 @@ class JdbcComputerStateRepositoryTest {
                             12 -> port.copy(attacking = true)
                             25 -> port.copy(
                                 health = 97.8,
+                                healCount = 4,
+                                weakenedAccess = WeakenedPortAccessState(
+                                    actorStateId = GameStateId("CONTROLLER-IP"),
+                                    grantedAtEpochMillis = 2_000L,
+                                    lastAccessedAtEpochMillis = 3_000L,
+                                ),
+                                overheated = true,
                                 freezeExpiresAtEpochMillis = 12_000L,
                             )
                             else -> port
                         }
                     },
                     currentCpuLoad = 8.0,
+                    runtimeState = initialState.runtime.copy(
+                        currentCpuLoad = 8.0,
+                        healCounter = 6L,
+                        overheatStartedAtEpochMillis = 4_000L,
+                    ),
                     includePorts = true,
                     includeRuntime = true,
                 ),
@@ -587,15 +614,28 @@ class JdbcComputerStateRepositoryTest {
         requireNotNull(reloaded)
         assertEquals(updated, reloaded)
         assertEquals(90.0, reloaded.economy.pettyCash)
+        assertEquals(44, reloaded.economy.defaultRedirectPort)
+        assertEquals(listOf(1.0, 2.0, 3.0, 4.0, 5.0), reloaded.economy.commodities)
+        assertEquals(listOf(5.0, 4.0, 3.0, 2.0, 1.0), reloaded.economy.commodityRespawn)
         assertTrue(reloaded.ports.single { it.number == 12 }.attacking)
         assertEquals(97.8, reloaded.ports.single { it.number == 25 }.health)
+        assertEquals(4, reloaded.ports.single { it.number == 25 }.healCount)
+        assertEquals(GameStateId("CONTROLLER-IP"), reloaded.ports.single { it.number == 25 }.weakenedAccess?.actorStateId)
+        assertEquals(2_000L, reloaded.ports.single { it.number == 25 }.weakenedAccess?.grantedAtEpochMillis)
+        assertEquals(3_000L, reloaded.ports.single { it.number == 25 }.weakenedAccess?.lastAccessedAtEpochMillis)
+        assertTrue(reloaded.ports.single { it.number == 25 }.overheated)
         assertEquals(12_000L, reloaded.ports.single { it.number == 25 }.freezeExpiresAtEpochMillis)
         assertEquals(8.0, reloaded.runtime.currentCpuLoad)
+        assertEquals(6L, reloaded.runtime.healCounter)
+        assertEquals(4_000L, reloaded.runtime.overheatStartedAtEpochMillis)
         assertEquals(2.2, reloaded.stats.experienceByFamily[ScriptFamily.ATTACK])
         assertEquals("attack-session-1", reloaded.combat.activeAttacksBySourcePort.getValue(12).programId)
+        assertEquals(AttackSessionKind.REDIRECT, reloaded.combat.activeAttacksBySourcePort.getValue(12).sessionKind)
         assertEquals(AttackMode.ZOMBIE, reloaded.combat.activeAttacksBySourcePort.getValue(12).attackMode)
         assertEquals(GameStateId("CONTROLLER-IP"), reloaded.combat.activeAttacksBySourcePort.getValue(12).controllerStateId)
         assertEquals(GameStateId("CONTROLLER-IP"), reloaded.combat.activeAttacksBySourcePort.getValue(12).authorizedZombieStateId)
+        assertEquals(3, reloaded.combat.activeAttacksBySourcePort.getValue(12).redirectCommodityId)
+        assertEquals(125.0, reloaded.combat.activeAttacksBySourcePort.getValue(12).redirectXpAwardedOnTarget)
         assertTrue(reloaded.combat.activeAttacksBySourcePort.getValue(12).choicesShown)
         assertEquals(listOf(25, 7, 8), reloaded.combat.activeAttacksBySourcePort.getValue(12).targetCyclePorts)
         assertEquals(0, reloaded.combat.activeAttacksBySourcePort.getValue(12).targetCycleCursor)
@@ -634,6 +674,7 @@ class JdbcComputerStateRepositoryTest {
                             slot = EquipmentSlot.PCI,
                             name = "watch-booster.bin",
                             watchCapacityBoost = 3,
+                            healCostMultiplier = 0.5,
                             freezeImmune = true,
                             destroyWatchesImmune = true,
                         ),
@@ -720,6 +761,7 @@ class JdbcComputerStateRepositoryTest {
             reloaded.watches.watches.single().scriptBundle?.script(ProgramScriptSlot.FIRE),
         )
         assertEquals(3, reloaded.hardware.equipmentSlots[EquipmentSlot.PCI]?.watchCapacityBoost)
+        assertEquals(0.5, reloaded.hardware.equipmentSlots[EquipmentSlot.PCI]?.healCostMultiplier)
         assertTrue(reloaded.hardware.equipmentSlots[EquipmentSlot.PCI]?.freezeImmune == true)
         assertTrue(reloaded.hardware.equipmentSlots[EquipmentSlot.PCI]?.destroyWatchesImmune == true)
         assertEquals(5.0, reloaded.runtime.currentCpuLoad)

@@ -279,7 +279,7 @@ class RequestScanCommand(
                 message = "Scanning requires an active default banking port.",
             )
         }
-        if (requesterState.isOverheated()) {
+        if (requesterState.isCurrentlyOverheated(System.currentTimeMillis())) {
             return failureResponse(
                 requesterState = requesterState,
                 code = ScanFailureCode.OVERHEATED,
@@ -536,10 +536,6 @@ private fun InstalledFirewall.toFirewallView(): FirewallView {
         strength = strength,
         cpuCost = cpuCost,
     )
-}
-
-private fun ComputerState.isOverheated(): Boolean {
-    return hardware.cpuMax > 0.0 && runtime.currentCpuLoad > hardware.cpuMax
 }
 
 private const val SCAN_COST: Double = 10.0

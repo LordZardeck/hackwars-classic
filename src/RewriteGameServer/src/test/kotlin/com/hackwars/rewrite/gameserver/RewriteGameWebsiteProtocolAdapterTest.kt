@@ -54,6 +54,7 @@ import com.hackwars.rewrite.testkit.RewriteServiceAdapter
 import hackwars.rewrite.v1.FrameEnvelope
 import java.time.Instant
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.yield
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
@@ -484,6 +485,7 @@ class RewriteGameWebsiteProtocolAdapterTest {
                 interestRegistry = interests,
                 watchTriggerIntentSink = sink,
             ),
+            combatMaintenanceProgramRegistry = DisabledCombatMaintenanceProgramRegistry,
             interestRegistry = interests,
             serverId = "1",
             hookSideEffectSink = sink,
@@ -532,6 +534,8 @@ class RewriteGameWebsiteProtocolAdapterTest {
         )
         connection.awaitFrame()
         connection.awaitFrame()
+        yield()
+        connection.drainFrames()
         return connection
     }
 

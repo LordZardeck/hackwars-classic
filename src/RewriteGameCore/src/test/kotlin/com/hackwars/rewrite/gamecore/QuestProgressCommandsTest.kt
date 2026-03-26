@@ -11,6 +11,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
+import kotlin.test.assertNull
 
 class QuestProgressCommandsTest {
     @Test
@@ -102,6 +103,121 @@ class QuestProgressCommandsTest {
                 publisher = publisher,
             )
         }
+    }
+
+    @Test
+    fun requestGameReturnsFullFileAndTypedLoadValuesWithoutDeltas() = runTest {
+        val stateId = GameStateId("LOCAL-IP")
+        val repository = InMemoryComputerStateRepository(
+            seededStates = mapOf(stateId to hacktendoState(stateId)),
+        )
+        val interests = InMemoryInterestRegistry()
+        interests.register("conn-1", stateId)
+        val publisher = RecordingGameStatePublisher()
+        val dispatcher = DefaultCommandDispatcher(repository, interests)
+
+        val metadataBacked = dispatcher.request(
+            command = RequestGameCommand(
+                stateId = stateId,
+                path = "/Games",
+                fileName = "adventure",
+            ),
+            metadata = CommandMetadata(connectionId = "conn-1"),
+            publisher = publisher,
+        )
+        val legacyBacked = dispatcher.request(
+            command = RequestGameCommand(
+                stateId = stateId,
+                path = "/Games",
+                fileName = "arcade",
+            ),
+            metadata = CommandMetadata(connectionId = "conn-1"),
+            publisher = publisher,
+        )
+        val missingFile = dispatcher.request(
+            command = RequestGameCommand(
+                stateId = stateId,
+                path = "/Games",
+                fileName = "missing",
+            ),
+            metadata = CommandMetadata(connectionId = "conn-1"),
+            publisher = publisher,
+        )
+        val missingSave = dispatcher.request(
+            command = RequestGameCommand(
+                stateId = stateId,
+                path = "/Games",
+                fileName = "sandbox",
+            ),
+            metadata = CommandMetadata(connectionId = "conn-1"),
+            publisher = publisher,
+        )
+
+        assertEquals("adventure", metadataBacked.file?.name)
+        assertEquals("<game>adventure</game>", metadataBacked.file?.contents)
+        assertEquals(
+            linkedMapOf(
+                "name" to StringHookValue("starter"),
+                "score" to IntHookValue(7),
+                "enabled" to BooleanHookValue(true),
+            ),
+            metadataBacked.loadValues,
+        )
+        assertEquals(
+            linkedMapOf(
+                "name" to StringHookValue("player"),
+                "alive" to BooleanHookValue(true),
+                "score" to IntHookValue(7),
+                "ratio" to FloatHookValue(1.5),
+            ),
+            legacyBacked.loadValues,
+        )
+        assertEquals("sandbox", missingSave.file?.name)
+        assertTrue(missingSave.loadValues.isEmpty())
+        assertEquals(null, missingFile.file)
+        assertTrue(missingFile.loadValues.isEmpty())
+        assertTrue(publisher.deltas.isEmpty())
+    }
+
+    @Test
+    fun hacktendoCommandsExecuteAsNoOpsWithoutMutatingState() = runTest {
+        val stateId = GameStateId("LOCAL-IP")
+        val seeded = hacktendoState(stateId)
+        val repository = InMemoryComputerStateRepository(
+            seededStates = mapOf(stateId to seeded),
+        )
+        val interests = InMemoryInterestRegistry()
+        interests.register("conn-1", stateId)
+        val publisher = RecordingGameStatePublisher()
+        val dispatcher = DefaultCommandDispatcher(repository, interests)
+
+        dispatcher.dispatch(
+            command = HacktendoActivateCommand(
+                stateId = stateId,
+                activateId = 5,
+                activateType = 6,
+            ),
+            metadata = CommandMetadata(connectionId = "conn-1"),
+            publisher = publisher,
+        )
+        dispatcher.dispatch(
+            command = HacktendoTargetCommand(
+                stateId = stateId,
+                targetX = 1,
+                targetY = 2,
+                currentX = 3,
+                currentY = 4,
+            ),
+            metadata = CommandMetadata(connectionId = "conn-1"),
+            publisher = publisher,
+        )
+
+        val persisted = repository.load(stateId)
+        assertEquals(seeded, persisted)
+        assertTrue(publisher.deltas.isEmpty())
+        assertTrue(publisher.uiEvents.isEmpty())
+        assertTrue(publisher.programUpdates.isEmpty())
+        assertNull(repository.load(GameStateId("OTHER-IP")))
     }
 
     @Test
@@ -254,6 +370,96 @@ class QuestProgressCommandsTest {
         assertTrue(publisher.deltas.isEmpty())
     }
 
+    @Test
+    fun launchNetworkAttackDispatchesNetbombWithResolvedDefaultPorts() = runTest {
+        val playerId = GameStateId("PLAYER-IP")
+        val npcId = GameStateId("NPC-IP")
+        val sink = RecordingWatchTriggerIntentSink()
+        val repository = InMemoryComputerStateRepository(
+            seededStates = mapOf(
+                playerId to launchNetworkPlayerState(playerId),
+                npcId to ComputerState.empty(id = npcId, playerIp = npcId.value, isNpc = true),
+            ),
+        )
+        val dispatcher = DefaultCommandDispatcher(
+            repository = repository,
+            interestRegistry = InMemoryInterestRegistry(),
+            watchTriggerIntentSink = sink,
+        )
+
+        val response = dispatcher.request(
+            command = LaunchNetworkAttackCommand(
+                playerStateId = playerId,
+                npcStateId = npcId,
+            ),
+            metadata = CommandMetadata(),
+            publisher = RecordingGameStatePublisher(),
+        )
+
+        assertTrue(response.accepted)
+        assertTrue(response.dispatched)
+        assertEquals("launchnetworkattack-dispatched", response.message)
+        assertEquals(null, response.failureCode)
+        assertEquals(1, sink.intents.size)
+        val intent = sink.intents.single()
+        assertEquals(npcId, intent.targetStateId)
+        assertEquals(TriggerSelector.ByNote("netbomb"), intent.selector)
+        assertEquals(playerId.value, intent.sourceIp)
+        assertEquals(
+            listOf("playerip", "defaultattack", "defaultbank", "defaulthttp", "defaultredirecting"),
+            intent.parameters.keys.toList(),
+        )
+        assertEquals(StringHookValue(playerId.value), intent.parameters.getValue("playerip"))
+        assertEquals(IntHookValue(12), intent.parameters.getValue("defaultattack"))
+        assertEquals(IntHookValue(6), intent.parameters.getValue("defaultbank"))
+        assertEquals(IntHookValue(7), intent.parameters.getValue("defaulthttp"))
+        assertEquals(IntHookValue(9), intent.parameters.getValue("defaultredirecting"))
+    }
+
+    @Test
+    fun launchNetworkAttackFailsWithoutDispatchWhenPlayerOrNpcStateIsMissing() = runTest {
+        val playerId = GameStateId("PLAYER-IP")
+        val npcId = GameStateId("NPC-IP")
+        val sink = RecordingWatchTriggerIntentSink()
+        val dispatcherWithMissingNpc = DefaultCommandDispatcher(
+            repository = InMemoryComputerStateRepository(
+                seededStates = mapOf(playerId to launchNetworkPlayerState(playerId)),
+            ),
+            interestRegistry = InMemoryInterestRegistry(),
+            watchTriggerIntentSink = sink,
+        )
+        val dispatcherWithMissingPlayer = DefaultCommandDispatcher(
+            repository = InMemoryComputerStateRepository(
+                seededStates = mapOf(npcId to ComputerState.empty(id = npcId, playerIp = npcId.value, isNpc = true)),
+            ),
+            interestRegistry = InMemoryInterestRegistry(),
+            watchTriggerIntentSink = sink,
+        )
+
+        val missingNpc = dispatcherWithMissingNpc.request(
+            command = LaunchNetworkAttackCommand(
+                playerStateId = playerId,
+                npcStateId = npcId,
+            ),
+            metadata = CommandMetadata(),
+            publisher = RecordingGameStatePublisher(),
+        )
+        val missingPlayer = dispatcherWithMissingPlayer.request(
+            command = LaunchNetworkAttackCommand(
+                playerStateId = playerId,
+                npcStateId = npcId,
+            ),
+            metadata = CommandMetadata(),
+            publisher = RecordingGameStatePublisher(),
+        )
+
+        assertFalse(missingNpc.accepted)
+        assertEquals(LaunchNetworkAttackFailureCode.NPC_STATE_NOT_FOUND, missingNpc.failureCode)
+        assertFalse(missingPlayer.accepted)
+        assertEquals(LaunchNetworkAttackFailureCode.PLAYER_STATE_NOT_FOUND, missingPlayer.failureCode)
+        assertTrue(sink.intents.isEmpty())
+    }
+
     private fun localQuestState(stateId: GameStateId): ComputerState {
         var filesystem = ComputerState.empty(id = stateId, playFabId = "PF-LOCALUSER").filesystem
             .ensureDirectory("/Public")
@@ -309,5 +515,109 @@ class QuestProgressCommandsTest {
         return ComputerState.empty(id = stateId, playerIp = stateId.value).copy(
             filesystem = ComputerState.empty(id = stateId, playerIp = stateId.value).filesystem.ensureDirectory("/Store"),
         )
+    }
+
+    private fun hacktendoState(stateId: GameStateId): ComputerState {
+        var filesystem = ComputerState.empty(id = stateId, playerIp = stateId.value).filesystem
+            .ensureDirectory("/Games")
+        filesystem = filesystem
+            .saveFile(
+                StoredFile(
+                    path = buildFilePath("/Games", "adventure"),
+                    name = "adventure",
+                    kind = StoredFileKind.TEXT,
+                    contents = "<game>adventure</game>",
+                ),
+            )
+            .saveFile(
+                StoredFile(
+                    path = buildFilePath("/", "adventure.save"),
+                    name = "adventure.save",
+                    kind = StoredFileKind.SAVE_DATA,
+                    contents = "unused\tstring\tignored\n",
+                    saveMetadata = SaveFileMetadata(
+                        valuesByKey = linkedMapOf(
+                            "name" to StringHookValue("starter"),
+                            "score" to IntHookValue(7),
+                            "enabled" to BooleanHookValue(true),
+                        ),
+                    ),
+                ),
+            )
+            .saveFile(
+                StoredFile(
+                    path = buildFilePath("/Games", "arcade"),
+                    name = "arcade",
+                    kind = StoredFileKind.TEXT,
+                    contents = "<game>arcade</game>",
+                ),
+            )
+            .saveFile(
+                StoredFile(
+                    path = buildFilePath("/", "arcade.save"),
+                    name = "arcade.save",
+                    kind = StoredFileKind.TEXT,
+                    contents = """
+                        name	string	player
+                        alive	bool	true
+                        broken	row
+                        score	int	7
+                        ratio	float	1.5
+                        badint	int	nope
+                    """.trimIndent(),
+                ),
+            )
+            .saveFile(
+                StoredFile(
+                    path = buildFilePath("/Games", "sandbox"),
+                    name = "sandbox",
+                    kind = StoredFileKind.TEXT,
+                    contents = "<game>sandbox</game>",
+                ),
+            )
+        return ComputerState.empty(id = stateId, playerIp = stateId.value).copy(filesystem = filesystem)
+    }
+
+    private fun launchNetworkPlayerState(stateId: GameStateId): ComputerState {
+        return ComputerState.empty(id = stateId, playerIp = stateId.value).copy(
+            economy = EconomyState(
+                pettyCash = 250.0,
+                bankMoney = 100.0,
+                defaultBankPort = 6,
+                defaultRedirectPort = 9,
+            ),
+            ports = listOf(
+                applicationPort(12, ApplicationKind.ATTACK),
+                applicationPort(6, ApplicationKind.BANKING),
+                applicationPort(7, ApplicationKind.HTTP),
+                applicationPort(9, ApplicationKind.REDIRECT),
+            ),
+        )
+    }
+
+    private fun applicationPort(
+        number: Int,
+        kind: ApplicationKind,
+    ): PortState {
+        return PortState(
+            number = number,
+            type = kind.name.lowercase(),
+            enabled = true,
+            defaultPort = true,
+            installedApplication = InstalledApplication(
+                name = "${kind.name.lowercase()}.bin",
+                kind = kind,
+                binaryPath = "/Public/${kind.name.lowercase()}.bin",
+                banking = kind == ApplicationKind.BANKING,
+            ),
+        )
+    }
+
+    private class RecordingWatchTriggerIntentSink : WatchTriggerIntentSink {
+        val intents = mutableListOf<WatchTriggerIntent>()
+
+        override suspend fun emitWatchTrigger(intent: WatchTriggerIntent) {
+            intents += intent
+        }
     }
 }

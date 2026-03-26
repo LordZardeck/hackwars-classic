@@ -17,6 +17,8 @@ import com.hackwars.rewrite.gamecore.ChangeDailyPayResponse
 import com.hackwars.rewrite.gamecore.ClueDataAcceptedResponse
 import com.hackwars.rewrite.gamecore.ClueDataCommand
 import com.hackwars.rewrite.gamecore.ClueDataPayload
+import com.hackwars.rewrite.gamecore.CombatMaintenanceProgramCommand
+import com.hackwars.rewrite.gamecore.CombatMaintenanceProgramRegistry
 import com.hackwars.rewrite.gamecore.CompileFileCommand
 import com.hackwars.rewrite.gamecore.CompileFilePayload
 import com.hackwars.rewrite.gamecore.CompileFileResponse
@@ -41,12 +43,22 @@ import com.hackwars.rewrite.gamecore.DeltaProjection
 import com.hackwars.rewrite.gamecore.DirectoryListingResponse
 import com.hackwars.rewrite.gamecore.FileContentsResponse
 import com.hackwars.rewrite.gamecore.FireAndForgetCommand
+import com.hackwars.rewrite.gamecore.FinalizeCancelledCommand
+import com.hackwars.rewrite.gamecore.FinalizeCancelledPayload
+import com.hackwars.rewrite.gamecore.FinalizeCancelledResponse
 import com.hackwars.rewrite.gamecore.GameSessionBootstrapCommand
 import com.hackwars.rewrite.gamecore.GameSessionBootstrapResult
 import com.hackwars.rewrite.gamecore.GameStateId
 import com.hackwars.rewrite.gamecore.GameStatePublisher
 import com.hackwars.rewrite.gamecore.GameUiEvent
 import com.hackwars.rewrite.gamecore.HackScriptHttpHookRuntime
+import com.hackwars.rewrite.gamecore.HealPortCommand
+import com.hackwars.rewrite.gamecore.HealPortPayload
+import com.hackwars.rewrite.gamecore.HealPortResponse
+import com.hackwars.rewrite.gamecore.HacktendoActivateCommand
+import com.hackwars.rewrite.gamecore.HacktendoActivatePayload
+import com.hackwars.rewrite.gamecore.HacktendoTargetCommand
+import com.hackwars.rewrite.gamecore.HacktendoTargetPayload
 import com.hackwars.rewrite.gamecore.ExitWebpageCommand
 import com.hackwars.rewrite.gamecore.ExitWebpagePayload
 import com.hackwars.rewrite.gamecore.FacebookDepositPayload
@@ -68,6 +80,7 @@ import com.hackwars.rewrite.gamecore.MutationAcceptedResponse
 import com.hackwars.rewrite.gamecore.HookSideEffectSink
 import com.hackwars.rewrite.gamecore.HttpHookRuntime
 import com.hackwars.rewrite.gamecore.InMemoryAttackProgramRegistry
+import com.hackwars.rewrite.gamecore.InMemoryCombatMaintenanceProgramRegistry
 import com.hackwars.rewrite.gamecore.InMemoryDailyIncomeProgramRegistry
 import com.hackwars.rewrite.gamecore.NetworkDirectoryRepository
 import com.hackwars.rewrite.gamecore.NetworkSwitchResponse
@@ -88,6 +101,9 @@ import com.hackwars.rewrite.gamecore.RequestZombieCancelAttackCommand
 import com.hackwars.rewrite.gamecore.RequestZombieCancelAttackPayload
 import com.hackwars.rewrite.gamecore.RequestPageCommand
 import com.hackwars.rewrite.gamecore.RequestPagePayload
+import com.hackwars.rewrite.gamecore.RequestGameCommand
+import com.hackwars.rewrite.gamecore.RequestGamePayload
+import com.hackwars.rewrite.gamecore.RequestGameResponse
 import com.hackwars.rewrite.gamecore.RequestSaveCommand
 import com.hackwars.rewrite.gamecore.RequestSavePayload
 import com.hackwars.rewrite.gamecore.RequestTaskCommand
@@ -202,6 +218,7 @@ class RewriteGameProtocolAdapter(
     ),
     private val attackProgramRegistry: AttackProgramRegistry = InMemoryAttackProgramRegistry(),
     private val dailyIncomeProgramRegistry: DailyIncomeProgramRegistry = InMemoryDailyIncomeProgramRegistry(),
+    private val combatMaintenanceProgramRegistry: CombatMaintenanceProgramRegistry = InMemoryCombatMaintenanceProgramRegistry(),
     private val registry: CommandRegistry = defaultRegistry(
         serverId,
         clock,
@@ -250,6 +267,27 @@ class RewriteGameProtocolAdapter(
                 handle = handle,
             )
         }
+        if (!combatMaintenanceProgramRegistry.hasProgram(stateId)) {
+            val publisher = protocolPublisher(transport)
+            val programId = "combat-maintenance-${stateId.value}"
+            val handle = dispatcher.schedule(
+                command = CombatMaintenanceProgramCommand(
+                    stateId = stateId,
+                    programId = programId,
+                    combatMaintenanceProgramRegistry = combatMaintenanceProgramRegistry,
+                    attackProgramRegistry = attackProgramRegistry,
+                    interestRegistry = interestRegistry,
+                    clock = clock,
+                ),
+                metadata = metadataFor(session),
+                publisher = publisher,
+            )
+            combatMaintenanceProgramRegistry.register(
+                stateId = stateId,
+                programId = programId,
+                handle = handle,
+            )
+        }
 
         return listOf(
             RewriteFrames.snapshot(
@@ -266,6 +304,7 @@ class RewriteGameProtocolAdapter(
         val remainingSubscribers = interestRegistry.subscribersFor(stateId)
         if (remainingSubscribers.isEmpty()) {
             dailyIncomeProgramRegistry.cancel(stateId, "session-ended")
+            combatMaintenanceProgramRegistry.cancel(stateId, "session-ended")
         }
     }
 
@@ -425,6 +464,7 @@ class RewriteGameProtocolAdapter(
             is DirectoryListingResponse -> RewriteGameJson.encode(DirectoryListingResponse.serializer(), result)
             is SecondaryDirectoryListingResponse -> RewriteGameJson.encode(SecondaryDirectoryListingResponse.serializer(), result)
             is FileContentsResponse -> RewriteGameJson.encode(FileContentsResponse.serializer(), result)
+            is RequestGameResponse -> RewriteGameJson.encode(RequestGameResponse.serializer(), result)
             is TaskProgressResponse -> RewriteGameJson.encode(TaskProgressResponse.serializer(), result)
             is SaveFileRequestResponse -> RewriteGameJson.encode(SaveFileRequestResponse.serializer(), result)
             is ClueDataAcceptedResponse -> RewriteGameJson.encode(ClueDataAcceptedResponse.serializer(), result)
@@ -435,6 +475,8 @@ class RewriteGameProtocolAdapter(
             is ZombieAttackStartResponse -> RewriteGameJson.encode(ZombieAttackStartResponse.serializer(), result)
             is ZombieAttackCancelResponse -> RewriteGameJson.encode(ZombieAttackCancelResponse.serializer(), result)
             is ChangeDailyPayResponse -> RewriteGameJson.encode(ChangeDailyPayResponse.serializer(), result)
+            is HealPortResponse -> RewriteGameJson.encode(HealPortResponse.serializer(), result)
+            is FinalizeCancelledResponse -> RewriteGameJson.encode(FinalizeCancelledResponse.serializer(), result)
             is MutationAcceptedResponse -> RewriteGameJson.encode(MutationAcceptedResponse.serializer(), result)
             is CompileFileResponse -> RewriteGameJson.encode(CompileFileResponse.serializer(), result)
             is DecompileFileResponse -> RewriteGameJson.encode(DecompileFileResponse.serializer(), result)
@@ -698,6 +740,25 @@ class RewriteGameProtocolAdapter(
                         ),
                     )
                 }
+                .register("healport") { input ->
+                    val payload = decodePayload(input, HealPortPayload.serializer())
+                    val authenticatedStateId = requireAuthenticatedStateId(input)
+                    requirePayloadIpMatches(authenticatedStateId, payload.ip, input.commandName)
+                    HealPortCommand(
+                        stateId = authenticatedStateId,
+                        portNumber = payload.port,
+                    )
+                }
+                .register("finalizecancelled") { input ->
+                    val payload = decodePayload(input, FinalizeCancelledPayload.serializer())
+                    val authenticatedStateId = requireAuthenticatedStateId(input)
+                    requirePayloadIpMatches(authenticatedStateId, payload.ip, input.commandName)
+                    FinalizeCancelledCommand(
+                        actorStateId = authenticatedStateId,
+                        targetStateId = GameStateId(payload.targetIp),
+                        targetPort = payload.targetPort,
+                    )
+                }
                 .register("requestsearch") { input ->
                     val payload = decodePayload(input, RequestSearchPayload.serializer())
                     RequestSearchCommand(
@@ -841,6 +902,42 @@ class RewriteGameProtocolAdapter(
                             ?: requireAuthenticatedStateId(input),
                         fileName = payload.fileName,
                         triggerParameters = payload.triggerParameters,
+                    )
+                }
+                .register("requestgame") { input ->
+                    val payload = decodePayload(input, RequestGamePayload.serializer())
+                    val authenticatedStateId = requireAuthenticatedStateId(input)
+                    requirePayloadIpMatches(authenticatedStateId, payload.ip, input.commandName)
+                    RequestGameCommand(
+                        stateId = authenticatedStateId,
+                        path = payload.path,
+                        fileName = payload.name,
+                    )
+                }
+                .register("hacktendoActivate") { input ->
+                    val payload = decodePayload(input, HacktendoActivatePayload.serializer())
+                    val authenticatedStateId = requireAuthenticatedStateId(input)
+                    payload.ip
+                        ?.takeUnless { it.isBlank() }
+                        ?.let { requirePayloadIpMatches(authenticatedStateId, it, input.commandName) }
+                    HacktendoActivateCommand(
+                        stateId = authenticatedStateId,
+                        activateId = payload.activateID,
+                        activateType = payload.activateType,
+                    )
+                }
+                .register("hacktendoTarget") { input ->
+                    val payload = decodePayload(input, HacktendoTargetPayload.serializer())
+                    val authenticatedStateId = requireAuthenticatedStateId(input)
+                    payload.ip
+                        ?.takeUnless { it.isBlank() }
+                        ?.let { requirePayloadIpMatches(authenticatedStateId, it, input.commandName) }
+                    HacktendoTargetCommand(
+                        stateId = authenticatedStateId,
+                        targetX = payload.targetX,
+                        targetY = payload.targetY,
+                        currentX = payload.currentX,
+                        currentY = payload.currentY,
                     )
                 }
                 .register("cluedata") { input ->

@@ -152,6 +152,7 @@ class RequestSecondaryDirectoryCommand(
             portNumber = portNumber,
             now = clock(),
             allowFrozen = true,
+            allowOverheated = true,
             commandName = name,
         )
         val normalizedPath = normalizeDirectoryPath(path, requesterState.filesystem.currentPath)
@@ -538,8 +539,20 @@ class InstallApplicationCommand(
         } else {
             null
         }
+        val defaultRedirectPort = if (
+            installedApplication.kind == ApplicationKind.REDIRECT &&
+            state.economy.defaultRedirectPort == null
+        ) {
+            portNumber
+        } else {
+            null
+        }
         val defaultPort = when {
-            installedApplication.kind == ApplicationKind.HTTP || installedApplication.kind == ApplicationKind.FTP -> {
+            installedApplication.kind in setOf(
+                ApplicationKind.HTTP,
+                ApplicationKind.FTP,
+                ApplicationKind.REDIRECT,
+            ) -> {
                 existingPort?.defaultPort == true ||
                     state.ports.none { it.defaultPort && it.installedApplication?.kind == installedApplication.kind }
             }
@@ -560,6 +573,7 @@ class InstallApplicationCommand(
                     remainingSourceFile = remainingSource,
                     portState = updatedPort,
                     defaultBankPort = defaultBankPort,
+                    defaultRedirectPort = defaultRedirectPort,
                     dailyPay = if (installedApplication.kind == ApplicationKind.HTTP) {
                         state.dailyPay.copy(
                             revenueTargetStateId = stateId,
@@ -614,6 +628,8 @@ class InstallEquipmentCommand(
             cpuBoost = source.cpuCost,
             memoryBoost = metadata.equipmentSlot.takeIf { it == EquipmentSlot.MEMORY }?.ordinal ?: 0,
             storageBoost = metadata.equipmentSlot.takeIf { it == EquipmentSlot.STORAGE }?.ordinal ?: 0,
+            healCostMultiplier = metadata.healCostMultiplier ?: 1.0,
+            healModifierDelta = metadata.healModifierDelta ?: 0,
         )
         val updated = context.appendEvents(
             id = stateId,
@@ -1375,6 +1391,7 @@ internal fun ComputerState.requireRemotePortAccess(
     portNumber: Int,
     now: Long,
     allowFrozen: Boolean,
+    allowOverheated: Boolean = false,
     commandName: String,
 ): PortState {
     val portState = requireNotNull(port(portNumber)) {
@@ -1385,6 +1402,9 @@ internal fun ComputerState.requireRemotePortAccess(
     }
     require(allowFrozen || !portState.isFrozenAt(now)) {
         "Target port $portNumber is frozen on ${id.value} for $commandName."
+    }
+    require(allowOverheated || !portState.overheated) {
+        "Target port $portNumber is overheated on ${id.value} for $commandName."
     }
     return portState
 }

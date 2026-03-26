@@ -8,6 +8,7 @@ import com.hackwars.rewrite.hackscript.AttackEmptyTargetPettyCashEffect
 import com.hackwars.rewrite.hackscript.AttackEditTargetLogsEffect
 import com.hackwars.rewrite.hackscript.AttackFreezeTargetPortEffect
 import com.hackwars.rewrite.hackscript.AttackInstallTargetScriptEffect
+import com.hackwars.rewrite.hackscript.AttackSelectRedirectCommodityEffect
 import com.hackwars.rewrite.hackscript.AttackAppendHostLogEffect
 import com.hackwars.rewrite.hackscript.AttackChangeDailyPayEffect
 import com.hackwars.rewrite.hackscript.AttackSendMessageEffect
@@ -35,6 +36,7 @@ internal data class AttackRuntimeApplyResult(
     val freezeRequested: Boolean = false,
     val berserkRequested: Boolean = false,
     val switchTargetRequested: Boolean = false,
+    val selectedRedirectCommodityId: Int? = null,
     val authorizedZombieStateId: GameStateId? = null,
 )
 
@@ -79,6 +81,7 @@ internal class AttackRuntimeExecutor(
         var freezeRequested = false
         var berserkRequested = false
         var switchTargetRequested = false
+        var selectedRedirectCommodityId: Int? = null
         var authorizedZombieStateId: GameStateId? = null
         result.effects.forEach { effect ->
             val helperCancelsAttack = phase == AttackScriptPhase.CONTINUE && (
@@ -96,6 +99,7 @@ internal class AttackRuntimeExecutor(
             freezeRequested = effectResult.freezeRequested || freezeRequested
             berserkRequested = effectResult.berserkRequested || berserkRequested
             switchTargetRequested = effectResult.switchTargetRequested || switchTargetRequested
+            selectedRedirectCommodityId = effectResult.selectedRedirectCommodityId ?: selectedRedirectCommodityId
             authorizedZombieStateId = effectResult.authorizedZombieStateId ?: authorizedZombieStateId
         }
         return AttackRuntimeApplyResult(
@@ -104,6 +108,7 @@ internal class AttackRuntimeExecutor(
             freezeRequested = freezeRequested,
             berserkRequested = berserkRequested,
             switchTargetRequested = switchTargetRequested,
+            selectedRedirectCommodityId = selectedRedirectCommodityId,
             authorizedZombieStateId = authorizedZombieStateId,
         )
     }
@@ -211,6 +216,9 @@ internal class AttackRuntimeExecutor(
             is AttackInstallTargetScriptEffect -> return AttackRuntimeApplyResult()
             is AttackChangeDailyPayEffect -> return AttackRuntimeApplyResult()
             is AttackShowChoicesEffect -> return AttackRuntimeApplyResult()
+            is AttackSelectRedirectCommodityEffect -> {
+                return AttackRuntimeApplyResult(selectedRedirectCommodityId = effect.commodityId)
+            }
             is AttackSendMessageEffect -> {
                 context.publishUiEvent(
                     targetStateIds = setOf(GameStateId(effect.targetIp)),

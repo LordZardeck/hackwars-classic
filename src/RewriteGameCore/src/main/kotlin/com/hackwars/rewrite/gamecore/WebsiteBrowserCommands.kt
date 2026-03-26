@@ -412,6 +412,7 @@ private fun ComputerState.hasActiveDefaultApplicationPort(
         port.defaultPort &&
             port.enabled &&
             !port.isFrozenAt(now) &&
+            !port.overheated &&
             port.installedApplication?.kind == kind
     }
 }
@@ -424,6 +425,7 @@ private fun ComputerState.activeDefaultApplication(
         port.defaultPort &&
             port.enabled &&
             !port.isFrozenAt(now) &&
+            !port.overheated &&
             port.installedApplication?.kind == kind
     }?.installedApplication
 }

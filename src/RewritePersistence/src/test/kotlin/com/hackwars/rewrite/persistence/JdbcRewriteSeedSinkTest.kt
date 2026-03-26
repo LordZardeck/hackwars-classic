@@ -76,6 +76,8 @@ class JdbcRewriteSeedSinkTest {
                     noobProtectionLevel = 3,
                     pettyCash = 450.0,
                     bankMoney = 125.0,
+                    commodities = listOf(3.0, 1.0, 4.0, 1.0, 5.0),
+                    commodityRespawn = listOf(5.0, 1.0, 4.0, 1.0, 3.0),
                     currentNetworkName = "ProgNet",
                     allowedNetworks = listOf("ProgNet"),
                     lastNetworkSwitchAtEpochMillis = 123_456L,
@@ -246,6 +248,8 @@ class JdbcRewriteSeedSinkTest {
         assertEquals(4, state.website.voteCount)
         assertEquals(450.0, state.economy.pettyCash)
         assertEquals(125.0, state.economy.bankMoney)
+        assertEquals(listOf(3.0, 1.0, 4.0, 1.0, 5.0), state.economy.commodities)
+        assertEquals(listOf(5.0, 1.0, 4.0, 1.0, 3.0), state.economy.commodityRespawn)
         assertEquals(6, state.economy.defaultBankPort)
         assertEquals("ProgNet", state.network.currentNetworkName)
         assertEquals(GameStateId("store1"), state.network.storeStateId)

@@ -66,6 +66,8 @@ data class EconomyState(
     val bankMoney: Double = 0.0,
     val commodities: List<Double> = List(5) { 0.0 },
     val defaultBankPort: Int? = null,
+    val defaultRedirectPort: Int? = null,
+    val commodityRespawn: List<Double> = List(5) { 0.0 },
 )
 
 @Serializable
@@ -99,6 +101,8 @@ data class InstalledEquipment(
     val memoryBoost: Int = 0,
     val storageBoost: Int = 0,
     val watchCapacityBoost: Int = 0,
+    val healCostMultiplier: Double = 1.0,
+    val healModifierDelta: Int = 0,
     val freezeImmune: Boolean = false,
     val destroyWatchesImmune: Boolean = false,
 )
@@ -110,6 +114,7 @@ enum class ApplicationKind {
     FTP,
     HTTP,
     ATTACK,
+    REDIRECT,
     WATCH,
 }
 
@@ -179,11 +184,21 @@ data class PortState(
     val dummy: Boolean = false,
     val attacking: Boolean = false,
     val health: Double = 100.0,
+    val healCount: Int = 0,
+    val weakenedAccess: WeakenedPortAccessState? = null,
+    val overheated: Boolean = false,
     val freezeExpiresAtEpochMillis: Long? = null,
     val note: String = "",
     val maxCpuCost: Double = 0.0,
     val installedApplication: InstalledApplication? = null,
     val installedFirewall: InstalledFirewall? = null,
+)
+
+@Serializable
+data class WeakenedPortAccessState(
+    val actorStateId: GameStateId,
+    val grantedAtEpochMillis: Long,
+    val lastAccessedAtEpochMillis: Long = grantedAtEpochMillis,
 )
 
 @Serializable
@@ -342,6 +357,8 @@ data class CompiledBinaryMetadata(
     val firewallCombatProfile: FirewallCombatProfile? = null,
     val firewallActionProfile: FirewallActionProfile? = null,
     val equipmentSlot: EquipmentSlot? = null,
+    val healCostMultiplier: Double? = null,
+    val healModifierDelta: Int? = null,
     val bankingApplication: Boolean = false,
     val strength: Int = 0,
     val experienceAward: Double = 1.0,
@@ -410,17 +427,26 @@ enum class AttackMode {
 }
 
 @Serializable
+enum class AttackSessionKind {
+    ATTACK,
+    REDIRECT,
+}
+
+@Serializable
 data class AttackSessionState(
     val programId: String,
     val sourcePort: Int,
     val targetStateId: GameStateId,
     val targetPort: Int,
+    val sessionKind: AttackSessionKind = AttackSessionKind.ATTACK,
     val attackMode: AttackMode = AttackMode.DIRECT,
     val controllerStateId: GameStateId? = null,
     val authorizedZombieStateId: GameStateId? = null,
     val targetView: AttackTargetView = AttackTargetView(),
     val targetCyclePorts: List<Int> = emptyList(),
     val targetCycleCursor: Int = 0,
+    val redirectCommodityId: Int = 0,
+    val redirectXpAwardedOnTarget: Double = 0.0,
     val choicesShown: Boolean = false,
     val windowHandle: Int = 0,
     val secondaryPorts: List<Int> = emptyList(),
@@ -575,6 +601,8 @@ data class RuntimeState(
     val countdownSeconds: Int = 0,
     val lastMutationVersion: Long = 0,
     val currentCpuLoad: Double = 0.0,
+    val healCounter: Long = 0L,
+    val overheatStartedAtEpochMillis: Long? = null,
 )
 
 @Serializable
@@ -1086,6 +1114,28 @@ data class EconomyBalanceAdjustedEvent(
 }
 
 @Serializable
+@SerialName("economy_state_updated")
+data class EconomyStateUpdatedEvent(
+    private val changedPathList: Set<String>,
+    val economy: EconomyState,
+) : ComputerEvent {
+    override val changedPaths: Set<String> = changedPathList.ifEmpty { setOf("economy") }
+    override val deltaKeys: Set<String> = setOf("economy")
+
+    override fun applyTo(state: ComputerState, nextVersion: Long): ComputerState {
+        return state.copy(
+            version = nextVersion,
+            economy = economy,
+            runtime = state.runtime.withMutationVersion(nextVersion),
+        )
+    }
+
+    override fun toProjection(state: ComputerState): DeltaProjection {
+        return StateSectionsDeltaProjection(economy = state.economy)
+    }
+}
+
+@Serializable
 @SerialName("store_file_priced")
 data class StoreFilePricedEvent(
     val filePath: String,
@@ -1386,6 +1436,7 @@ data class ApplicationInstalledEvent(
     val remainingSourceFile: StoredFile?,
     val portState: PortState,
     val defaultBankPort: Int? = null,
+    val defaultRedirectPort: Int? = null,
     val dailyPay: DailyPayState? = null,
 ) : ComputerEvent {
     override val changedPaths: Set<String> = linkedSetOf<String>().apply {
@@ -1393,6 +1444,9 @@ data class ApplicationInstalledEvent(
         add("ports.${portState.number}")
         if (defaultBankPort != null) {
             add("economy.defaultBankPort")
+        }
+        if (defaultRedirectPort != null) {
+            add("economy.defaultRedirectPort")
         }
         if (dailyPay != null) {
             add("dailyPay")
@@ -1402,6 +1456,9 @@ data class ApplicationInstalledEvent(
         add("filesystem")
         add("ports")
         if (defaultBankPort != null) {
+            add("economy")
+        }
+        if (defaultRedirectPort != null) {
             add("economy")
         }
         if (dailyPay != null) {
@@ -1414,19 +1471,26 @@ data class ApplicationInstalledEvent(
         if (remainingSourceFile != null) {
             filesystem = filesystem.saveFile(remainingSourceFile)
         }
-        val updatedEconomy = if (defaultBankPort != null) {
-            state.economy.copy(defaultBankPort = defaultBankPort)
-        } else {
-            state.economy
-        }
+        val updatedEconomy = state.economy.copy(
+            defaultBankPort = defaultBankPort ?: state.economy.defaultBankPort,
+            defaultRedirectPort = defaultRedirectPort ?: state.economy.defaultRedirectPort,
+        )
         val updatedPort = portState.copy(
-            defaultPort = updatedEconomy.defaultBankPort == portState.number,
+            defaultPort = when (portState.installedApplication?.kind) {
+                ApplicationKind.BANKING -> updatedEconomy.defaultBankPort == portState.number
+                ApplicationKind.REDIRECT -> updatedEconomy.defaultRedirectPort == portState.number
+                else -> portState.defaultPort
+            },
         )
         return state.copy(
             version = nextVersion,
             filesystem = filesystem,
             economy = updatedEconomy,
-            ports = state.ports.upsertPort(updatedPort, updatedEconomy.defaultBankPort),
+            ports = state.ports.upsertPort(
+                port = updatedPort,
+                defaultBankPort = updatedEconomy.defaultBankPort,
+                defaultRedirectPort = updatedEconomy.defaultRedirectPort,
+            ),
             dailyPay = dailyPay ?: state.dailyPay,
             runtime = state.runtime.withMutationVersion(nextVersion),
         )
@@ -1605,11 +1669,19 @@ data class TextMessageUiEvent(
 ) : GameUiEvent
 
 @Serializable
+enum class AttackPaneType {
+    ATTACK,
+    REDIRECT,
+}
+
+@Serializable
 @SerialName("attack_message")
 data class AttackMessageUiEvent(
     val message: String,
     val port: Int,
     val ip: String,
+    val windowHandle: Int? = null,
+    val paneType: AttackPaneType = AttackPaneType.ATTACK,
 ) : GameUiEvent
 
 @Serializable
@@ -1837,6 +1909,14 @@ data class FileContentsResponse(
 )
 
 @Serializable
+data class RequestGameResponse(
+    val stateId: GameStateId,
+    val file: StoredFile?,
+    val loadValues: Map<String, HookValue> = emptyMap(),
+    val version: Long,
+)
+
+@Serializable
 data class TaskProgressResponse(
     val stateId: GameStateId,
     val questId: String,
@@ -2050,6 +2130,54 @@ data class ChangeDailyPayResponse(
 )
 
 @Serializable
+enum class HealPortOutcome {
+    SUCCESS,
+    PORT_NOT_FOUND,
+    INVALID_PORT,
+    ACTIVE_BANK_REQUIRED,
+    OVERHEATED,
+    WEAKENED,
+    HEAL_LIMIT_REACHED,
+    INSUFFICIENT_PETTY_CASH,
+}
+
+@Serializable
+data class HealPortResponse(
+    val stateId: GameStateId,
+    val portNumber: Int,
+    val accepted: Boolean,
+    val outcome: HealPortOutcome,
+    val message: String,
+    val chargedAmount: Double,
+    val pettyCashAfter: Double,
+    val healthAfter: Double? = null,
+    val healCountAfter: Int? = null,
+    val version: Long,
+)
+
+@Serializable
+enum class FinalizeCancelledOutcome {
+    SUCCESS,
+    TARGET_NOT_FOUND,
+    INVALID_TARGET_PORT,
+    NOT_WEAKENED,
+    ACCESS_DENIED,
+}
+
+@Serializable
+data class FinalizeCancelledResponse(
+    val actorStateId: GameStateId,
+    val targetStateId: GameStateId,
+    val targetPort: Int,
+    val accepted: Boolean,
+    val outcome: FinalizeCancelledOutcome,
+    val message: String,
+    val targetHealthAfter: Double? = null,
+    val targetHealCountAfter: Int? = null,
+    val targetVersion: Long? = null,
+)
+
+@Serializable
 data class SetPreferencePayload(
     val key: String,
     val value: String,
@@ -2257,6 +2385,7 @@ fun FilesystemState.deleteDirectoryTree(path: String): FilesystemState {
 fun List<PortState>.upsertPort(
     port: PortState,
     defaultBankPort: Int?,
+    defaultRedirectPort: Int? = null,
 ): List<PortState> {
     val updated = associateBy { it.number }.toMutableMap()
     updated[port.number] = port
@@ -2266,6 +2395,9 @@ fun List<PortState>.upsertPort(
             existing.copy(
                 defaultPort = when (kind) {
                     ApplicationKind.BANKING -> defaultBankPort != null && defaultBankPort == existing.number
+                    ApplicationKind.REDIRECT -> {
+                        defaultRedirectPort?.let { it == existing.number } ?: existing.defaultPort
+                    }
                     else -> existing.defaultPort
                 },
             )

@@ -46,6 +46,7 @@ import com.hackwars.rewrite.testkit.RewriteServiceAdapter
 import hackwars.rewrite.v1.FrameEnvelope
 import java.time.Instant
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.yield
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
@@ -81,6 +82,7 @@ class RewriteGameNetworkProtocolAdapterTest {
                 repository = repository,
                 interestRegistry = interests,
             ),
+            combatMaintenanceProgramRegistry = DisabledCombatMaintenanceProgramRegistry,
             interestRegistry = interests,
             networkDirectoryRepository = testNetworkRepository(),
         )
@@ -148,8 +150,12 @@ class RewriteGameNetworkProtocolAdapterTest {
             ),
         )
 
-        val delta = local.awaitFrame()
-        val responseFrame = local.awaitFrame()
+        val frames = listOf(
+            local.awaitFrame(),
+            local.awaitFrame(),
+        ) + local.drainFrames()
+        val delta = frames.first { it.delta?.delta_keys?.contains("network") == true }
+        val responseFrame = frames.first { it.command_response?.command_id == "network-1" }
         val response = RewriteGameJson.decode(
             serializer = NetworkSwitchResponse.serializer(),
             payload = responseFrame.command_response!!.payload.toByteArray(),
@@ -208,7 +214,11 @@ class RewriteGameNetworkProtocolAdapterTest {
         assertIs<StateSectionsDeltaProjection>(projection)
         assertEquals(90.0, projection.economy?.pettyCash)
         assertTrue((projection.stats?.experienceByFamily?.get(ScriptFamily.SCANNING) ?: 0.0) >= 60.0)
-        assertNull(target.drainFrames().firstOrNull())
+        assertTrue(
+            target.drainFrames().none { frame ->
+                frame.delta?.delta_keys?.any { it != "runtime" } == true
+            },
+        )
     }
 
     @Test
@@ -305,7 +315,8 @@ class RewriteGameNetworkProtocolAdapterTest {
             ),
         )
 
-        val responseFrame = local.awaitFrame()
+        val frames = listOf(local.awaitFrame()) + local.drainFrames()
+        val responseFrame = frames.first { it.command_response?.command_id == "scan-2" }
         val response = RewriteGameJson.decode(
             serializer = ScanResponse.serializer(),
             payload = responseFrame.command_response!!.payload.toByteArray(),
@@ -313,7 +324,11 @@ class RewriteGameNetworkProtocolAdapterTest {
 
         assertFalse(response.accepted)
         assertEquals("scan-2", responseFrame.command_response?.command_id)
-        assertTrue(local.drainFrames().none { it.delta != null })
+        assertTrue(
+            frames.none { frame ->
+                frame.delta?.delta_keys?.any { it != "runtime" } == true
+            },
+        )
     }
 
     private fun TestScope.createFixture(
@@ -333,6 +348,7 @@ class RewriteGameNetworkProtocolAdapterTest {
                 repository = repository,
                 interestRegistry = interests,
             ),
+            combatMaintenanceProgramRegistry = DisabledCombatMaintenanceProgramRegistry,
             interestRegistry = interests,
             networkDirectoryRepository = testNetworkRepository(),
         )
@@ -373,6 +389,10 @@ class RewriteGameNetworkProtocolAdapterTest {
         )
         connection.awaitFrame()
         connection.awaitFrame()
+        repeat(5) {
+            yield()
+            connection.drainFrames()
+        }
         return connection
     }
 

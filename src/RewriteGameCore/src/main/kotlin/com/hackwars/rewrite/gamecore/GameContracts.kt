@@ -45,6 +45,8 @@ interface ProgramCommand : GameCommand {
     val tickInterval: Duration
     val programUpdateStateIds: Set<GameStateId>
         get() = targetStateIds
+    val timeoutProgressMessage: String
+        get() = "lifetime expired"
 
     suspend fun onStart(context: CommandContext): ProgramExecutionStep = ProgramExecutionStep(
         status = ProgramLifecycleStatus.RUNNING,
@@ -205,6 +207,26 @@ interface DailyIncomeProgramRegistry {
 }
 
 object NoOpDailyIncomeProgramRegistry : DailyIncomeProgramRegistry {
+    override suspend fun register(stateId: GameStateId, programId: String, handle: ProgramHandle) = Unit
+
+    override suspend fun programIdFor(stateId: GameStateId): String? = null
+
+    override suspend fun hasProgram(stateId: GameStateId): Boolean = false
+
+    override suspend fun cancel(stateId: GameStateId, reason: String): Boolean = false
+
+    override suspend fun unregister(programId: String) = Unit
+}
+
+interface CombatMaintenanceProgramRegistry {
+    suspend fun register(stateId: GameStateId, programId: String, handle: ProgramHandle)
+    suspend fun programIdFor(stateId: GameStateId): String?
+    suspend fun hasProgram(stateId: GameStateId): Boolean
+    suspend fun cancel(stateId: GameStateId, reason: String): Boolean
+    suspend fun unregister(programId: String)
+}
+
+object NoOpCombatMaintenanceProgramRegistry : CombatMaintenanceProgramRegistry {
     override suspend fun register(stateId: GameStateId, programId: String, handle: ProgramHandle) = Unit
 
     override suspend fun programIdFor(stateId: GameStateId): String? = null

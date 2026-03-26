@@ -1,0 +1,129 @@
+package com.hackwars.rewrite.client
+
+import com.hackwars.rewrite.client.shell.RewriteDesktopMenuBar
+import com.hackwars.rewrite.client.shell.RewriteDesktopShellView
+import com.hackwars.rewrite.client.shell.RewritePlaceholderInternalFrame
+import com.hackwars.rewrite.client.shell.RewriteShellCommand
+import javax.swing.JMenu
+import javax.swing.JMenuItem
+import javax.swing.SwingUtilities
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertTrue
+
+class RewriteDesktopShellTest {
+    @Test
+    fun menuTaxonomyMatchesLegacyLabelsAndGrouping() {
+        val menuBar = RewriteDesktopMenuBar {}
+
+        assertEquals(
+            listOf("Applications", "Places", "System", "Tutorials"),
+            menuBar.topLevelMenus().map { it.text },
+        )
+
+        val applicationsMenu = menuBar.topLevelMenus().first()
+        val bankingMenu = applicationsMenu.getMenuComponent(0) as JMenu
+        val internetMenu = applicationsMenu.getMenuComponent(1) as JMenu
+        val hackingToolsMenu = applicationsMenu.getMenuComponent(2) as JMenu
+
+        assertEquals("Banking", bankingMenu.text)
+        assertEquals(listOf("Deposit", "Withdraw", "Transfer"), menuItemTexts(bankingMenu))
+        assertEquals("Internet", internetMenu.text)
+        assertEquals(listOf("Web Browser", "Store", "Site Editor"), menuItemTexts(internetMenu))
+        assertEquals("Hacking Tools", hackingToolsMenu.text)
+        assertEquals(listOf("Port Scan", "Attack Port", "Redirect Port", "Zombie Attack"), menuItemTexts(hackingToolsMenu))
+        assertEquals(
+            listOf("Script Editor", "Create Bounty", "Hacktendo Game Creator"),
+            listOf(
+                applicationsMenu.getMenuComponent(3),
+                applicationsMenu.getMenuComponent(4),
+                applicationsMenu.getMenuComponent(5),
+            ).map { component -> (component as JMenuItem).text },
+        )
+    }
+
+    @Test
+    fun launchingSameCommandRestoresExistingFrameInsteadOfDuplicatingIt() {
+        val controller = RewriteRootController(
+            authGateway = DeterministicRewriteLoginAuthGateway(),
+            sessionGateway = NoOpRewriteServiceSessionGateway,
+        )
+        val shellHost = RewriteDesktopShellView(controller::launchShellCommand)
+        controller.attachShellHost(shellHost)
+
+        invokeAndWait {
+            controller.launchShellCommand(RewriteShellCommand.DEPOSIT)
+            val frame = shellHost.desktopPane.allFrames.single()
+            frame.isIcon = true
+
+            controller.launchShellCommand(RewriteShellCommand.DEPOSIT)
+
+            assertEquals(1, shellHost.desktopPane.allFrames.size)
+            assertEquals(frame, shellHost.desktopPane.allFrames.single())
+        }
+
+        controller.shutdown()
+    }
+
+    @Test
+    fun minimizingAndRestoringFramesUpdatesTaskBar() {
+        val shellHost = RewriteDesktopShellView {}
+
+        invokeAndWait {
+            val frames = mutableListOf<RewritePlaceholderInternalFrame>()
+            RewriteShellCommand.entries.take(10).forEach { command ->
+                val frame = RewritePlaceholderInternalFrame(command)
+                frames += frame
+                shellHost.showWindow(frame)
+                frame.isIcon = true
+            }
+
+            assertEquals(10, shellHost.menuBar.taskBar.minimizedApplicationCount())
+
+            val firstFrame = frames.first()
+            firstFrame.isIcon = false
+
+            assertEquals(9, shellHost.menuBar.taskBar.minimizedApplicationCount())
+        }
+    }
+
+    @Test
+    fun controllerShutdownDisposesShellWindowsCleanly() {
+        val controller = RewriteRootController(
+            authGateway = DeterministicRewriteLoginAuthGateway(),
+            sessionGateway = NoOpRewriteServiceSessionGateway,
+        )
+        val shellHost = RewriteDesktopShellView(controller::launchShellCommand)
+        controller.attachShellHost(shellHost)
+
+        invokeAndWait {
+            controller.launchShellCommand(RewriteShellCommand.DEPOSIT)
+            controller.launchShellCommand(RewriteShellCommand.PORT_SCAN)
+            assertEquals(2, shellHost.desktopPane.allFrames.size)
+        }
+
+        controller.shutdown()
+
+        invokeAndWait {
+            assertTrue(shellHost.desktopPane.allFrames.isEmpty())
+            assertEquals(0, shellHost.menuBar.taskBar.minimizedApplicationCount())
+        }
+    }
+
+    private fun menuItemTexts(menu: JMenu): List<String> {
+        return (0 until menu.itemCount)
+            .mapNotNull { menu.getItem(it)?.text }
+    }
+
+    private inline fun invokeAndWait(crossinline block: () -> Unit) {
+        if (SwingUtilities.isEventDispatchThread()) {
+            block()
+            return
+        }
+        var failure: Throwable? = null
+        SwingUtilities.invokeAndWait {
+            runCatching { block() }.exceptionOrNull()?.also { failure = it }
+        }
+        failure?.let { throw it }
+    }
+}

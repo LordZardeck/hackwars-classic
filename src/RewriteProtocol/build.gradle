@@ -8,6 +8,7 @@ description = 'Kotlin-only framed protobuf contracts for the rewrite stack.'
 
 dependencies {
     api 'com.squareup.wire:wire-runtime:5.3.2'
+    api "org.jetbrains.kotlinx:kotlinx-serialization-json:1.8.1"
 }
 
 wire {

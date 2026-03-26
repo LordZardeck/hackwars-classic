@@ -277,7 +277,10 @@ class NetworkCommandsTest {
         val overheatedRepository = InMemoryComputerStateRepository(
             seededStates = mapOf(
                 requesterId to localPlayerState(requesterId).copy(
-                    runtime = RuntimeState(currentCpuLoad = 60.0),
+                    runtime = RuntimeState(
+                        currentCpuLoad = 60.0,
+                        overheatStartedAtEpochMillis = System.currentTimeMillis(),
+                    ),
                 ),
                 targetId to targetState,
             ),

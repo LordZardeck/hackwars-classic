@@ -157,7 +157,7 @@ class SetWatchOnOffCommand(
                 affectedWatchIndex = watchIndex,
             )
 
-        if (!enabled && state.isCurrentlyOverheated()) {
+        if (!enabled && state.isCurrentlyOverheated(System.currentTimeMillis())) {
             return state.watchFailure(
                 operation = name,
                 code = WatchMutationFailureCode.OVERHEATED,
@@ -398,7 +398,7 @@ class DeleteWatchCommand(
                 message = "No watch exists at index $watchIndex.",
                 affectedWatchIndex = watchIndex,
             )
-        if (state.isCurrentlyOverheated()) {
+        if (state.isCurrentlyOverheated(System.currentTimeMillis())) {
             return state.watchFailure(
                 operation = name,
                 code = WatchMutationFailureCode.OVERHEATED,
@@ -616,10 +616,6 @@ private fun ComputerState.maximumActiveWatchCount(): Int {
 }
 
 private fun ComputerState.hasPortNumber(portNumber: Int): Boolean = ports.any { it.number == portNumber }
-
-private fun ComputerState.isCurrentlyOverheated(): Boolean {
-    return hardware.cpuMax > 0.0 && runtime.currentCpuLoad > hardware.cpuMax
-}
 
 private fun StoredFile.decrementQuantity(): StoredFile? {
     return if (quantity <= 1) {
