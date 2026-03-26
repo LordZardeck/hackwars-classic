@@ -31,7 +31,7 @@
 - Verification scope: `./gradlew :RewriteProtocol:test :RewriteChatCore:test`
 
 ### RW-CHAT-001B - Map retained chat frames, payloads, and parity event catalog
-- Status: `ready`
+- Status: `done`
 - Priority: `P1`
 - Execution lane: `contracts`
 - Worker role: `worker`

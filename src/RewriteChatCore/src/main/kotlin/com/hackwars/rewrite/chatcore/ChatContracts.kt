@@ -7,6 +7,7 @@ import com.hackwars.rewrite.protocol.ChatChannelRole
 import com.hackwars.rewrite.protocol.ChatCommandKind
 import com.hackwars.rewrite.protocol.ChatMessageDescriptor
 import com.hackwars.rewrite.protocol.ChatMessageKind
+import com.hackwars.rewrite.protocol.ChatParityEventType
 import com.hackwars.rewrite.protocol.ChatPresenceDescriptor
 import com.hackwars.rewrite.protocol.ChatRelationDescriptor
 import com.hackwars.rewrite.protocol.ChatRelationKind
@@ -310,12 +311,11 @@ data class RelationGraph(
 }
 
 class ChatEvent(
-    val type: String,
+    val type: ChatParityEventType,
     val channelId: ChannelId?,
     val payload: ByteArray,
 ) {
     init {
-        require(type.isNotBlank()) { "type must not be blank." }
         channelId?.requireNotBlank("channelId")
     }
 

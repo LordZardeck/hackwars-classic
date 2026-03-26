@@ -75,7 +75,7 @@ class FrameCodecTest {
     fun roundTripsChatEventFramesAndClassifiesPayloadType() {
         val frame = RewriteFrames.chatEvent(
             eventId = "event-1",
-            eventType = "channel_text",
+            eventType = ChatParityEventType.CHANNEL_TEXT,
             channelName = "global",
             payload = """{"message":"hello"}""".encodeToByteArray(),
         )

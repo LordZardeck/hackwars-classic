@@ -175,6 +175,20 @@ object RewriteFrames {
         ),
     )
 
+    fun chatEvent(
+        eventId: String,
+        eventType: ChatParityEventType,
+        channelName: String = "",
+        payload: ByteArray = ByteArray(0),
+        envelopeId: String = UUID.randomUUID().toString(),
+    ): FrameEnvelope = chatEvent(
+        eventId = eventId,
+        eventType = eventType.wireName,
+        channelName = channelName,
+        payload = payload,
+        envelopeId = envelopeId,
+    )
+
     fun gameUiEvent(
         eventId: String,
         eventType: String,
