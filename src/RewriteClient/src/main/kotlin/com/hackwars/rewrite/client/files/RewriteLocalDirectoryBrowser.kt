@@ -521,7 +521,11 @@ internal class RewriteHomeWindow(
                             browserController.showInlineError("File does not exist.")
                             return@invokeLater
                         }
-                        controller.openLocalFile(requestedFile)
+                        if (shouldOpenInImageViewer(requestedFile)) {
+                            showImageViewer(this@RewriteHomeWindow, requestedFile)
+                        } else {
+                            controller.openLocalFile(requestedFile)
+                        }
                     }
 
                     is RewriteGameCommandResult.Failure -> {

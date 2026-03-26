@@ -270,7 +270,7 @@
 - Verification scope: `./gradlew :RewriteProtocol:test :RewriteClient:test :RewriteClient:uiTest`
 
 ### RW-CLIENT-W2B3 - Binary and image file viewer foundation
-- Status: `ready`
+- Status: `done`
 - Priority: `P2`
 - Execution lane: `economy_files`
 - Worker role: `worker`

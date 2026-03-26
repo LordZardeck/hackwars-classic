@@ -52,7 +52,11 @@ import hackwars.rewrite.v1.FrameEnvelope
 import java.awt.Component
 import java.awt.Container
 import java.awt.GraphicsEnvironment
+import java.awt.Color
+import java.awt.image.BufferedImage
+import java.io.File
 import java.time.Instant
+import javax.imageio.ImageIO
 import javax.swing.JButton
 import javax.swing.JCheckBox
 import javax.swing.JComboBox
@@ -1372,6 +1376,121 @@ class RewriteRootFrameUiTest {
 
             waitUntil { label(homeFrame, "rewrite-files-error").text == "This file cannot be decompiled." }
             assertTrue(homeFrame.isDisplayable)
+        } finally {
+            disposeFrame(frame)
+        }
+    }
+
+    @Test
+    fun homeOpensImageViewerForImageFilesAndReusesSameWindow() {
+        assumeFalse(GraphicsEnvironment.isHeadless())
+
+        val sessionGateway = FakeUiSessionGateway()
+        val frame = bankingReadyFrame(sessionGateway = sessionGateway)
+        val imageFile = File.createTempFile("img", ".png")
+        imageFile.deleteOnExit()
+        ImageIO.write(
+            BufferedImage(12, 8, BufferedImage.TYPE_INT_ARGB).apply {
+                val graphics = createGraphics()
+                graphics.color = Color(0x44, 0x77, 0xCC)
+                graphics.fillRect(0, 0, width, height)
+                graphics.dispose()
+            },
+            "png",
+            imageFile,
+        )
+        try {
+            SwingUtilities.invokeAndWait {
+                frame.controller.launchShellCommand(RewriteShellCommand.HOME)
+            }
+            val homeFrame = waitForWindow(frame, "rewrite-home-window")
+
+            waitUntil { sessionGateway.latestGameSession()?.sentFrames?.isNotEmpty() == true }
+            val directoryCommand = sessionGateway.latestGameSession()!!.sentFrames.last().command!!
+            frame.controller.accept(
+                RewriteService.GAME,
+                RewriteFrames.commandResponse(
+                    commandId = directoryCommand.command_id,
+                    payload = RewriteClientJson.encode(
+                        ClientDirectoryListingResponse.serializer(),
+                        ClientDirectoryListingResponse(
+                            stateId = "192.0.2.10",
+                            path = "/Public",
+                            files = listOf(
+                                ClientStoredFile(
+                                    path = "/Public/preview.png",
+                                    name = "preview.png",
+                                    kind = ClientStoredFileKind.APPLICATION_BINARY,
+                                ),
+                            ),
+                            version = 2,
+                        ),
+                    ),
+                ),
+            )
+
+            waitUntil { entryList(homeFrame).model.size == 1 }
+            SwingUtilities.invokeAndWait {
+                entryList(homeFrame).selectedIndex = 0
+                button(homeFrame, "rewrite-files-open-button").doClick()
+            }
+
+            waitUntil { sessionGateway.latestGameSession()!!.sentFrames.size >= 2 }
+            val fileCommand = sessionGateway.latestGameSession()!!.sentFrames.last().command!!
+            frame.controller.accept(
+                RewriteService.GAME,
+                RewriteFrames.commandResponse(
+                    commandId = fileCommand.command_id,
+                    payload = RewriteClientJson.encode(
+                        ClientFileContentsResponse.serializer(),
+                        ClientFileContentsResponse(
+                            stateId = "192.0.2.10",
+                            file = ClientStoredFile(
+                                path = "/Public/preview.png",
+                                name = "preview.png",
+                                kind = ClientStoredFileKind.APPLICATION_BINARY,
+                                contents = imageFile.absolutePath,
+                            ),
+                            version = 5,
+                        ),
+                    ),
+                ),
+            )
+
+            val imageViewer = waitForWindow(frame, "rewrite-image-viewer-window-public-preview-png")
+            waitUntil { label(imageViewer, "rewrite-image-viewer-name-value").text == "preview.png" }
+            assertEquals("Image Viewer", imageViewer.title)
+            assertEquals(imageFile.absolutePath, label(imageViewer, "rewrite-image-viewer-source-value").text)
+
+            SwingUtilities.invokeAndWait {
+                button(homeFrame, "rewrite-files-open-button").doClick()
+            }
+            waitUntil { sessionGateway.latestGameSession()!!.sentFrames.size >= 3 }
+            val secondFileCommand = sessionGateway.latestGameSession()!!.sentFrames.last().command!!
+            frame.controller.accept(
+                RewriteService.GAME,
+                RewriteFrames.commandResponse(
+                    commandId = secondFileCommand.command_id,
+                    payload = RewriteClientJson.encode(
+                        ClientFileContentsResponse.serializer(),
+                        ClientFileContentsResponse(
+                            stateId = "192.0.2.10",
+                            file = ClientStoredFile(
+                                path = "/Public/preview.png",
+                                name = "preview.png",
+                                kind = ClientStoredFileKind.APPLICATION_BINARY,
+                                contents = imageFile.absolutePath,
+                            ),
+                            version = 6,
+                        ),
+                    ),
+                ),
+            )
+
+            waitUntil {
+                frame.desktopPane.allFrames.toList().count { it.name == "rewrite-image-viewer-window-public-preview-png" } == 1
+            }
+            assertEquals(1, frame.desktopPane.allFrames.toList().count { it.name == "rewrite-image-viewer-window-public-preview-png" })
         } finally {
             disposeFrame(frame)
         }
