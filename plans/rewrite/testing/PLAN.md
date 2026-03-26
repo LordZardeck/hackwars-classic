@@ -41,7 +41,7 @@
 - Verification scope: `./gradlew rewriteUnitTest`
 
 ### RW-TEST-002 - Artifact capture conventions and failure triage output
-- Status: `in_progress`
+- Status: `done`
 - Priority: `P1`
 - Execution lane: `tooling`
 - Worker role: `worker`
