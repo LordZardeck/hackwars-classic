@@ -342,6 +342,46 @@ class RewriteClientJsonTest {
     }
 
     @Test
+    fun decodesCurrentRewriteRequestPageAndSavePageResponseShapes() {
+        val requestPagePayload = """
+            {
+              "stateId":"LOCAL-IP",
+              "title":"Local Homepage",
+              "body":"<h1>Hello</h1>",
+              "version":20,
+              "ignored":"ignored"
+            }
+        """.trimIndent().encodeToByteArray()
+        val savePagePayload = """
+            {
+              "stateId":"LOCAL-IP",
+              "title":"Updated Homepage",
+              "body":"<center>Updated</center>",
+              "version":21,
+              "ignored":"ignored"
+            }
+        """.trimIndent().encodeToByteArray()
+
+        val requestPageResponse = RewriteClientJson.decode(
+            ClientPageEditorResponse.serializer(),
+            requestPagePayload,
+        )
+        val savePageResponse = RewriteClientJson.decode(
+            ClientSavePageResponse.serializer(),
+            savePagePayload,
+        )
+
+        assertEquals("LOCAL-IP", requestPageResponse.stateId)
+        assertEquals("Local Homepage", requestPageResponse.title)
+        assertEquals("<h1>Hello</h1>", requestPageResponse.body)
+        assertEquals(20, requestPageResponse.version)
+        assertEquals("LOCAL-IP", savePageResponse.stateId)
+        assertEquals("Updated Homepage", savePageResponse.title)
+        assertEquals("<center>Updated</center>", savePageResponse.body)
+        assertEquals(21, savePageResponse.version)
+    }
+
+    @Test
     fun decodesCurrentRewriteMakeBountyResponseShape() {
         val payload = """
             {

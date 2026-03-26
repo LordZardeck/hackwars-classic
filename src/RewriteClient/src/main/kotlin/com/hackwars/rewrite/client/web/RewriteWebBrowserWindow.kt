@@ -16,7 +16,6 @@ import javax.swing.BorderFactory
 import javax.swing.Box
 import javax.swing.BoxLayout
 import javax.swing.JButton
-import javax.swing.JEditorPane
 import javax.swing.JInternalFrame
 import javax.swing.JLabel
 import javax.swing.JPanel
@@ -30,8 +29,6 @@ import javax.swing.event.HyperlinkEvent
 import javax.swing.event.InternalFrameAdapter
 import javax.swing.event.InternalFrameEvent
 import javax.swing.text.html.FormSubmitEvent
-import javax.swing.text.html.HTMLDocument
-import javax.swing.text.html.HTMLEditorKit
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -242,9 +239,12 @@ internal class RewriteWebBrowserWindow(
 ) : JInternalFrame(command.title, true, true, true, true) {
     private val windowScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val history = RewriteWebHistory()
-    private val editorKit = HTMLEditorKit().apply {
-        isAutoFormSubmission = false
-    }
+    private val htmlView = RewriteHtmlView(
+        paneName = "rewrite-web-html-pane",
+        scrollPaneName = "rewrite-web-html-scroll",
+        hyperlinkListener = ::handleHyperlinkEvent,
+        autoFormSubmission = false,
+    )
     private val addressField = JTextField().apply {
         name = "rewrite-web-address-field"
         addActionListener { navigateFromAddressField() }
@@ -273,13 +273,6 @@ internal class RewriteWebBrowserWindow(
         name = "rewrite-web-status-label"
         foreground = Color(0xAA, 0x22, 0x22)
     }
-    private val htmlPane = JEditorPane().apply {
-        name = "rewrite-web-html-pane"
-        contentType = "text/html"
-        isEditable = false
-        editorKit = this@RewriteWebBrowserWindow.editorKit
-        addHyperlinkListener(::handleHyperlinkEvent)
-    }
     private val storeRowsPanel = JPanel().apply {
         name = "rewrite-web-store-rows"
         layout = BoxLayout(this, BoxLayout.Y_AXIS)
@@ -295,9 +288,7 @@ internal class RewriteWebBrowserWindow(
     }
     private val splitPane = JSplitPane(
         JSplitPane.HORIZONTAL_SPLIT,
-        JScrollPane(htmlPane).apply {
-            name = "rewrite-web-html-scroll"
-        },
+        htmlView.scrollPane,
         storePanel,
     ).apply {
         border = null
@@ -550,13 +541,10 @@ internal class RewriteWebBrowserWindow(
             response = response,
         )
         title = "${command.title} - ${response.title}"
-        val document = editorKit.createDefaultDocument() as HTMLDocument
-        runCatching {
-            document.base = URI("http://${response.resolvedTargetStateId}/").toURL()
-        }
-        htmlPane.document = document
-        htmlPane.text = response.body
-        htmlPane.caretPosition = 0
+        htmlView.renderHtml(
+            body = response.body,
+            baseTarget = response.resolvedTargetStateId,
+        )
         renderStoreFiles(response.storeFiles)
         statusLabel.text = if (response.fallback) {
             "Unable to open website."

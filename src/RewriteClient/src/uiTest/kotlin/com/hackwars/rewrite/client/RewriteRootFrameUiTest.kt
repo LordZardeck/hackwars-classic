@@ -2034,6 +2034,7 @@ class RewriteRootFrameUiTest {
         RewriteShellCommand.TRANSFER -> "rewrite-economy-window-${command.stableId}"
         RewriteShellCommand.HOME -> "rewrite-home-window"
         RewriteShellCommand.SCRIPT_EDITOR -> "rewrite-script-editor-window"
+        RewriteShellCommand.SITE_EDITOR -> "rewrite-site-editor-window"
         RewriteShellCommand.WEB_BROWSER -> "rewrite-web-browser-window"
         RewriteShellCommand.STORE -> "rewrite-store-window"
         else -> "rewrite-shell-window-${command.stableId}"

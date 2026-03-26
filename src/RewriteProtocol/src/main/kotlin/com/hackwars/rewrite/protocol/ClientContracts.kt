@@ -540,6 +540,18 @@ data class ClientExitWebpagePayload(
 )
 
 @Serializable
+data class ClientRequestPagePayload(
+    val ip: String,
+)
+
+@Serializable
+data class ClientSavePagePayload(
+    val ip: String,
+    val title: String,
+    val body: String,
+)
+
+@Serializable
 data class ClientVotePayload(
     val targetIp: String? = null,
     val sourceIp: String,
@@ -601,6 +613,22 @@ data class ClientWebsiteRenderResponse(
     val body: String,
     val storeFiles: List<ClientStoredFile> = emptyList(),
     val fallback: Boolean = false,
+    val version: Long,
+)
+
+@Serializable
+data class ClientPageEditorResponse(
+    val stateId: String,
+    val title: String,
+    val body: String,
+    val version: Long,
+)
+
+@Serializable
+data class ClientSavePageResponse(
+    val stateId: String,
+    val title: String,
+    val body: String,
     val version: Long,
 )
 

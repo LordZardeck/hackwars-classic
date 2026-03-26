@@ -175,7 +175,7 @@
   - Reuses the local chooser/browser foundation from `RW-CLIENT-W2A`.
 
 ### RW-CLIENT-W3A - Lightweight browser core, store purchase flow, and web transport bridge
-- Status: `in_progress`
+- Status: `done`
 - Owner: `unassigned`
 - Depends on: `RW-CLIENT-003A`
 - Allowed write scope: `:RewriteProtocol`, `:RewriteClient/client/web/**`, `:RewriteClient`
@@ -188,7 +188,7 @@
   - Store is purchase-only in this slice; seller/merchant management remains deferred.
 
 ### RW-CLIENT-W3B - Site Editor with `requestpage` / `savepage`
-- Status: `todo`
+- Status: `in_progress`
 - Owner: `unassigned`
 - Depends on: `RW-CLIENT-W3A`
 - Allowed write scope: `:RewriteProtocol`, `:RewriteClient/client/web/**`, `:RewriteClient`

@@ -15,6 +15,7 @@ import com.hackwars.rewrite.client.shell.RewriteShellDialogCoordinator
 import com.hackwars.rewrite.client.shell.RewriteShellDialogHost
 import com.hackwars.rewrite.client.shell.RewriteShellWindowCoordinator
 import com.hackwars.rewrite.client.shell.RewriteShellWindowHost
+import com.hackwars.rewrite.client.web.RewriteSiteEditorWindow
 import com.hackwars.rewrite.client.web.RewriteWebBrowserWindow
 import com.hackwars.rewrite.clientmodel.RewriteClientBootstrapState
 import com.hackwars.rewrite.clientmodel.RewriteClientRoute
@@ -37,13 +38,17 @@ import com.hackwars.rewrite.protocol.ClientFilesystemState
 import com.hackwars.rewrite.protocol.ClientGameSnapshot
 import com.hackwars.rewrite.protocol.ClientMakeBountyPayload
 import com.hackwars.rewrite.protocol.ClientMutationAcceptedResponse
+import com.hackwars.rewrite.protocol.ClientPageEditorResponse
 import com.hackwars.rewrite.protocol.ClientProgramUpdate
 import com.hackwars.rewrite.protocol.ClientRequestDirectoryPayload
 import com.hackwars.rewrite.protocol.ClientRequestFilePayload
+import com.hackwars.rewrite.protocol.ClientRequestPagePayload
 import com.hackwars.rewrite.protocol.ClientRequestPurchasePayload
 import com.hackwars.rewrite.protocol.ClientRequestWebpagePayload
 import com.hackwars.rewrite.protocol.ClientPurchaseResponse
 import com.hackwars.rewrite.protocol.ClientSaveFilePayload
+import com.hackwars.rewrite.protocol.ClientSavePagePayload
+import com.hackwars.rewrite.protocol.ClientSavePageResponse
 import com.hackwars.rewrite.protocol.ClientStoredFile
 import com.hackwars.rewrite.protocol.ClientSubmitWebpagePayload
 import com.hackwars.rewrite.protocol.ClientTransferPayload
@@ -358,6 +363,37 @@ class RewriteRootController(
             ),
             responseSerializer = ClientWebsiteRenderResponse.serializer(),
             targetStateIds = listOf(playerIp, targetIp),
+        )
+    }
+
+    internal suspend fun requestPage(): RewriteGameCommandResult<ClientPageEditorResponse> {
+        val playerIp = authenticatedPlayerIp()
+            ?: return RewriteGameCommandResult.Failure("Not connected to a rewrite game session.")
+        return gameCommandBroker.request(
+            commandName = "requestpage",
+            payloadSerializer = ClientRequestPagePayload.serializer(),
+            payload = ClientRequestPagePayload(ip = playerIp),
+            responseSerializer = ClientPageEditorResponse.serializer(),
+            targetStateIds = listOf(playerIp),
+        )
+    }
+
+    internal suspend fun savePage(
+        title: String,
+        body: String,
+    ): RewriteGameCommandResult<ClientSavePageResponse> {
+        val playerIp = authenticatedPlayerIp()
+            ?: return RewriteGameCommandResult.Failure("Not connected to a rewrite game session.")
+        return gameCommandBroker.request(
+            commandName = "savepage",
+            payloadSerializer = ClientSavePagePayload.serializer(),
+            payload = ClientSavePagePayload(
+                ip = playerIp,
+                title = title,
+                body = body,
+            ),
+            responseSerializer = ClientSavePageResponse.serializer(),
+            targetStateIds = listOf(playerIp),
         )
     }
 
@@ -769,6 +805,10 @@ class RewriteRootController(
         RewriteShellCommand.STORE -> RewriteWebBrowserWindow(
             controller = this,
             command = command,
+        )
+
+        RewriteShellCommand.SITE_EDITOR -> RewriteSiteEditorWindow(
+            controller = this,
         )
 
         else -> RewritePlaceholderInternalFrame(command)
