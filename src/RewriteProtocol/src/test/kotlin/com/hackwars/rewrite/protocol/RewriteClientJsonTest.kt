@@ -1397,4 +1397,51 @@ class RewriteClientJsonTest {
         assertEquals("cpu-card.bin", response.equipment.name)
         assertEquals(25, response.version)
     }
+
+    @Test
+    fun decodesRetainedHelpTopicListAndTutorialShapes() {
+        val helpPayload = """
+            {
+              "topicGroup":"APIs",
+              "topics":[
+                {
+                  "name":"Banking",
+                  "id":"12",
+                  "targetUrl":"http://help/help.php?id=12",
+                  "ignored":"ignored"
+                },
+                {
+                  "name":"Attack",
+                  "id":"19",
+                  "targetUrl":"http://help/help.php?id=19"
+                }
+              ],
+              "ignored":"ignored"
+            }
+        """.trimIndent().encodeToByteArray()
+        val tutorialPayload = """
+            {
+              "tutorialId":"first-attack",
+              "title":"First Attack",
+              "body":"<p>Welcome</p>",
+              "ignored":"ignored"
+            }
+        """.trimIndent().encodeToByteArray()
+
+        val help = RewriteClientJson.decode(
+            ClientHelpTopicListResponse.serializer(),
+            helpPayload,
+        )
+        val tutorial = RewriteClientJson.decode(
+            ClientTutorialResponse.serializer(),
+            tutorialPayload,
+        )
+
+        assertEquals("APIs", help.topicGroup)
+        assertEquals("Banking", help.topics.first().name)
+        assertEquals("http://help/help.php?id=19", help.topics.last().targetUrl)
+        assertEquals("first-attack", tutorial.tutorialId)
+        assertEquals("First Attack", tutorial.title)
+        assertEquals("<p>Welcome</p>", tutorial.body)
+    }
 }

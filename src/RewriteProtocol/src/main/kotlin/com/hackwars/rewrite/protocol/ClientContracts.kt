@@ -820,6 +820,36 @@ data class ClientRequestSecondaryDirectoryPayload(
 )
 
 @Serializable
+data class ClientRequestHelpTopicListPayload(
+    val topicGroup: String? = null,
+)
+
+@Serializable
+data class ClientHelpTopicEntry(
+    val name: String = "",
+    val id: String = "",
+    val targetUrl: String = "",
+)
+
+@Serializable
+data class ClientHelpTopicListResponse(
+    val topicGroup: String = "",
+    val topics: List<ClientHelpTopicEntry> = emptyList(),
+)
+
+@Serializable
+data class ClientRequestTutorialPayload(
+    val tutorialId: String? = null,
+)
+
+@Serializable
+data class ClientTutorialResponse(
+    val tutorialId: String = "",
+    val title: String = "",
+    val body: String = "",
+)
+
+@Serializable
 data class ClientGetFilePayload(
     val ip: String? = null,
     val port: Int,
