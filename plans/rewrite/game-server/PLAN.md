@@ -552,7 +552,7 @@
 - Commit rule: `single green commit only`
 - Notes:
   - Owns redirect failure, receipt, timeout, completion, and pane-targeted feedback on the existing `requestattack` / `requestcancelattack` transport without adding new public wires.
-  - Keeps rewrite-client redirect window parity and broader shipping-choice consumption deferred to the client W5 slice.
+  - Keeps rewrite-client redirect window parity and broader shipping-choice consumption deferred to the reopened client combat/runtime parity lanes.
 
 ### RW-GS-S5C2B2 - internal `launchnetworkattack` compatibility over note-trigger plumbing
 - Status: `in_progress`
@@ -565,30 +565,6 @@
 - Notes:
   - Owns the internal-only `LaunchNetworkAttackCommand` compatibility helper that dispatches `RequestTriggerNoteCommand("netbomb")` with rewrite-resolved default attack, bank, HTTP, and redirect ports.
   - Keeps full data-driven network attack scheduling and any public `launchnetworkattack` transport deferred.
-
-### RW-GS-S6A - Hacktendo `requestgame` load bridge
-- Status: `done`
-- Owner: `codex`
-- Depends on: `RW-GS-S2`
-- Allowed write scope: `:RewriteGameCore`, `:RewriteGameServer`
-- Verification command: `./gradlew :RewriteGameCore:test :RewriteGameServer:test`
-- Artifacts: `build/reports/tests/test`
-- Commit rule: `single green commit only`
-- Notes:
-  - Owns rewrite `requestgame` transport for creator and player file-open flows, including full file load plus root-scoped `/$name.save` hydration into typed rewrite load values.
-  - Keeps the command delta-free, reuses existing `savefile` and `requestsave` behavior unchanged, and leaves client-native Hacktendo launch issues outside this server-first slice.
-
-### RW-GS-S6B - `hacktendoActivate` and `hacktendoTarget` compatibility no-op transport
-- Status: `in_progress`
-- Owner: `unassigned`
-- Depends on: `RW-GS-S6A`
-- Allowed write scope: `:RewriteGameCore`, `:RewriteGameServer`
-- Verification command: `./gradlew :RewriteGameCore:test :RewriteGameServer:test`
-- Artifacts: `build/reports/tests/test`
-- Commit rule: `single green commit only`
-- Notes:
-  - Owns rewrite compatibility handling for runtime `hacktendoActivate` and `hacktendoTarget` commands without inventing new gameplay semantics.
-  - Keeps any disabled `HacktendoPacket` MMO flow, native player parity, and broader Hacktendo UI work deferred.
 
 ## Verification Gates
 - Every command gets mocked tests for accepted input, rejected input, lifetime expiry, emitted deltas, nested dispatch, and cancellation.

@@ -2,9 +2,9 @@
 
 ## Status Dashboard
 - Program status: `in_progress`
-- Current milestone: `Milestone 6 game feature slices`
+- Current milestone: `Milestone 8 client recovery and parity reset`
 - Last completed milestone: `Milestone 5 typed game-core tranche`
-- Locked architecture decisions: `accepted`
+- Locked architecture decisions: `accepted with client recovery amendments`
 - Living documents status: `active`
 - Rewrite scaffold status: `active`
 
@@ -19,6 +19,12 @@
 - Persistence is new PostgreSQL + Docker + Liquibase + legacy importer.
 - Login UI is the only code-copy exception.
 - All other runtime code is rewrite-only.
+- All post-login rewrite client UI must use strict MVC: host/dialog + view + immutable view-model + controller.
+- Post-login rewrite client views may only build Swing components and render supplied models.
+- Post-login rewrite client controllers own selector subscriptions, event binding, model derivation, command routing, and child-window launches.
+- Exact legacy visual parity is required for every retained client-facing surface.
+- Rewrite-owned copies of legacy static UI assets are allowed when exact parity requires them; legacy runtime classes remain forbidden.
+- Every rewrite computer identity must be a real dotted-quad IPv4 address.
 
 ## Module Graph
 ```mermaid
@@ -75,10 +81,10 @@ flowchart LR
 | M3 | Transport and auth foundation | `in_progress` | Framed TCP + protobuf + auth handshake + offline fake services are green. |
 | M4 | PostgreSQL + migrations + importer skeleton | `in_progress` | Dockerized Postgres, Liquibase, rollback validation, and importer skeleton are green. |
 | M5 | Game core | `done` | State store, interest registry, command dispatcher, request callbacks, snapshots, and program scheduler are green. |
-| M6 | Game feature slices | `in_progress` | Session, filesystem, economy, network, combat, and Hacktendo server slices are green. |
+| M6 | Game feature slices | `in_progress` | Session, filesystem, economy, network, combat, website, and retained quest/search slices are green. |
 | M7 | Chat server parity | `todo` | Chat sessions, channels, relations, moderation, and fanout are green. |
-| M8 | Client shell | `todo` | Copied login UI, root controller, stores, selectors, and base MVC are green. |
-| M9 | Client window families | `todo` | All window families are ported with parity tests. |
+| M8 | Client recovery and parity reset | `in_progress` | Strict post-login MVC rules, real IPv4 identity, rewrite-owned parity asset policy, and deterministic screenshot harness are all green. |
+| M9 | Client window families | `todo` | All retained window families are ported with strict MVC, screenshot-backed legacy parity, and controller-level acceptance tests. |
 | M10 | Full rewrite integration | `todo` | Real servers + real Postgres + real client integration suite is green. |
 | M11 | Parity audit and closure | `todo` | Every required feature row is `done` and linked to passing tests. |
 
@@ -109,6 +115,18 @@ flowchart LR
 - Notes:
   - Created the master plan, subsystem plans, testing plan, data plan, and feature inventory.
   - Seeded every file with the common task-card template and status markers.
+
+### RW-M0-002 - Reset rewrite planning docs for strict MVC and exact client parity
+- Status: `done`
+- Owner: `codex`
+- Depends on: `RW-M0-001`
+- Allowed write scope: `plans/rewrite/**`
+- Verification command: `rg -n "strict MVC|legacy visual parity|dotted-quad IPv4|Hacktendo" plans/rewrite/PLAN.md plans/rewrite/client/PLAN.md plans/rewrite/feature-inventory/PLAN.md plans/rewrite/testing/PLAN.md plans/rewrite/game-server/PLAN.md`
+- Artifacts: `plans/rewrite/**/PLAN.md`
+- Commit rule: `single green commit only`
+- Notes:
+  - Reclassified the current rewrite client as functional foundation work rather than parity-complete UI delivery.
+  - Removed Hacktendo and Command Prompt from rewrite client scope, reopened overclaimed client slices, and locked deterministic screenshot parity plus real-IP identity as completion gates.
 
 ### RW-M1-001 - Add rewrite module graph to Gradle
 - Status: `done`
@@ -151,7 +169,7 @@ flowchart LR
 - Owner: `unassigned`
 - Depends on: `RW-M1-003`
 - Allowed write scope: `plans/rewrite/feature-inventory/PLAN.md`
-- Verification command: `rg -n "RequestAttackTest|RequestScanTest|RequestWebpageTest|DoChallengeTest|HacktendoActivateTest" plans/rewrite/feature-inventory/PLAN.md`
+- Verification command: `rg -n "RequestAttackTest|RequestScanTest|RequestWebpageTest|DoChallengeTest|SetPreferencesTest" plans/rewrite/feature-inventory/PLAN.md`
 - Artifacts: `plans/rewrite/feature-inventory/PLAN.md`
 - Commit rule: `single green commit only`
 - Notes:
@@ -168,7 +186,7 @@ flowchart LR
 - Commit rule: `single green commit only`
 - Notes:
   - Tie every desktop window family to the current integration UI workflow and login tests.
-  - Keep the expected-failure browser and Hacktendo player workflows visible in the matrix.
+  - Keep expected-failure browser workflows visible in the matrix until screenshot-backed parity replaces them.
 
 ### RW-M2-003 - Complete chat and protocol evidence lane
 - Status: `in_progress`
@@ -187,12 +205,12 @@ flowchart LR
 - Owner: `unassigned`
 - Depends on: `RW-M2-001`
 - Allowed write scope: `plans/rewrite/feature-inventory/PLAN.md`, `plans/rewrite/testing/PLAN.md`
-- Verification command: `rg -n "ExpectedFailure|known broken|Hacktendo player|web browser" plans/rewrite/feature-inventory/PLAN.md plans/rewrite/testing/PLAN.md`
+- Verification command: `rg -n "ExpectedFailure|known broken|web browser|screenshot parity" plans/rewrite/feature-inventory/PLAN.md plans/rewrite/testing/PLAN.md`
 - Artifacts: `plans/rewrite/feature-inventory/PLAN.md`
 - Commit rule: `single green commit only`
 - Notes:
   - Ensure broken-but-required workflows remain visible rather than hidden or skipped.
-  - Keep parity gaps actionable for later implementation milestones.
+  - Keep parity gaps actionable for the reopened client recovery milestones.
 
 ### RW-M3-001 - Freeze session-ticket auth contract and frame codec
 - Status: `done`
