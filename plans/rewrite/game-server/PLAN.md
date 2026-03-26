@@ -230,7 +230,7 @@
 - Verification scope: `./gradlew :RewriteHackScript:test :RewriteGameCore:test :RewritePersistence:test :RewriteGameServer:test :RewriteTestKit:integrationTest`
 
 ### RW-GS-T7 - Close retained zombie and show-choices follow-up parity transport
-- Status: `ready`
+- Status: `done`
 - Priority: `P1`
 - Execution lane: `combat_runtime`
 - Worker role: `worker`
@@ -238,7 +238,7 @@
 - Ready when: retained attack or redirect protocol parity is closed and zombie follow-up correlation gaps can be addressed
 - Parallel with: `RW-GS-T2`
 - Allowed write scope: `src/RewriteGameCore/**`, `src/RewriteGameServer/**`, `src/RewriteHackScript/**`, `src/RewriteProtocol/**`
-- Autonomous next: `RW-CLIENT-C9B`
+- Autonomous next: `RW-GS-T5`
 - Fallback if blocked: `RW-GS-T6`
 - Verification scope: `./gradlew :RewriteHackScript:test :RewriteGameCore:test :RewriteGameServer:test :RewriteTestKit:integrationTest`
 

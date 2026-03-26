@@ -79,6 +79,7 @@ data class RequestZombieAttackPayload(
     val extraInfo: List<HookValue>? = null,
     @SerialName("parentIP")
     val parentIp: String,
+    val windowHandle: Int? = null,
 )
 
 @Serializable
@@ -663,6 +664,7 @@ class RequestZombieAttackCommand(
     private val sourcePort: Int,
     private val targetPort: Int,
     private val loadout: AttackLoadout,
+    private val windowHandle: Int = 0,
     private val attackProgramRegistry: AttackProgramRegistry = NoOpAttackProgramRegistry,
     private val clock: () -> Long = { System.currentTimeMillis() },
 ) : RequestCommand<ZombieAttackStartResponse> {
@@ -693,6 +695,7 @@ class RequestZombieAttackCommand(
                 sourcePort = sourcePort,
                 targetPort = targetPort,
                 loadout = loadout,
+                windowHandle = windowHandle,
                 attackProgramRegistry = attackProgramRegistry,
                 clock = clock,
             ),

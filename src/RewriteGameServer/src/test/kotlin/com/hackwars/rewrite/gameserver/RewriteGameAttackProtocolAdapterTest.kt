@@ -2581,6 +2581,7 @@ class RewriteGameAttackProtocolAdapterTest {
                         sourceIp = "ZOMBIE-IP",
                         sourcePort = 12,
                         parentIp = "LOCAL-IP",
+                        windowHandle = 23,
                     ),
                 ),
                 expectsResponse = true,
@@ -2609,6 +2610,7 @@ class RewriteGameAttackProtocolAdapterTest {
         assertEquals(8.0, response.zombieCpuLoadAfter)
         assertEquals("LOCAL-IP", response.session?.controllerStateId?.value)
         assertEquals("TARGET-IP", response.session?.targetStateId?.value)
+        assertEquals(23, response.session?.windowHandle)
 
         runCurrent()
 
@@ -2695,6 +2697,7 @@ class RewriteGameAttackProtocolAdapterTest {
                         sourceIp = "ZOMBIE-IP",
                         sourcePort = 12,
                         parentIp = "LOCAL-IP",
+                        windowHandle = 23,
                     ),
                 ),
                 expectsResponse = true,
@@ -2748,6 +2751,7 @@ class RewriteGameAttackProtocolAdapterTest {
                         sourceIp = "ZOMBIE-IP",
                         sourcePort = 12,
                         parentIp = "LOCAL-IP",
+                        windowHandle = 23,
                     ),
                 ),
                 expectsResponse = true,
@@ -2814,6 +2818,7 @@ class RewriteGameAttackProtocolAdapterTest {
                         sourceIp = "ZOMBIE-IP",
                         sourcePort = 12,
                         parentIp = "LOCAL-IP",
+                        windowHandle = 23,
                     ),
                 ),
                 expectsResponse = true,
@@ -2845,7 +2850,7 @@ class RewriteGameAttackProtocolAdapterTest {
         assertEquals("TARGET-IP", event.targetIp)
         assertEquals(25, event.targetPort)
         assertEquals(ShowChoicesType.HTTP, event.choiceType)
-        assertEquals(0, event.windowHandle)
+        assertEquals(23, event.windowHandle)
         assertEquals(ProgramStatus.PROGRAM_STATUS_CANCELLED, updateFrame.program_update?.status)
         assertTrue(zombie.drainFrames().none { it.game_ui_event != null || it.program_update != null })
         assertTrue(target.drainFrames().none { it.game_ui_event != null || it.program_update != null })

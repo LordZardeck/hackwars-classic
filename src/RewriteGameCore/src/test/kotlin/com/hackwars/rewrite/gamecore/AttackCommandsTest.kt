@@ -4161,6 +4161,7 @@ class AttackCommandsTest {
                 sourcePort = 12,
                 targetPort = 25,
                 loadout = AttackLoadout(secondaryPorts = listOf(26)),
+                windowHandle = 23,
                 attackProgramRegistry = registry,
             ),
             metadata = CommandMetadata(connectionId = "controller-conn", requestId = "zombie-attack-start"),
@@ -4181,9 +4182,11 @@ class AttackCommandsTest {
         assertEquals(controllerId, session.controllerStateId)
         assertEquals(controllerId, session.authorizedZombieStateId)
         assertEquals(listOf(25, 26), session.targetCyclePorts)
+        assertEquals(23, session.windowHandle)
         assertEquals(controllerId, response.session?.controllerStateId)
         assertEquals(controllerId, response.session?.authorizedZombieStateId)
         assertEquals(AttackMode.ZOMBIE, response.session?.attackMode)
+        assertEquals(23, response.session?.windowHandle)
         assertEquals(zombieId, updatedTarget.combat.incomingAttacksByTargetPort.getValue(25).attackerStateId)
         assertTrue(publisher.deltas.any { it.first == setOf("controller-conn") && it.second.deltaKeys == setOf("economy") })
         assertTrue(publisher.deltas.any { it.first == setOf("zombie-conn") && it.second.deltaKeys == setOf("ports", "combat", "runtime") })
@@ -4257,6 +4260,7 @@ class AttackCommandsTest {
                 sourcePort = 12,
                 targetPort = 25,
                 loadout = AttackLoadout(secondaryPorts = listOf(26)),
+                windowHandle = 23,
                 attackProgramRegistry = registry,
             ),
             metadata = CommandMetadata(connectionId = "controller-conn", requestId = "request-zombie-attack"),
@@ -4278,6 +4282,7 @@ class AttackCommandsTest {
         assertEquals(updatedZombie.version, response.zombieVersion)
         assertEquals(AttackMode.ZOMBIE, response.session?.attackMode)
         assertEquals(controllerId, response.session?.controllerStateId)
+        assertEquals(23, response.session?.windowHandle)
         assertTrue(publisher.uiEvents.isEmpty())
     }
 
@@ -4544,6 +4549,7 @@ class AttackCommandsTest {
                 sourcePort = 12,
                 targetPort = 25,
                 loadout = AttackLoadout(),
+                windowHandle = 23,
                 attackProgramRegistry = registry,
             ),
             metadata = CommandMetadata(connectionId = "controller-conn", requestId = "zombie-berserk-start"),
@@ -4924,6 +4930,7 @@ class AttackCommandsTest {
                 sourcePort = 12,
                 targetPort = 25,
                 loadout = AttackLoadout(),
+                windowHandle = 23,
                 attackProgramRegistry = registry,
             ),
             metadata = CommandMetadata(connectionId = "controller-conn", requestId = "zombie-show-choices-start"),
@@ -4943,6 +4950,7 @@ class AttackCommandsTest {
         assertEquals(targetId.value, choiceEvent.targetIp)
         assertEquals(25, choiceEvent.targetPort)
         assertEquals(ShowChoicesType.HTTP, choiceEvent.choiceType)
+        assertEquals(23, choiceEvent.windowHandle)
         assertTrue(publisher.uiEvents.none { it.first == setOf("zombie-conn") || it.first == setOf("target-conn") })
         assertEquals(ProgramLifecycleStatus.RUNNING, publisher.programUpdates.single().second.status)
         assertEquals(setOf("controller-conn"), publisher.programUpdates.single().first)

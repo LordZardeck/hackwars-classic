@@ -732,6 +732,7 @@ class RewriteGameProtocolAdapter(
                             scripts = payload.scripts,
                             extraInfo = payload.extraInfo,
                         ),
+                        windowHandle = payload.windowHandle ?: 0,
                         attackProgramRegistry = attackProgramRegistry,
                         clock = clock,
                     )

@@ -773,6 +773,7 @@ data class ClientRequestZombieAttackPayload(
     val extraInfo: List<ClientHookValue>? = null,
     @SerialName("parentIP")
     val parentIp: String,
+    val windowHandle: Int? = null,
 )
 
 @Serializable
