@@ -217,7 +217,7 @@
 - Verification scope: `./gradlew :RewriteGameCore:test :RewriteGameServer:test :RewriteTestKit:integrationTest`
 
 ### RW-GS-T6 - Close retained attack and redirect runtime finalizers and protocol parity
-- Status: `ready`
+- Status: `done`
 - Priority: `P1`
 - Execution lane: `combat_runtime`
 - Worker role: `worker`
@@ -230,7 +230,7 @@
 - Verification scope: `./gradlew :RewriteHackScript:test :RewriteGameCore:test :RewritePersistence:test :RewriteGameServer:test :RewriteTestKit:integrationTest`
 
 ### RW-GS-T7 - Close retained zombie and show-choices follow-up parity transport
-- Status: `todo`
+- Status: `ready`
 - Priority: `P1`
 - Execution lane: `combat_runtime`
 - Worker role: `worker`
