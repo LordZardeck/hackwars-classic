@@ -86,6 +86,21 @@ class RewriteInventoryManagersTest {
     }
 
     @Test
+    fun buildEquipmentManagerRowsKeepPlaceholderLabelsForMissingSlots() {
+        val rows = buildEquipmentManagerRows(
+            ClientGameSnapshot(
+                identity = ClientComputerIdentity(playerIp = "192.0.2.10"),
+                hardware = ClientHardwareState(),
+            ),
+        )
+
+        assertEquals(5, rows.size)
+        assertTrue(rows.all { it.equipmentLabel == "Click Here To Install Equipment" })
+        assertTrue(rows.all { it.maker == "-" })
+        assertTrue(rows.all { it.installedEquipment == null })
+    }
+
+    @Test
     fun buildFirewallManagerRowsReflectDecodedPortFlags() {
         val rows = buildFirewallManagerRows(
             ClientGameSnapshot(
@@ -134,6 +149,37 @@ class RewriteInventoryManagersTest {
             rows,
         )
         assertEquals("1.5", rows.single().cpuCostDisplay)
+    }
+
+    @Test
+    fun buildFirewallManagerRowsSortPortsAndPreservePlaceholderState() {
+        val rows = buildFirewallManagerRows(
+            ClientGameSnapshot(
+                identity = ClientComputerIdentity(playerIp = "192.0.2.10"),
+                ports = listOf(
+                    ClientPortState(
+                        number = 11,
+                        enabled = false,
+                        defaultPort = false,
+                        dummy = true,
+                        note = "Later",
+                    ),
+                    ClientPortState(
+                        number = 3,
+                        enabled = true,
+                        defaultPort = true,
+                        dummy = false,
+                        note = "Primary",
+                    ),
+                ),
+            ),
+        )
+
+        assertEquals(listOf(3, 11), rows.map { it.portNumber })
+        assertEquals("Click Here To Install Firewall", rows.first().firewallLabel)
+        assertEquals("Primary", rows.first().note)
+        assertEquals("Later", rows.last().note)
+        assertTrue(rows.all { it.installedFirewall == null })
     }
 
     @Test

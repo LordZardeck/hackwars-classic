@@ -370,7 +370,7 @@
 - Parallel with: `RW-CLIENT-W4B`, `RW-CLIENT-W4C`
 - Allowed write scope: `src/RewriteClient/**/systems/**`, `src/RewriteProtocol/**`
 - Autonomous next: `RW-CLIENT-C7A`
-- Fallback if blocked: `RW-CLIENT-C8A`
+- Fallback if blocked: `RW-CLIENT-C8A1`
 - Verification scope: `./gradlew :RewriteProtocol:test :RewriteClient:test :RewriteClient:uiTest`
 
 ### RW-CLIENT-W4B - Equipment and Firewall Manager foundation
@@ -382,7 +382,7 @@
 - Ready when: decoded slot and port state can be rendered
 - Parallel with: `RW-CLIENT-W4C`
 - Allowed write scope: `src/RewriteClient/**/systems/**`, `src/RewriteProtocol/**`
-- Autonomous next: `RW-CLIENT-C8A`
+- Autonomous next: `RW-CLIENT-C8A1`
 - Fallback if blocked: `RW-CLIENT-C7A`
 - Verification scope: `./gradlew :RewriteProtocol:test :RewriteClient:test :RewriteClient:uiTest`
 
@@ -395,7 +395,7 @@
 - Ready when: decoded watch state and watch mutations are wired
 - Parallel with: `RW-CLIENT-W4B`
 - Allowed write scope: `src/RewriteClient/**/systems/**`, `src/RewriteClientModel/**`, `src/RewriteProtocol/**`
-- Autonomous next: `RW-CLIENT-C8A`
+- Autonomous next: `RW-CLIENT-C8A2`
 - Fallback if blocked: `RW-CLIENT-C7A`
 - Verification scope: `./gradlew :RewriteProtocol:test :RewriteClientModel:test :RewriteClient:test :RewriteClient:uiTest`
 
@@ -732,7 +732,7 @@
 - Worker role: `worker`
 - Depends on: `RW-CLIENT-W5A`, `RW-CLIENT-X1`
 - Ready when: retained network and scan foundation exists and strict MVC base types are available
-- Parallel with: `RW-CLIENT-C7A`, `RW-CLIENT-C8A`
+- Parallel with: `RW-CLIENT-C7A`, `RW-CLIENT-C8A1`
 - Allowed write scope: `src/RewriteClient/**/network/**`
 - Autonomous next: `RW-CLIENT-C6B`
 - Fallback if blocked: `RW-CLIENT-C7A`
@@ -771,10 +771,10 @@
 - Worker role: `worker`
 - Depends on: `RW-CLIENT-W4A`, `RW-CLIENT-X1`
 - Ready when: retained Port Management foundation exists and strict MVC base types are available
-- Parallel with: `RW-CLIENT-C6A`, `RW-CLIENT-C8A`
+- Parallel with: `RW-CLIENT-C6A`, `RW-CLIENT-C8A1`
 - Allowed write scope: `src/RewriteClient/**/systems/**`
 - Autonomous next: `RW-CLIENT-C7B`
-- Fallback if blocked: `RW-CLIENT-C8A`
+- Fallback if blocked: `RW-CLIENT-C8A1`
 - Verification scope: controller tests for port detail models and action routing, workflow tests for selection and install flows
 
 ### RW-CLIENT-C7B - Port Management legacy parity rebuild
@@ -799,30 +799,43 @@
 - Ready when: Port Management parity rebuild and screenshot harness glue are complete
 - Parallel with: `RW-CLIENT-C6C`
 - Allowed write scope: `src/RewriteClient/src/uiTest/**`
-- Autonomous next: `RW-CLIENT-C8A`
+- Autonomous next: `RW-CLIENT-C8A1`
 - Fallback if blocked: `RW-TEST-008`
 - Verification scope: approved Port Management screenshot baselines
 
-### RW-CLIENT-C8A - Equipment, Firewall, and Watch manager MVC extraction
-- Status: `todo`
+### RW-CLIENT-C8A1 - Equipment and Firewall manager MVC extraction
+- Status: `done`
 - Priority: `P1`
 - Execution lane: `systems_network`
 - Worker role: `worker`
-- Depends on: `RW-CLIENT-W4B`, `RW-CLIENT-W4C`, `RW-CLIENT-X1`
+- Depends on: `RW-CLIENT-W4B`, `RW-CLIENT-X1`
 - Ready when: retained inventory foundations exist and strict MVC base types are available
-- Parallel with: `RW-CLIENT-C6A`, `RW-CLIENT-C7A`
+- Parallel with: `RW-CLIENT-C6A`, `RW-CLIENT-C7A`, `RW-CLIENT-C8A2`
+- Allowed write scope: `src/RewriteClient/**/systems/**`
+- Autonomous next: `RW-CLIENT-C8A2`
+- Fallback if blocked: `RW-CLIENT-C7A`
+- Verification scope: controller tests for equipment/firewall row models and action routing, UI workflow tests for equipment and firewall install flows
+
+### RW-CLIENT-C8A2 - Watch manager MVC extraction
+- Status: `ready`
+- Priority: `P1`
+- Execution lane: `systems_network`
+- Worker role: `worker`
+- Depends on: `RW-CLIENT-W4C`, `RW-CLIENT-X1`
+- Ready when: retained watch foundations exist and strict MVC base types are available
+- Parallel with: `RW-CLIENT-C8A1`
 - Allowed write scope: `src/RewriteClient/**/systems/**`
 - Autonomous next: `RW-CLIENT-C8B`
-- Fallback if blocked: `RW-CLIENT-C7A`
-- Verification scope: controller tests for equipment/firewall/watch row models and action routing, UI workflow tests for install and watch edits
+- Fallback if blocked: `RW-CLIENT-C8A1`
+- Verification scope: controller tests for watch row models and action routing, UI workflow tests for watch install and row edit flows
 
 ### RW-CLIENT-C8B - Equipment, Firewall, and Watch manager legacy parity rebuild
 - Status: `todo`
 - Priority: `P1`
 - Execution lane: `systems_network`
 - Worker role: `worker`
-- Depends on: `RW-CLIENT-C8A`, `RW-CLIENT-X2`, `RW-CLIENT-X3`
-- Ready when: MVC extraction, look and feel, and IPv4 cleanup are available
+- Depends on: `RW-CLIENT-C8A1`, `RW-CLIENT-C8A2`, `RW-CLIENT-X2`, `RW-CLIENT-X3`
+- Ready when: inventory and watch MVC extraction, look and feel, and IPv4 cleanup are available
 - Parallel with: `RW-CLIENT-C7B`
 - Allowed write scope: `src/RewriteClient/**/systems/**`, `src/RewriteClient/resources/**`
 - Autonomous next: `RW-CLIENT-C8C`
@@ -849,10 +862,10 @@
 - Worker role: `worker`
 - Depends on: `RW-CLIENT-W5B1`, `RW-CLIENT-W5B2`, `RW-CLIENT-W5C`, `RW-CLIENT-X1`
 - Ready when: retained combat foundations exist and strict MVC base types are available
-- Parallel with: `RW-CLIENT-C8A`
+- Parallel with: `RW-CLIENT-C8A2`
 - Allowed write scope: `src/RewriteClient/**/network/**`, `src/RewriteClient/**/combat/**`
 - Autonomous next: `RW-CLIENT-C9B`
-- Fallback if blocked: `RW-CLIENT-C8A`
+- Fallback if blocked: `RW-CLIENT-C8A2`
 - Verification scope: controller tests for combat session models and correlation, workflow tests for attack, redirect, choices, and zombie panes
 
 ### RW-CLIENT-C9B - Attack, Redirect, show_choices, and Zombie Attack legacy parity rebuild

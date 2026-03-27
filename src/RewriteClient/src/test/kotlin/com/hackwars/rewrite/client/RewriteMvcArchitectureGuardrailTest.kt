@@ -174,83 +174,15 @@ class RewriteMvcArchitectureGuardrailTest {
             "src/main/kotlin/com/hackwars/rewrite/client/login/LoginForm.kt" to emptySet(),
             "src/main/kotlin/com/hackwars/rewrite/client/login/LoginScene.kt" to emptySet(),
             "src/main/kotlin/com/hackwars/rewrite/client/login/LoginSceneView.kt" to emptySet(),
-            "src/main/kotlin/com/hackwars/rewrite/client/economy/RewriteBankingWindows.kt" to setOf(
-                "controller_import",
-                "protocol_import",
-                "coroutine_api",
-                "listener_registration",
-            ),
-            "src/main/kotlin/com/hackwars/rewrite/client/economy/RewriteBountyDialog.kt" to setOf(
-                "controller_import",
-                "protocol_import",
-                "coroutine_api",
-                "listener_registration",
-            ),
-            "src/main/kotlin/com/hackwars/rewrite/client/files/RewriteFileWindows.kt" to setOf(
-                "protocol_import",
-            ),
-            "src/main/kotlin/com/hackwars/rewrite/client/files/RewriteLocalDirectoryBrowser.kt" to setOf(
-                "controller_import",
-                "protocol_import",
-                "clientmodel_import",
-                "coroutine_api",
-                "selector_subscription",
-                "listener_registration",
-                "mixed_controller_file",
-            ),
-            "src/main/kotlin/com/hackwars/rewrite/client/files/RewriteScriptEditorWindow.kt" to setOf(
-                "controller_import",
-                "protocol_import",
-                "coroutine_api",
-                "listener_registration",
-            ),
-            "src/main/kotlin/com/hackwars/rewrite/client/network/RewriteAttackFollowupWindows.kt" to setOf(
-                "controller_import",
-                "protocol_import",
-                "clientmodel_import",
-                "coroutine_api",
-                "selector_subscription",
-                "listener_registration",
-                "mixed_controller_file",
-            ),
-            "src/main/kotlin/com/hackwars/rewrite/client/network/RewriteAttackWindows.kt" to setOf(
-                "controller_import",
-                "protocol_import",
-                "clientmodel_import",
-                "coroutine_api",
-                "listener_registration",
-            ),
-            "src/main/kotlin/com/hackwars/rewrite/client/network/RewriteFtpWindows.kt" to setOf(
-                "controller_import",
-                "protocol_import",
-                "coroutine_api",
-                "selector_subscription",
-                "listener_registration",
-            ),
-            "src/main/kotlin/com/hackwars/rewrite/client/network/RewriteNetworkWindows.kt" to setOf(
-                "controller_import",
-                "protocol_import",
-                "coroutine_api",
-                "listener_registration",
-            ),
-            "src/main/kotlin/com/hackwars/rewrite/client/network/RewriteZombieAttackWindows.kt" to setOf(
-                "controller_import",
-                "protocol_import",
-                "clientmodel_import",
-                "coroutine_api",
-                "listener_registration",
-            ),
+            *economyWindowViolations().toTypedArray(),
+            *filesWindowViolations().toTypedArray(),
+            *networkWindowViolations().toTypedArray(),
             "src/main/kotlin/com/hackwars/rewrite/client/shell/RewriteDesktopMenuBar.kt" to emptySet(),
             "src/main/kotlin/com/hackwars/rewrite/client/shell/RewriteDesktopShellView.kt" to emptySet(),
             "src/main/kotlin/com/hackwars/rewrite/client/shell/RewriteDesktopTaskBar.kt" to emptySet(),
             "src/main/kotlin/com/hackwars/rewrite/client/shell/RewritePreferredPortWindow.kt" to emptySet(),
             "src/main/kotlin/com/hackwars/rewrite/client/shell/RewriteShellStatsRail.kt" to emptySet(),
-            "src/main/kotlin/com/hackwars/rewrite/client/systems/RewriteInventoryWindows.kt" to setOf(
-                "controller_import",
-                "protocol_import",
-                "coroutine_api",
-                "listener_registration",
-            ),
+            "src/main/kotlin/com/hackwars/rewrite/client/systems/RewriteInventoryWindows.kt" to emptySet(),
             "src/main/kotlin/com/hackwars/rewrite/client/systems/RewritePortManagementWindow.kt" to emptySet(),
             "src/main/kotlin/com/hackwars/rewrite/client/systems/RewriteWatchManagerWindow.kt" to setOf(
                 "controller_import",
@@ -258,35 +190,131 @@ class RewriteMvcArchitectureGuardrailTest {
                 "coroutine_api",
                 "listener_registration",
             ),
-            "src/main/kotlin/com/hackwars/rewrite/client/utilities/RewriteUtilityWindows.kt" to setOf(
+            *utilityWindowViolations().toTypedArray(),
+            *webWindowViolations().toTypedArray(),
+        )
+
+        private fun economyWindowViolations(): List<Pair<String, Set<String>>> {
+            return listOf(
+                "src/main/kotlin/com/hackwars/rewrite/client/economy/RewriteBankingWindows.kt" to setOf(
+                    "controller_import",
+                    "protocol_import",
+                    "coroutine_api",
+                    "listener_registration",
+                ),
+                "src/main/kotlin/com/hackwars/rewrite/client/economy/RewriteBountyDialog.kt" to setOf(
+                    "controller_import",
+                    "protocol_import",
+                    "coroutine_api",
+                    "listener_registration",
+                ),
+            )
+        }
+
+        private fun filesWindowViolations(): List<Pair<String, Set<String>>> {
+            return listOf(
+            "src/main/kotlin/com/hackwars/rewrite/client/files/RewriteFileWindows.kt" to setOf(
+                "protocol_import",
+            ),
+            "src/main/kotlin/com/hackwars/rewrite/client/files/RewriteImageViewerWindow.kt" to setOf(
+                "protocol_import",
+                "mixed_controller_file",
+            ),
+            "src/main/kotlin/com/hackwars/rewrite/client/files/RewriteLocalDirectoryBrowser.kt" to setOf(
                 "controller_import",
                 "protocol_import",
                 "clientmodel_import",
-                "coroutine_api",
-                "listener_registration",
-            ),
-            "src/main/kotlin/com/hackwars/rewrite/client/web/RewriteHtmlView.kt" to setOf(
-                "listener_registration",
-            ),
-            "src/main/kotlin/com/hackwars/rewrite/client/web/RewriteHelpTutorialWindows.kt" to setOf(
+                    "coroutine_api",
+                    "selector_subscription",
+                    "listener_registration",
+                    "mixed_controller_file",
+                ),
+                "src/main/kotlin/com/hackwars/rewrite/client/files/RewriteScriptEditorWindow.kt" to setOf(
+                    "controller_import",
+                    "protocol_import",
+                    "coroutine_api",
+                    "listener_registration",
+                ),
+            )
+        }
+
+        private fun networkWindowViolations(): List<Pair<String, Set<String>>> {
+            return listOf(
+                "src/main/kotlin/com/hackwars/rewrite/client/network/RewriteAttackFollowupWindows.kt" to setOf(
+                    "controller_import",
+                    "protocol_import",
+                    "clientmodel_import",
+                    "coroutine_api",
+                    "selector_subscription",
+                    "listener_registration",
+                    "mixed_controller_file",
+                ),
+                "src/main/kotlin/com/hackwars/rewrite/client/network/RewriteAttackWindows.kt" to setOf(
+                    "controller_import",
+                    "protocol_import",
+                    "clientmodel_import",
+                    "coroutine_api",
+                    "listener_registration",
+                ),
+                "src/main/kotlin/com/hackwars/rewrite/client/network/RewriteFtpWindows.kt" to setOf(
+                    "controller_import",
+                    "protocol_import",
+                    "coroutine_api",
+                    "selector_subscription",
+                    "listener_registration",
+                ),
+            "src/main/kotlin/com/hackwars/rewrite/client/network/RewriteNetworkWindows.kt" to setOf(
                 "controller_import",
                 "protocol_import",
                 "coroutine_api",
-                "listener_registration",
                 "mixed_controller_file",
-            ),
-            "src/main/kotlin/com/hackwars/rewrite/client/web/RewriteSiteEditorWindow.kt" to setOf(
-                "controller_import",
-                "protocol_import",
-                "coroutine_api",
                 "listener_registration",
             ),
-            "src/main/kotlin/com/hackwars/rewrite/client/web/RewriteWebBrowserWindow.kt" to setOf(
-                "controller_import",
-                "protocol_import",
-                "coroutine_api",
-                "listener_registration",
-            ),
-        )
+                "src/main/kotlin/com/hackwars/rewrite/client/network/RewriteZombieAttackWindows.kt" to setOf(
+                    "controller_import",
+                    "protocol_import",
+                    "clientmodel_import",
+                    "coroutine_api",
+                    "listener_registration",
+                ),
+            )
+        }
+
+        private fun utilityWindowViolations(): List<Pair<String, Set<String>>> {
+            return listOf(
+                "src/main/kotlin/com/hackwars/rewrite/client/utilities/RewriteUtilityWindows.kt" to setOf(
+                    "controller_import",
+                    "protocol_import",
+                    "clientmodel_import",
+                    "coroutine_api",
+                    "listener_registration",
+                ),
+            )
+        }
+
+        private fun webWindowViolations(): List<Pair<String, Set<String>>> {
+            return listOf(
+            "src/main/kotlin/com/hackwars/rewrite/client/web/RewriteHtmlView.kt" to emptySet(),
+                "src/main/kotlin/com/hackwars/rewrite/client/web/RewriteHelpTutorialWindows.kt" to setOf(
+                    "controller_import",
+                    "protocol_import",
+                    "coroutine_api",
+                    "listener_registration",
+                    "mixed_controller_file",
+                ),
+                "src/main/kotlin/com/hackwars/rewrite/client/web/RewriteSiteEditorWindow.kt" to setOf(
+                    "controller_import",
+                    "protocol_import",
+                    "coroutine_api",
+                    "listener_registration",
+                ),
+                "src/main/kotlin/com/hackwars/rewrite/client/web/RewriteWebBrowserWindow.kt" to setOf(
+                    "controller_import",
+                    "protocol_import",
+                    "coroutine_api",
+                    "listener_registration",
+                ),
+            )
+        }
     }
 }

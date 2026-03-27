@@ -25,8 +25,8 @@ import com.hackwars.rewrite.client.shell.RewriteShellDialogCoordinator
 import com.hackwars.rewrite.client.shell.RewriteShellDialogHost
 import com.hackwars.rewrite.client.shell.RewriteShellWindowCoordinator
 import com.hackwars.rewrite.client.shell.RewriteShellWindowHost
-import com.hackwars.rewrite.client.systems.RewriteEquipmentManagerWindow
-import com.hackwars.rewrite.client.systems.RewriteFirewallManagerWindow
+import com.hackwars.rewrite.client.systems.createEquipmentManagerWindowBinding
+import com.hackwars.rewrite.client.systems.createFirewallManagerWindowBinding
 import com.hackwars.rewrite.client.systems.createPortManagementWindowBinding
 import com.hackwars.rewrite.client.systems.RewriteWatchManagerWindow
 import com.hackwars.rewrite.client.utilities.RewriteLogWindow
@@ -1669,31 +1669,9 @@ class RewriteRootController(
 
         RewriteShellCommand.PORT_MANAGEMENT -> error("PORT_MANAGEMENT must be created via createShellWindowBinding()")
 
-        RewriteShellCommand.EQUIPMENT_MANAGER -> RewriteEquipmentManagerWindow(
-            controller = this,
-            onOpenAuxiliaryWindow = { window ->
-                shellHost?.let { currentHost ->
-                    currentHost.showWindow(window)
-                    currentHost.focusWindow(window)
-                }
-            },
-            onFocusAuxiliaryWindow = { window ->
-                shellHost?.focusWindow(window)
-            },
-        )
+        RewriteShellCommand.EQUIPMENT_MANAGER -> error("EQUIPMENT_MANAGER must be created via createShellWindowBinding()")
 
-        RewriteShellCommand.FIREWALL_MANAGER -> RewriteFirewallManagerWindow(
-            controller = this,
-            onOpenAuxiliaryWindow = { window ->
-                shellHost?.let { currentHost ->
-                    currentHost.showWindow(window)
-                    currentHost.focusWindow(window)
-                }
-            },
-            onFocusAuxiliaryWindow = { window ->
-                shellHost?.focusWindow(window)
-            },
-        )
+        RewriteShellCommand.FIREWALL_MANAGER -> error("FIREWALL_MANAGER must be created via createShellWindowBinding()")
 
         RewriteShellCommand.WATCH_MANAGER -> RewriteWatchManagerWindow(
             controller = this,
@@ -1764,6 +1742,34 @@ class RewriteRootController(
             return createPortManagementWindowBinding(
                 controller = this,
                 preferredPort = preferredPort,
+                onOpenAuxiliaryWindow = { window ->
+                    shellHost?.let { currentHost ->
+                        currentHost.showWindow(window)
+                        currentHost.focusWindow(window)
+                    }
+                },
+                onFocusAuxiliaryWindow = { window ->
+                    shellHost?.focusWindow(window)
+                },
+            )
+        }
+        if (command == RewriteShellCommand.EQUIPMENT_MANAGER) {
+            return createEquipmentManagerWindowBinding(
+                controller = this,
+                onOpenAuxiliaryWindow = { window ->
+                    shellHost?.let { currentHost ->
+                        currentHost.showWindow(window)
+                        currentHost.focusWindow(window)
+                    }
+                },
+                onFocusAuxiliaryWindow = { window ->
+                    shellHost?.focusWindow(window)
+                },
+            )
+        }
+        if (command == RewriteShellCommand.FIREWALL_MANAGER) {
+            return createFirewallManagerWindowBinding(
+                controller = this,
                 onOpenAuxiliaryWindow = { window ->
                     shellHost?.let { currentHost ->
                         currentHost.showWindow(window)

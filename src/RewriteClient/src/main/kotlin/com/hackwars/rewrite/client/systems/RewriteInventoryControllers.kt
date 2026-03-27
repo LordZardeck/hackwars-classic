@@ -75,20 +75,22 @@ internal class RewriteEquipmentManagerController(
         }
     }
     private val installListener = java.awt.event.ActionListener { openChooser() }
+    private val frameCloseListener = object : InternalFrameAdapter() {
+        override fun internalFrameClosed(event: InternalFrameEvent) {
+            close()
+        }
+    }
 
     init {
         bindListeners()
         onClose {
             view.table.selectionModel.removeListSelectionListener(selectionListener)
             view.installButton.removeActionListener(installListener)
+            view.removeInternalFrameListener(frameCloseListener)
             chooserWindow?.dispose()
             windowScope.cancel()
         }
-        view.addInternalFrameListener(object : InternalFrameAdapter() {
-            override fun internalFrameClosed(event: InternalFrameEvent) {
-                close()
-            }
-        })
+        view.addInternalFrameListener(frameCloseListener)
         observeShellState()
         renderState()
     }
@@ -102,7 +104,7 @@ internal class RewriteEquipmentManagerController(
         windowScope.launch {
             controller.gameShellStateSelector().collect { snapshot ->
                 SwingUtilities.invokeLater {
-                    if (view.isClosed || !view.isDisplayable) {
+                    if (view.isClosed) {
                         return@invokeLater
                     }
                     val previousSelection = view.selectedSlotName()
@@ -204,7 +206,7 @@ internal class RewriteEquipmentManagerController(
                 slot = slot,
             )
             SwingUtilities.invokeLater {
-                if (view.isClosed || !view.isDisplayable) {
+                if (view.isClosed) {
                     return@invokeLater
                 }
                 requestInFlight = false
@@ -249,20 +251,22 @@ internal class RewriteFirewallManagerController(
         }
     }
     private val installListener = java.awt.event.ActionListener { openChooser() }
+    private val frameCloseListener = object : InternalFrameAdapter() {
+        override fun internalFrameClosed(event: InternalFrameEvent) {
+            close()
+        }
+    }
 
     init {
         bindListeners()
         onClose {
             view.table.selectionModel.removeListSelectionListener(selectionListener)
             view.installButton.removeActionListener(installListener)
+            view.removeInternalFrameListener(frameCloseListener)
             chooserWindow?.dispose()
             windowScope.cancel()
         }
-        view.addInternalFrameListener(object : InternalFrameAdapter() {
-            override fun internalFrameClosed(event: InternalFrameEvent) {
-                close()
-            }
-        })
+        view.addInternalFrameListener(frameCloseListener)
         observeShellState()
         renderState()
     }
@@ -276,7 +280,7 @@ internal class RewriteFirewallManagerController(
         windowScope.launch {
             controller.gameShellStateSelector().collect { snapshot ->
                 SwingUtilities.invokeLater {
-                    if (view.isClosed || !view.isDisplayable) {
+                    if (view.isClosed) {
                         return@invokeLater
                     }
                     val previousSelection = view.selectedPortNumber()
@@ -373,7 +377,7 @@ internal class RewriteFirewallManagerController(
                 portNumber = portNumber,
             )
             SwingUtilities.invokeLater {
-                if (view.isClosed || !view.isDisplayable) {
+                if (view.isClosed) {
                     return@invokeLater
                 }
                 requestInFlight = false
