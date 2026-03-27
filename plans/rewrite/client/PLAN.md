@@ -62,7 +62,7 @@
 - Verification scope: `./gradlew :RewriteProtocol:test :RewriteClientModel:test :RewriteClient:test`
 
 ### RW-CLIENT-001B2 - Decoded chat contracts and merged shell notice selectors
-- Status: `blocked`
+- Status: `ready`
 - Priority: `P1`
 - Execution lane: `utilities_chat`
 - Worker role: `worker`

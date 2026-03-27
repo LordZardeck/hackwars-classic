@@ -3,7 +3,7 @@
 ## Status Dashboard
 - Active mode: `autonomous_rewrite_execution`
 - Current pass: `Pass 6 - Utilities, help/tutorial, personal settings, and client chat`
-- Current milestone focus: `M7 - Chat-server completion`
+- Current milestone focus: `M8 - Client MVC and parity recovery foundations`
 - Coordinator stop rule: continue until `M11` is `done`, or until the only remaining work is `blocked_external`
 - Parallel saturation target: `8` active subagents, or the maximum safe non-overlapping count when fewer than `8` disjoint tasks exist
 
