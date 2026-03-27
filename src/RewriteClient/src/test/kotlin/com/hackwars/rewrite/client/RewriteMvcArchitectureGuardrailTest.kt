@@ -208,12 +208,7 @@ class RewriteMvcArchitectureGuardrailTest {
 
         private fun watchWindowViolations(): List<Pair<String, Set<String>>> {
             return listOf(
-                "src/main/kotlin/com/hackwars/rewrite/client/systems/RewriteWatchManagerWindow.kt" to setOf(
-                    "controller_import",
-                    "protocol_import",
-                    "coroutine_api",
-                    "listener_registration",
-                ),
+                "src/main/kotlin/com/hackwars/rewrite/client/systems/RewriteWatchManagerWindow.kt" to emptySet(),
             )
         }
 

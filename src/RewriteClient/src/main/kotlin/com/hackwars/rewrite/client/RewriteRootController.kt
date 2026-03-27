@@ -28,7 +28,7 @@ import com.hackwars.rewrite.client.shell.RewriteShellWindowHost
 import com.hackwars.rewrite.client.systems.createEquipmentManagerWindowBinding
 import com.hackwars.rewrite.client.systems.createFirewallManagerWindowBinding
 import com.hackwars.rewrite.client.systems.createPortManagementWindowBinding
-import com.hackwars.rewrite.client.systems.RewriteWatchManagerWindow
+import com.hackwars.rewrite.client.systems.createWatchManagerWindowBinding
 import com.hackwars.rewrite.client.utilities.RewriteLogWindow
 import com.hackwars.rewrite.client.utilities.RewritePersonalSettingsWindow
 import com.hackwars.rewrite.client.utilities.RewritePreferencesWindow
@@ -1673,18 +1673,7 @@ class RewriteRootController(
 
         RewriteShellCommand.FIREWALL_MANAGER -> error("FIREWALL_MANAGER must be created via createShellWindowBinding()")
 
-        RewriteShellCommand.WATCH_MANAGER -> RewriteWatchManagerWindow(
-            controller = this,
-            onOpenAuxiliaryWindow = { window ->
-                shellHost?.let { currentHost ->
-                    currentHost.showWindow(window)
-                    currentHost.focusWindow(window)
-                }
-            },
-            onFocusAuxiliaryWindow = { window ->
-                shellHost?.focusWindow(window)
-            },
-        )
+        RewriteShellCommand.WATCH_MANAGER -> error("WATCH_MANAGER must be created via createShellWindowBinding()")
 
         RewriteShellCommand.SCRIPT_EDITOR -> RewriteScriptEditorWindow(
             controller = this,
@@ -1769,6 +1758,20 @@ class RewriteRootController(
         }
         if (command == RewriteShellCommand.FIREWALL_MANAGER) {
             return createFirewallManagerWindowBinding(
+                controller = this,
+                onOpenAuxiliaryWindow = { window ->
+                    shellHost?.let { currentHost ->
+                        currentHost.showWindow(window)
+                        currentHost.focusWindow(window)
+                    }
+                },
+                onFocusAuxiliaryWindow = { window ->
+                    shellHost?.focusWindow(window)
+                },
+            )
+        }
+        if (command == RewriteShellCommand.WATCH_MANAGER) {
+            return createWatchManagerWindowBinding(
                 controller = this,
                 onOpenAuxiliaryWindow = { window ->
                     shellHost?.let { currentHost ->

@@ -817,7 +817,7 @@
 - Verification scope: controller tests for equipment/firewall row models and action routing, UI workflow tests for equipment and firewall install flows
 
 ### RW-CLIENT-C8A2 - Watch manager MVC extraction
-- Status: `ready`
+- Status: `done`
 - Priority: `P1`
 - Execution lane: `systems_network`
 - Worker role: `worker`
