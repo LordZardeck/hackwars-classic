@@ -184,12 +184,7 @@ class RewriteMvcArchitectureGuardrailTest {
             "src/main/kotlin/com/hackwars/rewrite/client/shell/RewriteShellStatsRail.kt" to emptySet(),
             "src/main/kotlin/com/hackwars/rewrite/client/systems/RewriteInventoryWindows.kt" to emptySet(),
             "src/main/kotlin/com/hackwars/rewrite/client/systems/RewritePortManagementWindow.kt" to emptySet(),
-            "src/main/kotlin/com/hackwars/rewrite/client/systems/RewriteWatchManagerWindow.kt" to setOf(
-                "controller_import",
-                "protocol_import",
-                "coroutine_api",
-                "listener_registration",
-            ),
+            *watchWindowViolations().toTypedArray(),
             *utilityWindowViolations().toTypedArray(),
             *webWindowViolations().toTypedArray(),
         )
@@ -203,6 +198,17 @@ class RewriteMvcArchitectureGuardrailTest {
                     "listener_registration",
                 ),
                 "src/main/kotlin/com/hackwars/rewrite/client/economy/RewriteBountyDialog.kt" to setOf(
+                    "controller_import",
+                    "protocol_import",
+                    "coroutine_api",
+                    "listener_registration",
+                ),
+            )
+        }
+
+        private fun watchWindowViolations(): List<Pair<String, Set<String>>> {
+            return listOf(
+                "src/main/kotlin/com/hackwars/rewrite/client/systems/RewriteWatchManagerWindow.kt" to setOf(
                     "controller_import",
                     "protocol_import",
                     "coroutine_api",

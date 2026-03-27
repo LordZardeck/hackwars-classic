@@ -135,6 +135,18 @@ class RewriteWatchManagerTest {
     }
 
     @Test
+    fun buildWatchManagerRowsKeepPlaceholderStateForEmptySnapshots() {
+        val rows = buildWatchManagerRows(
+            ClientGameSnapshot(
+                identity = ClientComputerIdentity(playerIp = "192.0.2.10"),
+                watches = ClientWatchManagerState(),
+            ),
+        )
+
+        assertTrue(rows.isEmpty())
+    }
+
+    @Test
     fun chooserFilterAllowsOnlyCompiledWatchBinaries() {
         val watchBinary = ClientStoredFile(
             path = "/Programs/watch.bin",
